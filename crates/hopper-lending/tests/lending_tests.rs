@@ -22,6 +22,11 @@ fn test_collateralization_zero_debt() {
 }
 
 #[test]
+fn test_collateralization_rejects_ratio_that_does_not_fit_u64() {
+    assert!(collateralization_ratio_bps(u64::MAX, 1).is_err());
+}
+
+#[test]
 fn test_check_healthy() {
     // 150% collateral, 125% threshold → healthy
     check_healthy(150_000, 100_000, 12_500).unwrap();
@@ -51,6 +56,11 @@ fn test_liquidation_seize_amount() {
     assert_eq!(liquidation_seize_amount(50_000, 500).unwrap(), 52_500);
     // 0% bonus → same as repay
     assert_eq!(liquidation_seize_amount(50_000, 0).unwrap(), 50_000);
+}
+
+#[test]
+fn test_liquidation_seize_rejects_bonus_addition_overflow() {
+    assert!(liquidation_seize_amount(1, u64::MAX).is_err());
 }
 
 #[test]

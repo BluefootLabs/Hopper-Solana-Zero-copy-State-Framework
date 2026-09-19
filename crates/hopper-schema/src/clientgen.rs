@@ -134,16 +134,19 @@ fn write_kt_string(f: &mut fmt::Formatter<'_>, text: &str) -> fmt::Result {
 
 /// Whether a generated client should auto-resolve `acc` as a program-derived
 /// address. True only when the account has seeds and *every* seed is a byte
-/// literal or another account reference — anything an arg/unknown seed would
+/// literal or another account reference, anything an arg/unknown seed would
 /// require encoding is left caller-provided so a client never derives a wrong
 /// address. Shared by every language generator.
+///
+/// A literal whose source spelling contains an escape (`b"a\x01"`) is also
+/// left caller-provided: `classify_seed` keeps the source text, and copying
+/// it verbatim would derive from the bytes `a\x01` instead of `a` + `0x01`.
 pub(crate) fn account_is_auto_pda(acc: &crate::AccountEntry) -> bool {
     acc.is_pda()
-        && acc.seeds.iter().all(|s| {
-            matches!(
-                crate::classify_seed(s),
-                crate::SeedPart::Literal(_) | crate::SeedPart::Account(_)
-            )
+        && acc.seeds.iter().all(|s| match crate::classify_seed(s) {
+            crate::SeedPart::Literal(text) => !text.contains('\\'),
+            crate::SeedPart::Account(_) => true,
+            crate::SeedPart::Arg(_) | crate::SeedPart::Unknown(_) => false,
         })
 }
 
@@ -220,8 +223,7 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f)?;
         // Offset of the 8-byte LAYOUT_ID fingerprint within the
         // Hopper header. Clients read bytes [4, 12) to assert the
-        // account matches the expected layout. See audit ST2 for the
-        // client-side ABI guard.
+        // account matches the expected layout before decoding.
         writeln!(
             f,
             "/** Byte offset of the 8-byte layout fingerprint in a Hopper account header. */"
@@ -240,6 +242,7 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f, "  encoding: AccountEncoding;")?;
         writeln!(f, "  disc: number;")?;
         writeln!(f, "  size: number;")?;
+        writeln!(f, "  hasDynamicTail: boolean;")?;
         writeln!(f, "  layoutId: string;")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
@@ -320,11 +323,17 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         )?;
         writeln!(
             f,
-            " * `layoutFingerprint(layout)` while the hot-path bytes prove disc + exact size."
+            " * `layoutFingerprint(layout)` while the hot-path bytes prove disc + size policy."
         )?;
         writeln!(f, " */")?;
         writeln!(f, "export function assertCompactLayout(data: Uint8Array, layout: LayoutIdentity): void {{")?;
-        writeln!(f, "  if (data.length !== layout.size) {{")?;
+        writeln!(f, "  if (data.length < layout.size) {{")?;
+        writeln!(f, "    throw new Error(`Hopper compact account too short for ${{layout.name}}: ${{data.length}} < ${{layout.size}}`);")?;
+        writeln!(f, "  }}")?;
+        writeln!(
+            f,
+            "  if (!layout.hasDynamicTail && data.length !== layout.size) {{"
+        )?;
         writeln!(f, "    throw new Error(`Hopper compact account size mismatch for ${{layout.name}}: ${{data.length}} !== ${{layout.size}}`);")?;
         writeln!(f, "  }}")?;
         writeln!(f, "  if (data[0] !== layout.disc) {{")?;
@@ -393,6 +402,7 @@ impl<'a> fmt::Display for TsAccounts<'a> {
             write!(f, "  size: ")?;
             write_upper_snake(f, layout.name)?;
             writeln!(f, "_SIZE,")?;
+            writeln!(f, "  hasDynamicTail: {},", layout.has_dynamic_tail)?;
             write!(f, "  layoutId: ")?;
             write_upper_snake(f, layout.name)?;
             writeln!(f, "_LAYOUT_ID,")?;
@@ -698,7 +708,7 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                     write!(f, "    {{ pubkey: accounts.")?;
                     write_camel(f, acc.name)?;
                 }
-                // `effective_writable` (BLD-MUT contract): passthrough
+                // `effective_writable` passes through
                 // unless the instruction is `mutation_complete`
                 // (strict_writes + declared lamport dimension); when
                 // complete, an account with neither a data range nor
@@ -723,11 +733,11 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             writeln!(f, "}}")?;
             writeln!(f)?;
 
-            // Compute-budget companion (BLD-CU). Only generated when the
+            // Generate the compute-budget companion only when the
             // descriptor publishes a measured CU upper bound; an unknown
             // estimate (0) emits nothing, so unmeasured programs keep the
-            // exact pre-BLD-CU output. The requested limit is the published
-            // bound plus a 10% margin (clamped to the 1.4M runtime cap) —
+            // exact output used when compute-budget metadata was absent. The requested limit is the published
+            // bound plus a 10% margin, clamped to the 1.4M runtime cap.
             // the margin only ever raises the limit, never shrinks it, so an
             // honest estimate cannot fail the transaction.
             if let Some(budget) = ix.cu_budget_with_margin() {
@@ -1616,6 +1626,7 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         writeln!(f, "    val encoding: AccountEncoding,")?;
         writeln!(f, "    val disc: Int,")?;
         writeln!(f, "    val size: Int,")?;
+        writeln!(f, "    val hasDynamicTail: Boolean,")?;
         writeln!(f, "    val layoutId: String,")?;
         writeln!(f, ")")?;
         writeln!(f)?;
@@ -1695,7 +1706,13 @@ impl<'a> fmt::Display for KtAccounts<'a> {
             f,
             "fun assertCompactLayout(data: ByteArray, layout: LayoutIdentity) {{"
         )?;
-        writeln!(f, "    if (data.size != layout.size) {{")?;
+        writeln!(f, "    if (data.size < layout.size) {{")?;
+        writeln!(f, "        throw RuntimeException(\"Hopper compact account too short for ${{layout.name}}: ${{data.size}} < ${{layout.size}}\")")?;
+        writeln!(f, "    }}")?;
+        writeln!(
+            f,
+            "    if (!layout.hasDynamicTail && data.size != layout.size) {{"
+        )?;
         writeln!(f, "        throw RuntimeException(\"Hopper compact account size mismatch for ${{layout.name}}: ${{data.size}} != ${{layout.size}}\")")?;
         writeln!(f, "    }}")?;
         writeln!(f, "    val actualDisc = data[0].toInt() and 0xFF")?;
@@ -1770,6 +1787,15 @@ impl<'a> fmt::Display for KtAccounts<'a> {
             write!(f, "    size = ")?;
             write_kt_const(f, layout.name)?;
             writeln!(f, "_SIZE,")?;
+            writeln!(
+                f,
+                "    hasDynamicTail = {},",
+                if layout.has_dynamic_tail {
+                    "true"
+                } else {
+                    "false"
+                }
+            )?;
             write!(f, "    layoutId = ")?;
             write_kt_const(f, layout.name)?;
             writeln!(f, "_LAYOUT_ID,")?;
@@ -2248,6 +2274,25 @@ mod tests {
     };
     use alloc::string::ToString;
 
+    #[test]
+    fn escaped_literal_seeds_stay_caller_provided() {
+        let plain = AccountEntry {
+            name: "vault",
+            seeds: &["b\"vault\"", "authority"],
+            ..AccountEntry::PROVIDED
+        };
+        assert!(account_is_auto_pda(&plain));
+
+        // Source text `b"a\x01"` is two bytes on chain; copying the spelling
+        // would derive from four.
+        let escaped = AccountEntry {
+            name: "vault",
+            seeds: &["b\"a\\x01\""],
+            ..AccountEntry::PROVIDED
+        };
+        assert!(!account_is_auto_pda(&escaped));
+    }
+
     fn test_manifest() -> ProgramManifest {
         static FIELDS: &[FieldDescriptor] = &[
             FieldDescriptor {
@@ -2279,6 +2324,7 @@ mod tests {
             version: 1,
             layout_id: [0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44],
             total_size: 64,
+            has_dynamic_tail: false,
             field_count: 3,
             fields: FIELDS,
         }];
@@ -2387,6 +2433,7 @@ mod tests {
             version: 1,
             layout_id: [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80],
             total_size: 41,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: FIELDS,
         }];
@@ -2403,6 +2450,18 @@ mod tests {
             compatibility_pairs: &[],
             tooling_hints: &[],
             contexts: &[],
+        }
+    }
+
+    fn dynamic_compact_manifest() -> ProgramManifest {
+        let fixed = compact_manifest();
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..fixed.layouts[0]
+        };
+        ProgramManifest {
+            layouts: alloc::boxed::Box::leak(alloc::boxed::Box::new([dynamic_layout])),
+            ..fixed
         }
     }
 
@@ -2597,11 +2656,23 @@ mod tests {
         assert!(output.contains("export const COMPACT_VAULT_SIZE = 41;"));
         assert!(output.contains("export const COMPACT_VAULT_DISC = 7;"));
         assert!(output.contains("export const COMPACT_VAULT_LAYOUT: LayoutIdentity = {"));
+        assert!(output.contains("hasDynamicTail: false,"));
+        assert!(output.contains("if (data.length < layout.size)"));
+        assert!(output.contains("if (!layout.hasDynamicTail && data.length !== layout.size)"));
         assert!(output.contains("assertCompactLayout(data, COMPACT_VAULT_LAYOUT);"));
         assert!(output.contains("layoutFingerprint(layout)"));
         assert!(output.contains("new PublicKey(data.slice(1, 33))"));
         assert!(output.contains("view.getBigUint64(33, true)"));
         assert!(!output.contains("assertLayoutId(data, COMPACT_VAULT_LAYOUT_ID);"));
+    }
+
+    #[test]
+    fn ts_accounts_mark_dynamic_compact_size_as_minimum() {
+        let output = TsAccounts(&dynamic_compact_manifest()).to_string();
+        assert!(output.contains("hasDynamicTail: true,"));
+        assert!(output.contains("if (data.length < layout.size)"));
+        assert!(output.contains("if (!layout.hasDynamicTail && data.length !== layout.size)"));
+        assert!(output.contains("if (data[0] !== layout.disc)"));
     }
 
     #[test]
@@ -2701,7 +2772,7 @@ mod tests {
         assert!(output.contains("data.set(args.routeMetaFlags, offset)"));
     }
 
-    // -- BLD-WR: strict_writes account demotion in the TS builder --
+    // Apply strict_writes account demotion in the TypeScript builder.
 
     // Three caller-provided (non-PDA) accounts so each appears verbatim in the
     // generated `keys` array: authority (read-only signer), vault (written),
@@ -2795,12 +2866,12 @@ mod tests {
     #[test]
     fn ts_non_strict_instruction_keeps_declared_writable() {
         // Identical accounts, but a non-strict instruction: config keeps its
-        // declared writable flag (current, pre-BLD-WR behavior).
+        // declared writable flag used by manifests without write-range metadata.
         let out = TsInstructions(&wr_manifest(false)).to_string();
         assert!(out.contains("pubkey: accounts.config, isSigner: false, isWritable: true"));
     }
 
-    // -- BLD-CU: compute-budget companion generation --
+    // Generate the compute-budget companion.
 
     fn cu_manifest(estimate: u32) -> ProgramManifest {
         static CU_IX_SET: &[InstructionDescriptor] = &[InstructionDescriptor {
@@ -2869,8 +2940,8 @@ mod tests {
 
     #[test]
     fn ts_unknown_cu_estimate_emits_no_budget_code() {
-        // 0 = unmeasured: output must be byte-identical to pre-BLD-CU
-        // behavior — no constant, no companion, no compute-budget program id.
+        // 0 = unmeasured: output must be byte-identical to output without compute-budget metadata
+        // behavior: no constant, companion, or Compute Budget Program id.
         let out = TsInstructions(&cu_manifest(0)).to_string();
         assert!(!out.contains("CU_ESTIMATE"));
         assert!(!out.contains("WithBudget"));
@@ -2936,12 +3007,24 @@ mod tests {
         assert!(output.contains("const val COMPACT_VAULT_SIZE: Int = 41"));
         assert!(output.contains("const val COMPACT_VAULT_DISC: Byte = 7"));
         assert!(output.contains("val COMPACT_VAULT_LAYOUT: LayoutIdentity = LayoutIdentity("));
+        assert!(output.contains("hasDynamicTail = false,"));
+        assert!(output.contains("if (data.size < layout.size)"));
+        assert!(output.contains("if (!layout.hasDynamicTail && data.size != layout.size)"));
         assert!(output.contains("assertCompactLayout(data, COMPACT_VAULT_LAYOUT)"));
         assert!(output
             .contains("fun layoutFingerprint(layout: LayoutIdentity): String = layout.layoutId"));
         assert!(output.contains("PublicKey(data.copyOfRange(1, 33))"));
         assert!(output.contains("ByteBuffer.wrap(data, 33, 8)"));
         assert!(!output.contains("assertLayoutId(data, COMPACT_VAULT_LAYOUT_ID)"));
+    }
+
+    #[test]
+    fn kt_accounts_mark_dynamic_compact_size_as_minimum() {
+        let output = KtAccounts(&dynamic_compact_manifest()).to_string();
+        assert!(output.contains("hasDynamicTail = true,"));
+        assert!(output.contains("if (data.size < layout.size)"));
+        assert!(output.contains("if (!layout.hasDynamicTail && data.size != layout.size)"));
+        assert!(output.contains("if (actualDisc != layout.disc)"));
     }
 
     #[test]

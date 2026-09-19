@@ -45,6 +45,9 @@ pub fn emit_receipt(data: &[u8]) -> ProgramResult {
             ptr: data.as_ptr(),
             len: data.len() as u64,
         };
+        // SAFETY: `field` matches the runtime `SolBytes` ABI, and both the
+        // descriptor and its borrowed byte slice remain valid for the duration
+        // of this synchronous syscall. The descriptor count is exactly one.
         unsafe {
             sol_log_data(&field as *const SolBytes, 1);
         }
@@ -75,6 +78,9 @@ pub fn emit_tagged_receipt(tag: u8, data: &[u8]) -> ProgramResult {
                 len: data.len() as u64,
             },
         ];
+        // SAFETY: Both descriptors match the runtime `SolBytes` ABI and point
+        // to live slices for the duration of this synchronous syscall. The
+        // descriptor count matches the two-element `fields` array.
         unsafe {
             sol_log_data(fields.as_ptr(), 2);
         }

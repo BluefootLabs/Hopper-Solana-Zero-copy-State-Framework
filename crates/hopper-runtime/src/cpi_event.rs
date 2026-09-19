@@ -4,12 +4,11 @@
 //! Log output is lossy. Transaction metadata is not. A program that
 //! needs events to arrive at indexers regardless of log truncation
 //! invokes itself with a distinctive CPI whose bytes carry the event
-//! payload — the same trick as Anchor's `emit_cpi!`, on a leaner wire.
+//! payload. This serves the same persistence role as Anchor's `emit_cpi!`.
 //!
 //! ## The one-liner
 //!
-//! Programs do not normally call this module directly. The macro
-//! surface wires everything:
+//! Programs normally use the macro-generated context surface:
 //!
 //! ```ignore
 //! #[hopper::context(event_cpi)]        // ← one attribute option
@@ -30,13 +29,12 @@
 //! ```
 //!
 //! `event_cpi` appends two trailing accounts to the context (the
-//! event-authority PDA and the program account itself — the same two
+//! event-authority PDA and the program account itself, the same two
 //! Anchor's `#[event_cpi]` appends), validates them at bind, exposes
 //! `ctx.emit_event_cpi(&event)` on the bound context, and the
 //! `#[hopper::program]` dispatcher grows a self-CPI sink on the
 //! reserved `[0xE0, 0x1E]` marker that authenticates each event before
-//! accepting it. Programs that never opt in pay nothing: the sink
-//! guard is a `const` that dead-code-eliminates.
+//! accepting it. The macro emits the sink path only for contexts that opt in.
 //!
 //! ## Wire format
 //!
@@ -59,18 +57,16 @@
 //! The generated sink is not a bare no-op. Any program can CPI into
 //! any other program, so an unauthenticated sink would let an attacker
 //! program plant forged "events" in your program's inner-instruction
-//! list. The sink therefore requires the event-authority PDA — seeds
-//! [`EVENT_AUTHORITY_SEED`], owned by *this* program's id — to sign the
+//! list. The sink therefore requires the event-authority PDA, derived with
+//! [`EVENT_AUTHORITY_SEED`] under this program's id, to sign the
 //! CPI. Only this program's own `invoke_signed` can produce that
 //! signature, which is exactly Anchor's authenticity argument for its
 //! `event_authority` account.
 //!
-//! On-chain the verification is the sha256-only compare loop from
-//! [`crate::pda::find_and_verify_pda`] (~200 CU for bump 255, +~200 per
-//! additional attempt) — no `create_program_address` syscalls, no curve
-//! validation. Anchor v0.31+ pins the same PDA against a compile-time
+//! On-chain verification uses [`crate::pda::find_and_verify_pda`]. Anchor
+//! v0.31+ pins the same PDA against a compile-time
 //! constant; Hopper has no compile-time program id, so it derives at
-//! runtime and keeps the check honest. Off-chain hosts have no sha256
+//! runtime. Off-chain hosts have no sha256
 //! syscall (see [`crate::pda`]), so host builds enforce the marker and
 //! the signer flag and document the address pin as an on-chain check.
 //!
@@ -223,7 +219,7 @@ pub fn verify_event_authority(
 /// contexts opted into `event_cpi`). Checks, in order:
 ///
 /// 1. the data really is `[0xE0, 0x1E, tag, ..]` (≥ 3 bytes);
-/// 2. `accounts[0]` — the event authority — signed the CPI. Only this
+/// 2. `accounts[0]`, the event authority, signed the CPI. Only this
 ///    program's own `invoke_signed` can sign for its event-authority
 ///    PDA, so this is what makes accepted events authentic;
 /// 3. (on-chain) `accounts[0]`'s address is the PDA of
@@ -332,7 +328,7 @@ pub fn invoke_event_cpi(
 /// records each successful emit here instead. Per-thread (the same
 /// invocation-scope reasoning as the borrow registry's
 /// `thread-local-registry` lane), available under `test` or the
-/// `thread-local-registry` feature — exactly the lanes where `std` is
+/// `thread-local-registry` feature, exactly the lanes where `std` is
 /// already linked.
 #[cfg(all(
     not(target_os = "solana"),

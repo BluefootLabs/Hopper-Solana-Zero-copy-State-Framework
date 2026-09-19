@@ -236,11 +236,11 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         // attacker-influenceable (a malicious or corrupted account can
         // carry any `free_head`). Two guards, both load-bearing:
         //
-        // 1. Capacity bound — a `head` between `capacity` and
+        // 1. Capacity bound, a `head` between `capacity` and
         //    `NO_FREE - 1` would compute an out-of-bounds `slot_offset`
         //    and the unchecked slot write below would corrupt memory
         //    past the account.
-        // 2. Occupancy check — the bitmap is the ground truth. A free
+        // 2. Occupancy check, the bitmap is the ground truth. A free
         //    list rewired to point at an ALLOCATED slot would otherwise
         //    hand live data out for silent overwrite; and a free-list
         //    CYCLE (slot chained to itself or an earlier slot) would
@@ -284,7 +284,7 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         self.data[8..12].copy_from_slice(&next_free.to_le_bytes());
 
         // Increment count (saturating: `count` is metadata read from
-        // account bytes — a corrupted u32::MAX must not wrap to 0, the
+        // account bytes, a corrupted u32::MAX must not wrap to 0, the
         // same discipline `free` already applies with saturating_sub).
         let count = self.count().saturating_add(1);
         self.data[0..4].copy_from_slice(&count.to_le_bytes());
@@ -412,7 +412,7 @@ mod tests {
         // 4 bytes of a freed slot); use 8.
         v: [u8; 8],
     }
-    // SAFETY: repr(C), byte-array field — align 1, all patterns valid.
+    // SAFETY: repr(C), byte-array field, align 1, all patterns valid.
     unsafe impl crate::account::Zeroable for Entry {}
     // SAFETY: as above.
     unsafe impl crate::account::Pod for Entry {}

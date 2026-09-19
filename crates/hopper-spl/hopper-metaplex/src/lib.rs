@@ -10,25 +10,21 @@
 //!
 //! ## What this crate ships
 //!
-//! - [`MPL_TOKEN_METADATA_PROGRAM_ID`](constants::MPL_TOKEN_METADATA_PROGRAM_ID) -
+//! - [`MPL_TOKEN_METADATA_PROGRAM_ID`] -
 //!   the canonical Metaplex Token Metadata program address as a Hopper
 //!   `Address` constant, decoded at compile time.
 //! - [`seeds`] - PDA-seed helpers (`metadata_pda`, `master_edition_pda`).
 //!   Hopper's typed-seeds path uses these so the field-level
 //!   `seeds = ...` constraint composes the right thing.
-//! - [`instructions`] - zero-copy CPI builders for the three Metaplex
-//!   calls every NFT-mint program reaches for: `CreateMetadataAccountV3`,
+//! - [`instructions`] - CPI builders for `CreateMetadataAccountV3`,
 //!   `CreateMasterEditionV3`, `UpdateMetadataAccountV2`.
 //!
 //! ## Scope
 //!
 //! Newer Metaplex flows (Bubblegum compressed NFTs, the
 //! `pNFT` programmable-NFT lifecycle, edition prints, collection
-//! verification) are out of scope for this first cut. The three
-//! instructions above cover most straightforward 1-of-1 NFT mint
-//! programs. Adding more is a matter of
-//! pattern-matching against the existing builders; the core encoding
-//! infrastructure ([`encoding`]) is shared.
+//! verification) are outside the current API. The encoding infrastructure
+//! ([`encoding`]) is shared by the builders that are present.
 //!
 //! ## Encoding policy
 //!

@@ -5,9 +5,9 @@
 //! field declared `#[account(mut, migrate(from = CounterV1, with = f))]`
 //! turns EVERY instruction that binds the context into a migration crank.
 //! `bind()` probes the slot for a fully-valid OLD-layout header and, only
-//! then, runs `hopper::migration::migrate_layout::<Old, New, _>` — the
+//! then, runs `hopper::migration::migrate_layout::<Old, New, _>`, the
 //! committed runtime half (typed transform, in-place, header re-stamped
-//! LAST with flags preserved) — BEFORE any validator runs. `validate()`
+//! LAST with flags preserved), BEFORE any validator runs. `validate()`
 //! (the read-only standalone surface) accepts EITHER version without
 //! writing a byte.
 //!
@@ -50,7 +50,7 @@ pub struct CounterV1 {
 }
 
 /// Version 2: the counter widens to u64 and a marker field appears.
-/// Same disc, higher version, wider body (12 > 8) — the fixture
+/// Same disc, higher version, wider body (12 > 8), the fixture
 /// allocation is therefore sized for V2.
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -71,7 +71,7 @@ pub struct Intruder {
 
 /// The typed transform: widen the counter (+1000 so a spurious re-run
 /// would be visible in the value) and set the marker. `legacy` is
-/// dropped — the runtime zero-fills the V2 span before the transform,
+/// dropped, the runtime zero-fills the V2 span before the transform,
 /// so nothing of it can leak through.
 fn v1_to_v2(old: &CounterV1, new: &mut CounterV2) -> Result<(), ProgramError> {
     new.hits = WireU64::new(old.hits.get() as u64 + 1000);
@@ -150,7 +150,7 @@ fn non_signer_fixture(addr_byte: u8) -> AccountFixture {
 }
 
 /// A V1-headed counter (hits = 7, legacy = 0xDEADBEEF) in an allocation
-/// of `data_len` bytes. `CounterV2::LEN` by default — the V2 shape must
+/// of `data_len` bytes. `CounterV2::LEN` by default, the V2 shape must
 /// FIT the allocation because in-place migration never resizes.
 fn v1_fixture_with_len(addr_byte: u8, data_len: usize) -> AccountFixture {
     let mut data = vec![0u8; data_len];
@@ -309,7 +309,7 @@ fn foreign_layout_fails_bind_with_the_normal_error_and_is_not_written() {
 }
 
 /// The pre-migration checks are unchanged too: an unsigned authority
-/// still fails bind (after the crank — the write rolls back with the
+/// still fails bind (after the crank, the write rolls back with the
 /// failed instruction under transaction-abort semantics).
 #[test]
 fn unsigned_authority_still_fails_bind() {
@@ -384,7 +384,7 @@ fn undersized_v1_allocation_is_rejected_by_both_surfaces() {
     );
 }
 
-// ── Arm 6: `resize = grow, payer = ...` — the resizing crank ────────
+// ── Arm 6: `resize = grow, payer = ...`, the resizing crank ────────
 
 /// The resizing variant: the same crank, but an undersized V1
 /// allocation GROWS to fit V2 at bind, with the rent-exempt deficit
@@ -466,7 +466,7 @@ fn undersized_v1_grows_at_bind_with_a_payer_funded_rent_top_up() {
     );
 
     // The lamport accounting: the account was topped up to exactly the
-    // grown rent minimum, funded by the payer — no more, no less.
+    // grown rent minimum, funded by the payer, no more, no less.
     let deficit = counter_after.lamports - 1;
     assert!(deficit > 0, "a 1-lamport account required a top-up");
     assert_eq!(
@@ -477,7 +477,7 @@ fn undersized_v1_grows_at_bind_with_a_payer_funded_rent_top_up() {
 }
 
 /// With `resize = grow`, validate() (the read-only "would bind accept
-/// this set?" surface) accepts the undersized V1 set bind can now grow —
+/// this set?" surface) accepts the undersized V1 set bind can now grow,
 /// would-bind parity in the other direction from Arm 5.
 #[test]
 fn validate_accepts_undersized_v1_when_the_context_declares_resize() {

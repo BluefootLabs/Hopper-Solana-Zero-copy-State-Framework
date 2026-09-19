@@ -3,7 +3,7 @@
 //! ergonomic surfaces, not only the low-level `hopper::substrate` path.
 //!
 //! Off-chain (`not(target_os = "solana")`) the syscall blocks compile out, so
-//! the getters return zeroed defaults — enough to prove the API exists, is
+//! the getters return zeroed defaults, enough to prove the API exists, is
 //! callable, and matches the `Sysvar::get()` ergonomics other frameworks ship.
 
 use hopper::prelude::*;

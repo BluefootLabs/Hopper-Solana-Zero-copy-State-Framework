@@ -6,9 +6,8 @@
 //! accounts are described by an `ExtraAccountMetaList` stored in a PDA
 //! (`["extra-account-metas", mint]`) owned by the hook program.
 //!
-//! No other zero-copy Solana framework ships a `no_std`, zero-alloc
-//! resolver for that list. This module gives Hopper one: it unpacks the
-//! TLV-encoded list and resolves each entry into a concrete
+//! This module provides Hopper's `no_std`, zero-allocation resolver. It
+//! unpacks the TLV-encoded list and resolves each entry into a concrete
 //! `(address, is_signer, is_writable)` so a program can build a correct
 //! transfer-with-hook CPI without pulling in `spl-tlv-account-resolution`.
 //!
@@ -29,8 +28,8 @@
 //! # Coverage
 //!
 //! Resolution supports the seed kinds that derive purely from the
-//! instruction data and already-known account keys — `Literal`,
-//! `InstructionData`, and `AccountKey` — plus literal-pubkey (disc `0`),
+//! instruction data and already-known account keys: `Literal`,
+//! `InstructionData`, and `AccountKey`. It also supports literal-pubkey (disc `0`),
 //! this-program PDA (disc `1`), and external-program PDA (disc `>= 128`)
 //! entries. `AccountData` seeds (disc-`4`) and the
 //! pubkey-from-account-data entry (disc `2`) require reading other
@@ -181,7 +180,7 @@ impl<'a> ExtraAccountMetaList<'a> {
     /// `instruction_data` is the hook `Execute` instruction data (used by
     /// `InstructionData` seeds). `known` is the list of accounts already
     /// fixed by the transfer-hook interface (source, mint, destination,
-    /// authority, …) followed by any metas resolved so far — entries can
+    /// authority, …) followed by any metas resolved so far, entries can
     /// reference earlier-resolved accounts by index, exactly as the SPL
     /// resolver allows.
     ///

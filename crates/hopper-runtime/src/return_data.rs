@@ -122,7 +122,7 @@ pub fn try_set_return_data(data: &[u8]) -> ProgramResult {
 
 /// Read return data from the most recent CPI.
 ///
-/// The 1 KiB snapshot buffer is *not* zero-filled before the syscall — the
+/// The 1 KiB snapshot buffer is *not* zero-filled before the syscall, the
 /// syscall initializes exactly the reported prefix, and `None` is returned
 /// before any read when the runtime reports zero bytes. This is the bug class
 /// behind Quasar #238/#234 (an `assume_init` over a buffer the syscall never

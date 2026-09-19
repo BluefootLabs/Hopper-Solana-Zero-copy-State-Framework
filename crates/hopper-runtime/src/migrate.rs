@@ -40,7 +40,7 @@ use crate::zerocopy::AccountLayout;
 /// lazy-migration pre-steps in `bind()` BEFORE the per-field validators
 /// so the validators see the upgraded account. That ordering is correct,
 /// but it means the migration used to execute a user transform over an
-/// account nobody had checked yet — a foreign-owned account whose bytes
+/// account nobody had checked yet, a foreign-owned account whose bytes
 /// happen to validate as an `Old` header would have its transform run
 /// (and, if the caller swallowed the eventual bind error, its writes
 /// kept). Baking the check into the runtime entry points protects every
@@ -158,7 +158,7 @@ where
         // A declared edge must not overshoot the layout's current
         // epoch: stamping the header past SCHEMA_EPOCH would mark the
         // account as from-the-future and make every subsequent typed
-        // load refuse it — silent corruption from a misdeclared chain.
+        // load refuse it, silent corruption from a misdeclared chain.
         // Refuse before touching a byte.
         if edge.to_epoch > target_epoch {
             return Err(ProgramError::InvalidAccountData);
@@ -185,7 +185,7 @@ where
 /// versioning story: the account's layout **version byte** changes
 /// (`#[hopper::state(version = 1)]` → `version = 2`), the wire
 /// fingerprint changes with the field set, and the transform is
-/// **typed on both sides** — no hand-offsetting bytes:
+/// **typed on both sides**, no hand-offsetting bytes:
 ///
 /// ```ignore
 /// hopper_runtime::migrate::migrate_layout::<VaultV1, VaultV2, _>(
@@ -210,7 +210,7 @@ where
 ///
 /// # Sequence
 ///
-/// 1. `Old::validate_header` — the full identity check (disc, version,
+/// 1. `Old::validate_header`, the full identity check (disc, version,
 ///    layout_id, epoch). An already-migrated account no longer matches
 ///    `Old` and is refused, which is the idempotence rule: migrate
 ///    exactly once, route repeat calls to the `New` load path.
@@ -219,24 +219,24 @@ where
 ///    BEFORE migrating when `New` is larger.
 /// 3. `Old` is copied to the stack, the `New` span is zeroed (so every
 ///    field the transform does not set has the framework's canonical
-///    all-zero default — stale `Old` bytes never leak through), and the
+///    all-zero default, stale `Old` bytes never leak through), and the
 ///    typed transform fills `New` from the copy.
-/// 4. Only after the transform returns `Ok` is the header re-stamped —
+/// 4. Only after the transform returns `Ok` is the header re-stamped,
 ///    `New`'s disc/version/layout_id/schema-epoch, with the header's
 ///    FLAGS bytes preserved (flags are account state, not layout
 ///    identity). A transform error therefore leaves the header on
-///    `Old` — same transaction-abort atomicity contract as the epoch
+///    `Old`, same transaction-abort atomicity contract as the epoch
 ///    edges above: the error must propagate to instruction failure so
 ///    the runtime rolls the partially-written body back.
 ///
 /// # Guard rails (all refuse before touching a byte)
 ///
-/// * `New::DISC == Old::DISC` — a migration must not repurpose the
+/// * `New::DISC == Old::DISC`, a migration must not repurpose the
 ///   account kind; both consts are known at monomorphization, so the
 ///   check folds away when it passes.
-/// * `New::VERSION > Old::VERSION` — versions only move forward
+/// * `New::VERSION > Old::VERSION`, versions only move forward
 ///   (also const-folded).
-/// * The account is **writable** and **owned by `program_id`** — the
+/// * The account is **writable** and **owned by `program_id`**, the
 ///   crank runs at bind BEFORE the per-field validators (so validators
 ///   see the upgraded account), which means this function is the first
 ///   authority to look at the account. A user transform must never run
@@ -295,7 +295,7 @@ where
     let new: &mut New = unsafe { &mut *(data.as_bytes_mut_ptr().add(new_start) as *mut New) };
     transform(&old, new)?;
 
-    // Success: re-stamp the header as New — LAST, so an erroring
+    // Success: re-stamp the header as New, LAST, so an erroring
     // transform leaves the header on Old (see atomicity note above).
     // Flags are preserved: they describe the account, not the layout.
     let flags = crate::layout::read_flags(&data).unwrap_or(0);
@@ -311,7 +311,7 @@ where
 }
 
 /// [`migrate_layout`] that **resizes the account to fit the new shape**,
-/// with a payer-funded rent top-up — the one migration capability the
+/// with a payer-funded rent top-up, the one migration capability the
 /// in-place form defers to a separate `realloc`.
 ///
 /// # Sequence
@@ -321,7 +321,7 @@ where
 ///    `New::required_len()`): compute the rent-exempt minimum for the
 ///    grown size from the LIVE rent sysvar, and when the account's
 ///    balance falls short, debit exactly the deficit from `payer`
-///    (which must then be writable and a signer — a well-funded account
+///    (which must then be writable and a signer, a well-funded account
 ///    needs no payer at all). Growth is capped by Solana's
 ///    `MAX_PERMITTED_DATA_INCREASE` (10,240 bytes per instruction),
 ///    enforced by `resize`.
@@ -330,7 +330,7 @@ where
 /// 4. **Shrink last, opt-in** (`shrink_to_fit`, when the allocation
 ///    exceeds `New::required_len()` after migrating): resize down and
 ///    refund **exactly the freed rent-exemption delta** to `payer`,
-///    doubly capped — never more than
+///    doubly capped, never more than
 ///    `minimum_balance(old_len) - minimum_balance(new_len)`, and never
 ///    taking the account below its new minimum.
 ///
@@ -338,7 +338,7 @@ where
 ///
 /// Quasar's `Migration<From, To>` normalizes the migrated account's
 /// balance to the new rent minimum and pays the WHOLE difference to the
-/// payer (`quasar account.rs:117-125`) — run it on a PDA that holds user
+/// payer (`quasar account.rs:117-125`), run it on a PDA that holds user
 /// deposits and the deposits leave with the payer. Hopper refunds only
 /// the rent requirement the shrink actually freed; every other lamport
 /// stays where it was.
@@ -347,7 +347,7 @@ where
 ///
 /// `New::required_len()` covers the fixed shape. A layout with a dynamic
 /// tail (`raw_tail`, `Seq<T>`, `TailStr`/`TailBytes`) stores live data
-/// PAST that length — shrinking to fit would truncate it. Pass
+/// PAST that length, shrinking to fit would truncate it. Pass
 /// `shrink_to_fit = false` (the context macro's default; `resize = fit`
 /// opts in) unless the layout is tail-free.
 #[inline]
@@ -385,7 +385,7 @@ where
         let min_new = crate::rent::minimum_balance_live(new_required)?;
         drop(account.try_borrow_mut_ungated()?);
         account.resize(new_required)?;
-        // Refund exactly the freed rent delta — see the refund rule in
+        // Refund exactly the freed rent delta; see the refund rule in
         // the doc above. Both caps matter: `delta` keeps deposits and
         // surplus with the account; `above_min` keeps an under-funded
         // account from being drained below its new minimum.
@@ -410,7 +410,7 @@ where
 
 /// Grow `account` to at least `min_len` bytes, topping up the
 /// rent-exempt minimum (from the LIVE rent sysvar) out of `payer` when
-/// the account's balance falls short — the payer must then be writable
+/// the account's balance falls short, the payer must then be writable
 /// and a signer; a well-funded account needs no payer at all. A no-op
 /// when the allocation already fits. Growth is capped by Solana's
 /// `MAX_PERMITTED_DATA_INCREASE`, enforced by `resize`.
@@ -458,7 +458,7 @@ pub fn ensure_fits_with_rent(
 /// Header identity check for an **epoch-migration candidate**: disc,
 /// version, and layout id must match `T` exactly and the allocation
 /// must fit `T`, while the stored schema epoch may LAG
-/// `T::SCHEMA_EPOCH` — that lag is exactly what the epoch chain heals —
+/// `T::SCHEMA_EPOCH`, that lag is exactly what the epoch chain heals,
 /// but may never exceed it (a from-the-future account is refused, never
 /// "migrated"). Returns the stored EFFECTIVE epoch (a pre-epoch zero
 /// header reads as epoch 1).
@@ -467,7 +467,7 @@ pub fn ensure_fits_with_rent(
 /// `#[account(epoch_migrate)]`: the read-only `validate()` surface uses
 /// it to accept a stale-epoch account that `bind()` can heal, and
 /// bind's crank uses it to decide whether to run
-/// [`apply_pending_migrations`] — one function, two surfaces, so the
+/// [`apply_pending_migrations`], one function, two surfaces, so the
 /// would-bind parity can never drift.
 pub fn validate_header_for_epoch_migration<T: LayoutContract>(
     data: &[u8],
@@ -494,7 +494,7 @@ pub fn validate_header_for_epoch_migration<T: LayoutContract>(
 
 /// Typed multi-hop layout migration: probe-and-migrate each declared
 /// hop in declaration order, so ONE call heals an account from ANY
-/// declared starting version to the newest — the chain Quasar's
+/// declared starting version to the newest, the chain Quasar's
 /// pairwise `Migration<From, To>` cannot express in one instruction.
 ///
 /// ```ignore
@@ -517,7 +517,7 @@ pub fn validate_header_for_epoch_migration<T: LayoutContract>(
 /// borrow and carries the owner+writable security gate). An account
 /// already at a later hop's source version simply skips the earlier
 /// hops; an account matching NO hop is left untouched and the chain
-/// returns `0` — the caller's subsequent typed load rejects foreign
+/// returns `0`, the caller's subsequent typed load rejects foreign
 /// layouts exactly as before, so the chain is a healing pass, not a
 /// validator. Evaluates to the number of hops applied (`u32`).
 ///
@@ -699,7 +699,7 @@ mod tests {
         struct EpochTwo {
             v: [u8; 8],
         }
-        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // SAFETY: repr(C), byte-array field, every bit pattern valid,
         // align 1, no padding.
         unsafe impl crate::Zeroable for EpochTwo {}
         // SAFETY: as above.
@@ -820,7 +820,7 @@ mod tests {
             count: [u8; 4],
             legacy: [u8; 4],
         }
-        // SAFETY: repr(C), byte-array fields — every bit pattern valid,
+        // SAFETY: repr(C), byte-array fields, every bit pattern valid,
         // align 1, no padding.
         unsafe impl crate::Zeroable for VaultV1 {}
         // SAFETY: as above.
@@ -849,7 +849,7 @@ mod tests {
             flag: u8,
             pad: [u8; 3],
         }
-        // SAFETY: repr(C), byte/byte-array fields — every bit pattern
+        // SAFETY: repr(C), byte/byte-array fields, every bit pattern
         // valid, align 1, no padding.
         unsafe impl crate::Zeroable for VaultV2 {}
         // SAFETY: as above.
@@ -879,7 +879,7 @@ mod tests {
         struct OtherKind {
             v: [u8; 8],
         }
-        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // SAFETY: repr(C), byte-array field, every bit pattern valid,
         // align 1, no padding.
         unsafe impl crate::Zeroable for OtherKind {}
         // SAFETY: as above.
@@ -903,7 +903,7 @@ mod tests {
         struct VaultV1b {
             count: [u8; 8],
         }
-        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // SAFETY: repr(C), byte-array field, every bit pattern valid,
         // align 1, no padding.
         unsafe impl crate::Zeroable for VaultV1b {}
         // SAFETY: as above.
@@ -1030,7 +1030,7 @@ mod tests {
             let (_b, account) = seeded_v1(HopperHeader::SIZE + 16);
             migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen).expect("first migrates");
             // The header now reads V2: it is no longer a valid VaultV1,
-            // so the identity check refuses — migrate exactly once.
+            // so the identity check refuses, migrate exactly once.
             assert_eq!(
                 migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen),
                 Err(ProgramError::InvalidAccountData)
@@ -1094,7 +1094,7 @@ mod tests {
 
         /// The crank-before-validators fix: a foreign-owned account whose
         /// bytes parse as a perfect Old header must be refused BEFORE the
-        /// user transform reads a byte — the macro crank runs at bind
+        /// user transform reads a byte, the macro crank runs at bind
         /// ahead of the per-field validators, so this gate is the first
         /// authority to look at the account.
         #[test]
@@ -1127,7 +1127,7 @@ mod tests {
         }
 
         /// The resizing variant grows the allocation to fit New and tops
-        /// up the rent-exempt minimum from the payer — exactly the
+        /// up the rent-exempt minimum from the payer, exactly the
         /// deficit, nothing more.
         #[test]
         fn resizing_migration_grows_and_tops_up_exactly_the_deficit() {
@@ -1172,14 +1172,14 @@ mod tests {
             assert_eq!(payer.lamports(), 5, "payer untouched");
         }
 
-        /// Version 3: narrows back to a 4-byte body — SMALLER than V2 —
+        /// Version 3: narrows back to a 4-byte body, SMALLER than V2,
         /// to exercise the shrink path.
         #[repr(C)]
         #[derive(Clone, Copy)]
         struct VaultV3 {
             count: [u8; 4],
         }
-        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // SAFETY: repr(C), byte-array field, every bit pattern valid,
         // align 1, no padding.
         unsafe impl crate::Zeroable for VaultV3 {}
         // SAFETY: as above.
@@ -1218,7 +1218,7 @@ mod tests {
 
         /// THE anti-drain proof (Quasar `account.rs:117-125` normalizes
         /// the balance to rent-min and pays the whole difference to the
-        /// payer — deposits leave with it). Hopper's shrink refunds
+        /// payer, deposits leave with it). Hopper's shrink refunds
         /// EXACTLY the freed rent delta; a surplus deposit riding on the
         /// account stays on the account.
         #[test]
@@ -1237,7 +1237,7 @@ mod tests {
             assert_eq!(
                 account.lamports(),
                 min_new + deposit,
-                "the deposit MUST stay on the account — only the freed \
+                "the deposit MUST stay on the account, only the freed \
                  rent requirement is refunded"
             );
             assert_eq!(
@@ -1298,7 +1298,7 @@ mod tests {
         }
 
         /// The resizing chain grows ONCE, to the LARGEST hop target (the
-        /// middle V2 shape here, 28 B — not the smaller final V3), with
+        /// middle V2 shape here, 28 B; not the smaller final V3), with
         /// the rent deficit debited from the payer.
         #[test]
         fn migrate_chain_with_payer_grows_once_to_the_largest_hop() {
@@ -1321,7 +1321,7 @@ mod tests {
 
             assert_eq!(run_chain(&account, &payer), Ok(2));
             // Grown to the LARGEST hop (V2's 28), never shrunk (the
-            // chain has no shrink phase — that is `resize = fit`'s job).
+            // chain has no shrink phase, that is `resize = fit`'s job).
             assert_eq!(account.data_len(), HopperHeader::SIZE + 12);
             let data = account.try_borrow().unwrap();
             assert_eq!(read_version(&data), Some(3));
@@ -1341,7 +1341,7 @@ mod tests {
             struct EpochThree {
                 v: [u8; 8],
             }
-            // SAFETY: repr(C), byte-array field — every bit pattern
+            // SAFETY: repr(C), byte-array field, every bit pattern
             // valid, align 1, no padding.
             unsafe impl crate::Zeroable for EpochThree {}
             // SAFETY: as above.
@@ -1374,7 +1374,7 @@ mod tests {
                 validate_header_for_epoch_migration::<EpochThree>(&data),
                 Ok(3)
             );
-            // Future epoch (4): refused — never "migrated" down.
+            // Future epoch (4): refused, never "migrated" down.
             write_header_with_epoch(&mut data, 93, 1, &[0x93; 8], 4).unwrap();
             assert!(validate_header_for_epoch_migration::<EpochThree>(&data).is_err());
             // Pre-epoch zero header reads as effective epoch 1.
@@ -1397,7 +1397,7 @@ mod tests {
 
         /// Shrink is opt-in: with `shrink_to_fit = false` the allocation
         /// keeps its size and no lamport moves (dynamic-tail layouts
-        /// depend on this default — shrinking to `required_len` would
+        /// depend on this default, shrinking to `required_len` would
         /// truncate their tail).
         #[test]
         fn shrink_is_opt_in_and_off_by_default_in_the_macro() {

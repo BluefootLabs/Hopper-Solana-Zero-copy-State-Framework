@@ -6,7 +6,7 @@
 //! field declared `#[account(mut, epoch_migrate)]` turns every
 //! instruction that binds the context into an epoch-healing crank:
 //! `bind()` probes the header with the SHARED acceptance predicate
-//! (`validate_header_for_epoch_migration` — exact identity, lagging
+//! (`validate_header_for_epoch_migration`, exact identity, lagging
 //! epoch only) and runs `apply_pending_migrations` before any validator,
 //! so validators and the handler see the healed account. `validate()`
 //! (the read-only surface) accepts exactly the same set.
@@ -17,7 +17,7 @@
 //!    epoch reads 3;
 //! 2. an already-current (epoch-3) account binds byte-identical;
 //! 3. a FUTURE-epoch (4) account fails bind with the layout's own
-//!    validation error and is not written — never "migrated" down;
+//!    validation error and is not written, never "migrated" down;
 //! 4. standalone `validate()` accepts the stale-epoch set read-only and
 //!    still rejects the future-epoch set (would-bind parity).
 

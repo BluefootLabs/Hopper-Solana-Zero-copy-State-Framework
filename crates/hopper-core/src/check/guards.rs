@@ -29,7 +29,7 @@ pub fn require_authority(account: &AccountView<'_>, stored_authority: &[u8; 32])
     if !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let addr: &[u8; 32] = unsafe {
         // SAFETY: Address is [u8; 32].
         &*(account.address() as *const Address as *const [u8; 32])

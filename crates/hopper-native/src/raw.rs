@@ -1,7 +1,7 @@
 //! Raw escape hatch for Hopper Native.
 //!
 //! Direct access to syscalls, unchecked CPI, and memory primitives.
-//! Only use in audited paths where the higher-level APIs are insufficient.
+//! Only use in reviewed paths where the higher-level APIs are insufficient.
 
 pub use crate::mem::*;
 #[allow(unused_imports)]

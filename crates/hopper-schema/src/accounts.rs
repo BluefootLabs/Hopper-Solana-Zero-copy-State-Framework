@@ -13,9 +13,8 @@ use crate::{ParametricWriteRange, WriteRange};
 ///
 /// Richer than the basic `AccountEntry` -- captures the full Account DSL
 /// surface including kind, layout, policy, seeds, optionality, and the
-/// Anchor-grade lifecycle flags (`init`/`close`/`realloc`/`has_one`) that
-/// the Hopper Safety Audit's ST2 closure requires client generators to
-/// consume.
+/// Lifecycle flags (`init`/`close`/`realloc`/`has_one`) consumed by
+/// client generators.
 #[derive(Clone, Copy)]
 pub struct ContextAccountDescriptor {
     /// Field name in the struct (e.g. "vault", "authority").
@@ -57,7 +56,7 @@ pub struct ContextAccountDescriptor {
 
 /// Lifecycle role an account plays in one instruction.
 ///
-/// Closes the audit's ST2 schema-metadata gap: clients consuming the
+/// Clients consuming the
 /// manifest need to know which accounts are created/closed/resized so
 /// they can synthesize correct builder UX (prompt for payer, compute
 /// required rent, wire a close-recipient, etc.).
@@ -189,14 +188,14 @@ pub struct ContextDescriptor {
     /// Exact-cell narrowing rules enforced with invocation arguments.
     pub parametric_write_ranges: &'static [ParametricWriteRange],
     /// Whether this context's declared write set covers **both**
-    /// mutation dimensions — data ranges and lamports (BLD-MUT).
+    /// mutation dimensions: data ranges and lamports.
     ///
     /// `true` only for `#[hopper::context(strict_writes,
     /// lamports(...))]`; a bare `strict_writes` context leaves its
     /// lamport behavior undeclared and is not mutation-complete
     /// (mirroring `InstructionDescriptor::mutation_complete`).
     pub mutation_complete: bool,
-    /// Account indices permitted to have their lamports mutated —
+    /// Account indices permitted to have their lamports mutated,
     /// explicit `lamports(...)` names plus the macro's implied
     /// lifecycle set. The same generated const the runtime enforces.
     /// Empty (and carrying no authority) unless

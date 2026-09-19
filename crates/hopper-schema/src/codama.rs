@@ -605,6 +605,8 @@ fn write_layout_array(f: &mut fmt::Formatter<'_>, layouts: &[LayoutManifest]) ->
         write_indent(f, 3)?;
         writeln!(f, "\"totalSize\": {},", l.total_size)?;
         write_indent(f, 3)?;
+        writeln!(f, "\"hasDynamicTail\": {},", l.has_dynamic_tail)?;
+        write_indent(f, 3)?;
         writeln!(f, "\"fieldCount\": {},", l.field_count)?;
         write_indent(f, 3)?;
         write!(f, "\"fields\": ")?;
@@ -687,9 +689,9 @@ fn write_instruction_array(
         }
         write_indent(f, 3)?;
         writeln!(f, "\"strictWrites\": {},", ix.strict_writes)?;
-        // BLD-MUT: published ONLY when the write set covers both
+        // Publish this only when the write set covers both
         // mutation dimensions (data ranges + lamports). A `false` value
-        // is never emitted — absence means "not mutation-complete", so
+        // is never emitted, absence means "not mutation-complete", so
         // a consumer can never mistake an older manifest (which lacks
         // the key entirely) for a completeness claim. `lamportAccounts`
         // rides along because a demotion decision needs it: an account
@@ -1718,6 +1720,7 @@ mod tests {
             version: 1,
             layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
             total_size: 24,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FIELDS,
         }];
@@ -1764,6 +1767,8 @@ mod tests {
             tooling_hints: &[],
             contexts: &[],
         };
+        let manifest_json = format!("{}", ManifestJson(&m));
+        assert!(manifest_json.contains("\"hasDynamicTail\": false"));
         let json = format!("{}", IdlJsonFromManifest(&m));
         // IDL should have instruction name+tag+args+accounts but NOT capabilities/policyPack
         assert!(json.contains("\"deposit\""));
@@ -1823,6 +1828,7 @@ mod tests {
             version: 1,
             layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
             total_size: 24,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FIELDS,
         }];
@@ -1948,7 +1954,7 @@ mod tests {
         assert!(json.contains("\"recommendedLoadedDataSize\": 0"));
     }
 
-    // -- BLD-WR: strict_writes byte-range publication --
+    // Publish strict_writes byte ranges.
 
     // A strict_writes `deposit`: vault (account 1) declares two exact field
     // ranges; config (account 2) is declared Sealevel-writable but has no
@@ -1976,7 +1982,7 @@ mod tests {
             seeds: &[],
         },
     ];
-    // vault balance [16, 24) and nonce [24, 32) — the same values the
+    // vault balance [16, 24) and nonce [24, 32), the same values the
     // strict_writes macro compiles into the enforced WritePolicy.
     static WR_RANGES: &[crate::WriteRange] = &[
         crate::WriteRange::new(1, 16, 8),
@@ -2016,7 +2022,7 @@ mod tests {
         lamport_accounts: &[],
         cu_estimate: 0,
     }];
-    // BLD-MUT: a mutation-complete deposit — both dimensions declared.
+    // A mutation-complete deposit declares both dimensions.
     // vault (1) carries data ranges; authority (0) is a declared lamport
     // debit target (e.g. a fee payer); config (2) is declared writable
     // but appears in neither dimension, so it is provably untouched.
@@ -2078,7 +2084,7 @@ mod tests {
         assert!(json.contains("\"writeRanges\": []"));
     }
 
-    // -- BLD-CU: measured per-instruction CU estimate publication --
+    // Publish measured per-instruction CU estimates.
 
     #[test]
     fn manifest_emits_cu_estimate_when_published() {
@@ -2163,17 +2169,17 @@ mod tests {
 
     #[test]
     fn effective_writable_demotes_exactly_the_untouched_account_when_complete() {
-        // BLD-MUT: under a mutation-complete set, an account in NEITHER
+        // Under a mutation-complete set, an account in neither
         // dimension is provably untouched and is demoted; an account in
         // either dimension survives. Read-only accounts are never promoted.
         let ix = &WR_COMPLETE_IX[0];
         assert!(ix.mutation_complete);
-        // authority (0): lamport permission only — stays writable.
+        // authority (0): lamport permission only, stays writable.
         assert!(ix.effective_writable(0, true));
         assert!(!ix.effective_writable(0, false)); // never promoted
-                                                   // vault (1): data ranges — stays writable.
+                                                   // vault (1): data ranges, stays writable.
         assert!(ix.effective_writable(1, true));
-        // config (2): neither dimension — demoted.
+        // config (2): neither dimension, demoted.
         assert!(!ix.effective_writable(2, true));
         // Out-of-range indices cannot be declared: conservative passthrough.
         assert!(ix.effective_writable(300, true));
@@ -2183,7 +2189,7 @@ mod tests {
     fn strict_with_empty_ranges_demotes_nothing_unless_complete() {
         // A strict_writes instruction whose ranges are empty and which is
         // NOT mutation-complete means "data dimension only, nothing
-        // written through Context" — but its lamport behavior is
+        // written through Context"; but its lamport behavior is
         // undeclared, so demoting would be unsound. Every declared-writable
         // account must survive unchanged.
         static UNPOP_IX: &[InstructionDescriptor] = &[InstructionDescriptor {

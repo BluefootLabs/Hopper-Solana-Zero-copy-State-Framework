@@ -264,7 +264,7 @@ pub use hopper_runtime::{
 
 // Entrypoint plumbing: every no_std SBF program declares an entrypoint,
 // an allocator stance, and a panic handler, so the prelude carries the
-// whole family — `use hopper::prelude::*;` + `no_allocator!();` must
+// whole family, `use hopper::prelude::*;` + `no_allocator!();` must
 // just work (it previously required the qualified `hopper::` spelling,
 // a paper cut our own bench targets tripped on).
 pub use hopper_runtime::{

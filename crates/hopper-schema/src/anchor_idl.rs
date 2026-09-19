@@ -25,12 +25,12 @@
 //! no way to describe that wire codec, and advertising it as a Borsh `vec` or
 //! `string` would generate invalid transaction data.
 //!
-//! Formatting is a fail-closed compatibility path: declarations with
-//! ambiguous discriminator prefixes are omitted, as is PDA metadata whose
-//! seed source cannot be resolved without inventing bytes or a reference.
-//! Such output carries machine-readable top-level `docs` markers. Publication
-//! tooling should call the corresponding `validate` method and reject partial
-//! projections.
+//! Formatting emits a marked partial projection when declarations cannot be
+//! represented: ambiguous discriminator prefixes are omitted, as is PDA
+//! metadata whose seed source cannot be resolved without inventing bytes or a
+//! reference. Such output carries machine-readable top-level `docs` markers.
+//! The corresponding `validate` methods, and CLI publication/export paths that
+//! call them, reject partial projections.
 //!
 //! The formatter is allocation-free and remains compatible with `no_std`.
 
@@ -1191,6 +1191,7 @@ fn finish_idl(f: &mut fmt::Formatter<'_>) -> fmt::Result {
 struct ProjectionIssues {
     has_unencodable_instruction: bool,
     has_unrepresentable_remaining_accounts: bool,
+    has_unrepresentable_dynamic_tail: bool,
     has_ambiguous_instruction_discriminator: bool,
     has_ambiguous_account_discriminator: bool,
     has_ambiguous_event_discriminator: bool,
@@ -1202,6 +1203,7 @@ fn write_projection_status(f: &mut fmt::Formatter<'_>, issues: ProjectionIssues)
     let ProjectionIssues {
         has_unencodable_instruction,
         has_unrepresentable_remaining_accounts,
+        has_unrepresentable_dynamic_tail,
         has_ambiguous_instruction_discriminator,
         has_ambiguous_account_discriminator,
         has_ambiguous_event_discriminator,
@@ -1210,6 +1212,7 @@ fn write_projection_status(f: &mut fmt::Formatter<'_>, issues: ProjectionIssues)
     } = issues;
     if !has_unencodable_instruction
         && !has_unrepresentable_remaining_accounts
+        && !has_unrepresentable_dynamic_tail
         && !has_ambiguous_instruction_discriminator
         && !has_ambiguous_account_discriminator
         && !has_ambiguous_event_discriminator
@@ -1233,6 +1236,13 @@ fn write_projection_status(f: &mut fmt::Formatter<'_>, issues: ProjectionIssues)
         write!(
             f,
             "    \"hopper:anchor-idl-projection:omits-remaining-account-contracts\""
+        )?;
+    }
+    if has_unrepresentable_dynamic_tail {
+        writeln!(f, ",")?;
+        write!(
+            f,
+            "    \"hopper:anchor-idl-projection:omits-dynamic-tail-contracts\""
         )?;
     }
     if has_ambiguous_instruction_discriminator {
@@ -1278,6 +1288,13 @@ fn write_projection_status(f: &mut fmt::Formatter<'_>, issues: ProjectionIssues)
 /// v0.1.0 without changing its wire meaning.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AnchorIdlProjectionError {
+    /// A dynamic account tail has no field/type descriptor in the canonical
+    /// Solana IDL v0.1.0 projection, so emitting only its fixed prefix would be
+    /// lossy.
+    UnsupportedDynamicTail {
+        /// Layout carrying the unrepresentable tail.
+        layout: &'static str,
+    },
     /// The instruction contains an argument whose Hopper encoding has no
     /// byte-equivalent Anchor IDL type.
     UnsupportedArgumentEncoding {
@@ -1342,6 +1359,10 @@ pub enum AnchorIdlProjectionError {
 impl fmt::Display for AnchorIdlProjectionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::UnsupportedDynamicTail { layout } => write!(
+                f,
+                "account layout `{layout}` has a dynamic tail that Solana IDL v0.1.0 cannot represent losslessly"
+            ),
             Self::UnsupportedArgumentEncoding {
                 instruction,
                 argument,
@@ -1477,6 +1498,15 @@ pub fn validate_program_idl_projection(idl: &ProgramIdl) -> Result<(), AnchorIdl
 pub fn validate_program_manifest_projection(
     manifest: &ProgramManifest,
 ) -> Result<(), AnchorIdlProjectionError> {
+    if let Some(layout) = manifest
+        .layouts
+        .iter()
+        .find(|layout| layout.has_dynamic_tail)
+    {
+        return Err(AnchorIdlProjectionError::UnsupportedDynamicTail {
+            layout: layout.name,
+        });
+    }
     for instruction in manifest.instructions {
         if let Some(argument) = first_unencodable_arg(instruction.args) {
             return Err(AnchorIdlProjectionError::UnsupportedArgumentEncoding {
@@ -1518,15 +1548,15 @@ pub fn validate_program_manifest_projection(
 // Public formatter wrappers
 // ---------------------------------------------------------------------------
 
-/// Emit the current Solana/Anchor IDL v0.1.0 shape from a [`ProgramIdl`].
+/// Emit a Solana IDL v0.1.0 / Anchor-compatible projection from a [`ProgramIdl`].
 ///
-/// `address` must be the base58 address of the deployed program. It is an
-/// explicit input because Hopper manifests deliberately do not bind a build
-/// artifact to one deployment address.
+/// `address` is the expected base58 program address supplied by the caller.
+/// Formatting does not query RPC or prove deployment; Hopper manifests
+/// deliberately do not bind a build artifact to one deployment address.
 pub struct AnchorIdlJson<'a> {
     /// Public Hopper IDL projection.
     pub idl: &'a ProgramIdl,
-    /// Base58 program address for this deployment.
+    /// Expected base58 program address supplied by the caller.
     pub address: &'a str,
 }
 
@@ -1638,11 +1668,12 @@ impl fmt::Display for AnchorIdlWithConstants<'_> {
     }
 }
 
-/// Emit the current IDL shape from a full [`ProgramManifest`].
+/// Emit a Solana IDL v0.1.0 / Anchor-compatible projection from a full
+/// [`ProgramManifest`].
 pub struct AnchorIdlFromManifest<'a> {
     /// Source manifest.
     pub manifest: &'a ProgramManifest,
-    /// Base58 program address for this deployment.
+    /// Expected base58 program address supplied by the caller.
     pub address: &'a str,
 }
 
@@ -1675,6 +1706,11 @@ impl fmt::Display for AnchorIdlFromManifest<'_> {
                     .instructions
                     .iter()
                     .any(|instruction| instruction.remaining_accounts.is_some()),
+                has_unrepresentable_dynamic_tail: self
+                    .manifest
+                    .layouts
+                    .iter()
+                    .any(|layout| layout.has_dynamic_tail),
                 has_ambiguous_instruction_discriminator:
                     first_manifest_instruction_discriminator_collision(self.manifest.instructions)
                         .is_some(),
@@ -1745,6 +1781,11 @@ impl fmt::Display for AnchorIdlFromManifestWithConstants<'_> {
                     .instructions
                     .iter()
                     .any(|instruction| instruction.remaining_accounts.is_some()),
+                has_unrepresentable_dynamic_tail: self
+                    .manifest
+                    .layouts
+                    .iter()
+                    .any(|layout| layout.has_dynamic_tail),
                 has_ambiguous_instruction_discriminator:
                     first_manifest_instruction_discriminator_collision(self.manifest.instructions)
                         .is_some(),
@@ -1822,6 +1863,7 @@ mod tests {
         version: 1,
         layout_id: [90; 8],
         total_size: 56,
+        has_dynamic_tail: false,
         field_count: 2,
         fields: FIELDS,
     }];
@@ -2013,6 +2055,29 @@ mod tests {
         assert!(rendered.contains(
             "\"pda\": { \"seeds\": [{ \"kind\": \"const\", \"value\": [118, 97, 117, 108, 116] }, { \"kind\": \"account\", \"path\": \"authorityKey\" }] }"
         ));
+    }
+
+    #[test]
+    fn manifest_dynamic_tail_is_rejected_as_lossy_solana_idl() {
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..LAYOUTS[0]
+        };
+        let dynamic_manifest = ProgramManifest {
+            layouts: std::boxed::Box::leak(std::boxed::Box::new([dynamic_layout])),
+            ..MANIFEST
+        };
+        let projection = AnchorIdlFromManifest {
+            manifest: &dynamic_manifest,
+            address: ADDRESS,
+        };
+
+        assert_eq!(
+            projection.validate(),
+            Err(AnchorIdlProjectionError::UnsupportedDynamicTail { layout: "Vault" })
+        );
+        assert!(format!("{}", projection)
+            .contains("hopper:anchor-idl-projection:omits-dynamic-tail-contracts"));
     }
 
     #[test]
@@ -2640,6 +2705,7 @@ mod tests {
                 version: 2,
                 layout_id: [1; 8],
                 total_size: 1_296,
+                has_dynamic_tail: false,
                 field_count: 2,
                 fields: HEADERED_FIELDS,
             },
@@ -2649,6 +2715,7 @@ mod tests {
                 version: 9,
                 layout_id: [2; 8],
                 total_size: 9,
+                has_dynamic_tail: false,
                 field_count: 1,
                 fields: COMPACT_FIELDS,
             },
@@ -2692,6 +2759,7 @@ mod tests {
                 version: 1,
                 layout_id: [1; 8],
                 total_size: 9,
+                has_dynamic_tail: false,
                 field_count: 1,
                 fields: &[FieldDescriptor {
                     name: "value",
@@ -2707,6 +2775,7 @@ mod tests {
                 version: 2,
                 layout_id: [2; 8],
                 total_size: 24,
+                has_dynamic_tail: false,
                 field_count: 1,
                 fields: &[FieldDescriptor {
                     name: "value",

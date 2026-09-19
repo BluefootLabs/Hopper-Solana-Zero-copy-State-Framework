@@ -11,7 +11,7 @@
 //!
 //! 1. absent  → handler sees `None`, succeeds, and the absent slot needs
 //!    to satisfy ZERO constraints (not writable, not a signer, wrong
-//!    owner — nothing is checked);
+//!    owner; nothing is checked);
 //! 2. present + valid → handler sees `Some`, with every declared check
 //!    enforced and the wrapper fully usable (typed mutation);
 //! 3. present + invalid (wrong owner / not writable / unsigned) → bind
@@ -147,7 +147,7 @@ fn jar_fixture_owned_by(addr_byte: u8, owner: Address) -> AccountFixture {
 
 /// The Anchor absence convention: the slot carries the executing
 /// program's own id. Deliberately NOT writable, NOT a signer, empty,
-/// and owned by nobody in particular — an absent optional must satisfy
+/// and owned by nobody in particular, an absent optional must satisfy
 /// ZERO constraints because none of its checks run.
 fn absent_fixture() -> AccountFixture {
     AccountFixture::new(PROGRAM_ID, Address::new_from_array([0u8; 32]), 1, 0)
@@ -173,7 +173,7 @@ fn jar_total(fixture: &AccountFixture) -> u64 {
 fn absent_optionals_bind_none_and_perform_zero_checks() {
     // The absent slots violate every constraint their fields declare
     // when present (`mut` referral is not writable; `bonus_authority`
-    // is not a signer) — binding succeeds anyway because absence skips
+    // is not a signer), binding succeeds anyway because absence skips
     // the checks entirely.
     let accounts = [
         signer_fixture(0x21),
@@ -199,7 +199,7 @@ fn absent_optionals_bind_none_and_perform_zero_checks() {
 }
 
 /// The same program-id-in-slot accounts fed to the REQUIRED control
-/// context fail its checks — absence semantics apply only to fields
+/// context fail its checks, absence semantics apply only to fields
 /// declared `Option<..>`.
 #[test]
 fn program_id_slot_in_a_required_context_is_not_special() {

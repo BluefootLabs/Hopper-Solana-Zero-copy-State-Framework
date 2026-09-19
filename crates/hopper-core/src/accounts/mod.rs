@@ -18,7 +18,7 @@
 //!
 //! - [`HopperAccounts`] -- trait for account struct construction + schema
 //! - [`HopperIx`] -- instruction definition trait (args + accounts)
-//! - [`entry()`] -- typed instruction entry point
+//! - [`hopper_entry`] -- typed instruction entry point
 
 pub mod context;
 pub mod entry;

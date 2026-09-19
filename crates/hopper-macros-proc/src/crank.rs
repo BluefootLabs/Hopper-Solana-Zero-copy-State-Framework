@@ -14,7 +14,7 @@
 //!    discovering it at `hopper manager crank run` time.
 //! 3. Optionally captures a `seeds_hint` manifest entry per PDA
 //!    account the crank's context declares, so the crank loop can
-//!    resolve every account with no operator configuration. Users
+//!    resolve those PDA accounts from manifest data. Users
 //!    supply the hints via `#[hopper::crank(seeds(account_name =
 //!    [b"seed_1", b"seed_2"]))]` on the handler.
 //!
@@ -33,8 +33,8 @@
 //!
 //! The emitted `seeds_hint` block rides along in the program
 //! manifest under a top-level `seeds_hint` object keyed by account
-//! name. A user running `hopper manager crank run --program-id <id>`
-//! never has to pass `--account` for a crank that has hints.
+//! name. `hopper manager crank run` uses available hints and requires
+//! explicit values for accounts it cannot resolve from them.
 //!
 //! ## Manifest-Backed Cranks
 //!

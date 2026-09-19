@@ -1,9 +1,10 @@
 [package]
 name = "hopper-systems"
 version = "0.3.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
-authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Advanced state architecture for Hopper. Layouts, headers, fingerprints, segments, overlays, receipts, migrations, policies, and interface pinning."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
@@ -24,7 +25,7 @@ hopper-runtime = { workspace = true, default-features = false }
 # accounts without spinning up the full BPF entrypoint. Only pulled in
 # as a dev-dep; the main library never names `hopper-native`.
 hopper-native = { workspace = true }
-# Adversarial-metadata property harness (I13): every zero-copy
+# Adversarial-metadata property harness: every zero-copy
 # collection is an overlay over attacker-writable account bytes, so its
 # stored metadata (lengths, heads, free lists) is untrusted input. The
 # proptests in `collections::hostile_metadata_proptests` fuzz arbitrary

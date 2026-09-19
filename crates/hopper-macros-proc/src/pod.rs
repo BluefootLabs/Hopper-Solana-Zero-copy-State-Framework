@@ -1,7 +1,6 @@
 //! `#[hopper::pod]`. derive the Hopper zero-copy marker contract.
 //!
-//! The Hopper Safety Audit asked for a standalone attribute that any
-//! user-defined struct can opt into to pick up the full Pod +
+//! A standalone attribute lets any user-defined struct opt into the Pod +
 //! FixedLayout + alignment-1 contract without also pulling in the full
 //! `#[hopper::state]` machinery (header, layout_id, schema hooks). This
 //! is that attribute.
@@ -112,8 +111,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         #input
 
         // Field-level proof: every field must itself implement Hopper
-        // `Pod`. This closes the
-        // Hopper Safety Audit Must-Fix #5 / #4 gap. rubber-stamp
+        // `Pod`. A rubber-stamp
         // `unsafe impl` alone cannot catch `bool` / `char` /
         // reference / padded nested fields. The `__FieldPodProof`
         // marker instantiation forces a trait-bound check per field.
@@ -136,7 +134,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         unsafe impl #impl_generics ::hopper::__runtime::Pod for #name #ty_generics #where_clause {}
 
         // Audit final-API Step 5 seal. `#[hopper::pod]` types stamp
-        // themselves with the Hopper-authored marker so the
+        // themselves with the framework-defined marker so the
         // `ZeroCopy` blanket picks them up. Bare `unsafe impl Pod`
         // outside the macro path does not get this seal, so it also
         // does not automatically satisfy `ZeroCopy`.

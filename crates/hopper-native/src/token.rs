@@ -40,7 +40,7 @@ impl Transfer<'_> {
             CpiAccount::from(self.authority),
         ];
 
-        invoke_token(&data, &accounts, signers)
+        invoke_token(&data, &accounts, 0b011, 0b100, signers)
     }
 }
 
@@ -72,7 +72,7 @@ impl MintTo<'_> {
             CpiAccount::from(self.mint_authority),
         ];
 
-        invoke_token(&data, &accounts, signers)
+        invoke_token(&data, &accounts, 0b011, 0b100, signers)
     }
 }
 
@@ -104,7 +104,7 @@ impl Burn<'_> {
             CpiAccount::from(self.authority),
         ];
 
-        invoke_token(&data, &accounts, signers)
+        invoke_token(&data, &accounts, 0b011, 0b100, signers)
     }
 }
 
@@ -133,7 +133,7 @@ impl CloseAccount<'_> {
             CpiAccount::from(self.authority),
         ];
 
-        invoke_token(&data, &accounts, signers)
+        invoke_token(&data, &accounts, 0b011, 0b100, signers)
     }
 }
 
@@ -165,7 +165,7 @@ impl Approve<'_> {
             CpiAccount::from(self.authority),
         ];
 
-        invoke_token(&data, &accounts, signers)
+        invoke_token(&data, &accounts, 0b001, 0b100, signers)
     }
 }
 
@@ -192,46 +192,28 @@ impl Revoke<'_> {
             CpiAccount::from(self.authority),
         ];
 
-        invoke_token(&data, &accounts, signers)
+        invoke_token(&data, &accounts, 0b01, 0b10, signers)
     }
 }
 
 // ---------------------------------------------------------------------
 
 #[inline]
-fn invoke_token(
+fn invoke_token<'a, const ACCOUNTS: usize>(
     data: &[u8],
-    accounts: &[CpiAccount<'_>],
+    accounts: &[CpiAccount<'a>; ACCOUNTS],
+    writable_mask: usize,
+    signer_mask: usize,
     signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
-    #[cfg(target_os = "solana")]
-    {
-        let ix = crate::instruction::InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data,
-            accounts: &[],
-        };
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let result = unsafe {
-            crate::syscalls::sol_invoke_signed_c(
-                &ix as *const _ as *const u8,
-                accounts.as_ptr() as *const u8,
-                accounts.len() as u64,
-                signers.as_ptr() as *const u8,
-                signers.len() as u64,
-            )
-        };
-        if result == 0 {
-            Ok(())
-        } else {
-            Err(crate::ProgramError::from(result))
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (data, accounts, signers);
-        Ok(())
-    }
+    crate::cpi::invoke_specialized_signed(
+        &TOKEN_PROGRAM_ID,
+        data,
+        accounts,
+        writable_mask,
+        signer_mask,
+        signers,
+    )
 }
 
 /// Compatibility re-exports matching `pinocchio_token::instructions::*`.

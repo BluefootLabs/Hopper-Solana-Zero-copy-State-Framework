@@ -228,7 +228,7 @@ mod imp {
     // hopper-core's test binary builds, hopper-runtime compiles as a
     // plain dependency (`cfg(test)` false), so without the feature all
     // of that binary's parallel test threads would share the global
-    // spinlocked registry below — and two unrelated tests using the same
+    // spinlocked registry below, and two unrelated tests using the same
     // fake address with overlapping ranges would transiently collide
     // into a spurious `AccountBorrowFailed`.
     #[cfg(any(test, feature = "thread-local-registry"))]
@@ -237,9 +237,9 @@ mod imp {
     }
 
     /// Host fallback registry cell (no `test`, no `thread-local-registry`
-    /// feature — i.e. `no_std` hosts): an `UnsafeCell` global guarded by a
+    /// feature; i.e. `no_std` hosts): an `UnsafeCell` global guarded by a
     /// `core`-only atomic spinlock so the `Sync` impl below is actually
-    /// justified. The pre-audit version handed out `&`/`&mut` from the
+    /// justified. The earlier version handed out `&`/`&mut` from the
     /// bare `UnsafeCell` with no synchronization, which is a data race the
     /// moment a host process (fuzzer, downstream binary) touches accounts
     /// from two threads. Critical sections here are a handful of array

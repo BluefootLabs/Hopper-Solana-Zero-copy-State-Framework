@@ -109,7 +109,7 @@ mod tests {
     ) -> (std::vec::Vec<u64>, AccountView<'static>) {
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 16).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -123,7 +123,7 @@ mod tests {
                 data_len: 16,
             });
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }

@@ -149,7 +149,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     }
 
     // Emit the module. The `FINGERPRINT` const is the centerpiece
-    // innovation: a caller holding this const and the live on-chain
+    // A caller holding this const and the live on-chain
     // manifest fingerprint can prove their builder was generated
     // from the exact bytes the program published. The `PROGRAM_ID`
     // const is emitted unconditionally (empty string when the

@@ -290,7 +290,7 @@ pub(crate) fn normalize_and_validate(
         }
     }
     // A shard count exceeding the fixed virtual-bucket count is NOT malformed
-    // input — it is a per-candidate infeasibility (a shard would receive no
+    // input; it is a per-candidate infeasibility (a shard would receive no
     // traffic) that must not fail the whole solve, so `current` and `vertical`
     // placements still resolve. It is rejected with a reason during candidate
     // evaluation instead.
@@ -509,7 +509,7 @@ fn evaluate_candidate(
 
     // A sharded candidate provisions `shard_count` physical shards. Routing
     // fewer fixed buckets than shards would leave a shard permanently empty,
-    // so the candidate is infeasible for this workload — rejected with a
+    // so the candidate is infeasible for this workload, rejected with a
     // reason rather than emitted as a dead-account layout. (Counts below two
     // are malformed input, rejected during normalization.)
     if let Some(count) = spec.shard_count {

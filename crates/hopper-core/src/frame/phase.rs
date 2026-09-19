@@ -12,7 +12,7 @@
 //! The typestate pattern means:
 //! - You cannot call `.execute()` before `.validate()`
 //! - You cannot call `.validate()` before `.resolve()`
-//! - Each transition is a zero-cost abstraction at runtime
+//! - The phase marker is represented in the builder's type
 //!
 //! ## Phase Model
 //!
@@ -360,7 +360,7 @@ mod tests {
                 data_len: 16,
             });
         }
-        // SAFETY: same initialized header viewed twice — modelling the
+        // SAFETY: same initialized header viewed twice, modelling the
         // loader's duplicate-account-meta case where two instruction
         // slots point at one account buffer.
         let v1 = unsafe {

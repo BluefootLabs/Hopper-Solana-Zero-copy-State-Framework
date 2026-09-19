@@ -76,6 +76,7 @@ impl TailCodec for VaultMetadata {
 #[test]
 fn layout_reports_has_dynamic_tail_true() {
     assert!(MetadataVault::HAS_DYNAMIC_TAIL);
+    assert!(MetadataVault::LAYOUT_MANIFEST.has_dynamic_tail);
 }
 
 #[test]
@@ -188,4 +189,5 @@ pub struct PlainVault {
 #[test]
 fn plain_layout_reports_has_dynamic_tail_false() {
     assert!(!PlainVault::HAS_DYNAMIC_TAIL);
+    assert!(!PlainVault::LAYOUT_MANIFEST.has_dynamic_tail);
 }

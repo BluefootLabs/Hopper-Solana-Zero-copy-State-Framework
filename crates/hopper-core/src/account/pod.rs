@@ -20,8 +20,8 @@ pub use hopper_runtime::pod::{Pod, Zeroable};
 ///
 /// # Self-proving size (Hopper's sovereign design)
 ///
-/// For an align-1, no-padding overlay type — which is exactly the `Pod`
-/// contract this trait is used alongside — the wire size *is*
+/// For an align-1, no-padding overlay type; which is exactly the `Pod`
+/// contract this trait is used alongside, the wire size *is*
 /// `size_of::<Self>()`, always. So [`SIZE`](Self::SIZE) **defaults** to
 /// it: conforming types implement `FixedLayout` with an empty body and
 /// get the correct size for free.
@@ -31,7 +31,7 @@ pub use hopper_runtime::pod::{Pod, Zeroable};
 /// that `SIZE == size_of::<Self>()`; every consumer that trusts `SIZE`
 /// in unsafe pointer arithmetic references it, so an impl that overrides
 /// `SIZE` with a wrong value is a **build error the moment the type is
-/// used** — not a latent out-of-bounds waiting for a fuzzer. This
+/// used**; not a latent out-of-bounds waiting for a fuzzer. This
 /// replaces the hand-written `const _: () = assert!(size_of == N)` that
 /// each overlay type previously had to remember to write next to its
 /// `SIZE`. The framework owns the invariant now, not the author.

@@ -30,8 +30,8 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
     /// Overlay a FixedVec on a mutable byte slice.
     ///
     /// **Parse, don't validate.** The slice must be at least
-    /// `HEADER_SIZE` bytes, and the stored length — which comes from
-    /// untrusted account bytes — must not exceed the capacity the byte
+    /// `HEADER_SIZE` bytes, and the stored length; which comes from
+    /// untrusted account bytes, must not exceed the capacity the byte
     /// length affords. A header claiming `len > capacity` is inconsistent
     /// geometry and is **rejected** here with `InvalidAccountData`,
     /// rather than silently clamped in every accessor. Every method then
@@ -160,7 +160,7 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = self.element_offset(len - 1);
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let value =
             unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) };
         // Zero the removed slot for cleanliness.
@@ -179,7 +179,7 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let removed_offset = self.element_offset(index);
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let removed = unsafe {
             core::ptr::read_unaligned(self.data.as_ptr().add(removed_offset) as *const T)
         };

@@ -134,6 +134,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: fields(),
         }

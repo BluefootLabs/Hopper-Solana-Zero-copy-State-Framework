@@ -51,11 +51,11 @@ const _: () = assert!(core::mem::align_of::<AccountHeader>() == 1);
 // SAFETY: #[repr(C)] of all-byte fields, all bit patterns valid.
 unsafe impl super::Zeroable for AccountHeader {}
 unsafe impl super::Pod for AccountHeader {}
-// Audit Step 5 seal: Hopper-authored primitive.
+// This framework-owned wire primitive is part of the sealed zero-copy set.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for AccountHeader {}
 
-// SIZE defaults to size_of::<Self>() == HEADER_LEN (16), proven by the
-// trait (I15) and pinned by the const asserts above.
+// FixedLayout::SIZE defaults to size_of::<Self>() and the const asserts above
+// pin it to HEADER_LEN (16).
 impl super::FixedLayout for AccountHeader {}
 
 impl AccountHeader {

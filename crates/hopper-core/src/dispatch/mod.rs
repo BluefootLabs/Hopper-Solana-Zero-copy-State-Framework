@@ -42,10 +42,6 @@ pub fn dispatch_instruction_8(data: &[u8]) -> Result<([u8; 8], &[u8]), ProgramEr
     Ok((disc, &data[8..]))
 }
 
-/// Event CPI prefix. Programs should check for this at dispatch entry
-/// and return `Ok(())` to allow self-CPI events to pass through.
-pub const EVENT_CPI_PREFIX: [u8; 2] = [0xFF, 0xFE];
-
 /// Macro for instruction dispatch.
 ///
 /// ```ignore
@@ -62,11 +58,6 @@ macro_rules! hopper_dispatch {
         $program_id:expr, $accounts:expr, $data:expr;
         $( $tag:literal => $handler:expr ),+ $(,)?
     ) => {{
-        // Allow event CPI passthrough: if the data starts with the event
-        // prefix [0xFF, 0xFE], silently succeed so self-CPI events work.
-        if $data.len() >= 2 && $data[0] == 0xFF && $data[1] == 0xFE {
-            return Ok(());
-        }
         let (tag, remaining) = $crate::dispatch::dispatch_instruction($data)?;
         match tag {
             $( $tag => $handler($program_id, $accounts, remaining), )+
@@ -95,10 +86,6 @@ macro_rules! hopper_dispatch_lazy {
         $( $tag:literal => $handler:expr ),+ $(,)?
     ) => {{
         let data = $ctx.instruction_data();
-        // Event CPI passthrough.
-        if data.len() >= 2 && data[0] == 0xFF && data[1] == 0xFE {
-            return Ok(());
-        }
         if data.is_empty() {
             return Err($crate::__runtime::error::ProgramError::InvalidInstructionData);
         }
@@ -128,14 +115,75 @@ macro_rules! hopper_dispatch_8 {
         $program_id:expr, $accounts:expr, $data:expr;
         $( [ $($disc:literal),+ ] => $handler:expr ),+ $(,)?
     ) => {{
-        // Event CPI passthrough.
-        if $data.len() >= 2 && $data[0] == 0xFF && $data[1] == 0xFE {
-            return Ok(());
-        }
         let (disc, remaining) = $crate::dispatch::dispatch_instruction_8($data)?;
         match disc {
             $( [ $($disc),+ ] => $handler($program_id, $accounts, remaining), )+
             _ => Err($crate::__runtime::error::ProgramError::InvalidInstructionData),
         }
     }};
+}
+
+#[cfg(test)]
+mod tests {
+    use hopper_runtime::error::ProgramError;
+
+    fn standard_handler(_: (), _: (), _: &[u8]) -> Result<(), ProgramError> {
+        Ok(())
+    }
+
+    fn dispatch_standard(data: &[u8]) -> Result<(), ProgramError> {
+        crate::hopper_dispatch! {
+            (), (), data;
+            0 => standard_handler,
+        }
+    }
+
+    struct LazyFixture<'a> {
+        data: &'a [u8],
+    }
+
+    impl LazyFixture<'_> {
+        fn instruction_data(&self) -> &[u8] {
+            self.data
+        }
+    }
+
+    fn lazy_handler(_: &LazyFixture<'_>) -> Result<(), ProgramError> {
+        Ok(())
+    }
+
+    fn dispatch_lazy(ctx: &LazyFixture<'_>) -> Result<(), ProgramError> {
+        crate::hopper_dispatch_lazy! {
+            ctx;
+            0 => lazy_handler,
+        }
+    }
+
+    fn wide_handler(_: (), _: (), _: &[u8]) -> Result<(), ProgramError> {
+        Ok(())
+    }
+
+    fn dispatch_wide(data: &[u8]) -> Result<(), ProgramError> {
+        crate::hopper_dispatch_8! {
+            (), (), data;
+            [0, 0, 0, 0, 0, 0, 0, 0] => wide_handler,
+        }
+    }
+
+    #[test]
+    fn legacy_unauthenticated_event_marker_is_rejected() {
+        let marker = [0xFF, 0xFE, 7];
+        assert_eq!(
+            dispatch_standard(&marker),
+            Err(ProgramError::InvalidInstructionData)
+        );
+        assert_eq!(
+            dispatch_lazy(&LazyFixture { data: &marker }),
+            Err(ProgramError::InvalidInstructionData)
+        );
+        assert_eq!(
+            dispatch_wide(&marker),
+            Err(ProgramError::InvalidInstructionData)
+        );
+    }
 }

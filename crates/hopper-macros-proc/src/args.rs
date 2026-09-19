@@ -1,4 +1,4 @@
-//! `#[hopper::args]`. typed instruction-argument struct derive.
+//! `#[hopper::args]`: typed instruction-argument struct derive.
 //!
 //! Decorates a `#[repr(C)]` struct of fixed-size primitive fields. Emits:
 //! - A `parse(data: &[u8]) -> Result<&Self, ArgParseError>` zero-copy parser
@@ -19,8 +19,8 @@
 //! `&'a VaultDepositArgs` where the bytes still live in the instruction-data
 //! region. No allocation. No copy. No serialization boundary.
 //!
-//! The `cu` hint is also novel: clients can statically budget before
-//! submitting instead of discovering CU overruns on-chain.
+//! The `cu` hint lets clients request a declared compute budget before
+//! submitting instead of discovering the estimate only after simulation.
 
 use proc_macro2::TokenStream;
 use quote::quote;

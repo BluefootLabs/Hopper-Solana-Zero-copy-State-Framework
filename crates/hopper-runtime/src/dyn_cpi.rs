@@ -1,9 +1,9 @@
 //! Stack-allocated variable-length CPI builder.
 //!
-//! The existing `hopper_runtime::cpi::invoke_signed::<N>` family is
-//! const-generic over the account count, which is perfect for CPI
-//! shapes known at compile time and about ninety percent of real
-//! cases. The exceptions are:
+//! The `hopper_runtime::cpi::invoke_signed::<N>` family is const-generic over
+//! the account count and serves CPI shapes known at compile time. [`DynCpi`]
+//! covers shapes whose account count or data length is determined while the
+//! instruction is being built, including:
 //!
 //! - Aggregators that invoke the same program with a runtime-
 //!   decided account count (fanout fee routers, batch settlement
@@ -14,22 +14,13 @@
 //!   byte-by-byte from user input (priority-fee overrides, optional
 //!   bump seeds) and do not know the final length until build time.
 //!
-//! [`DynCpi`] covers those cases. It is parameterised on two
-//! compile-time capacities, `MAX_ACCTS` and `MAX_DATA`, so the whole
-//! buffer lives on the stack in a single `MaybeUninit` array. No
-//! heap, no `Vec`, no panic on overflow: [`DynCpi::push_account`]
-//! and [`DynCpi::push_data`] return errors when the declared
-//! capacity would be exceeded.
-//!
-//! ## Innovation vs. Quasar
-//!
-//! Quasar's `DynCpiCall` is conceptually the same shape but expects
-//! the caller to hand-roll seed threading. Hopper's builder carries
-//! a typed `Signer` slice through the invoke call so a PDA-authored
-//! CPI reads like a single method chain. The overflow discipline
-//! also differs: Hopper propagates `Err(ProgramError::InvalidArgument)`
-//! rather than panicking, which keeps the handler's error surface
-//! uniform.
+//! The builder has compile-time capacities, `MAX_ACCTS` and `MAX_DATA`, and
+//! stores both buffers inline. [`DynCpi::push_account`] and
+//! [`DynCpi::push_data`] return `ProgramError::InvalidArgument` before a write
+//! that would exceed those capacities. Account insertion preserves the ordered
+//! meta list while maintaining a pubkey-deduplicated account-info projection.
+//! [`DynCpi::invoke_signed`] accepts Hopper's typed [`Signer`] values for PDA
+//! signer seeds.
 
 use core::mem::MaybeUninit;
 
@@ -53,7 +44,7 @@ use crate::{
 pub struct DynCpi<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> {
     program_id: &'a Address,
     // Per-push (meta) storage: one slot per `push_account`, order and
-    // duplicates preserved — this is the ordered meta list the callee sees.
+    // duplicates preserved; this is the ordered meta list the callee sees.
     accounts: [MaybeUninit<&'a AccountView<'a>>; MAX_ACCTS],
     writable: [bool; MAX_ACCTS],
     signer: [bool; MAX_ACCTS],
@@ -95,14 +86,13 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
     /// Append one account meta. The `writable` and `signer` flags
     /// are carried through to the emitted CPI instruction.
     ///
-    /// Every call appends one *meta* (order and duplicates preserved — the
-    /// callee reads accounts positionally). In parallel the builder folds
+    /// Each call appends one *meta*. Order and duplicates are preserved because
+    /// the callee reads accounts positionally. In parallel, the builder folds
     /// the account into a deduplicated *info* set keyed by pubkey: pushing
     /// an address already present does **not** allocate a second info slot,
     /// it reuses the existing one and OR-merges the writable/signer flags.
-    /// Under SIMD-0339 each distinct account-info costs CU, so N metas of
-    /// the same account collapse to a single info at submit time — a saving
-    /// a one-info-per-meta builder cannot make. See [`Self::info_count`].
+    /// Repeated metas for the same address therefore share one account-info at
+    /// submit time. See [`Self::info_count`].
     ///
     /// Returns `Err(ProgramError::InvalidArgument)` when the builder
     /// is already at `MAX_ACCTS` capacity. Users pick the capacity
@@ -188,7 +178,7 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
         self.push_data(address.as_array())
     }
 
-    /// Current account (meta) count — one per `push_account`, including
+    /// Current account (meta) count, one per `push_account`, including
     /// duplicates. This is the length of the ordered meta list the callee
     /// sees, *not* the deduped info count (see [`Self::info_count`]).
     #[inline(always)]
@@ -240,7 +230,7 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
     /// the CPI.
     #[inline]
     pub fn data(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const u8, self.data_len) }
     }
 
@@ -268,25 +258,23 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
 
     /// Submit the built CPI with the given PDA signer seeds.
     ///
-    /// Assembles the pushed `(account, writable, signer)` metas — the full
-    /// ordered list, duplicates preserved — and the data buffer into an
+    /// Assembles the pushed `(account, writable, signer)` metas, preserving the
+    /// full ordered list and duplicates, and the data buffer into an
     /// [`InstructionView`], then routes it through the **validated,
     /// dedup-aware** path
     /// ([`cpi::invoke_signed_deduped`](crate::cpi::invoke_signed_deduped)).
     /// The metas define what the callee sees positionally; the account-info
     /// list handed to the syscall is the pubkey-deduplicated set (one info
-    /// per unique account, flags OR-merged), so under SIMD-0339 duplicate
-    /// account-infos cost nothing. Address/flag agreement, PDA-signer
+    /// per unique account, flags OR-merged). Address/flag agreement, PDA-signer
     /// resolution, live-borrow checks, and duplicate-writable rejection all
-    /// run over the full meta list before the syscall — dedup never weakens
-    /// validation. This is the typed signer threading the module docs
-    /// promise: the builder and the submission are one method chain.
+    /// run over the full meta list before the syscall, so deduplication does not
+    /// skip those validation steps.
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let count = self.account_count;
         let views = self.account_views();
 
-        // Full ordered meta list — one meta per push, duplicates kept.
+        // Full ordered meta list, one meta per push, duplicates kept.
         let mut metas: [MaybeUninit<InstructionAccount<'a>>; MAX_ACCTS] =
             [const { MaybeUninit::uninit() }; MAX_ACCTS];
         let mut i = 0;
@@ -308,7 +296,7 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
             accounts: metas_slice,
         };
 
-        // Deduplicated account-info list — one AccountView per unique
+        // Deduplicated account-info list, one AccountView per unique
         // address, in first-occurrence order.
         let mut infos: [MaybeUninit<&'a AccountView<'a>>; MAX_ACCTS] =
             [const { MaybeUninit::uninit() }; MAX_ACCTS];
@@ -413,7 +401,7 @@ mod tests {
             // Off-chain the syscall is a no-op, but the full validation
             // pipeline (address/flag agreement, borrow checks,
             // duplicate-writable) runs against the metas this builder
-            // assembled — proving the build→submit chain is wired.
+            // assembled, proving the build→submit chain is wired.
             assert_eq!(cpi.invoke(), Ok(()));
         }
 
@@ -558,7 +546,7 @@ mod tests {
         #[test]
         fn wide_dyn_cpi_exceeds_legacy_64_account_ceiling() {
             let program = Address::from([9u8; 32]);
-            // 65 distinct accounts — one past the pre-SIMD-0339 static
+            // 65 distinct accounts, one past the pre-SIMD-0339 static
             // ceiling of 64. Keep backings and views alive for the builder.
             let mut backings: std::vec::Vec<std::vec::Vec<u64>> = std::vec::Vec::new();
             let mut views: std::vec::Vec<AccountView<'static>> = std::vec::Vec::new();
@@ -574,7 +562,7 @@ mod tests {
             }
 
             assert_eq!(cpi.account_count(), 65);
-            // All distinct, so no dedup shrinkage here — but the shape is
+            // All distinct, so no dedup shrinkage here; but the shape is
             // accepted, proving >64 account CPIs build and submit.
             assert_eq!(cpi.info_count(), 65);
             assert_eq!(cpi.invoke(), Ok(()));

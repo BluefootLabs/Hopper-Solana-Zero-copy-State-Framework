@@ -1,20 +1,16 @@
 //! Alignment-safe wire types for zero-copy account data.
 //!
-//! Solana account data buffers have alignment 1. Casting a `*const u8`
-//! to `*const u64` causes undefined behavior when the pointer is not
-//! 8-byte aligned. Every framework that does zero-copy must solve this.
-//!
-//! Quasar solves it with `PodU64([u8; 8])` -- wrapping arithmetic by
-//! default and implicit conversion. Hopper takes a different approach:
+//! Account data APIs expose byte buffers without guaranteeing native-integer
+//! alignment. Forming a `u64` reference at an unaligned address is undefined
+//! behavior. Hopper's wire integers store little-endian bytes at alignment 1:
 //!
 //! - **Explicit endianness**: Types are named `LeU64` ("little-endian u64"),
-//!   making the wire representation unambiguous at every call site.
+//!   making the wire representation explicit at call sites.
 //! - **Explicit arithmetic semantics**: the `checked_*`, `saturating_*`,
 //!   and `wrapping_*` inherent methods spell out overflow behavior at the
 //!   call site. The `+`/`-`/`*` operators mirror Rust's native integers
-//!   (panic on overflow in debug, wrap in release) — safer than Quasar's
-//!   silent wrapping default, but prefer the explicit methods for on-chain
-//!   balance math.
+//!   (panic on overflow in debug, wrap in release). Prefer the explicit
+//!   methods for on-chain balance math.
 //! - **`const fn` constructors**: `LeU64::new(42)` works in const context,
 //!   enabling compile-time constants for discriminators, seeds, etc.
 //! - **`Pod` + `Projectable`**: All wire types satisfy both the substrate
@@ -22,9 +18,8 @@
 //!   `lens::read_field_pod::<LeU64>` and `project::<LeU64>` both work
 //!   directly on account data without alignment issues.
 //!
-//! These types are the foundation for safe zero-copy account structs.
-//! Any `#[repr(C)]` struct composed entirely of wire types + `[u8; N]`
-//! arrays is alignment-1-safe and can be projected from account data.
+//! A `#[repr(C)]` struct composed entirely of these wire types and alignment-1
+//! byte arrays can satisfy Hopper's zero-copy overlay contract.
 
 use crate::project::Projectable;
 
@@ -178,7 +173,7 @@ macro_rules! le_integer {
         // All bit patterns are valid (no padding, no alignment requirement).
         unsafe impl Projectable for $name {}
         // SAFETY: #[repr(transparent)] over [u8; N]: alignment 1, no padding,
-        // every bit pattern valid, no internal pointers — the full substrate
+        // every bit pattern valid, no internal pointers, the full substrate
         // Pod overlay contract.
         unsafe impl $crate::pod::Zeroable for $name {}
         unsafe impl $crate::pod::Pod for $name {}
@@ -543,8 +538,8 @@ le_integer! {
 /// Boolean wire type. Alignment 1.
 ///
 /// Stored as a single byte: 0 = false, nonzero = true.
-/// `is_valid()` returns true only for 0 or 1, catching
-/// corrupted data that other frameworks would silently accept.
+/// [`LeBool::is_canonical`] returns true only for 0 or 1, which lets callers
+/// reject non-canonical encodings.
 #[repr(transparent)]
 #[derive(Clone, Copy, Default, Eq, PartialEq, Hash)]
 pub struct LeBool(u8);
@@ -613,7 +608,7 @@ impl core::fmt::Display for LeBool {
 // SAFETY: LeBool is #[repr(transparent)] over u8. All bit patterns valid
 // (`get()` treats any nonzero byte as true; `is_canonical()` flags 2..=255).
 unsafe impl Projectable for LeBool {}
-// SAFETY: as above — alignment 1, no padding, every bit pattern valid.
+// SAFETY: as above, alignment 1, no padding, every bit pattern valid.
 unsafe impl crate::pod::Zeroable for LeBool {}
 unsafe impl crate::pod::Pod for LeBool {}
 

@@ -10,9 +10,8 @@
 //! - A `CODE_TABLE: &[(&str, u32)]` const slice so the schema crate can
 //!   export the full error registry in the manifest.
 //! - An `INVARIANT_TABLE: &[(&str, &str)]` slice that links each variant to
-//!   the named invariant that, when violated, produces it. the innovation
-//!   that lets clients surface *which safety check actually failed*, not
-//!   just a numeric code.
+//!   the named invariant that produces it, allowing clients to display the
+//!   declared check name alongside the numeric code.
 //!
 //! ## Design notes
 //!
@@ -113,7 +112,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
     // written back as one. Without this, Rust assigns sequential
     // discriminants (previous + 1), so `MyError::Variant as u32` would
     // silently disagree with `code()` / `CODE_TABLE` / the wire value in
-    // `ProgramError::Custom` — an audit-trail integrity hole for any
+    // `ProgramError::Custom`, an audit-trail integrity hole for any
     // consumer using the natural `as` cast. Writing the code into the enum
     // also makes rustc reject a collision between a derived code and a
     // user-explicit one at compile time.

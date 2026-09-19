@@ -1,8 +1,8 @@
-//! Anchor-grade typed account wrappers for `#[derive(Accounts)]` and Hopper
+//! Typed account wrappers for `#[derive(Accounts)]` and Hopper
 //! context lowering.
 //!
-//! Closes Hopper Safety Audit Stage 2.3: zero-cost, zero-alignment,
-//! type-directed wrappers that programs can use in context structs to
+//! These are thin, type-directed wrappers that
+//! programs can use in context structs to
 //! name an account's *role* rather than paint it with an
 //! `#[account(signer)]` attribute.
 //!
@@ -19,8 +19,8 @@
 //! `skips_layout_validation` and auto-derives the appropriate
 //! checks (`check_signer`, `check_owned_by`, `check_executable`,
 //! address-pin). The wrappers themselves are
-//! `#[repr(transparent)]` over `&AccountView` so they compile away
-//! to the same pointer access as the raw form.
+//! `#[repr(transparent)]` over `&AccountView`, giving them the same
+//! representation as the wrapped reference.
 //!
 //! # Why wrappers alongside the attribute path
 //!
@@ -30,7 +30,7 @@
 //! Anchor-familiar and makes the role visible in every signature
 //! that accepts the account; the attribute form stays available for
 //! callers who prefer explicit constraint-lists. Both paths flow
-//! through the same canonical runtime checks. there is no
+//! through the same canonical runtime checks. There is no
 //! duplicate safety implementation.
 
 use core::marker::PhantomData;

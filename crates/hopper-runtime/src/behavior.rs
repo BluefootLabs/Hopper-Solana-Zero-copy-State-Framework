@@ -1,13 +1,11 @@
-//! Field behaviors: packageable, parameterized per-field lifecycle
-//! plugins (innovation I16).
+//! Reusable, parameterized account lifecycle behaviors.
 //!
 //! # What this is
 //!
-//! A protocol can author a reusable behavior once — "this account is a
-//! fee vault with a basis-points cap", "this oracle must be fresh",
-//! "this counter only increments" — parameterize it per attachment, and
-//! attach it to a context field. The planned macro surface (see
-//! `docs/design/BEHAVIORS_RFC.md`) is Quasar-parity:
+//! A protocol can implement a behavior once, provide per-use arguments, and
+//! call the typed phase helpers for each account. A proposed context-attribute
+//! surface is documented in `docs/design/BEHAVIORS_RFC.md`; it is not part of
+//! the current macro API:
 //!
 //! ```ignore
 //! #[hopper::context(strict_writes)]
@@ -18,36 +16,26 @@
 //! }
 //! ```
 //!
-//! This module is the **runtime core** the macro lowers to. It works
-//! standing alone (hand-wired) today; the macro attachment is the
-//! follow-up tracked in the RFC.
+//! The runtime traits and helper functions are available for explicit use
+//! today. The example attribute above remains design work tracked in the RFC.
 //!
-//! # Where it surpasses Quasar's `AccountBehavior`
+//! # Runtime contracts
 //!
-//! Quasar behaviors are side-effect-only hooks. Hopper behaviors are
-//! **accountable** to the rest of the framework:
-//!
-//! 1. **Proof tokens.** A successful `check` returns
+//! 1. **Proof tokens.** A successful [`run_check`] returns
 //!    [`BehaviorChecked<B>`] (plus a behavior-defined payload), which
 //!    composes with the existing [`AccountProof`](crate::proof::AccountProof)
-//!    capability chain. Downstream APIs can *require* evidence that a
-//!    behavior ran — not merely hope the derive emitted the call.
+//!    capability chain. APIs can require that token as evidence that the
+//!    check helper completed successfully.
 //! 2. **Write-set contribution.** A behavior declares the byte ranges
 //!    its `update`/`exit` phases write ([`HopperBehavior::WRITES`],
-//!    field-relative). Under I12 `strict_writes` the macro folds these
-//!    into the context's static `WritePolicy`, so plugins *extend* the
-//!    declared write surface instead of punching holes in it.
-//! 3. **Ledger visibility.** Behavior mutations are expected to go
-//!    through the Context segment paths, so they land in the I7 touch
-//!    map and the receipt system like any handler write: auditable
-//!    plugins, not opaque ones.
+//!    field-relative). Explicit callers and future code generation can add
+//!    these descriptors to a context's write policy. This module does not
+//!    install a context policy automatically.
 //!
 //! # Phase model
 //!
-//! Phases mirror the account lifecycle and are gated by associated
-//! consts so generated code only emits calls for the phases a behavior
-//! actually uses (dead phases cost nothing — same discipline Quasar
-//! uses, kept deliberately for parity of codegen cost):
+//! Phases mirror the account lifecycle. Associated constants state which
+//! helpers a behavior enables:
 //!
 //! ```text
 //! phase   const        runs                          receives
@@ -69,7 +57,7 @@ use crate::ProgramResult;
 /// Offsets are relative to the attached account's data start (the same
 /// absolute-offset convention the segment primitives use once the macro
 /// knows the account); the macro resolves the account index and folds
-/// the range into the context's I12 `WritePolicy` as
+/// the range into the context's write-policy `WritePolicy` as
 /// `WriteRange::new(index, offset, size)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BehaviorWrite {
@@ -91,12 +79,11 @@ impl BehaviorWrite {
 ///
 /// Implement on a unit struct; attach per-field with parameterized args.
 /// All phase methods default to no-ops so a behavior overrides only what
-/// it needs. See the module docs for the phase table and the surpass
-/// properties (proof tokens, write-set contribution, ledger visibility).
+/// it needs. See the module docs for the phase table and proof-token and
+/// write-range contracts.
 pub trait HopperBehavior<T: LayoutContract> {
-    /// Per-attachment parameters (the `max_bps = 30` payload). Use a
-    /// `'static`-free struct of plain values; the macro builds it from
-    /// the attribute arguments.
+    /// Per-use parameters, such as a `max_bps` value. Callers construct this
+    /// value and pass it to the phase helpers.
     type Args;
 
     /// Behavior-defined proof payload returned by a successful `check`
@@ -104,7 +91,7 @@ pub trait HopperBehavior<T: LayoutContract> {
     /// [`BehaviorChecked<B>`].
     type CheckOutput;
 
-    /// Whether `check` runs after load (default on — a behavior that
+    /// Whether `check` runs after load. The default is enabled; a behavior that
     /// validates nothing should say so explicitly).
     const RUN_CHECK: bool = true;
 
@@ -117,9 +104,9 @@ pub trait HopperBehavior<T: LayoutContract> {
     /// Whether the attached field must be mutable.
     const REQUIRES_MUT: bool = Self::RUN_UPDATE || Self::RUN_EXIT;
 
-    /// Field-relative byte ranges `update`/`exit` write. Folded into the
-    /// context's I12 `WritePolicy` under `strict_writes`; an empty slice
-    /// means the behavior only reads.
+    /// Field-relative byte ranges `update`/`exit` may write. Callers or code
+    /// generation can incorporate these ranges into a context `WritePolicy`.
+    /// An empty slice declares no behavior-owned write ranges.
     const WRITES: &'static [BehaviorWrite] = &[];
 
     /// Validate the loaded state; return the proof payload.
@@ -148,8 +135,8 @@ pub trait HopperBehavior<T: LayoutContract> {
 /// Proof token: behavior `B` ran its `check` phase against an account
 /// and succeeded, yielding `B::CheckOutput`.
 ///
-/// Zero-cost beyond the payload; the `B` type parameter is the
-/// evidence. APIs that must only ever see behavior-validated accounts
+/// The `B` type parameter identifies the behavior that performed the check.
+/// APIs that require behavior-validated accounts can
 /// take this token (or an [`AccountProof`](crate::proof::AccountProof)
 /// composed with it) instead of a bare view.
 pub struct BehaviorChecked<B, O> {
@@ -171,8 +158,8 @@ impl<B, O> BehaviorChecked<B, O> {
 /// Run behavior `B`'s `check` phase against `view`, loading the typed
 /// state through the normal validated path, and mint the proof token.
 ///
-/// This is the hand-wired form of what the macro will emit at bind time
-/// for each `behavior(...)` attachment. `RUN_CHECK = false` behaviors
+/// This is the explicit form that future context integration can call for
+/// each `behavior(...)` attachment. `RUN_CHECK = false` behaviors
 /// yield an error here rather than a vacuous proof: a token must mean
 /// the check actually ran.
 #[inline]
@@ -194,8 +181,8 @@ where
 
 /// Run behavior `B`'s `update` phase through the typed mutable path.
 ///
-/// Requires the proof token from [`run_check`] — an update cannot run
-/// against unvalidated state. The macro enforces the same ordering.
+/// Requires the proof token from [`run_check`], so this helper cannot run an
+/// update without a successful check token of the same behavior type.
 #[inline]
 pub fn run_update<B, T>(
     view: &AccountView<'_>,
@@ -228,7 +215,7 @@ mod tests {
         collected_bps: [u8; 2],
         _pad: [u8; 6],
     }
-    // SAFETY: repr(C), byte-array fields — align 1, no padding, all
+    // SAFETY: repr(C), byte-array fields, align 1, no padding, all
     // patterns valid.
     unsafe impl crate::Zeroable for FeeVault {}
     // SAFETY: as above.
@@ -280,7 +267,7 @@ mod tests {
             state: &mut FeeVault,
             args: &Self::Args,
         ) -> ProgramResult {
-            // Clamp to the cap — a deliberate, declared write to the
+            // Clamp to the cap, a deliberate, declared write to the
             // `collected_bps` range in `WRITES`.
             let bps = u16::from_le_bytes(state.collected_bps).min(args.max_bps);
             state.collected_bps = bps.to_le_bytes();
@@ -336,7 +323,7 @@ mod tests {
         let args = FeeCapArgs { max_bps: 30 };
 
         // The signature makes ordering structural: update takes the
-        // token check minted — there is no way to call it first.
+        // token check minted; there is no way to call it first.
         let proof = run_check::<FeeCap, FeeVault>(&vault, &args).unwrap();
         run_update::<FeeCap, FeeVault>(&vault, &args, &proof).unwrap();
 

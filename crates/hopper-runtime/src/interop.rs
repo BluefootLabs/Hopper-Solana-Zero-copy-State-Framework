@@ -6,7 +6,7 @@
 //! so Hopper code can interoperate with the wider Solana ecosystem
 //! without loss of type safety.
 //!
-//! # Zero-cost reference casts
+//! # Layout-compatible reference casts
 //!
 //! Hopper's `Address` is `#[repr(transparent)]` over `[u8; 32]`. This means
 //! reference casts to other transparent 32-byte address wrappers are valid

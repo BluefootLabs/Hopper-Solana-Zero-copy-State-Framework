@@ -29,18 +29,18 @@ pub use hopper_native::system::{
 ///
 /// # Why this module is `pub`
 ///
-/// The fixed-size System builders — [`CreateAccount`], [`Transfer`],
+/// The fixed-size System builders, [`CreateAccount`], [`Transfer`],
 /// [`Assign`], [`Allocate`], and the entire durable-nonce family
 /// ([`AdvanceNonceAccount`], [`WithdrawNonceAccount`],
 /// [`InitializeNonceAccount`], [`AuthorizeNonceAccount`],
-/// [`UpgradeNonceAccount`]) — each construct their instruction-data buffer by
+/// [`UpgradeNonceAccount`]), each construct their instruction-data buffer by
 /// calling exactly one of these functions before handing the bytes to
 /// [`crate::cpi`]. They are the shipped source of truth for the fixed-size
-/// System wire formats — the exact bytes that leave the program on a CPI.
+/// System wire formats, the exact bytes that leave the program on a CPI.
 ///
 /// They are exposed as `#[doc(hidden)] pub` for one reason: so the Kani layout
 /// proofs in the `hopper-token` crate can call the shipped encoders directly
-/// and prove — over fully symbolic inputs — that the emitted bytes carry the
+/// and prove, over fully symbolic inputs, that the emitted bytes carry the
 /// canonical 4-byte discriminator, field offsets, endianness, and total
 /// length. This is deliberately **not** a stability surface: the module is
 /// `#[doc(hidden)]` and may change at any time. Each function is
@@ -58,7 +58,7 @@ pub use hopper_native::system::{
 /// instructions.
 #[doc(hidden)]
 pub mod encoders {
-    /// `CreateAccount { lamports, space, owner }` —
+    /// `CreateAccount { lamports, space, owner }`,
     /// `[0u32 LE][lamports: u64 LE][space: u64 LE][owner: 32 bytes]`
     /// (52 bytes).
     #[inline(always)]
@@ -71,7 +71,7 @@ pub mod encoders {
         data
     }
 
-    /// `Transfer { lamports }` — `[2u32 LE][lamports: u64 LE]` (12 bytes).
+    /// `Transfer { lamports }`, `[2u32 LE][lamports: u64 LE]` (12 bytes).
     #[inline(always)]
     pub fn encode_transfer(lamports: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -80,7 +80,7 @@ pub mod encoders {
         data
     }
 
-    /// `Assign { owner }` — `[1u32 LE][owner: 32 bytes]` (36 bytes).
+    /// `Assign { owner }`, `[1u32 LE][owner: 32 bytes]` (36 bytes).
     #[inline(always)]
     pub fn encode_assign(owner: &[u8; 32]) -> [u8; 36] {
         let mut data = [0u8; 36];
@@ -89,7 +89,7 @@ pub mod encoders {
         data
     }
 
-    /// `Allocate { space }` — `[8u32 LE][space: u64 LE]` (12 bytes).
+    /// `Allocate { space }`, `[8u32 LE][space: u64 LE]` (12 bytes).
     #[inline(always)]
     pub fn encode_allocate(space: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -103,7 +103,7 @@ pub mod encoders {
     // WithdrawNonceAccount = 5, InitializeNonceAccount = 6,
     // AuthorizeNonceAccount = 7, UpgradeNonceAccount = 12.
 
-    /// `AdvanceNonceAccount` — `[4u32 LE]` (4 bytes). No instruction-data
+    /// `AdvanceNonceAccount`, `[4u32 LE]` (4 bytes). No instruction-data
     /// fields; the nonce/blockhashes/authority travel in the account-meta
     /// list.
     #[inline(always)]
@@ -111,7 +111,7 @@ pub mod encoders {
         4u32.to_le_bytes()
     }
 
-    /// `WithdrawNonceAccount { lamports }` — `[5u32 LE][lamports: u64 LE]`
+    /// `WithdrawNonceAccount { lamports }`, `[5u32 LE][lamports: u64 LE]`
     /// (12 bytes).
     #[inline(always)]
     pub fn encode_withdraw_nonce_account(lamports: u64) -> [u8; 12] {
@@ -121,7 +121,7 @@ pub mod encoders {
         data
     }
 
-    /// `InitializeNonceAccount { authority }` —
+    /// `InitializeNonceAccount { authority }`,
     /// `[6u32 LE][authority: 32 bytes]` (36 bytes).
     #[inline(always)]
     pub fn encode_initialize_nonce_account(authority: &[u8; 32]) -> [u8; 36] {
@@ -131,7 +131,7 @@ pub mod encoders {
         data
     }
 
-    /// `AuthorizeNonceAccount { new_authority }` —
+    /// `AuthorizeNonceAccount { new_authority }`,
     /// `[7u32 LE][new_authority: 32 bytes]` (36 bytes).
     #[inline(always)]
     pub fn encode_authorize_nonce_account(new_authority: &[u8; 32]) -> [u8; 36] {
@@ -141,7 +141,7 @@ pub mod encoders {
         data
     }
 
-    /// `UpgradeNonceAccount` — `[12u32 LE]` (4 bytes). No instruction-data
+    /// `UpgradeNonceAccount`, `[12u32 LE]` (4 bytes). No instruction-data
     /// fields; the nonce account travels in the account-meta list.
     #[inline(always)]
     pub fn encode_upgrade_nonce_account() -> [u8; 4] {

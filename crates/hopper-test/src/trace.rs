@@ -1,4 +1,4 @@
-//! JSON execution traces for instructions run under [`LiteSvmHarness`].
+//! JSON execution traces for instructions run under [`crate::LiteSvmHarness`].
 //!
 //! A trace turns a single `process` into a reviewable, snapshot-friendly
 //! summary of what an instruction did: compute units, return data, and a

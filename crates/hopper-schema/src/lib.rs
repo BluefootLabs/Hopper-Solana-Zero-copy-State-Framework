@@ -46,20 +46,20 @@ pub use hopper_core::policy::PolicyClass;
 // carry the *same* `WriteRange` values the `strict_writes` context macro
 // compiles into its enforced `WritePolicy`. Using the runtime type verbatim
 // keeps the schema-layer projection byte-identical to the enforced source of
-// truth rather than a re-encoded copy (BLD-WR).
+// truth rather than a re-encoded copy.
 pub use hopper_runtime::write_policy::{ParametricWriteRange, WriteRange};
 
 // ---------------------------------------------------------------------------
 // On-chain manifest storage constants
 // ---------------------------------------------------------------------------
 
-/// PDA seed for on-chain Hopper manifest accounts.
+/// PDA seed for an application-provisioned legacy Hopper manifest account.
 ///
-/// Programs store their manifest JSON at:
+/// Applications may store their manifest JSON at:
 ///   `find_program_address(&[MANIFEST_SEED], &program_id)`
 ///
-/// This deterministic address allows any tool to discover a program's
-/// schema knowing only the program ID.
+/// Hopper ships decoding and fetch support but no generic publisher. The
+/// address is discoverable only when the application provisions this account.
 pub const MANIFEST_SEED: &[u8] = b"hopper:manifest";
 
 /// 8-byte magic discriminator at the start of a manifest account.
@@ -447,7 +447,16 @@ pub struct LayoutManifest {
     /// Layout ID (8-byte fingerprint).
     pub layout_id: [u8; 8],
     /// Total byte size including header.
+    ///
+    /// For a dynamic-tail layout this is the minimum fixed-prefix size; valid
+    /// account data may be longer.
     pub total_size: usize,
+    /// Whether bytes after [`Self::total_size`] form a variable-length tail.
+    ///
+    /// Fixed compact layouts require an exact account length. Dynamic compact
+    /// layouts require only this minimum, so generated decoders must carry this
+    /// bit rather than infer size policy from field offsets.
+    pub has_dynamic_tail: bool,
     /// Number of fields (not counting header).
     pub field_count: usize,
     /// Field descriptors (static slice). Empty for legacy manifests.
@@ -2082,7 +2091,7 @@ pub struct ArgDescriptor {
     ///
     /// Fixed-width arguments always consume exactly this many bytes. Bounded
     /// arguments publish their maximum so clients can validate input without
-    /// having to resolve the Rust const expression in [`canonical_type`].
+    /// having to resolve the Rust const expression in `canonical_type`.
     pub size: u16,
     /// Wire encoding shape. This disambiguates a zero-sized fixed value from a
     /// bounded/variable value and gives generators the resolved const-generic
@@ -2532,7 +2541,8 @@ pub struct ErrorDescriptor {
 /// Emitted by `#[hopper::constant]` as a sibling `pub const` next to
 /// the original declaration; collected into a `&'static [ConstantDescriptor]`
 /// slice by the program author (or by the `hopper::program!` macro) and
-/// passed to an IDL emitter via `AnchorIdlWithConstants`.
+/// passed to an IDL emitter via
+/// [`anchor_idl::AnchorIdlWithConstants`].
 #[derive(Clone, Copy, Debug)]
 pub struct ConstantDescriptor {
     /// Constant name, e.g. `"MAX_DEPOSIT"`.
@@ -2624,13 +2634,13 @@ pub struct InstructionDescriptor {
     /// Under `strict_writes` the declared byte ranges in [`write_ranges`] are
     /// the complete, enforced **data** write surface: any account with no
     /// declared range is refused every Context-mediated data write. Data
-    /// completeness alone does NOT license read-only demotion — Sealevel
+    /// completeness alone does NOT license read-only demotion, Sealevel
     /// writability also covers lamport mutation, which this flag says
     /// nothing about; see
     /// [`mutation_complete`](InstructionDescriptor::mutation_complete) for
     /// the both-dimensions claim demotion requires. When `false`,
     /// [`write_ranges`] carries no authority and clients keep the account
-    /// flags exactly as declared (the pre-BLD-WR behavior).
+    /// flags exactly as declared when write-range metadata is absent.
     ///
     /// [`write_ranges`]: InstructionDescriptor::write_ranges
     pub strict_writes: bool,
@@ -2646,7 +2656,7 @@ pub struct InstructionDescriptor {
     ///
     /// Populate with zero manual authoring by referencing the macro's
     /// generated consts: `strict_writes: MyCtx::STRICT_WRITES,
-    /// write_ranges: MyCtx::WRITE_RANGES` — the same shared const also
+    /// write_ranges: MyCtx::WRITE_RANGES`, the same shared const also
     /// backs `MyCtx::SCHEMA_METADATA.write_ranges`
     /// ([`accounts::ContextDescriptor::write_ranges`]) and the runtime
     /// `WritePolicy`, so the published and enforced sets cannot drift.
@@ -2655,7 +2665,7 @@ pub struct InstructionDescriptor {
     /// exact cells selected by decoded instruction arguments.
     pub parametric_write_ranges: &'static [ParametricWriteRange],
     /// Whether the declared write set covers **both** mutation
-    /// dimensions — data byte ranges AND lamport balances (BLD-MUT).
+    /// dimensions: data byte ranges and lamport balances.
     ///
     /// `true` only when the instruction's context was compiled with
     /// `#[hopper::context(strict_writes, lamports(...))]`: the macro
@@ -2665,8 +2675,8 @@ pub struct InstructionDescriptor {
     /// emulation) and any writable CPI hand-off on an account outside
     /// the declared set. A bare `strict_writes` context is **not**
     /// mutation-complete: its lamport behavior is undeclared and stays a
-    /// passthrough (the pre-BLD-MUT contract), so this field is `false`
-    /// there — retroactively refusing lamport writes on existing
+    /// passthrough (the behavior without a mutation-completeness contract), so this field is `false`
+    /// there. Retroactively refusing lamport writes on existing
     /// `strict_writes` programs would silently change deployed behavior,
     /// which is why the dimension is opt-in.
     ///
@@ -2685,7 +2695,7 @@ pub struct InstructionDescriptor {
     /// enforces (explicit `lamports(...)` names plus the macro's implied
     /// lifecycle set: whole-`mut` accounts, init account + payer, close
     /// account + destination, realloc account + payer, sweep account +
-    /// target). Empty — and carrying no authority — unless
+    /// target). Empty, and carrying no authority, unless
     /// [`mutation_complete`](InstructionDescriptor::mutation_complete)
     /// is `true`.
     ///
@@ -2697,7 +2707,7 @@ pub struct InstructionDescriptor {
     /// This is a **measured, conservative** number: the author (or a future
     /// macro pass that sums validated per-primitive costs from
     /// `docs/CU_COSTS.md`) asserts the instruction completes within this many
-    /// compute units on its worst-case path. It must NEVER under-estimate —
+    /// compute units on its worst-case path. It must NEVER under-estimate,
     /// a client that sets `SetComputeUnitLimit` below actual consumption
     /// fails the transaction on chain. Hopper does not fabricate this value:
     /// nothing in the framework computes it from an unmeasured cost model,
@@ -2715,13 +2725,14 @@ pub struct InstructionDescriptor {
 /// Maximum compute-unit limit a transaction may request (Solana runtime cap).
 pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
-/// Agave cost-model constants — the prices a leader charges a transaction
+/// Agave cost-model constants, the prices a leader charges a transaction
 /// against the block and per-account limits.
 ///
 /// # What the full cost actually is
 ///
 /// `calculate_transaction_cost` sums **five** terms into the number
-/// charged against [`MAX_BLOCK_UNITS`] and [`MAX_WRITABLE_ACCOUNT_UNITS`]:
+/// charged against [`cost_model::MAX_BLOCK_UNITS`] and
+/// [`cost_model::MAX_WRITABLE_ACCOUNT_UNITS`]:
 ///
 /// ```text
 /// signature_cost + write_lock_cost + data_bytes_cost
@@ -2729,14 +2740,14 @@ pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 /// ```
 ///
 /// `programs_execution_cost` is the transaction's **requested** compute
-/// limit (`compute_unit_limit`), not what it burns — so the CU dimension
+/// limit (`compute_unit_limit`), not what it burns; so the CU dimension
 /// is very much part of the leader's price, and it is usually the largest
 /// term by an order of magnitude. A one-instruction transaction that sets
 /// no `ComputeBudget` instruction is charged
-/// [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`] for it, dwarfing its locks
+/// [`cost_model::DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`] for it, dwarfing its locks
 /// and signatures.
 ///
-/// Hopper computes only the two terms a **declaration** fixes — write
+/// Hopper computes only the two terms a **declaration** fixes, write
 /// locks and signatures (see [`ContentionProfile`]). The other three are
 /// caller choices (requested CU limit, requested loaded-data limit,
 /// instruction-data length), not properties of the program, so no static
@@ -2752,7 +2763,7 @@ pub mod cost_model {
     /// `block_cost_limits.rs:18` (`WRITE_LOCK_UNITS = 30 * 10`).
     ///
     /// Charged for every writable account, including ones the runtime
-    /// demotes internally — so removing a writable account from a
+    /// demotes internally; so removing a writable account from a
     /// transaction removes exactly this much block cost.
     pub const WRITE_LOCK_UNITS: u64 = 300;
 
@@ -2766,7 +2777,7 @@ pub mod cost_model {
 
     /// CU per loaded-accounts-data page. `execution_budget.rs:30`
     /// (`DEFAULT_HEAP_COST = 8`). SIMD-0186 (Accepted) fixed how the size
-    /// is *measured* — `data_len + 64` of metadata per loaded account —
+    /// is *measured*, `data_len + 64` of metadata per loaded account,
     /// not this rate.
     pub const HEAP_COST_PER_PAGE: u64 = 8;
 
@@ -2782,8 +2793,8 @@ pub mod cost_model {
     /// `program-runtime/src/execution_budget.rs`
     /// (`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`).
     ///
-    /// This is charged as `programs_execution_cost` — the *requested*
-    /// limit, not the burn — and is typically the dominant term of a
+    /// This is charged as `programs_execution_cost`, the *requested*
+    /// limit, not the burn, and is typically the dominant term of a
     /// transaction's block cost. A client lowers it with
     /// `SetComputeUnitLimit`; nothing in a program's declaration can.
     pub const DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT: u64 = 200_000;
@@ -2804,7 +2815,7 @@ pub mod cost_model {
     /// cost ceilings with it so CU-per-second stays fixed
     /// (`runtime/src/slot_params.rs`, `SLOT_PARAMS_*`). A framework that
     /// hardcodes one pair of numbers is wrong the moment the next step
-    /// activates — and was wrong before, if it copied the wrong regime.
+    /// activates, and was wrong before, if it copied the wrong regime.
     ///
     /// The static `block_cost_limits.rs` figures (24M account / 60M block)
     /// are the **400 ms baseline**, not the live ceiling. On top of the
@@ -2876,7 +2887,7 @@ pub mod cost_model {
     pub const MAINNET_OBSERVED_100M_GATE: bool = true;
 
     /// Block CU ceiling observed on mainnet-beta at
-    /// [`MAINNET_OBSERVED_ON`] — 75,000,000 under the 300 ms regime.
+    /// [`MAINNET_OBSERVED_ON`], 75,000,000 under the 300 ms regime.
     ///
     /// NOT the 100,000,000 headline figure: that is the 400 ms regime's
     /// scaled value, and mainnet left 400 ms on 2026-08-21.
@@ -2885,7 +2896,7 @@ pub mod cost_model {
         .1;
 
     /// Per-writable-account CU ceiling observed on mainnet-beta at
-    /// [`MAINNET_OBSERVED_ON`] — 30,000,000 under the 300 ms regime.
+    /// [`MAINNET_OBSERVED_ON`], 30,000,000 under the 300 ms regime.
     ///
     /// This is the real "local fee market": there is no per-account base
     /// fee (SIMD-0110 was closed unmerged), only this cap plus priority
@@ -2903,7 +2914,7 @@ pub mod cost_model {
 }
 
 /// The block-cost contribution an instruction makes purely by virtue of
-/// **what it declares** — computed from the same `WriteRange` consts the
+/// **what it declares**, computed from the same `WriteRange` consts the
 /// runtime enforces and the manifest publishes.
 ///
 /// Every count here is an exact, static count of manifest **role slots**:
@@ -2935,8 +2946,8 @@ pub struct ContentionProfile {
     pub effective_writable: u32,
     /// Signers the instruction requires.
     pub signers: u32,
-    /// Non-signer accounts the write set proves are **never mutated** — in
-    /// either dimension — for the whole instruction, whatever flag a caller
+    /// Non-signer accounts the write set proves are **never mutated**, in
+    /// either dimension, for the whole instruction, whatever flag a caller
     /// happens to send.
     ///
     /// This is the number a client author acts on. A correct Hopper
@@ -2949,8 +2960,8 @@ pub struct ContentionProfile {
     /// write set, because only then is "never mutated" provable.
     ///
     /// **Signers are deliberately excluded even when the write set clears
-    /// them.** Writability is a transaction-level flag and the fee payer —
-    /// a signer — must be writable to be debited, whatever any single
+    /// them.** Writability is a transaction-level flag and the fee payer,
+    /// a signer, must be writable to be debited, whatever any single
     /// instruction declares. Counting signers here would turn a costing
     /// hint into advice that breaks transactions.
     pub provably_read_only: u32,
@@ -2959,8 +2970,8 @@ pub struct ContentionProfile {
     /// Declared ceiling on caller-supplied suffix accounts
     /// (`remaining_accounts`), or 0 when the instruction accepts none.
     ///
-    /// Every one of these may arrive writable — clients preserve
-    /// caller-supplied flags — and the write set says nothing about them,
+    /// Every one of these may arrive writable, clients preserve
+    /// caller-supplied flags, and the write set says nothing about them,
     /// so they are an unbounded-by-declaration addition to the lock
     /// footprint up to this ceiling. Reported separately rather than
     /// folded into the cost figures: the fixed-role bound is deterministic, and
@@ -2977,7 +2988,7 @@ impl ContentionProfile {
 
     /// What ONE needlessly-writable account costs: a flat write lock.
     ///
-    /// Not scaled by [`provably_read_only`](Self::provably_read_only) —
+    /// Not scaled by [`provably_read_only`](Self::provably_read_only),
     /// the leader charges [`cost_model::WRITE_LOCK_UNITS`] per *unique
     /// writable key in a transaction*, so multiplying by a count of
     /// declaration slots would answer a question nobody asked (an account
@@ -2997,7 +3008,7 @@ impl ContentionProfile {
         self.effective_writable as u64 * cost_model::WRITE_LOCK_UNITS
     }
 
-    /// Write-lock cost removed by demotion — the payoff of a proven set.
+    /// Write-lock cost removed by demotion, the payoff of a proven set.
     pub const fn write_lock_cost_saved(&self) -> u64 {
         self.declared_write_lock_cost() - self.effective_write_lock_cost()
     }
@@ -3012,9 +3023,9 @@ impl ContentionProfile {
     ///
     /// This is deliberately NOT "the transaction's block cost", and the
     /// difference is large. Agave charges three further terms (see
-    /// [`cost_model`]): the requested compute limit — usually dominant,
+    /// [`cost_model`]): the requested compute limit, usually dominant,
     /// [`cost_model::DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`] when a
-    /// client sets none — the requested loaded-data limit, and instruction
+    /// client sets none, the requested loaded-data limit, and instruction
     /// data length. All three are caller choices, not declaration
     /// properties. Two further caveats keep this an instruction-scoped
     /// figure rather than a transaction one:
@@ -3036,10 +3047,10 @@ impl ContentionProfile {
     }
 
     /// Additional write-lock cost if every accepted `remaining_accounts`
-    /// slot arrives writable — the declared worst case, `0` when the
+    /// slot arrives writable, the declared worst case, `0` when the
     /// instruction accepts none.
     ///
-    /// Kept out of [`declared_lock_and_signature_cost`] on purpose: that
+    /// Kept out of [`Self::declared_lock_and_signature_cost`] on purpose: that
     /// figure is the fixed-role bound, while this is what a caller
     /// may add on top of it and the write set cannot constrain.
     pub const fn remaining_accounts_worst_case_lock_cost(&self) -> u64 {
@@ -3079,9 +3090,9 @@ impl InstructionDescriptor {
     /// demotion based on `write_ranges` alone is *unsound*, because a
     /// `WriteRange` describes a **data** byte range while Sealevel
     /// writability also covers **lamport** mutation. An account can be
-    /// legitimately writable with zero data ranges — a `close`/`sweep`
+    /// legitimately writable with zero data ranges, a `close`/`sweep`
     /// recipient, a transfer target, any lamport-only credit. The
-    /// precise contract (BLD-MUT):
+    /// precise mutation-completeness contract:
     ///
     /// - `declared_writable == false` → `false`, always (never promotes).
     /// - [`mutation_complete`] `== false` → the declared flag unchanged
@@ -3091,9 +3102,9 @@ impl InstructionDescriptor {
     /// - [`mutation_complete`] `== true` → `false` iff the account has
     ///   **no** declared data range *and* **no** lamport permission
     ///   ([`lamport_accounts`]). Such an account is refused by the
-    ///   runtime on every governed mutation path — Context data writes,
+    ///   runtime on every governed mutation path, Context data writes,
     ///   the `try_set_lamports`/close funnel, and writable CPI
-    ///   hand-offs — so demoting it cannot break a program that honors
+    ///   hand-offs; so demoting it cannot break a program that honors
     ///   its own declaration. (A program reaching around the governed
     ///   surface via `unsafe`/substrate escape hatches fails its
     ///   transaction on chain; demotion never puts funds at risk.)
@@ -3101,7 +3112,7 @@ impl InstructionDescriptor {
     /// Account indices above `u8::MAX` cannot appear in either declared
     /// set and are conservatively passed through.
     ///
-    /// See [`account_has_declared_write`] for the raw range query.
+    /// See [`Self::account_has_declared_write`] for the raw range query.
     ///
     /// [`mutation_complete`]: InstructionDescriptor::mutation_complete
     /// [`lamport_accounts`]: InstructionDescriptor::lamport_accounts
@@ -3112,7 +3123,7 @@ impl InstructionDescriptor {
         // `mutation_complete` without `strict_writes` carries no authority:
         // the byte ranges were never enforced, so "no declared range" proves
         // nothing. The macro can only produce `mutation_complete =
-        // strict_writes && lamports_declared`, but a manifest is just JSON —
+        // strict_writes && lamports_declared`, but a manifest is just JSON,
         // a hand-written or third-party one can set `mutationComplete` with
         // `strictWrites` absent (both default permissively), and demoting on
         // that would tell a client to send genuinely-written accounts
@@ -3134,9 +3145,9 @@ impl InstructionDescriptor {
     /// locks it takes, how many of those a proven write set lets a client
     /// drop, and what that is worth in block cost.
     ///
-    /// Derived entirely from the declaration — the account list plus the
+    /// Derived entirely from the declaration, the account list plus the
     /// same [`write_ranges`]/[`lamport_accounts`] consts the runtime
-    /// enforces — so its role counts are exact at compile time and need no
+    /// enforces; so its role counts are exact at compile time and need no
     /// measurement. CU products are fixed-role upper bounds; see
     /// [`ContentionProfile`] for optional and duplicate-key caveats.
     /// See [`ContentionProfile`] for what it deliberately excludes.
@@ -3154,7 +3165,7 @@ impl InstructionDescriptor {
             }
             // `effective_writable(index, true)` asks the demotion rule the
             // hypothetical question "if a caller marked THIS account
-            // writable, would it stay writable?" — so a `false` answer is
+            // writable, would it stay writable?"; so a `false` answer is
             // exactly "the write set proves this account is never
             // mutated," independent of the flag the manifest declares.
             let stays_writable_if_marked = self.effective_writable(index, true);
@@ -3291,11 +3302,12 @@ pub struct CompatibilityPair {
 /// the manifest carries operational metadata that tools need but
 /// external consumers do not.
 ///
-/// ## Truth hierarchy
+/// ## Derived projections
 ///
 /// ```text
-/// ProgramManifest  ⊃  ProgramIdl  ⊃  CodamaProjection
-///       (rich)         (public)         (interop)
+///                  +-- ProgramIdl (Hopper public subset)
+/// ProgramManifest -+-- CodamaProjection (ecosystem interop)
+///                  `-- Solana IDL v0.1.0 (lossless-only projection)
 /// ```
 #[derive(Clone, Copy)]
 pub struct ProgramManifest {
@@ -4730,11 +4742,9 @@ pub trait SchemaExport: LayoutContract {
     /// Rich schema manifest for diffing, linting, and client generation.
     fn layout_manifest() -> LayoutManifest;
 
-    /// The one-source-of-truth [`AccountDescriptor`] for this (headered)
-    /// layout, derived from the manifest. The body size is `total_size`
-    /// minus the 16-byte universal header; the discriminator, version, and
-    /// `layout_id` come straight from the manifest, so the descriptor a client
-    /// fingerprints matches the header the runtime validates.
+    /// An [`AccountDescriptor`] projection for this headered layout, derived
+    /// from its manifest. The actual typed loader validates the independently
+    /// macro-generated `LayoutContract`; it does not consume this descriptor.
     #[inline]
     fn descriptor() -> AccountDescriptor {
         let m = Self::layout_manifest();
@@ -4742,10 +4752,11 @@ pub trait SchemaExport: LayoutContract {
         AccountDescriptor::headered(m.name, m.disc, m.version as u16, body_size, m.layout_id)
     }
 
-    /// Fail-closed off-chain decode metadata for this layout: the descriptor
-    /// projection plus the manifest's field wire map and a loaded-data-size
-    /// recommendation. Serialize with
-    /// [`codama::DescriptorMetadataJson`](crate::codama::DescriptorMetadataJson).
+    /// Optional off-chain metadata for this layout: the descriptor projection,
+    /// the separately supplied field wire map, and a loaded-data-size
+    /// recommendation. This is an emitter building block, not currently the
+    /// primary CLI/client-generator path. Serialize with
+    /// [`codama::DescriptorMetadataJson`].
     #[inline]
     fn descriptor_metadata() -> DescriptorMetadata {
         DescriptorMetadata::from_descriptor(&Self::descriptor(), Self::layout_manifest().fields)
@@ -4784,30 +4795,27 @@ impl<'info> AccountSchemaExt for AccountView<'info> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  Descriptor metadata -- fail-closed off-chain decode record
+//  Descriptor metadata -- off-chain decode record
 // ═══════════════════════════════════════════════════════════════════════
 
-// The one-source-of-truth descriptor types live in `hopper_core::manifest`;
-// re-export the ones off-chain tooling consumes so a client/IDL generator and
-// the CLI read the exact identity model the on-chain loader enforces.
+// Descriptor types live in `hopper_core::manifest`. Re-export the pieces
+// available to off-chain tooling; the primary CLI/client generators currently
+// consume `LayoutManifest`, and typed loaders do not consume these projections.
 pub use hopper_core::manifest::{
     min_loaded_data_size, recommend_loaded_data_limit, AccountDescriptor, CostLint, CostProfile,
     DescriptorIdlNode, LayoutKind, SizeClass,
 };
 
-/// A stable, fail-closed decode-metadata record for one account layout.
+/// An optional decode-metadata record for one account layout.
 ///
-/// It projects a [`hopper_core::manifest::AccountDescriptor`] -- the same
-/// `const` the on-chain loader validates against -- into the fields a
-/// generated client or manager needs to refuse decoding a mis-shaped account
-/// *before* casting its bytes: discriminator, body/fixed/min sizes, body
-/// offset, layout kind, dynamic-tail/deprecated flags, the 8-byte `layout_id`,
-/// the 16-byte client decode fingerprint, the field wire offsets, and a
-/// recommended `setLoadedAccountsDataSizeLimit` contribution.
+/// It projects an [`AccountDescriptor`] plus a separately supplied field map
+/// into identity, size, shape, fingerprint, field-offset, and loaded-data-size
+/// fields that an off-chain consumer can use. It is not currently wired into
+/// the primary CLI or six-language SDK pipeline.
 ///
-/// Because every field derives from the descriptor, the off-chain metadata can
-/// never describe a layout the program does not run. Serialize it with
-/// [`codama::DescriptorMetadataJson`](crate::codama::DescriptorMetadataJson).
+/// Callers must ensure the supplied field map belongs to the descriptor and
+/// authenticate any persisted copy. Serialize with
+/// [`codama::DescriptorMetadataJson`].
 #[derive(Clone, Copy, Debug)]
 pub struct DescriptorMetadata {
     /// Descriptor-derived IDL node (identity + shape + fingerprint).
@@ -4829,8 +4837,8 @@ impl DescriptorMetadata {
     /// Per-layout tail headroom applied to growable (dynamic-tail) layouts.
     pub const DEFAULT_TAIL_HEADROOM: u32 = 1024;
 
-    /// Project a descriptor and its field map into fail-closed metadata using
-    /// the default loaded-data-size margins.
+    /// Project a descriptor and its independently supplied field map into
+    /// metadata using the default loaded-data-size margins.
     pub fn from_descriptor(
         descriptor: &AccountDescriptor,
         fields: &'static [FieldDescriptor],
@@ -4858,9 +4866,10 @@ impl DescriptorMetadata {
         }
     }
 
-    /// The 32-ASCII-byte hex of the client decode fingerprint. A generated SDK
-    /// embeds this constant and compares it to the program-advertised layout's
-    /// fingerprint before zero-copy-decoding.
+    /// The 32-ASCII-byte hex of the descriptor fingerprint. An off-chain tool
+    /// can expose this as external metadata and compare it with separately
+    /// obtained, trusted advertised metadata. This method performs no retrieval
+    /// or authentication.
     #[inline]
     pub fn fingerprint_hex(&self) -> [u8; 32] {
         self.node.fingerprint.to_hex()
@@ -4869,12 +4878,10 @@ impl DescriptorMetadata {
 
 /// Fail-closed decode guard.
 ///
-/// Returns `true` only when the layout a client expects (its embedded
-/// fingerprint) exactly matches the layout the program currently advertises
-/// for the same discriminator. A generated client MUST refuse to
-/// zero-copy-decode a fetched account when this is `false` -- the program was
-/// redeployed with a different layout at this discriminator, so reading its
-/// bytes as the old shape would read mis-shaped memory.
+/// Returns `true` only when the expected and caller-supplied advertised
+/// fingerprints match exactly. This helper does not fetch or authenticate the
+/// advertised value. Callers that bind decoding to deployment metadata should
+/// reject a mismatch before passing bytes to a generated decoder.
 #[inline]
 pub fn decode_allowed(
     expected: &hopper_core::manifest::LayoutFingerprint,
@@ -4936,6 +4943,7 @@ mod tests {
         version: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
         total_size: 56,
+        has_dynamic_tail: false,
         field_count: 2,
         fields: V1_FIELDS,
     };
@@ -4946,6 +4954,7 @@ mod tests {
         version: 2,
         layout_id: [10, 20, 30, 40, 50, 60, 70, 80],
         total_size: 57,
+        has_dynamic_tail: false,
         field_count: 3,
         fields: V2_FIELDS,
     };
@@ -5017,6 +5026,7 @@ mod tests {
             version: 2,
             layout_id: [99; 8],
             total_size: 32,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: changed_fields,
         };
@@ -5070,6 +5080,7 @@ mod tests {
             version: 2,
             layout_id: [99; 8],
             total_size: 32,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: changed_fields,
         };
@@ -5253,6 +5264,7 @@ mod tests {
             version: 1,
             layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
             total_size: 57,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         },
@@ -5262,6 +5274,7 @@ mod tests {
             version: 1,
             layout_id: [8, 7, 6, 5, 4, 3, 2, 1],
             total_size: 43,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         },
@@ -5363,6 +5376,7 @@ mod tests {
             version: 1,
             layout_id: [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80],
             total_size: 57,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         }];
@@ -5533,6 +5547,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 25,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: DECODE_FIELDS,
         };
@@ -5753,6 +5768,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5762,6 +5778,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5786,6 +5803,7 @@ mod tests {
             version: 1,
             layout_id: [1; 8],
             total_size: 17,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: SINGLE_FIELD,
         };
@@ -5795,6 +5813,7 @@ mod tests {
             version: 2,
             layout_id: [2; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5826,6 +5845,7 @@ mod tests {
             version: 1,
             layout_id: [1; 8],
             total_size: 17,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: OLD_TYPE_FIELD,
         };
@@ -5835,6 +5855,7 @@ mod tests {
             version: 2,
             layout_id: [2; 8],
             total_size: 18,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: NEW_TYPE_FIELD,
         };
@@ -5851,6 +5872,7 @@ mod tests {
             version: 1,
             layout_id: [1; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5860,6 +5882,7 @@ mod tests {
             version: 1,
             layout_id: [2; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5877,6 +5900,7 @@ mod tests {
             version: 1,
             layout_id: [9; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5894,6 +5918,7 @@ mod tests {
             version: 1,
             layout_id: [9; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5936,6 +5961,7 @@ mod tests {
             version: 1,
             layout_id: [1; 8],
             total_size: 17,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: APPEND_OLD,
         };
@@ -5945,6 +5971,7 @@ mod tests {
             version: 2,
             layout_id: [2; 8],
             total_size: 18,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: APPEND_NEW,
         };
@@ -5962,6 +5989,7 @@ mod tests {
             version: 1,
             layout_id: [5; 8],
             total_size: 16,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[],
         };
@@ -5994,6 +6022,7 @@ mod tests {
             version: 1,
             layout_id: [1; 8],
             total_size: 17,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FP_CUSTOM,
         };
@@ -6003,6 +6032,7 @@ mod tests {
             version: 1,
             layout_id: [1; 8],
             total_size: 17,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FP_BALANCE,
         };
@@ -6028,6 +6058,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 48,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: LINT_AUTH_FIELD,
         };
@@ -6051,6 +6082,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 48,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: LINT_AUTH_FIELD,
         };
@@ -6089,6 +6121,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 48,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: SEED_FIELD,
         };
@@ -6106,6 +6139,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 17,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: SINGLE_FIELD,
         };
@@ -6168,6 +6202,7 @@ mod tests {
             version: 1,
             layout_id: [0; 8],
             total_size: 136,
+            has_dynamic_tail: false,
             field_count: 6,
             fields: GRADE_HEAVY,
         };
@@ -6464,7 +6499,7 @@ mod tests {
     /// Superseded 2026-09-03. This test used to assert 100M/12M, which was
     /// wrong on BOTH terms: SIMD-0286's 100M is the 400 ms regime's scaled
     /// block ceiling, and 12M is the 200 ms regime's UNSCALED account
-    /// ceiling — a pair that has never been live together. Mainnet moved to
+    /// ceiling, a pair that has never been live together. Mainnet moved to
     /// 350 ms (2026-08-21) then 300 ms (2026-08-28), and SIMD-0525 rescales
     /// both ceilings with slot time. The live pair is 30M/75M; the
     /// derivation is pinned by `slot_regime_cost_limits_match_agave`.
@@ -6479,7 +6514,7 @@ mod tests {
 
     /// admin (signer, ro) / config (writable, has a declared byte range) /
     /// fee_sink (writable, lamport permission only) / treasury (writable,
-    /// NEITHER — the demotable one) / clock (ro).
+    /// NEITHER, the demotable one) / clock (ro).
     static CONTENTION_ACCOUNTS: &[AccountEntry] = &[
         AccountEntry {
             name: "admin",
@@ -6561,7 +6596,7 @@ mod tests {
         // even though nothing in the write set touches it, because the fee
         // payer must stay writable at the transaction level.
         assert_eq!(profile.provably_read_only, 2);
-        // Over-marking costs ONE flat lock per account — never that count
+        // Over-marking costs ONE flat lock per account, never that count
         // multiplied by how many slots happen to be provable, since the
         // leader charges per unique writable key in a transaction.
         assert_eq!(
@@ -6586,7 +6621,7 @@ mod tests {
     /// `mutation_complete` without `strict_writes` carries no authority:
     /// the byte ranges were never enforced. A manifest is just JSON and
     /// both keys default permissively, so a hand-written one can claim the
-    /// former without the latter — demoting on it would tell a client to
+    /// former without the latter, demoting on it would tell a client to
     /// send genuinely-written accounts read-only.
     #[test]
     fn a_complete_claim_without_enforcement_demotes_nothing() {
@@ -6624,7 +6659,7 @@ mod tests {
     }
 
     /// The profile's per-account demotion decisions must be exactly the
-    /// ones `effective_writable` hands generated clients — the profile is
+    /// ones `effective_writable` hands generated clients, the profile is
     /// a summary of that rule, never a second implementation of it. A
     /// published contention figure that disagreed with the account flags
     /// the client actually emits would be worse than no figure at all.
@@ -6710,7 +6745,7 @@ mod tests {
 
     #[test]
     fn loaded_data_cost_rounds_up_to_whole_pages() {
-        // 8 CU per 32 KiB page, ceil — matching the cost model exactly.
+        // 8 CU per 32 KiB page, ceil, matching the cost model exactly.
         assert_eq!(cost_model::loaded_data_cost(0), 0);
         assert_eq!(cost_model::loaded_data_cost(1), 8);
         assert_eq!(cost_model::loaded_data_cost(32 * 1024), 8);

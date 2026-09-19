@@ -32,6 +32,21 @@ pub const RENT_SYSVAR_ID: Address = crate::address!("SysvarRent11111111111111111
 /// `MAX_SEED_LEN`). `*WithSeed` builders reject longer seeds.
 pub const MAX_SEED_LEN: usize = 32;
 
+// (writable mask, signer mask), indexed in each instruction's account order.
+const CREATE_ACCOUNT_META: (usize, usize) = (0b11, 0b11);
+const TRANSFER_META: (usize, usize) = (0b11, 0b01);
+const ASSIGN_META: (usize, usize) = (0b1, 0b1);
+const ALLOCATE_META: (usize, usize) = (0b1, 0b1);
+const CREATE_ACCOUNT_WITH_SEED_META: (usize, usize) = (0b011, 0b101);
+const ALLOCATE_WITH_SEED_META: (usize, usize) = (0b01, 0b10);
+const ASSIGN_WITH_SEED_META: (usize, usize) = (0b01, 0b10);
+const TRANSFER_WITH_SEED_META: (usize, usize) = (0b101, 0b010);
+const ADVANCE_NONCE_META: (usize, usize) = (0b001, 0b100);
+const WITHDRAW_NONCE_META: (usize, usize) = (0b00011, 0b10000);
+const INITIALIZE_NONCE_META: (usize, usize) = (0b001, 0);
+const AUTHORIZE_NONCE_META: (usize, usize) = (0b01, 0b10);
+const UPGRADE_NONCE_META: (usize, usize) = (0b1, 0);
+
 // ---------------------------------------------------------------------
 
 /// Builder for the system program's CreateAccount instruction.
@@ -62,7 +77,13 @@ impl CreateAccount<'_, '_> {
 
         let accounts = [CpiAccount::from(self.from), CpiAccount::from(self.to)];
 
-        invoke_system(&data, &accounts, signers)
+        invoke_system(
+            &data,
+            &accounts,
+            CREATE_ACCOUNT_META.0,
+            CREATE_ACCOUNT_META.1,
+            signers,
+        )
     }
 }
 
@@ -92,7 +113,7 @@ impl Transfer<'_> {
 
         let accounts = [CpiAccount::from(self.from), CpiAccount::from(self.to)];
 
-        invoke_system(&data, &accounts, signers)
+        invoke_system(&data, &accounts, TRANSFER_META.0, TRANSFER_META.1, signers)
     }
 }
 
@@ -121,7 +142,7 @@ impl Assign<'_, '_> {
 
         let accounts = [CpiAccount::from(self.account)];
 
-        invoke_system(&data, &accounts, signers)
+        invoke_system(&data, &accounts, ASSIGN_META.0, ASSIGN_META.1, signers)
     }
 }
 
@@ -150,7 +171,7 @@ impl Allocate<'_> {
 
         let accounts = [CpiAccount::from(self.account)];
 
-        invoke_system(&data, &accounts, signers)
+        invoke_system(&data, &accounts, ALLOCATE_META.0, ALLOCATE_META.1, signers)
     }
 }
 
@@ -209,7 +230,13 @@ impl CreateAccountWithSeed<'_, '_> {
             CpiAccount::from(self.to),
             CpiAccount::from(self.base),
         ];
-        invoke_system(&data[..n], &accounts, signers)
+        invoke_system(
+            &data[..n],
+            &accounts,
+            CREATE_ACCOUNT_WITH_SEED_META.0,
+            CREATE_ACCOUNT_WITH_SEED_META.1,
+            signers,
+        )
     }
 }
 
@@ -250,7 +277,13 @@ impl AllocateWithSeed<'_, '_> {
         n += 32;
 
         let accounts = [CpiAccount::from(self.account), CpiAccount::from(self.base)];
-        invoke_system(&data[..n], &accounts, signers)
+        invoke_system(
+            &data[..n],
+            &accounts,
+            ALLOCATE_WITH_SEED_META.0,
+            ALLOCATE_WITH_SEED_META.1,
+            signers,
+        )
     }
 }
 
@@ -288,7 +321,13 @@ impl AssignWithSeed<'_, '_> {
         n += 32;
 
         let accounts = [CpiAccount::from(self.account), CpiAccount::from(self.base)];
-        invoke_system(&data[..n], &accounts, signers)
+        invoke_system(
+            &data[..n],
+            &accounts,
+            ASSIGN_WITH_SEED_META.0,
+            ASSIGN_WITH_SEED_META.1,
+            signers,
+        )
     }
 }
 
@@ -335,7 +374,13 @@ impl TransferWithSeed<'_, '_> {
             CpiAccount::from(self.base),
             CpiAccount::from(self.to),
         ];
-        invoke_system(&data[..n], &accounts, signers)
+        invoke_system(
+            &data[..n],
+            &accounts,
+            TRANSFER_WITH_SEED_META.0,
+            TRANSFER_WITH_SEED_META.1,
+            signers,
+        )
     }
 }
 
@@ -368,7 +413,13 @@ impl AdvanceNonceAccount<'_> {
             CpiAccount::from(self.recent_blockhashes),
             CpiAccount::from(self.authority),
         ];
-        invoke_system(&data, &accounts, signers)
+        invoke_system(
+            &data,
+            &accounts,
+            ADVANCE_NONCE_META.0,
+            ADVANCE_NONCE_META.1,
+            signers,
+        )
     }
 }
 
@@ -405,7 +456,13 @@ impl WithdrawNonceAccount<'_> {
             CpiAccount::from(self.rent),
             CpiAccount::from(self.authority),
         ];
-        invoke_system(&data, &accounts, signers)
+        invoke_system(
+            &data,
+            &accounts,
+            WITHDRAW_NONCE_META.0,
+            WITHDRAW_NONCE_META.1,
+            signers,
+        )
     }
 }
 
@@ -437,7 +494,13 @@ impl InitializeNonceAccount<'_, '_> {
             CpiAccount::from(self.recent_blockhashes),
             CpiAccount::from(self.rent),
         ];
-        invoke_system(&data, &accounts, signers)
+        invoke_system(
+            &data,
+            &accounts,
+            INITIALIZE_NONCE_META.0,
+            INITIALIZE_NONCE_META.1,
+            signers,
+        )
     }
 }
 
@@ -467,7 +530,13 @@ impl AuthorizeNonceAccount<'_, '_> {
             CpiAccount::from(self.nonce),
             CpiAccount::from(self.authority),
         ];
-        invoke_system(&data, &accounts, signers)
+        invoke_system(
+            &data,
+            &accounts,
+            AUTHORIZE_NONCE_META.0,
+            AUTHORIZE_NONCE_META.1,
+            signers,
+        )
     }
 }
 
@@ -484,7 +553,13 @@ impl UpgradeNonceAccount<'_> {
     pub fn invoke(&self) -> ProgramResult {
         let data = [12u8, 0, 0, 0];
         let accounts = [CpiAccount::from(self.nonce)];
-        invoke_system(&data, &accounts, &[])
+        invoke_system(
+            &data,
+            &accounts,
+            UPGRADE_NONCE_META.0,
+            UPGRADE_NONCE_META.1,
+            &[],
+        )
     }
 }
 
@@ -492,44 +567,25 @@ impl UpgradeNonceAccount<'_> {
 
 /// Build an InstructionView<'_, '_, '_, '_> to the system program and invoke.
 #[inline]
-fn invoke_system(
+fn invoke_system<'a, const ACCOUNTS: usize>(
     data: &[u8],
-    accounts: &[CpiAccount<'_>],
+    accounts: &[CpiAccount<'a>; ACCOUNTS],
+    writable_mask: usize,
+    signer_mask: usize,
     signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
-    // Build an InstructionView<'_, '_, '_, '_> to the system program and invoke via C ABI.
-    #[cfg(target_os = "solana")]
-    {
-        let ix = crate::instruction::InstructionView {
-            program_id: &SYSTEM_PROGRAM_ID,
-            data,
-            accounts: &[], // Not used by the C ABI path
-        };
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let result = unsafe {
-            crate::syscalls::sol_invoke_signed_c(
-                &ix as *const _ as *const u8,
-                accounts.as_ptr() as *const u8,
-                accounts.len() as u64,
-                signers.as_ptr() as *const u8,
-                signers.len() as u64,
-            )
-        };
-        if result == 0 {
-            Ok(())
-        } else {
-            Err(crate::ProgramError::from(result))
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (data, accounts, signers);
-        Ok(())
-    }
+    crate::cpi::invoke_specialized_signed(
+        &SYSTEM_PROGRAM_ID,
+        data,
+        accounts,
+        writable_mask,
+        signer_mask,
+        signers,
+    )
 }
 
 /// Compatibility re-exports matching `pinocchio_system::instructions::*`,
-/// extended with Hopper's full WithSeed and durable-nonce coverage.
+/// extended with Hopper's WithSeed and durable-nonce coverage.
 pub mod instructions {
     pub use super::{
         AdvanceNonceAccount, Allocate, AllocateWithSeed, Assign, AssignWithSeed,
@@ -541,9 +597,8 @@ pub mod instructions {
 // ---------------------------------------------------------------------
 //  Typed durable-nonce account reader.
 //
-//  No other Solana framework ships a typed view over the durable-nonce
-//  account. The account is a versioned enum wrapping a state enum; the
-//  byte layout for the current (V1, Initialized) form is:
+//  The account is a versioned enum wrapping a state enum. The byte
+//  layout for the current (V1, Initialized) form is:
 //
 //    bytes 0..4    version tag  (u32 LE; 1 = Current)
 //    bytes 4..8    state tag    (u32 LE; 1 = Initialized)

@@ -1,9 +1,10 @@
 [package]
 name = "hopper-anchor"
 version = "0.3.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
-authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Anchor framework interoperability for Hopper. Read Anchor-created accounts, verify discriminators, overlay zero-copy types on Anchor account bodies."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"

@@ -1,7 +1,7 @@
 //! The bare identifier `stored` is reserved in `bump = ...` position (it
 //! selects the account's `#[bump]`-marked field). A context that ALSO
 //! declares an `#[instruction(stored: ...)]` argument previously captured
-//! that argument silently — the reservation must refuse the ambiguous
+//! that argument silently, the reservation must refuse the ambiguous
 //! combination loudly and point at the `bump = (stored)` spelling.
 
 use hopper::prelude::*;

@@ -28,6 +28,9 @@ pub fn collateralization_ratio_bps(
         .checked_mul(10_000)
         .ok_or(ProgramError::ArithmeticOverflow)?
         / (debt_value as u128);
+    if ratio > u64::MAX as u128 {
+        return Err(ProgramError::ArithmeticOverflow);
+    }
     Ok(ratio as u64)
 }
 
@@ -94,8 +97,11 @@ pub fn max_liquidation_amount(debt_value: u64, close_factor_bps: u64) -> Result<
 /// ```
 #[inline(always)]
 pub fn liquidation_seize_amount(repay_amount: u64, bonus_bps: u64) -> Result<u64, ProgramError> {
+    let multiplier = 10_000u64
+        .checked_add(bonus_bps)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
     let seized = (repay_amount as u128)
-        .checked_mul((10_000u64 + bonus_bps) as u128)
+        .checked_mul(multiplier as u128)
         .ok_or(ProgramError::ArithmeticOverflow)?
         / 10_000;
     if seized > u64::MAX as u128 {

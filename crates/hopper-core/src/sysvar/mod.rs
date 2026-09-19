@@ -72,7 +72,7 @@ pub struct Rent {
 /// endian `f64` (`1.0` on current Mainnet after SIMD-0194); we read it verbatim via
 /// `f64::from_le_bytes` rather than assuming a value, so a reprice is
 /// honored. (The prior reader demanded 25 bytes and then discarded the
-/// stored threshold entirely, hardcoding 2/1 — both are fixed here.)
+/// stored threshold entirely, hardcoding 2/1, both are fixed here.)
 #[inline]
 pub fn read_rent(data: &[u8]) -> Result<Rent, ProgramError> {
     if data.len() < 17 {
@@ -91,7 +91,7 @@ pub fn read_rent(data: &[u8]) -> Result<Rent, ProgramError> {
 
 impl Rent {
     /// Minimum lamports for rent exemption at `data_len`, computed from the
-    /// **live sysvar** values — the correct source for reaping-relevant
+    /// **live sysvar** values, the correct source for reaping-relevant
     /// decisions after a rent reprice.
     ///
     /// Follows Solana's own `solana_rent::Rent::minimum_balance`:
@@ -130,7 +130,7 @@ impl Rent {
 mod tests {
     use super::*;
 
-    /// Loader bound on serialized account data (10 MiB) — the largest
+    /// Loader bound on serialized account data (10 MiB), the largest
     /// `data_len` any rent calculation ever sees on-chain.
     const LOADER_MAX_DATA_LEN: usize = 10_485_760;
 
@@ -187,7 +187,7 @@ mod tests {
     }
 
     /// `minimum_balance` must byte-match Solana's runtime formula across a
-    /// range of sizes, repriced per-byte costs, and fractional thresholds —
+    /// range of sizes, repriced per-byte costs, and fractional thresholds,
     /// including a `lamports_per_byte_year` past f64's 53-bit exact-integer
     /// range, where an all-f64 formula would drift.
     #[test]
@@ -249,7 +249,7 @@ mod tests {
     }
 
     /// After an UPWARD threshold reprice the live sysvar demands strictly
-    /// more than the old hardcoded-2.0 path — the correctness gap this fix
+    /// more than the old hardcoded-2.0 path, the correctness gap this fix
     /// closes. A 2.0 reader would under-fund and leave the account reapable.
     #[test]
     fn upward_threshold_reprice_demands_more_than_hardcoded_two() {

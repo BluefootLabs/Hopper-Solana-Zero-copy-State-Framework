@@ -2,7 +2,7 @@
 //! `mut(seg, ...)` field to a whole-account write grant.
 //!
 //! A field declaring BOTH `realloc = ...` and `mut(seg, ...)` used to be
-//! classified `DeclaredRange::Whole` by the context macro — the `realloc`
+//! classified `DeclaredRange::Whole` by the context macro, the `realloc`
 //! attribute alone flipped it to whole-account and the segment scoping was
 //! silently discarded. A program that combined `strict_writes` with
 //! `realloc` therefore *believed* it had byte-range protection while
@@ -10,19 +10,19 @@
 //!
 //! The fix: when `realloc` is combined with explicit `mut(seg)` segments,
 //! the SEGMENT ranges govern the handler surface. `realloc` stays a
-//! bind-time lifecycle (it resizes the account and tops up rent lamports —
+//! bind-time lifecycle (it resizes the account and tops up rent lamports,
 //! both outside the `Context` byte-range gate, and the account stays in
 //! the implied lamport set because that scan keys off `realloc.is_some()`
 //! directly).
 //!
 //! Each assertion below is annotated with what it would have done BEFORE
 //! the fix:
-//!   (a) `WRITE_RANGES` is exactly the `fee_bps` segment — before the fix
+//!   (a) `WRITE_RANGES` is exactly the `fee_bps` segment, before the fix
 //!       this was a single whole-account range `[0, u32::MAX)`.
 //!   (b) a runtime write to an undeclared field on that account is refused
-//!       with `Custom(0xD000 | idx)` — before the fix the whole-account
+//!       with `Custom(0xD000 | idx)`, before the fix the whole-account
 //!       grant admitted every offset, so this write was ALLOWED.
-//!   (c) the `realloc` lifecycle still runs at bind — unaffected by the
+//!   (c) the `realloc` lifecycle still runs at bind, unaffected by the
 //!       fix (it never crossed the write-range gate).
 
 #![cfg(feature = "proc-macros")]
@@ -94,7 +94,7 @@ fn realloc_plus_segment_publishes_only_the_segment_range() {
 
     // Crucially NOT a whole-account grant: a tail-less field policy must
     // refuse CPI delegation and whole-account loads on the vault. Before
-    // the fix this assertion FAILED — the range was `[0, u32::MAX)`.
+    // the fix this assertion FAILED, the range was `[0, u32::MAX)`.
     let policy = WritePolicy::new(AdjustFee::WRITE_RANGES);
     assert!(
         !policy.allows_whole_account_write(0),
@@ -120,7 +120,7 @@ fn adjust_fee_handler<'info>(
         bound.realloc_vault()?;
     }
 
-    // (c) The account actually grew — the realloc ran to completion.
+    // (c) The account actually grew, the realloc ran to completion.
     let len_after = accounts[0].data_len();
     assert!(
         len_after > len_before,

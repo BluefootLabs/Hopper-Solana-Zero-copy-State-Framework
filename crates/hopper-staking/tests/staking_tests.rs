@@ -27,7 +27,7 @@ fn test_pending_rewards_basic() {
 #[test]
 fn test_pending_rewards_with_debt() {
     let rpt = 20_000_000_000_000u128;
-    let debt = update_reward_debt(100, 10_000_000_000_000);
+    let debt = update_reward_debt(100, 10_000_000_000_000).unwrap();
     // accumulated = 100 * 2e13 / 1e12 = 2000, debt_norm = 100*1e13 / 1e12 = 1000
     let pending = pending_rewards(100, rpt, debt).unwrap();
     assert_eq!(pending, 1000);
@@ -36,8 +36,18 @@ fn test_pending_rewards_with_debt() {
 #[test]
 fn test_update_reward_debt() {
     let rpt = 5_000_000_000_000u128;
-    let debt = update_reward_debt(200, rpt);
+    let debt = update_reward_debt(200, rpt).unwrap();
     assert_eq!(debt, 200 * rpt);
+}
+
+#[test]
+fn test_update_reward_debt_rejects_overflow() {
+    assert!(update_reward_debt(u64::MAX, u128::MAX).is_err());
+}
+
+#[test]
+fn test_pending_rewards_rejects_inconsistent_debt() {
+    assert!(pending_rewards(1, REWARD_PRECISION, 2 * REWARD_PRECISION).is_err());
 }
 
 #[test]
@@ -61,7 +71,7 @@ fn test_full_staking_cycle() {
 
     // User A stakes 100
     let user_a_staked = 100u64;
-    let user_a_debt = update_reward_debt(user_a_staked, rpt);
+    let user_a_debt = update_reward_debt(user_a_staked, rpt).unwrap();
 
     // 1000 rewards arrive, total staked = 100
     rpt = update_reward_per_token(rpt, 1000, 100).unwrap();
@@ -72,7 +82,7 @@ fn test_full_staking_cycle() {
 
     // User B stakes 100, total = 200
     let user_b_staked = 100u64;
-    let user_b_debt = update_reward_debt(user_b_staked, rpt);
+    let user_b_debt = update_reward_debt(user_b_staked, rpt).unwrap();
 
     // 1000 more rewards arrive, total staked = 200
     rpt = update_reward_per_token(rpt, 1000, 200).unwrap();

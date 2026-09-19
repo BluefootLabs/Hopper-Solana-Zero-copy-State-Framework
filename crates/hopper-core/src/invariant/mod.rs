@@ -16,7 +16,8 @@
 //!
 //! ## Design
 //!
-//! - Invariants are **zero-cost in release builds** by default (cfg-gated)
+//! - Generated debug invariant calls are cfg-gated out of release builds by
+//!   default
 //! - Can be forced on with the `invariants` feature for auditing
 //! - `check_invariant` is always available for explicit checks
 //! - `InvariantSet` collects multiple invariants for batch checking

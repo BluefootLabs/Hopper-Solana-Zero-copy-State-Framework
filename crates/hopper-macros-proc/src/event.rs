@@ -141,7 +141,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         // the log/CPI emitters. That is sound (and leak-free) only if the
         // layout is alignment-1 with no padding and every field is plain
         // bytes. All three obligations are discharged here at declaration
-        // time — a padded or pointer-carrying event fails to compile.
+        // time, a padded or pointer-carrying event fails to compile.
         const _: () = {
             assert!(::core::mem::align_of::<#ident>() == 1, #align_msg);
             assert!(
@@ -183,7 +183,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             /// first byte after the tag), matching what `as_bytes` /
             /// `CpiEvent::payload_bytes` emit and what `hopper tx explain`
             /// slices when it joins a decoded event payload against the
-            /// manifest's `events` table. Intents are `Custom` — events
+            /// manifest's `events` table. Intents are `Custom`, events
             /// carry no `#[role]` vocabulary (nothing is guessed).
             /// `hopper::program_manifest!` lists events as
             /// `MyEvent::EVENT_DESCRIPTOR`.

@@ -282,12 +282,12 @@ impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
         // account struct. The address and owner fields have the same binary
         // layout as hopper_runtime::Address (#[repr(transparent)] over [u8; 32]).
         Self {
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             address: unsafe { core::ptr::addr_of!((*raw).address) as *const Address },
             lamports: unsafe { core::ptr::addr_of!((*raw).lamports) },
             data_len: view.data_len() as u64,
             data: view.data_ptr_unchecked(),
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             owner: unsafe { core::ptr::addr_of!((*raw).owner) as *const Address },
             rent_epoch: 0,
             is_signer: view.is_signer(),
@@ -336,7 +336,7 @@ impl core::ops::Deref for Seed<'_> {
 
     #[inline(always)]
     fn deref(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
     }
 }

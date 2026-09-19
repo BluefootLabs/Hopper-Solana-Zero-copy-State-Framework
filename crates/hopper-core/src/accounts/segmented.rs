@@ -36,7 +36,7 @@ impl<'a> BorrowedSegmentRegistry<'a> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + index * SEGMENT_ENTRY_SIZE;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &*(self.data.as_bytes_ptr().add(offset) as *const SegmentEntry) })
     }
 

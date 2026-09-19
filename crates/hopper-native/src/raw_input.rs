@@ -21,16 +21,15 @@ const BPF_ALIGN_OF_U128: usize = 8;
 /// lower index). A forward-pointing marker therefore cannot be the result
 /// of a well-formed invocation: it either indicates a loader bug or
 /// adversarial input attempting to synthesize an aliasing `AccountView`.
-/// Pre-audit the parser silently fell back to account zero (or null for
+/// The earlier parser silently fell back to account zero (or null for
 /// slot 0), which produced either a null-pointer `AccountView` or an
-/// aliasing view to an unrelated account. The Hopper Safety Audit flagged
-/// this as the most urgent must-fix. We now trap immediately via
+/// aliasing view to an unrelated account. We now trap immediately via
 /// `sol_panic_` (on Solana) so the transaction fails at parse time.
 #[inline(never)]
 #[cold]
 pub(crate) fn malformed_duplicate_marker(marker: u8, slot: usize) -> ! {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         // Keep the message short and on-chain-cheap. The loader log
         // attaches the program id automatically.
@@ -74,10 +73,10 @@ pub struct RawInstructionFrame {
 
 /// Advance a record-start offset past one canonical account record.
 ///
-/// Folds the entire per-account stride — 88-byte `RuntimeAccount` header,
+/// Folds the entire per-account stride, 88-byte `RuntimeAccount` header,
 /// `data_len` bytes of account data, the `MAX_PERMITTED_DATA_INCREASE`
 /// realloc reserve, the u128 alignment padding, and the 8-byte rent-epoch
-/// tail — into one integer expression: adds plus one `and`-mask. This is
+/// tail, into one integer expression: adds plus one `and`-mask. This is
 /// the Pinocchio-shape stride and compiles to straight-line ALU ops,
 /// unlike `<*mut u8>::align_offset`, which the compiler cannot fold when
 /// the pointer's base alignment is opaque (~6 extra instructions per
@@ -87,7 +86,7 @@ pub struct RawInstructionFrame {
 /// address: the SVM loader serializes the input region at
 /// `MM_INPUT_START` (`0x4_0000_0000`; agave's `solana-sbpf`
 /// `ebpf::MM_INPUT_START`), so the buffer base is 8-aligned
-/// (`BPF_ALIGN_OF_U128`) and `offset % 8 == (base + offset) % 8` — the
+/// (`BPF_ALIGN_OF_U128`) and `offset % 8 == (base + offset) % 8`, the
 /// two formulations land on the same byte for every `data_len`. Because
 /// `RuntimeAccount::SIZE` (88), `MAX_PERMITTED_DATA_INCREASE` (10240),
 /// the rent-epoch tail (8), and the duplicate stride (8) are all
@@ -115,8 +114,8 @@ const fn next_record_offset(offset: usize, data_len: usize) -> usize {
 /// This is a single fused walk over the account region: one loop both
 /// materializes `AccountView`s (up to `MAX`) and carries the cursor to the
 /// end of the region, where the instruction data and program id live.
-/// Accounts beyond `MAX` are skip-only — advanced past without being
-/// materialized — so the instruction tail is still found. The pre-fusion
+/// Accounts beyond `MAX` are skip-only, advanced past without being
+/// materialized; so the instruction tail is still found. The pre-fusion
 /// shape walked the region twice (`scan_instruction_frame` to locate the
 /// tail, then a second offset-based materialize loop), costing ~30
 /// instructions per account; the fused walk is ~8.
@@ -135,8 +134,8 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
     let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
     // Duplicate markers are a single byte with 0xFF reserved for canonical
     // records, so marker values 0x00..=0xFE can address 255 slots (indices
-    // 0..=254). We clamp materialization at 254 — one below that encoding
-    // limit — purely to preserve the pre-fusion behavior
+    // 0..=254). We clamp materialization at 254, one below that encoding
+    // limit, purely to preserve the pre-fusion behavior
     // (`scan_instruction_frame` capped `account_count` at 254); slot 254,
     // though addressable by marker 0xFE, is handled skip-only in the tail.
     // Then clamp to the caller's capacity MAX.
@@ -161,11 +160,17 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
             // the full 88-byte header (plus data) follows in bounds.
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
             // SAFETY: `slot < count <= MAX`, and `raw` points at a valid
-            // canonical account record in the loader input.
+            // canonical account record in the loader input. Capture the
+            // original length before the view can escape or be passed to CPI.
+            let view = unsafe { AccountView::new_unchecked(raw) };
+            // SAFETY: `view` wraps the canonical loader record just decoded
+            // and has not escaped yet, which is the contract of
+            // `initialize_original_data_len`.
+            unsafe { view.initialize_original_data_len() };
+            // SAFETY: `slot < count <= MAX`, the length of `accounts`.
             unsafe {
-                *accounts.get_unchecked_mut(slot) =
-                    MaybeUninit::new(AccountView::new_unchecked(raw))
-            };
+                *accounts.get_unchecked_mut(slot) = MaybeUninit::new(view);
+            }
 
             // SAFETY: `raw` points to the RuntimeAccount header just decoded
             // from the current input slot; `data_len` is 8-aligned within it
@@ -279,7 +284,7 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     // Same 254 materialization clamp as `deserialize_accounts`: this fast
     // path is the r2 arm of ONE entrypoint whose null-check fallback is the
     // scanning walk, so the two must report an identical `count` for the
-    // same input — with `MAX >= 255` an unclamped min(MAX) would surface
+    // same input, with `MAX >= 255` an unclamped min(MAX) would surface
     // slot 254 here while the fallback drops it, making the same binary's
     // observable accounts.len() depend on which arm ran.
     let addressable = if num_accounts > 254 {
@@ -292,17 +297,23 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 
     let mut slot = 0usize;
     while slot < count {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
             // SAFETY: `offset` is on a Solana account record boundary produced
             // by the loader input format.
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `raw` is the canonical loader record for this slot.
+            // Capture the original length before exposing the view to CPI.
+            let view = unsafe { AccountView::new_unchecked(raw) };
+            // SAFETY: `view` wraps the canonical loader record just decoded
+            // and has not escaped yet, which is the contract of
+            // `initialize_original_data_len`.
+            unsafe { view.initialize_original_data_len() };
+            // SAFETY: `slot < count <= MAX`, the length of `accounts`.
             unsafe {
-                *accounts.get_unchecked_mut(slot) =
-                    MaybeUninit::new(AccountView::new_unchecked(raw))
-            };
+                *accounts.get_unchecked_mut(slot) = MaybeUninit::new(view);
+            }
 
             // SAFETY: `raw` points to the RuntimeAccount header just decoded
             // from the current input slot.
@@ -317,7 +328,7 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
             if duplicate_of >= slot {
                 malformed_duplicate_marker(marker, slot);
             }
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let raw = unsafe {
                 accounts
                     .get_unchecked(duplicate_of)
@@ -347,7 +358,7 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 // SIMD-0449 has the runtime append a `[u64; num_accounts]` array of
 // account-record pointers to the input, after the instruction tail,
 // "regardless of whether it is read or not" and fully backwards
-// compatible — programs that keep scanning simply keep paying O(n).
+// compatible, programs that keep scanning simply keep paying O(n).
 // Each entry is the address of a CANONICAL `RuntimeAccount` record,
 // pre-deduplicated by the runtime (a duplicate slot carries the same
 // pointer value as the slot it duplicates), so consuming it needs no
@@ -355,7 +366,7 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 //
 // Hopper is uniquely positioned to consume it: `AccountView` is one
 // raw `*mut RuntimeAccount` (const-asserted below), so the SIMD's
-// `[u64]` array IS a valid `[AccountView]` — resolution becomes a
+// `[u64]` array IS a valid `[AccountView]`, resolution becomes a
 // single `from_raw_parts`, where an SDK `AccountInfo`
 // (`Rc<RefCell<…>>`) must still loop to construct each element.
 //
@@ -363,24 +374,24 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 // instruction-data pointer): the instruction tail is
 // `[ix_data][program_id: 32]`, and the table starts at the next
 // 8-aligned byte after it. The account COUNT stays where it always
-// was — the input buffer's first u64.
+// was, the input buffer's first u64.
 //
 // The runtime feature gate is `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK`
 // (agave `direct_account_pointers_in_program_input`; NOTE the 2026-04-15
-// rekey in agave PR #11934 — the original `ptrXWLk…` gate is dead, and the
+// rekey in agave PR #11934, the original `ptrXWLk…` gate is dead, and the
 // same PR pinned each table entry to the account RECORD start, i.e. the
 // dup-marker/borrow byte where `RuntimeAccount` begins, which is exactly
 // what the overlay below casts). Activated on testnet and devnet; pending
-// mainnet-beta (min agave v4.1.0-beta.0) — check `hopper feature-gate`.
+// mainnet-beta (min agave v4.1.0-beta.0), check `hopper feature-gate`.
 // These functions are compiled unconditionally (they are inert unless
 // called); the `simd-0449` cargo feature only flips
 // [`SIMD_0449_TABLE_ENABLED`], which `hopper_fast_entrypoint!` consults to
-// select the table path — a `const`, so the untaken branch folds away
+// select the table path, a `const`, so the untaken branch folds away
 // entirely.
 
 /// Whether this build trusts the SIMD-0449 account-pointer table
 /// (`feature = "simd-0449"`). Enabling it before the SIMD activates on
-/// the target cluster reads garbage — ship it only alongside the
+/// the target cluster reads garbage, ship it only alongside the
 /// cluster gate, exactly like `simd-0321`.
 pub const SIMD_0449_TABLE_ENABLED: bool = cfg!(feature = "simd-0449");
 
@@ -439,8 +450,10 @@ fn checked_end(offset: usize, size: usize, input_len: usize) -> Result<usize, Di
 ///
 /// The function is allocation-free and therefore usable by alternate SVM
 /// harnesses as well as ordinary host tests. It is intentionally not selected
-/// by the on-chain entrypoint: repeating the O(n) walk would erase SIMD-0449's
-/// constant-entrypoint benefit.
+/// by the on-chain entrypoint: its full O(n) legacy-layout validation would
+/// discard SIMD-0449's O(1) pointer-resolution benefit. The production table
+/// path still performs the smaller per-account write required to capture safe
+/// resize baselines.
 ///
 /// # Safety
 ///
@@ -574,8 +587,11 @@ pub unsafe fn deserialize_accounts_0449_checked<'info, const MAX: usize>(
         let pointer = base + canonical_offsets[slot];
         // SAFETY: this pointer was derived from a bounds-checked canonical
         // header and its corresponding table entry matched exactly.
-        accounts[slot] =
-            MaybeUninit::new(unsafe { AccountView::new_unchecked(pointer as *mut RuntimeAccount) });
+        let view = unsafe { AccountView::new_unchecked(pointer as *mut RuntimeAccount) };
+        // SAFETY: full validation above proved this is a canonical loader
+        // record and no materialized view has escaped yet.
+        unsafe { view.initialize_original_data_len() };
+        accounts[slot] = MaybeUninit::new(view);
         slot += 1;
     }
 
@@ -591,9 +607,14 @@ const _: () = assert!(
     "AccountView must stay a single 8-byte pointer for the SIMD-0449 table cast"
 );
 
-/// SIMD-0449 O(1) account resolution: overlay the runtime's appended
-/// account-pointer table as a borrowed `[AccountView]` — one bounds
-/// computation and one `from_raw_parts`, regardless of account count.
+/// SIMD-0449 direct account resolution: overlay the runtime's appended
+/// account-pointer table as a borrowed `[AccountView]`, one bounds
+/// computation and one `from_raw_parts`, then capture each account's
+/// invocation-wide resize baseline.
+///
+/// Pointer resolution itself is O(1). Safe account resizing requires one
+/// tiny write per account because ABIv1 serializes zero padding in the
+/// original-length slot; this matches the scanning entrypoint.
 ///
 /// # Safety
 ///
@@ -601,7 +622,7 @@ const _: () = assert!(
 /// * `instruction_data` must be the loader-serialized instruction data
 ///   for this invocation (as delivered via the SIMD-0321 `r2`
 ///   register), with the 32-byte program id trailing it.
-/// * The SIMD-0449 table MUST actually be present — i.e. the SIMD is
+/// * The SIMD-0449 table MUST actually be present; i.e. the SIMD is
 ///   active on the executing cluster. Calling this where the runtime
 ///   did not serialize the table reads unrelated bytes past the
 ///   program id.
@@ -621,11 +642,19 @@ pub unsafe fn deserialize_accounts_0449<'info>(
     // `num_accounts` pre-deduplicated canonical record pointers at
     // `table`; the layout const-assert above proves `AccountView` is
     // pointer-shaped, and the buffer outlives `'info`.
-    unsafe { core::slice::from_raw_parts(table, num_accounts) }
+    let views = unsafe { core::slice::from_raw_parts(table, num_accounts) };
+    let mut slot = 0usize;
+    while slot < num_accounts {
+        // SAFETY: every table entry is a loader-provided canonical record
+        // pointer and initialization occurs before the returned slice escapes.
+        unsafe { views.get_unchecked(slot).initialize_original_data_len() };
+        slot += 1;
+    }
+    views
 }
 
 /// Adapter matching the `deserialize_accounts_fast` shape: copy up to
-/// `MAX` table entries into the caller's array (8 bytes per account —
+/// `MAX` table entries into the caller's array (8 bytes per account,
 /// a pointer copy, not a record parse) so the existing entrypoint
 /// plumbing consumes the table without changing its account storage.
 ///
@@ -682,16 +711,16 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
 
     let mut slot = 0usize;
     while slot < num_accounts {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *scan };
         if marker == u8::MAX {
             let raw = scan as *const RuntimeAccount;
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let data_len = unsafe { (*raw).data_len as usize };
             let mut step = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
             step += unsafe { scan.add(step).align_offset(BPF_ALIGN_OF_U128) };
             step += 8;
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             scan = unsafe { scan.add(step) };
         } else {
             let duplicate_of = marker as usize;
@@ -712,11 +741,11 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
     let data_len = unsafe { core::ptr::read_unaligned(scan as *const u64) as usize };
     scan = unsafe { scan.add(8) };
     let instruction_data = unsafe { core::slice::from_raw_parts(scan as *const u8, data_len) };
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     scan = unsafe { scan.add(data_len) };
 
     let program_id_ptr = scan as *const [u8; 32];
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let program_id = Address::new_from_array(unsafe { *program_id_ptr });
 
     RawInstructionFrame {
@@ -929,7 +958,7 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
                 .map_err(|_| FrameError::UnexpectedEof { needed: 8, at: pos })?;
         } else {
             // Duplicate marker: must refer to a strictly earlier slot.
-            // This is the Hopper Safety Audit Must-Fix #1 invariant.
+            // Duplicate markers may only refer to a previously parsed slot.
             let duplicate_of = marker as usize;
             if duplicate_of >= slot {
                 return Err(FrameError::MalformedDuplicateMarker { slot, marker });
@@ -1126,7 +1155,7 @@ mod fused_walk_tests {
                     buf.extend_from_slice(&vec![0u8; MAX_PERMITTED_DATA_INCREASE]);
                     // Pad to the next 8-byte boundary. The base is 8-aligned,
                     // so padding the relative length equals padding the
-                    // absolute address — this is the loader's ground truth.
+                    // absolute address; this is the loader's ground truth.
                     while !buf.len().is_multiple_of(BPF_ALIGN_OF_U128) {
                         buf.push(0);
                     }
@@ -1365,7 +1394,7 @@ mod fused_walk_tests {
     #[test]
     #[should_panic(expected = "malformed duplicate marker")]
     fn forward_duplicate_marker_traps_in_skip_only_tail() {
-        // MAX = 1, so slot 1 is skip-only — the trap must still fire there.
+        // MAX = 1, so slot 1 is skip-only, the trap must still fire there.
         let slots = [fresh(1, 1), Slot::Dup(5)];
         let mut frame = build_frame(&slots, &[], PID);
         let mut views = uninit_views::<1>();
@@ -1443,13 +1472,13 @@ mod fused_walk_tests {
 // Three harness families, run by `scripts/kani-native-rawinput.{sh,ps1}`
 // (CI job `kani-native-rawinput-proofs`):
 //
-// (a) **Stride lemma** — `next_record_offset` equals the checked
+// (a) **Stride lemma**, `next_record_offset` equals the checked
 //     `align_offset`-style formula for *every* offset reachable inside
 //     the SBF input region and every `data_len` up to the loader's
 //     10 MiB bound, never overflows, always lands 8-aligned, and always
 //     makes progress. Pure integer proof over the full bounded range.
 //
-// (b) **Bounded differential** — for frames with N <= 3 accounts,
+// (b) **Bounded differential**, for frames with N <= 3 accounts,
 //     symbolic marker bytes and bounded symbolic `data_len` fields
 //     (record bodies stay concrete zero to keep CBMC tractable), the
 //     fused walk's materialized slot pointers, count, instruction-data
@@ -1458,14 +1487,14 @@ mod fused_walk_tests {
 //     *asserted* Ok, never assumed, so a builder/stride bug fails the
 //     proof instead of vacuously pruning paths. Because the buffers are
 //     real fixed-size allocations, Kani also model-checks every memory
-//     access inside the unsafe walk on these paths — against the
+//     access inside the unsafe walk on these paths, against the
 //     *allocation* bound: these accept-side buffers retain worst-case
 //     padding slack, so it is the assert-based offset equalities (not
 //     the allocation edge) that pin the walk's accesses to the oracle's
 //     frame layout; the byte-exact frame-boundary memory check lives in
 //     family (c).
 //
-// (c) **Trap-before-OOB** — `#[kani::should_panic]` harnesses over
+// (c) **Trap-before-OOB**, `#[kani::should_panic]` harnesses over
 //     malformed (self/forward) duplicate markers, with backing buffers
 //     sized *exactly* to the encoded frame (no worst-case padding), so
 //     any access even one byte past the legitimate frame is a CBMC
@@ -1480,7 +1509,7 @@ mod fused_walk_tests {
 //     slot-zero sub-harnesses are deterministic (single path), making
 //     their trap verdicts universal for those values. Fused-walk
 //     universal rejection follows only from the combination of (a),
-//     (b), and a structural argument — see the family (c) block comment
+//     (b), and a structural argument; see the family (c) block comment
 //     for the exact semantics and the residual gap.
 #[cfg(kani)]
 mod kani_proofs {
@@ -1526,7 +1555,7 @@ mod kani_proofs {
     /// One 8-byte word of [`PID_SENTINEL`]. The program id is written and
     /// compared a word at a time (see `write_frame` /
     /// `check_fused_walk_against_oracle`) so the harness never contains a
-    /// 32-byte `memcpy`/`memcmp` loop — such a loop would force the whole
+    /// 32-byte `memcpy`/`memcmp` loop, such a loop would force the whole
     /// harness unwind past 32 and blow up the SAT formula. Every real loop
     /// then fits in `unwind(10)`, matching the trap/stride harnesses.
     const PID_WORD: [u8; 8] = [0xC4; 8];
@@ -1767,7 +1796,7 @@ mod kani_proofs {
     #[kani::proof]
     // 10 suffices: the program id is written and compared a word at a time
     // (see `PID_WORD`), so the harness contains no 32-byte memcpy/memcmp
-    // loop — every real loop (skip-tail, materialize, 4-word compares) is
+    // loop, every real loop (skip-tail, materialize, 4-word compares) is
     // <= 9 iterations. A naive 32-byte slice `==` here previously forced
     // the bound past 32 and blew up the SAT formula.
     #[kani::unwind(10)]
@@ -1893,12 +1922,12 @@ mod kani_proofs {
     // Proof semantics, stated precisely. `#[kani::should_panic]` is
     // EXISTENTIAL on the panic side: a harness verifies iff
     //   (1) at least one path in the assumed input space panics, and
-    //   (2) NO path exhibits a non-panic property failure — an
+    //   (2) NO path exhibits a non-panic property failure, an
     //       out-of-bounds read/write, an invalid `accounts[]` write, or
     //       an arithmetic overflow is a verification FAILURE, because
     //       those are not panics.
     // Clause (2) holds on EVERY path; clause (1) alone does NOT prove
-    // that every malformed marker traps — a hypothetical path that
+    // that every malformed marker traps, a hypothetical path that
     // silently *returned* for some malformed marker would still verify.
     // Universal statements are machine-checked only where noted:
     //   * `oracle_rejects_exactly_the_malformed_markers` is assert-based
@@ -1917,7 +1946,7 @@ mod kani_proofs {
     //     `duplicate_of < slot`, which the harness assumptions exclude.
     //     That final step is a source-level argument, not a CBMC check.
     //
-    // Exact allocation — the mechanism every trap harness below uses
+    // Exact allocation, the mechanism every trap harness below uses
     // (this is what makes clause (2) sharp): each backing buffer is
     // sized TO THE BYTE of the encoded malformed frame, with no
     // worst-case padding, so a read or write even one byte past the
@@ -1927,15 +1956,15 @@ mod kani_proofs {
     // needs one 8-byte padding step fewer than `dl` in `1..=MAX_DL`,
     // which all encode to the same length (compile-time-checked below).
     // Each two-slot trap harness is therefore split into exactly two
-    // size classes — `_dl0` (concrete `dl = 0`) and `_dl_nonzero`
-    // (symbolic `dl` in `1..=MAX_DL`) — each with an exactly-sized
+    // size classes, `_dl0` (concrete `dl = 0`) and `_dl_nonzero`
+    // (symbolic `dl` in `1..=MAX_DL`), each with an exactly-sized
     // buffer; together they cover the same `0..=MAX_DL` space the
     // padded originals did. The slot-zero frame has no `data_len` at
     // all, so a single exact size covers it.
     //
     // The `trap_frame_layout_is_exact_*` companions prove, assert-based
     // over the SAME symbolic space, that the builder fills each buffer
-    // exactly (`end == LEN`) and never panics while doing so — so a
+    // exactly (`end == LEN`) and never panics while doing so; so a
     // `should_panic` trap harness cannot pass vacuously via a builder
     // panic or leave hidden slack.
     //
@@ -2045,7 +2074,7 @@ mod kani_proofs {
         // SAFETY: 8-aligned loader-layout buffer sized exactly to the
         // encoded frame (`trap_frame_layout_is_exact_*`); the malformed
         // marker is the condition under test and must trap before any
-        // access past the frame end — Kani checks every access on every
+        // access past the frame end, Kani checks every access on every
         // path of this harness against that exact allocation boundary.
         let _ = unsafe { deserialize_accounts::<MAX>(backing.0.as_mut_ptr(), &mut views) };
     }
@@ -2065,7 +2094,7 @@ mod kani_proofs {
     }
 
     // MAX = 1, so the malformed slot 1 is handled by the skip-only tail
-    // loop — the trap must fire there exactly as in the materialize
+    // loop, the trap must fire there exactly as in the materialize
     // range.
 
     #[kani::proof]
@@ -2094,7 +2123,7 @@ mod kani_proofs {
         // SAFETY: 8-aligned loader-layout buffer sized exactly to the
         // encoded frame, with out-of-band tail per the fast-path
         // contract; the malformed marker is the condition under test and
-        // must trap before any access past the frame end — Kani checks
+        // must trap before any access past the frame end, Kani checks
         // every access on every path against that exact allocation
         // boundary.
         let _ = unsafe {
@@ -2127,7 +2156,7 @@ mod kani_proofs {
         let (mut backing, _end) = build_two_slot_trap_frame::<LEN>(dl_min, dl_max);
         // SAFETY: 8-aligned loader-layout buffer sized exactly to the
         // encoded frame; the malformed marker is the condition under test
-        // and must trap before any access past the frame end — Kani
+        // and must trap before any access past the frame end, Kani
         // checks every access on every path against that exact
         // allocation boundary.
         let _ = unsafe { scan_instruction_frame(backing.0.as_mut_ptr()) };
@@ -2159,7 +2188,7 @@ mod kani_proofs {
         // SAFETY: 8-aligned loader-layout buffer sized exactly to the
         // encoded frame (`trap_frame_layout_is_exact_slot_zero`); the
         // malformed marker is the condition under test and must trap
-        // before any access past the frame end — Kani checks every
+        // before any access past the frame end, Kani checks every
         // access on every path against that exact allocation boundary.
         let _ = unsafe { deserialize_accounts::<4>(backing.0.as_mut_ptr(), &mut views) };
     }
@@ -2176,7 +2205,7 @@ mod kani_proofs {
     }
 
     // Per-concrete-value slot-zero sub-harnesses: with every input byte
-    // concrete, execution is deterministic — a single path — so each
+    // concrete, execution is deterministic, a single path; so each
     // `should_panic` verdict below is UNIVERSAL for that marker value
     // (the walk provably traps on it), not merely existential.
 
@@ -2206,12 +2235,12 @@ mod kani_proofs {
     /// assert-based (no `should_panic`), so over *fully* symbolic
     /// markers for a two-slot frame it proves the safe parser accepts
     /// iff both markers are well-formed, and every rejection is
-    /// precisely `MalformedDuplicateMarker` — on every path. Combined
+    /// precisely `MalformedDuplicateMarker`, on every path. Combined
     /// with family (b) (well-formed => both parsers accept, outputs
     /// equal) and the family (c) trap harnesses (existential trap
     /// reachability + no memory-safety failure on any assumed path,
-    /// against exact-size buffers), this supports — but note, per the
-    /// family (c) comment, does not single-handedly machine-check —
+    /// against exact-size buffers), this supports; but note, per the
+    /// family (c) comment, does not single-handedly machine-check,
     /// "both reject exactly the same inputs" for the marker dimension.
     #[kani::proof]
     #[kani::unwind(10)]

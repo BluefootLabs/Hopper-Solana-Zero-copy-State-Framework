@@ -1,5 +1,5 @@
 //! Composite v2: the container's options compose across the nesting
-//! boundary — end to end, through the hopper-svm host harness.
+//! boundary, end to end, through the hopper-svm host harness.
 //!
 //! Composite v1 refused `strict_writes` / `lamports(...)` / `event_cpi` /
 //! `emit_touch_map` / `auto_lifecycle` on any context embedding a
@@ -7,7 +7,7 @@
 //! three flagship combinations behave, not just expand:
 //!
 //! 1. **strict_writes**: the outer's authority set is compile-time
-//!    COMPOSED — the inner context's declared `mut(balance)` segment is
+//!    COMPOSED, the inner context's declared `mut(balance)` segment is
 //!    spliced at its FLATTENED account index, so the inner lease is
 //!    enforceable from the outer gate exactly as it would be standalone:
 //!    the declared segment write succeeds, an out-of-range write through
@@ -21,7 +21,7 @@
 //! 3. **emit_touch_map**: the const is advertised, the dispatcher's
 //!    Ok-path emit runs against a composite container, and the touch
 //!    map's records land at the correct FLATTENED slots (record-level
-//!    assertions run under the `touch-map` feature — enabled in the
+//!    assertions run under the `touch-map` feature, enabled in the
 //!    workspace test lane via hopper-smoke's feature unification).
 //!
 //! The INNER context stays a plain validation context throughout: the
@@ -51,7 +51,7 @@ pub struct Vault {
 // ── strict_writes across the boundary ──────────────────────────────
 
 /// The INNER (nested) context: a plain validation context, embeddable.
-/// Its vault is writable ONLY in the `balance` segment — the exact
+/// Its vault is writable ONLY in the `balance` segment, the exact
 /// structure the outer's composed policy must preserve.
 #[derive(hopper::Accounts)]
 pub struct VaultCheck<'info> {
@@ -109,7 +109,7 @@ fn balance_of(fixture: &AccountFixture) -> u64 {
 /// Declared == published == composed: the inner's declared const carries
 /// its LOCAL structure; the outer's authority set carries the SAME
 /// ranges rebased to the flattened indices, plus the outer's own leaf
-/// grant — and the schema publishes the identical slice.
+/// grant, and the schema publishes the identical slice.
 #[test]
 fn composed_write_ranges_splice_the_inner_segment_rebased() {
     // The inner context publishes its declared structure at LOCAL
@@ -207,7 +207,7 @@ fn strict_handler_entry<'info>(
 }
 
 /// Behavioral proof: the composed policy enforces the inner's declared
-/// structure from the outer gate — declared segment write lands, the
+/// structure from the outer gate, declared segment write lands, the
 /// undeclared sibling range is refused with `Custom(0xD000 | 2)`.
 #[test]
 fn inner_segment_lease_enforceable_from_the_outer_gate() {
@@ -274,7 +274,7 @@ pub struct OperateEvents {
     pub check: BalanceCheck,
 }
 
-/// Control: same composite shape without the option — pre-feature
+/// Control: same composite shape without the option, pre-feature
 /// account shape, no emit surface.
 #[hopper::context]
 pub struct OperatePlain {
@@ -309,7 +309,7 @@ const AUTHORITY_ADDR: [u8; 32] = [7u8; 32];
 
 /// The event-authority fixture: off-chain there is no sha256 syscall to
 /// pin the PDA address, and the host CPI emulation checks the signer
-/// dimension — same convention as the event_cpi dispatch suite.
+/// dimension, same convention as the event_cpi dispatch suite.
 fn authority_fixture(signer: bool) -> AccountFixture {
     let fixture = AccountFixture::new(
         Address::new_from_array(AUTHORITY_ADDR),
@@ -490,7 +490,7 @@ mod composite_touch_prog {
     use super::*;
 
     /// Ok path: touch the inner segment (flattened slot 2) and the
-    /// trailing whole account (slot 3), then succeed — the dispatcher
+    /// trailing whole account (slot 3), then succeed, the dispatcher
     /// emits the touch map after this returns.
     #[instruction(0)]
     fn trace_ok(ctx: Context<OperateTraced>) -> ProgramResult {
@@ -503,7 +503,7 @@ mod composite_touch_prog {
         Ok(())
     }
 
-    /// Err path: same touches, then fail — the dispatcher must emit
+    /// Err path: same touches, then fail, the dispatcher must emit
     /// nothing (Ok-only contract, unchanged by composition).
     #[instruction(1)]
     fn trace_fail(ctx: Context<OperateTraced>) -> ProgramResult {

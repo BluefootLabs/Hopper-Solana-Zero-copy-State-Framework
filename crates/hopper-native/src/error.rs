@@ -9,8 +9,8 @@
 /// size: variant `k` (for the fieldless builtins, `k = 1..=24`) encodes to
 /// the runtime code `(k + 1) << 32`, so [`From<ProgramError> for u64`] is
 /// one tag read + one shift instead of a 25-arm match. The DWARF size
-/// attribution measured that match at 880 bytes — 13% of the parity
-/// vault's `.text` — because the error lowering inlines into every
+/// attribution measured that match at 880 bytes, 13% of the parity
+/// vault's `.text`, because the error lowering inlines into every
 /// entrypoint. Keep new variants in this scheme: append with the next
 /// sequential discriminant and the conversion stays arm-free (the
 /// exhaustive `u64_conversion_matches_reference_for_every_variant` test
@@ -65,7 +65,7 @@ impl From<ProgramError> for u64 {
                 let tag = unsafe { *(&builtin as *const ProgramError as *const u64) };
                 // Variant k encodes to (k + 1) << 32: InvalidArgument
                 // (tag 1) -> 2 << 32, ..., IncorrectAuthority (tag 25)
-                // -> 26 << 32 — exactly the old per-arm to_builtin(k-1)
+                // -> 26 << 32, exactly the old per-arm to_builtin(k-1)
                 // table, without the 25-arm match in every entrypoint.
                 (tag + 1) << BUILTIN_BIT_SHIFT
             }
@@ -178,8 +178,8 @@ mod tests {
     /// Every variant's u64 code, pinned against the pre-tag-read
     /// reference table (the old 25-arm match, reproduced here verbatim).
     /// The match is EXHAUSTIVE on purpose: adding a variant without
-    /// updating this test — and without giving it the next sequential
-    /// discriminant — must not compile.
+    /// updating this test, and without giving it the next sequential
+    /// discriminant, must not compile.
     #[test]
     fn u64_conversion_matches_reference_for_every_variant() {
         fn reference(err: &ProgramError) -> u64 {

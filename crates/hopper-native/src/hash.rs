@@ -52,7 +52,7 @@ pub fn sha256(inputs: &[&[u8]]) -> Result<Sha256Hash, ProgramError> {
             i += 1;
         }
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_sha256(
                 params.as_ptr() as *const u8,
@@ -104,7 +104,7 @@ pub fn keccak256(inputs: &[&[u8]]) -> Result<Keccak256Hash, ProgramError> {
             i += 1;
         }
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_keccak256(
                 params.as_ptr() as *const u8,

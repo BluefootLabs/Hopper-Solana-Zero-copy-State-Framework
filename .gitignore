@@ -52,20 +52,6 @@ $RECYCLE.BIN/
 !.env.example
 /out/
 
-# Local tooling state
-.claude/
-CLAUDE.md
-CLAUDE.local.md
-.claudeignore
-.codex/
-.openai/
-.cursor/
-.cursorrules
-.cursorignore
-.windsurf/
-.continue/
-.aider*
-
 # Local notes
 planning/
 docs/_local/

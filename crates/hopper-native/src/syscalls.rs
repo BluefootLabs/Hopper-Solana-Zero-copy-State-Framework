@@ -5,7 +5,7 @@
 //!
 //! # Dual-mode dispatch (SIMD-0178 readiness)
 //!
-//! Every declaration goes through [`define_syscall!`], which emits one of two
+//! Every declaration goes through `define_syscall!`, which emits one of two
 //! equivalent forms depending on the active build:
 //!
 //! * **Default (relocation).** With neither the `static-syscalls` cargo feature
@@ -145,8 +145,8 @@ macro_rules! define_syscall {
             // pointer whose signature mirrors the relocation declaration this
             // arm replaces, then calling it, is the loader's defined static-call
             // ABI. The invariant that makes this sound is that the hash equals
-            // Agave's dispatch key — pinned by the host tests to known
-            // constants — and that the pointer type matches the syscall's real
+            // Agave's dispatch key, pinned by the host tests to known
+            // constants, and that the pointer type matches the syscall's real
             // C signature (identical to the relocation decl). The caller upholds
             // the syscall's own pointer/length contract, unchanged from the
             // relocation path.
@@ -206,7 +206,7 @@ define_syscall!(pub fn sol_log_compute_units_());
 /// Remaining compute units for the current invocation (SIMD-0049).
 ///
 /// Unlike `sol_log_compute_units_` (which only *logs*), this returns the
-/// value to the program, making real in-program budget guards possible —
+/// value to the program, making real in-program budget guards possible,
 /// see `budget::CuBudget`. Only programs that actually call it reference
 /// the symbol, so binding it here costs nothing for programs that don't.
 #[cfg(target_os = "solana")]

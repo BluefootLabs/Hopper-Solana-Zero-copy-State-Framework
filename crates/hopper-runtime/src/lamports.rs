@@ -1,14 +1,14 @@
-//! Gate-aware lamport movement (BLD-MUT).
+//! Gate-aware lamport movement.
 //!
-//! [`transfer_lamports`] is **the** lamport transfer for programs whose
-//! contexts declare `strict_writes` + `lamports(...)`: it performs the
-//! exact arithmetic of the substrate helper
-//! (`hopper_native::batch::transfer_lamports` — insufficient-funds
+//! [`transfer_lamports`] is the checked transfer helper for programs whose
+//! contexts declare `strict_writes` + `lamports(...)`. It follows the checked
+//! arithmetic ordering of the substrate helper
+//! (`hopper_native::batch::transfer_lamports`, with insufficient-funds
 //! checked before overflow, all-or-nothing), but every balance write
 //! crosses the runtime's lamport funnel
 //! ([`native_boundary::try_set_lamports`](crate::native_boundary::try_set_lamports)),
-//! so an installed lamport gate ([`write_policy`](crate::write_policy),
-//! BLD-MUT) sees the move. The substrate helper writes balances
+//! so an installed lamport gate ([`write_policy`](crate::write_policy)) sees
+//! the move. The substrate helper writes balances
 //! directly at the native layer and bypasses the gate by design (it is
 //! the cheap no-CPI path); this module closes that gap for gated
 //! programs without force-routing anyone else.
@@ -22,10 +22,10 @@ use crate::ProgramResult;
 /// the runtime's **gated** lamport funnel.
 ///
 /// This is the lamport transfer for `strict_writes` + `lamports(...)`
-/// programs (the mutation-complete contract, BLD-MUT): both sides are
+/// programs under the mutation-complete contract: both sides are
 /// checked against the installed lamport gate **before any balance
-/// changes**, so a refusal — `Custom(0xD000 | account_index)` on the
-/// first undeclared side — can never half-apply the move. On a
+/// changes**, so a refusal, `Custom(0xD000 | account_index)` on the
+/// first undeclared side, can never half-apply the move. On a
 /// `lamports(...)` bound context the generated
 /// `ctx.transfer_lamports(from, to, amount)` method delegates here.
 ///
@@ -36,7 +36,7 @@ use crate::ProgramResult;
 /// checked before credit overflow ([`ProgramError::InsufficientFunds`]
 /// wins when both would fail), both post-balances are computed before
 /// either is applied (an arithmetic refusal also cannot half-apply),
-/// and — like the substrate helper — no writability pre-check is added
+/// and, like the substrate helper, no writability pre-check is added
 /// (Sealevel's `writable` flag is still enforced underneath).
 ///
 /// The one behavioral divergence is deliberate: a **self-transfer**
@@ -55,11 +55,11 @@ use crate::ProgramResult;
 ///
 /// # Errors
 ///
-/// - `Custom(0xD000 | index)` — an installed lamport gate refuses
+/// - `Custom(0xD000 | index)`, an installed lamport gate refuses
 ///   `from` or `to` (checked in that order), before any mutation.
-/// - [`ProgramError::InsufficientFunds`] — `from` holds fewer than
+/// - [`ProgramError::InsufficientFunds`], `from` holds fewer than
 ///   `amount` lamports.
-/// - [`ProgramError::ArithmeticOverflow`] — crediting `to` would
+/// - [`ProgramError::ArithmeticOverflow`], crediting `to` would
 ///   overflow `u64`.
 #[inline]
 pub fn transfer_lamports(
@@ -67,10 +67,10 @@ pub fn transfer_lamports(
     to: &AccountView<'_>,
     amount: u64,
 ) -> ProgramResult {
-    // BLD-MUT: pre-validate BOTH sides against the lamport gate before
+    // Pre-validate both sides against the lamport gate before
     // any balance mutation. Relying on the per-account `try_set_lamports`
     // funnel alone would debit `from` and then have `to` refused at the
-    // funnel, destroying lamports on the error path — a transfer must be
+    // funnel, destroying lamports on the error path, a transfer must be
     // all-or-nothing. (Same pattern as the host System-transfer
     // emulation in `cpi.rs`.)
     crate::write_policy::check_lamport_mutation(from.address())?;
@@ -303,7 +303,7 @@ mod tests {
         );
 
         // Undeclared (foreign to the gated slice): refused fail-closed
-        // even though the move would net zero — the gate is consulted
+        // even though the move would net zero, the gate is consulted
         // before the self-transfer branch, mirroring the host
         // System-transfer emulation.
         let foreign_alias = foreign.clone();

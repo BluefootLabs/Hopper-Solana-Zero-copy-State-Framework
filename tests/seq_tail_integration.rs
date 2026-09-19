@@ -1,4 +1,4 @@
-//! `Seq<T>` — the growable typed sequence tail, end-to-end.
+//! `Seq<T>`, the growable typed sequence tail, end-to-end.
 //!
 //! A `#[hopper::account]` layout with a fixed head plus a
 //! `members: Seq<'a, Address>` growable tail, driven under a
@@ -6,11 +6,11 @@
 //!
 //! Proves the acceptance bar:
 //!   (a) `push` through the gated cursor succeeds and is visible on re-read;
-//!   (b) a write to a HEAD field is REFUSED `Custom(0xD000 | idx)` — the
+//!   (b) a write to a HEAD field is REFUSED `Custom(0xD000 | idx)`, the
 //!       open-ended tail range does not leak backwards onto the head;
 //!   (c) `allows_whole_account_write == false` for the roster account (so
 //!       CPI writable-meta delegation stays refused);
-//!   (d) the layout id is capacity-independent — two accounts of different
+//!   (d) the layout id is capacity-independent, two accounts of different
 //!       data lengths are the SAME account type;
 //!   (e) growing via `realloc` + pushing past the old capacity works
 //!       end-to-end.
@@ -111,7 +111,7 @@ fn tail_context_publishes_a_single_open_ended_tail_range() {
     assert_eq!(r.size, u32::MAX);
 
     // Published == enforced, the tail edition: the manifest surface is the
-    // SAME const the runtime installs — the open-ended range is what
+    // SAME const the runtime installs, the open-ended range is what
     // schedulers/verifiers see AND what the gate enforces.
     assert_eq!(
         AddMember::SCHEMA_METADATA.write_ranges,
@@ -213,7 +213,7 @@ fn add_member_handler<'info>(
         assert_eq!(seq.get(0)?, m0);
     }
 
-    // (e, first half) at capacity 1 a second push is refused — grow needed.
+    // (e, first half) at capacity 1 a second push is refused, grow needed.
     {
         let mut w = ctx.tail_seq_mut::<Address>(0, tail_off)?;
         assert_eq!(
@@ -223,7 +223,7 @@ fn add_member_handler<'info>(
         );
     }
 
-    // (b) writing a HEAD field is refused with the indexed policy error —
+    // (b) writing a HEAD field is refused with the indexed policy error,
     // the open tail range does not leak backwards onto the head.
     let admin_off = HEADER_LEN as u32 + Roster::ADMIN_OFFSET;
     let epoch_off = HEADER_LEN as u32 + Roster::EPOCH_OFFSET;

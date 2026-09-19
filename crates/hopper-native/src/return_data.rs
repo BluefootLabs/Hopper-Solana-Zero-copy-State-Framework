@@ -1,8 +1,8 @@
 //! CPI return data retrieval and typed deserialization.
 //!
 //! The Solana runtime supports return data from CPI calls (up to 1024 bytes).
-//! No framework provides a typed wrapper that combines invoke + deserialize
-//! in one step. Hopper does.
+//! This module combines invocation, program-id validation, and typed return-data
+//! decoding.
 
 use crate::address::Address;
 use crate::error::ProgramError;
@@ -115,7 +115,7 @@ impl ReturnData {
 ///
 /// Returns `None` if no return data was set (length == 0).
 ///
-/// The 1 KiB buffer is *not* zero-filled before the syscall — the syscall
+/// The 1 KiB buffer is *not* zero-filled before the syscall, the syscall
 /// initializes exactly the reported prefix, and `None` is returned before any
 /// read when the length is 0. This is the bug class behind Quasar #238/#234
 /// (an `assume_init` over a buffer the syscall never wrote, exposing

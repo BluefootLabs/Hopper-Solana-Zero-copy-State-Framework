@@ -317,7 +317,7 @@ impl<'a, T: Pod + FixedLayout> JournalReader<'a, T> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) })
     }
 

@@ -3,28 +3,27 @@
 //! Under `cargo build-sbf` the platform-tools compiler-builtins archive
 //! ships `memcmp`/`memcpy`/`memmove`/`memset` as unconditional syscall
 //! shims. The SVM `mem_op` cost model charges `max(10, n / 250)` CU per
-//! call plus a ~4–6 instruction call/shim overhead — so a 3-byte compare
+//! call plus a ~4-6 instruction call/shim overhead. A 3-byte compare therefore
 //! pays the same 10-CU base as a 250-byte one. For small `n` an inline
-//! `u64` word loop is strictly cheaper; above ~32 bytes the syscall's
-//! flat base amortizes and wins. This crate overrides the C symbols with
-//! that dispatch:
+//! `u64` word loop avoids the syscall base; above 32 bytes this crate routes
+//! to the syscall. The overridden C symbols use this dispatch:
 //!
 //! - `n <= 32`: inline word loop (`u64::read_unaligned` + byte tail),
 //!   no syscall.
 //! - `n > 32`: the corresponding `sol_*` syscall.
 //!
 //! Overridden symbols: `memcmp`, `bcmp`, `memcpy`, `memset`. `memmove`
-//! is deliberately **not** overridden — the toolchain shim (a straight
+//! is deliberately **not** overridden. The toolchain shim (a straight
 //! `sol_memmove_` call) is already the right shape, and an inline
 //! forward loop would be incorrect for overlapping ranges.
 //!
-//! ## What this reprices — and what it does not
+//! ## What this reprices and what it does not
 //!
 //! LLVM inline-expands *fixed-size* small compares (including 32-byte
 //! `[u8; 32]` equality) before any `memcmp` symbol is ever emitted, so
 //! this crate does **not** change the cost of `Address` equality; the
 //! manual word-wise `PartialEq` on `Address` carries that. The value
-//! here is every *runtime-length* call site: `core` slice comparison
+//! here is *runtime-length* call sites such as `core` slice comparison
 //! over long `&[u8]`, formatting/collection internals, and third-party
 //! crates, which otherwise pay the 10-CU syscall base plus shim overhead
 //! even for tiny `n`.
@@ -40,7 +39,7 @@
 //! ## Linkage requirement (measured 2026-07-07, platform-tools v1.53)
 //!
 //! The toolchain's shims are GLOBAL (not weak) definitions, and
-//! `rust-lld` **refuses the strong-vs-strong collision outright** — a
+//! `rust-lld` **refuses the strong-vs-strong collision outright**. A
 //! plain `cargo build-sbf --features builtins` fails with duplicate
 //! `memcmp`/`memcpy`/`memset` symbols. Programs opting in must pass
 //!
@@ -51,15 +50,15 @@
 //! With the flag, first-definition-wins ordering resolves to THIS crate
 //! (verified in the built `.so`: the `__HOPPER_BUILTINS` marker is
 //! present, the override bodies are ours, and the only call inside them
-//! is the `sol_*` syscall relocation — no self-calls, see the
+//! is the `sol_*` syscall relocation. See the self-call check in the
 //! `no_builtins` note below). This also means the same crate shape
 //! cannot work at all on a stock cargo-build-sbf route without the flag
-//! — which applies equally to Quasar's reference implementation.
+//! under that measured toolchain.
 
 #![no_std]
 // Without `no_builtins`, LLVM's loop-idiom recognition is allowed to
 // rewrite the inline word/byte loops below back into `memset`/`memcpy`
-// libcalls — which resolve to these very overrides, producing infinite
+// libcalls; which resolve to these very overrides, producing infinite
 // self-recursion and deterministic stack exhaustion on-chain. This is
 // the same reason `compiler-builtins` marks itself `no_builtins`; the
 // hazard was reproduced empirically on rustc 1.96 at opt-level 2/3
@@ -119,7 +118,7 @@ pub(crate) unsafe fn memcmp_inline(a: *const u8, b: *const u8, n: usize) -> i32 
 }
 
 /// Equality-only compare: returns `0` if the ranges are byte-equal,
-/// nonzero otherwise (the `bcmp` contract — no ordering promised).
+/// nonzero otherwise (the `bcmp` contract, no ordering promised).
 ///
 /// # Safety
 ///
@@ -220,7 +219,7 @@ mod sbf {
 
     // Dynamic-relocation syscall declarations, same shape as
     // `hopper-native/src/syscalls.rs` (the loader resolves these by
-    // symbol name at load time — no transmute-by-hash indirection).
+    // symbol name at load time, no transmute-by-hash indirection).
     extern "C" {
         /// Compare `n` bytes. Sets `*result` to <0, 0, or >0.
         fn sol_memcmp_(s1: *const u8, s2: *const u8, n: u64, result: *mut i32);

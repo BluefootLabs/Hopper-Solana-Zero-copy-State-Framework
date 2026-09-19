@@ -1,8 +1,7 @@
 //! Batch account operations.
 //!
 //! Common multi-account patterns as single methods with clearer intent
-//! and fewer repeated unsafe blocks. These are operations that every
-//! serious Solana program needs but nobody bundles at the substrate level.
+//! and fewer repeated unsafe blocks.
 
 use crate::account_view::AccountView;
 use crate::address::Address;
@@ -48,11 +47,11 @@ pub fn close_and_transfer(
 /// # Gated programs (`strict_writes` + `lamports(...)`)
 ///
 /// This substrate helper writes balances directly at the native layer
-/// and **bypasses the runtime's lamport gate by design** — it is the
+/// and **bypasses the runtime's lamport gate by design**; it is the
 /// cheap no-CPI path and sits outside hopper-runtime's governed
 /// surface. Under a context that declares `strict_writes` +
 /// `lamports(...)` (the mutation-complete contract), use
-/// `hopper_runtime::transfer_lamports` instead — also reachable via
+/// `hopper_runtime::transfer_lamports` instead, also reachable via
 /// `hopper::prelude` and as the generated `ctx.transfer_lamports(..)`
 /// bound-context method: identical arithmetic, but both sides cross
 /// the gated `native_boundary` funnel, so the mutation-complete
@@ -86,7 +85,8 @@ pub fn transfer_lamports(
 /// rent *reprice*. If the cluster has raised rent, this can report an account
 /// as rent-exempt when the runtime would reap it. For any decision where a
 /// wrong "exempt" answer risks data loss, prefer
-/// [`require_rent_exempt_with`], which reads the live [`Rent`] sysvar.
+/// [`require_rent_exempt_with`], which reads the live
+/// [`crate::sysvar::Rent`] sysvar.
 #[inline]
 pub fn require_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let min = crate::sysvar::rent_exempt_minimum(account.data_len());
@@ -97,15 +97,15 @@ pub fn require_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     }
 }
 
-/// Verify that an account is rent-exempt against a live [`Rent`] sysvar
+/// Verify that an account is rent-exempt against a live [`crate::sysvar::Rent`] sysvar
 /// (RECOMMENDED for reaping-relevant checks).
 ///
 /// The caller reads the sysvar once (`Rent::get()`) and passes it in, so this
-/// function adds no syscall of its own — the cost stays where the caller can
-/// see it — while using the cluster's *actual* rent parameters. This is the
+/// function adds no syscall of its own, the cost stays where the caller can
+/// see it, while using the cluster's *actual* rent parameters. This is the
 /// correct form when the cluster may have repriced rent since the constants
 /// baked into [`require_rent_exempt`] were set: it uses
-/// [`Rent::minimum_balance`], which byte-matches the runtime.
+/// [`crate::sysvar::Rent::minimum_balance`], which byte-matches the runtime.
 ///
 /// # Example
 ///

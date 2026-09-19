@@ -5,14 +5,14 @@
 //! a direct `&T` pointer-cast into account data. No copies, no alloc,
 //! no separate validation steps.
 //!
-//! This is genuinely novel: pinocchio only gives raw `&[u8]` from account
-//! data. Anchor's `AccountLoader<T>` requires derive macros, borsh traits,
-//! and hidden RefCell costs. Hopper's projection is a one-line zero-copy
-//! cast with compile-time layout guarantees.
+//! This is Hopper's low-level projection surface. Pinocchio exposes raw account
+//! bytes, while Anchor's `AccountLoader<T>` uses a derived `ZeroCopy` contract
+//! backed by bytemuck `Pod` and `Zeroable`. Hopper performs the projection with
+//! its own bounds, alignment, and optional discriminator checks.
 //!
-//! # Safety Model (post-audit)
+//! # Safety model after internal review
 //!
-//! The Hopper Safety Audit flagged the original `Projectable` trait as too
+//! Hopper's internal safety review flagged the original `Projectable` trait as too
 //! permissive: it only required `Copy + 'static`, which lets callers
 //! overlay types with padding or non-alignment-1 fields and trip
 //! undefined behaviour. Two separate surfaces now live in this module:
@@ -24,8 +24,9 @@
 //!   the full POD contract (no padding, align-1, all-bits-valid). Call
 //!   sites must treat it as a Tier C primitive.
 //!
-//! - [`SafeProjectable`] (with the matching [`project_safe`] /
-//!   [`project_safe_mut`] constructors), the **sound default**. It is
+//! - [`crate::project::SafeProjectable`] (with the matching
+//!   [`crate::project::project_safe`] and
+//!   [`crate::project::project_safe_mut`] constructors), the **sound default**. It is
 //!   auto-implemented for every `T: Projectable` where the size is at
 //!   least 1 byte, but the intent at call sites is that only types that
 //!   participate in Hopper's `Pod` contract reach for this path. Higher
@@ -94,7 +95,7 @@ unsafe impl Projectable for [u8; 32] {}
 unsafe impl Projectable for [u8; 64] {}
 
 // ══════════════════════════════════════════════════════════════════════
-//  SafeProjectable, Pod-aligned variant (Hopper Safety Audit fix)
+//  SafeProjectable, Pod-aligned variant
 // ══════════════════════════════════════════════════════════════════════
 
 /// Strengthened projection marker: the safe default for new code.
@@ -136,7 +137,7 @@ mod private {
 
 /// Safe variant of [`project`] that rejects zero-sized overlays.
 ///
-/// Prefer this over [`project`] in new code; it enforces the audit's
+/// Prefer this over [`project`] in new code; it enforces the
 /// "only Pod + non-ZST types reach the projection primitive" rule.
 #[inline]
 pub fn project_safe<'a, T: SafeProjectable>(
@@ -184,7 +185,7 @@ pub unsafe fn project_safe_mut<'a, T: SafeProjectable>(
 /// 3. **Discriminator** (optional): `data[0] == expected_disc`
 ///
 /// Returns a [`Ref`] guard whose deref is a direct `&T` into the account's
-/// data region — no copies, no allocation. The guard holds a **shared data
+/// data region, no copies, no allocation. The guard holds a **shared data
 /// borrow** for its lifetime, so an exclusive borrow (`try_borrow_mut`)
 /// cannot be taken while the projection is live, and vice versa. Fails
 /// with `AccountBorrowFailed` if the data is exclusively borrowed.
@@ -278,7 +279,7 @@ pub unsafe fn project_mut<'a, T: Projectable>(
     }
 
     let data_ptr = account.data_ptr_unchecked();
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -355,7 +356,7 @@ pub unsafe fn project_hopper_mut<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     expected_disc: u8,
 ) -> Result<&'a mut T, ProgramError> {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { project_mut::<T>(account, 10, Some(expected_disc)) }
 }
 

@@ -1,7 +1,7 @@
 //! Hybrid serialization tail for `#[hopper::state(dynamic_tail = T)]`.
 //!
-//! Closes Hopper Safety Audit innovation I5 ("Hybrid serialization").
-//! The rationale from the audit (page 14):
+//! Hybrid fixed-head and variable-tail storage keeps hot fields directly
+//! addressable while bounding variable data:
 //!
 //! > Lets Hopper own the fixed-layout hot path while still supporting a
 //! > dynamic tail for vectors, strings, and optional metadata.
@@ -700,7 +700,7 @@ impl TailCodec for crate::address::Address {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  Seq<T> — the growable typed sequence (O(1) push, open-ended tail)
+//  Seq<T>, the growable typed sequence (O(1) push, open-ended tail)
 // ══════════════════════════════════════════════════════════════════════
 //
 // A `Seq<T>` tail stores `[ count: u32 LE ][ elem_0 ][ elem_1 ] ...` where
@@ -708,14 +708,14 @@ impl TailCodec for crate::address::Address {
 // constant, element `i` lives at a computable offset
 // `SEQ_LEN_PREFIX + i*STRIDE` with no scan, `push` is O(1) (write one
 // element, bump the count), and the streaming cursors below NEVER
-// materialize a `[T; N]` array — they decode/encode ONE element at a time,
+// materialize a `[T; N]` array; they decode/encode ONE element at a time,
 // directly over the account bytes.
 //
 // Unlike `BoundedVec<T, N>` (which owns a `[T; N]` and decodes the whole
 // tail), a `Seq<T>` carries NO compile-time capacity: the live capacity is
 // `(region_len - 4) / STRIDE`, computed from the account's current length.
 // Growing the account (via `realloc`) raises the capacity WITHOUT changing
-// the account type — the layout id is capacity-independent by design.
+// the account type, the layout id is capacity-independent by design.
 //
 // Variable-stride types (`Option<T>`, `BoundedString`, `BoundedVec`) do
 // NOT implement `SeqElement` and stay on the owned-decode `BoundedVec`
@@ -789,7 +789,7 @@ pub const fn seq_region_bytes_for<T: SeqElement>(n: usize) -> usize {
 /// Streaming **read** cursor over a `Seq<T>` tail region.
 ///
 /// Borrows the tail-region bytes (`[count:u32][elems...]`) and decodes ONE
-/// element per [`get`](Self::get) / iterator step — it never builds a
+/// element per [`get`](Self::get) / iterator step; it never builds a
 /// `[T; N]`. Cheap to construct and copy.
 #[derive(Clone, Copy)]
 pub struct TailSeq<'a, T: SeqElement> {
@@ -909,7 +909,7 @@ impl<T: SeqElement> Iterator for TailSeqIter<'_, T> {
 /// count). The capacity is derived from the LIVE region length, so a tail
 /// that was grown via `realloc` can hold more elements with no type
 /// change. `push` returns [`AccountDataTooSmall`](ProgramError::AccountDataTooSmall)
-/// when the region is full — grow the account first.
+/// when the region is full, grow the account first.
 pub struct TailSeqMut<'a, T: SeqElement> {
     /// Tail region: `region[0..4]` is the count, elements follow.
     region: &'a mut [u8],
@@ -1000,7 +1000,7 @@ impl<'a, T: SeqElement> TailSeqMut<'a, T> {
         Ok(())
     }
 
-    /// Append `value` at the tail and bump the count — O(1). Returns
+    /// Append `value` at the tail and bump the count, O(1). Returns
     /// [`AccountDataTooSmall`](ProgramError::AccountDataTooSmall) when the
     /// region is at capacity (grow the account, then push again).
     #[inline]
@@ -1070,7 +1070,7 @@ impl<'a, T: SeqElement> TailSeqMut<'a, T> {
 // (and a segment-registry lease that must stay registered) for as long as
 // the cursor lives. These guards OWN the account byte borrow (narrowed to
 // the tail region) plus the one segment lease covering the tail range, and
-// hand out the cursor via `seq()` / `seq_mut()` — the same
+// hand out the cursor via `seq()` / `seq_mut()`, the same
 // guard-owns-the-borrow, method-yields-the-view shape as
 // [`SegmentsMut`](crate::SegmentsMut). Dropping a guard releases both the
 // byte borrow and the single registry lease. `Context::tail_seq_ref` /

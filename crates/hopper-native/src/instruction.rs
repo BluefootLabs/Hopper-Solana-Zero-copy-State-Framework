@@ -5,6 +5,9 @@
 
 use crate::account_view::AccountView;
 use crate::address::Address;
+use crate::error::ProgramError;
+use crate::raw_account::RuntimeAccount;
+use crate::{ProgramResult, NOT_BORROWED};
 use core::marker::PhantomData;
 
 // ── InstructionAccount ───────────────────────────────────────────────
@@ -133,11 +136,11 @@ impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
         let header = unsafe { core::ptr::read_unaligned(raw as *const u32) };
         Self {
             address: unsafe { &(*raw).address as *const Address },
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             lamports: unsafe { &(*raw).lamports as *const u64 },
             data_len: view.data_len() as u64,
             data: view.data_ptr_unchecked(),
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             owner: unsafe { &(*raw).owner as *const Address },
             rent_epoch: 0,
             is_signer: header & 0x0000_FF00 != 0,
@@ -147,6 +150,89 @@ impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
         }
     }
 }
+
+impl<'a> CpiAccount<'a> {
+    /// Rebuild one instruction meta from protocol-declared flags.
+    ///
+    /// The flags deliberately do not come from the outer account view: a PDA
+    /// may be a signer only for this CPI, and an outer-writable account may be
+    /// intentionally read-only to the callee.
+    #[inline(always)]
+    pub(crate) fn instruction_account(
+        &self,
+        is_writable: bool,
+        is_signer: bool,
+    ) -> InstructionAccount<'a> {
+        // SAFETY: `CpiAccount::from` captured this pointer from an
+        // `AccountView<'a>` and the private fields prevent safe fabrication.
+        let address = unsafe { &*self.address };
+        InstructionAccount::new(address, is_writable, is_signer)
+    }
+}
+
+/// Validate the borrow state and writable privilege encoded by specialized
+/// CPI builders before entering a syscall.
+///
+/// `writable_mask` describes the callee instruction metas, not the outer
+/// transaction privileges: bit `i` is set when account `i` will be writable
+/// in the CPI. Read-only metas need shared-borrow compatibility; writable
+/// metas need both outer writable privilege and exclusive-borrow compatibility.
+#[inline(always)]
+pub(crate) fn preflight_cpi_accounts(
+    accounts: &[CpiAccount<'_>],
+    writable_mask: usize,
+) -> ProgramResult {
+    let mut index = 0usize;
+    while index < accounts.len() {
+        let account = &accounts[index];
+        let is_writable_meta = writable_mask & (1usize << index) != 0;
+        if is_writable_meta && !account.is_writable {
+            return Err(ProgramError::Immutable);
+        }
+
+        // `CpiAccount::from` always derives `data` from the byte immediately
+        // after its RuntimeAccount header. The fields are private, so safe
+        // callers cannot synthesize a CpiAccount with a different relation.
+        let raw = unsafe { account.data.sub(RuntimeAccount::SIZE) as *const RuntimeAccount };
+        // SAFETY: `raw` was recovered from the invariant above and remains
+        // valid for the `CpiAccount` lifetime.
+        let borrow_state = unsafe { (*raw).borrow_state };
+        let compatible = if is_writable_meta {
+            borrow_state == NOT_BORROWED
+        } else {
+            borrow_state != 0
+        };
+        if !compatible {
+            return Err(ProgramError::AccountBorrowFailed);
+        }
+
+        index += 1;
+    }
+    Ok(())
+}
+
+// Pin the two C structures handed to `sol_invoke_signed_c`. Rust `bool` is one
+// byte, matching the syscall ABI's byte flags; the tail padding rounds each
+// record to pointer alignment.
+const _: () = {
+    assert!(core::mem::size_of::<InstructionAccount<'static>>() == 16);
+    assert!(core::mem::align_of::<InstructionAccount<'static>>() == 8);
+    assert!(core::mem::offset_of!(InstructionAccount<'static>, address) == 0);
+    assert!(core::mem::offset_of!(InstructionAccount<'static>, is_writable) == 8);
+    assert!(core::mem::offset_of!(InstructionAccount<'static>, is_signer) == 9);
+
+    assert!(core::mem::size_of::<CpiAccount<'static>>() == 56);
+    assert!(core::mem::align_of::<CpiAccount<'static>>() == 8);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, address) == 0);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, lamports) == 8);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, data_len) == 16);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, data) == 24);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, owner) == 32);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, rent_epoch) == 40);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, is_signer) == 48);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, is_writable) == 49);
+    assert!(core::mem::offset_of!(CpiAccount<'static>, executable) == 50);
+};
 
 // ── Seed ─────────────────────────────────────────────────────────────
 
@@ -186,7 +272,7 @@ impl core::ops::Deref for Seed<'_> {
 
     #[inline(always)]
     fn deref(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
     }
 }

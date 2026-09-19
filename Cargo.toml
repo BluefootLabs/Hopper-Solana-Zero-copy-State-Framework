@@ -106,10 +106,11 @@ hopper-sdk = { path = "crates/hopper-sdk", version = "0.3.0" }
 [package]
 name = "hopper-lang"
 version = "0.3.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
-description = "Fast zero-copy Solana framework with a simple account facade, typed state contracts, layout evolution, and systems-mode escape hatches. Built on Hopper Native. no_std, no_alloc."
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
+description = "Zero-copy Solana program framework with typed account validation, layout evolution, generated clients, and explicit low-level APIs. no_std and no_alloc by default."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/crate/hopper-lang/0.3.0"
@@ -145,7 +146,7 @@ hopper-builtins = { path = "crates/hopper-builtins", version = "0.3.0", optional
 
 [dev-dependencies]
 # Host execution harness so integration tests can bind proc-macro
-# contexts against real AccountView memory (BLD-I24 strict-writes
+# contexts against real AccountView memory (strict-write
 # declared-vs-published-vs-enforced consistency test).
 hopper-svm = { workspace = true }
 # Per-thread borrow registry for the root test binaries (see the same
@@ -159,7 +160,7 @@ trybuild = "1"
 [features]
 # `simd-0321` stays OPT-IN by deliberate, measured choice (2026-07-21).
 # The gate activated on every public cluster (mainnet-beta 2026-04-01)
-# and the flip was trialed as a default — but the 2026-07-07 fused
+# and the flip was trialed as a default, but the 2026-07-07 fused
 # single-pass scanning walk already banked the win the r2 entrypoint
 # promises: controlled A/Bs measured smoke 1,942 -> 1,944 CU, sentinel
 # 1,227/659 -> 1,228/660, cicada claim 4,417 -> 4,417, while the dual
@@ -167,7 +168,7 @@ trybuild = "1"
 # CU is a losing default. The feature now genuinely reaches macro
 # programs (`#[hopper::program]` emits the feature-aware
 # `fast_entrypoint!`), and it remains the foundation SIMD-0449's O(1)
-# account table builds on — opt in when targeting that path.
+# account table builds on. Opt in when targeting that path.
 default = []
 framework = []
 systems = ["advanced", "collections"]
@@ -233,7 +234,7 @@ simd-0321 = ["hopper-runtime/simd-0321"]
 # `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK` (rekeyed 2026-04-15) is
 # active on testnet and devnet, pending mainnet-beta; `hopper
 # feature-gate` reports its per-cluster status. Enable ONLY when targeting
-# a cluster where the SIMD is active — a build that reads the appended
+# a cluster where the SIMD is active. A build that reads the appended
 # table where the runtime does not serialize it reads past the input. The
 # scanning path stays the default.
 simd-0449 = ["hopper-runtime/simd-0449", "simd-0321"]
@@ -254,7 +255,7 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 
 # Deny silent integer wrap on-chain: without this, release builds (the
 # only kind that reach a cluster) compile native `+`/`-`/`*` to wrapping
-# arithmetic — the classic balance-overflow exploit shape. With it, any
+# arithmetic, the classic balance-overflow exploit shape. With it, any
 # unchecked arithmetic that overflows aborts the transaction instead of
 # corrupting state. Hopper's hot paths already use explicit checked or
 # wire-type arithmetic, so the measured CU cost on the parity vault is
@@ -276,7 +277,7 @@ opt-level = 3
 incremental = false
 codegen-units = 1
 
-# The audited substrate opts back out: its arithmetic is explicitly
+# The reviewed substrate opts back out: its arithmetic is explicitly
 # checked/widened where it matters and its parsing loops are bounds-guarded
 # by construction, so the flag only adds flat CU there. User program crates
 # and the domain crates

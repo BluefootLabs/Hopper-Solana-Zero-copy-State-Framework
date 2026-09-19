@@ -19,7 +19,9 @@ pub fn isqrt(val: u128) -> Result<u64, ProgramError> {
     }
     // Newton's method: x_{n+1} = (x_n + val / x_n) / 2
     let mut x = val;
-    let mut y = (x + 1) >> 1;
+    // Compute ceil(x / 2) without evaluating `x + 1`, which would
+    // overflow for `u128::MAX`.
+    let mut y = (x >> 1) + (x & 1);
     while y < x {
         x = y;
         y = (x + val / x) >> 1;
@@ -36,6 +38,8 @@ pub fn isqrt(val: u128) -> Result<u64, ProgramError> {
 /// Formula: `out = (reserve_out * amount_in_after_fee) / (reserve_in + amount_in_after_fee)`
 /// where `amount_in_after_fee = amount_in * (10_000 - fee_bps) / 10_000`.
 ///
+/// `fee_bps` must be less than 10,000.
+///
 /// Returns `ArithmeticOverflow` if reserves are zero or result overflows u64.
 ///
 /// ```rust,ignore
@@ -51,6 +55,9 @@ pub fn constant_product_out(
     if reserve_in == 0 || reserve_out == 0 || amount_in == 0 {
         return Err(ProgramError::ArithmeticOverflow);
     }
+    if fee_bps >= 10_000 {
+        return Err(ProgramError::InvalidArgument);
+    }
     let fee_factor = 10_000u128 - fee_bps as u128;
     let amount_in_after_fee = (amount_in as u128)
         .checked_mul(fee_factor)
@@ -63,6 +70,9 @@ pub fn constant_product_out(
         .ok_or(ProgramError::ArithmeticOverflow)?
         .checked_add(amount_in_after_fee)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    if denominator == 0 {
+        return Err(ProgramError::ArithmeticOverflow);
+    }
     let out = numerator / denominator;
     if out > u64::MAX as u128 || out == 0 {
         return Err(ProgramError::ArithmeticOverflow);
@@ -73,6 +83,7 @@ pub fn constant_product_out(
 /// Compute required input amount for a constant-product swap to get `amount_out`.
 ///
 /// Inverse of `constant_product_out`. Rounds up (protocol-safe).
+/// `fee_bps` must be less than 10,000.
 ///
 /// ```rust,ignore
 /// let needed = constant_product_in(1_000_000, 2_000_000, 50_000, 30)?;
@@ -87,6 +98,9 @@ pub fn constant_product_in(
     if reserve_in == 0 || reserve_out == 0 || amount_out == 0 || amount_out >= reserve_out {
         return Err(ProgramError::ArithmeticOverflow);
     }
+    if fee_bps >= 10_000 {
+        return Err(ProgramError::InvalidArgument);
+    }
     let fee_factor = 10_000u128 - fee_bps as u128;
     let numerator = (reserve_in as u128)
         .checked_mul(amount_out as u128)
@@ -96,6 +110,9 @@ pub fn constant_product_in(
     let denominator = (reserve_out as u128 - amount_out as u128)
         .checked_mul(fee_factor)
         .ok_or(ProgramError::ArithmeticOverflow)?;
+    if denominator == 0 {
+        return Err(ProgramError::ArithmeticOverflow);
+    }
     // Ceiling division: (num + denom - 1) / denom
     let result = numerator
         .checked_add(denominator - 1)

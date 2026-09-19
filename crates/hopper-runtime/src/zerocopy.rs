@@ -1,33 +1,29 @@
 //! Unified zero-copy trait family.
 //!
-//! The Hopper Safety Audit's "structural" recommendation was to
-//! consolidate `Pod`, `FixedLayout`, `Projectable`, `SafeProjectable`,
+//! This module consolidates `Pod`, `FixedLayout`, `Projectable`, `SafeProjectable`,
 //! `LayoutContract`, header metadata, and schema export into one
 //! coherent trait stack. This module delivers the foundation:
 //!
 //! - [`ZeroCopy`], the canonical "safe to overlay on raw bytes"
-//!   marker. Equivalent-in-contract to [`Pod`](crate::pod::Pod), using
+//!   marker. Equivalent-in-contract to [`Pod`], using
 //!   Hopper's owned `Pod` / `Zeroable` proof layer.
-//!   `ZeroCopy` is implemented for every `Pod` type via a blanket
-//!   impl, so existing layouts participate automatically.
+//!   A blanket implementation covers `Pod` types that also carry Hopper's
+//!   sealed marker, including layouts emitted by Hopper's macros.
 //!
-//! - [`WireLayout`], a `ZeroCopy` type with a fixed wire size.
-//!   Declared once via `const WIRE_SIZE = size_of::<Self>()` by
-//!   default; macros may override if the in-memory and on-wire sizes
-//!   diverge (none do today, but the hook is there for future
-//!   compressed / tagged encodings).
+//! - [`WireLayout`], a `ZeroCopy` type whose wire size is
+//!   `size_of::<Self>()` under the current blanket implementation.
 //!
 //! - [`AccountLayout`], a `WireLayout` that also carries Hopper's
 //!   account header identity (disc, version, wire fingerprint, schema
-//!   epoch, type offset). This is the audit's proposed top-level
-//!   trait, matching its exact member list so the contract is
+//!   epoch, type offset). This is the top-level account-layout
+//!   trait, with an explicit member list so the contract is
 //!   frozen-in-place for migrations and client generation.
 //!
 //! ## Why three traits, not one
 //!
 //! The layering mirrors a real capability hierarchy. Every account
 //! layout is a wire layout; every wire layout is zero-copy; but not
-//! every zero-copy type is a full account layout (`u64`, `WireBool`,
+//! every zero-copy type is a full account layout (`WireU64`, `WireBool`,
 //! `TypedAddress<T>` are zero-copy but carry no header). Splitting
 //! the traits lets generic helpers demand just what they need.
 //!
@@ -36,30 +32,27 @@
 //! The existing [`crate::layout::LayoutContract`] trait predates this
 //! module. `LayoutContract` and `AccountLayout` intentionally overlap:
 //! both describe "a Hopper layout with disc/version/layout_id".
-//! `AccountLayout` is the audit-blessed name with the richer member
-//! list; `LayoutContract` is kept for backward compatibility and gets
-//! a blanket impl so any type deriving the latter automatically
-//! satisfies the former. New authoring surfaces (the proposed
-//! `#[hopper::state]` v2 expansion) should reach for `AccountLayout`.
+//! `AccountLayout` presents the same identity through a unified trait stack.
+//! A blanket implementation covers types that implement both
+//! `LayoutContract` and `ZeroCopy`.
 
 use crate::layout::LayoutContract;
 use crate::pod::Pod;
 
 // ══════════════════════════════════════════════════════════════════════
-//  Seal (audit final-API Step 5)
+//  Seal
 // ══════════════════════════════════════════════════════════════════════
 
-/// Internal marker every Hopper-authored zero-copy type stamps itself
+/// Internal marker every framework-defined zero-copy type stamps itself
 /// with. Sealed by convention: it lives in a doc-hidden module so
 /// downstream code cannot name it except through the canonical
 /// Hopper entry points (`#[hopper::pod]`, `#[hopper::state]`,
 /// `hopper_layout!`, and the framework's own primitive wire types).
 ///
-/// This closes the Hopper Safety Audit's final-API-design Step 5:
-/// a user bypassing the macro system with a hand-rolled
+/// A user bypassing the macro system with a hand-rolled
 /// `unsafe impl Pod for Foo {}` cannot accidentally pick up
 /// [`ZeroCopy`] for free. The `ZeroCopy` blanket below additionally
-/// requires `HopperZeroCopySealed`, which only Hopper-authored
+/// requires `HopperZeroCopySealed`, which only framework-defined
 /// surfaces implement.
 ///
 /// Users who legitimately need to extend `ZeroCopy` for a custom
@@ -78,7 +71,7 @@ pub mod __sealed {
     /// alignment-1 plain-old-data value with no padding bytes and no
     /// interior pointers, so that any byte pattern of the correct length is
     /// a valid instance. Implementing this for a type that violates the
-    /// contract makes every downstream [`ZeroCopy`] cast unsound.
+    /// contract makes every downstream [`super::ZeroCopy`] cast unsound.
     pub unsafe trait HopperZeroCopySealed {}
 
     // Framework-provided primitives. Every Rust-level `Pod` integer
@@ -115,13 +108,12 @@ pub mod __sealed {
 /// the framework's own primitive wire types (`WireU64`, `WireBool`,
 /// `TypedAddress<T>`, etc.) stamp themselves with the seal
 /// automatically. A user bypassing the macros with a bare
-/// `unsafe impl Pod` does **not** get `ZeroCopy` for free, which
-/// closes the Hopper Safety Audit's Step 5 ("you cannot implement
-/// `ZeroCopy` manually, only via macro").
+/// `unsafe impl Pod` does **not** get `ZeroCopy` for free. `ZeroCopy`
+/// is implemented only through the framework-owned sealed path.
 pub unsafe trait ZeroCopy: Pod + 'static + __sealed::HopperZeroCopySealed {}
 
 // Blanket: any `Pod + 'static` type that also carries the seal gets
-// `ZeroCopy`. Every Hopper-authored surface carries the seal; the
+// `ZeroCopy`. Every framework-defined surface carries the seal; the
 // blanket plus the seal together mean the trait is free for
 // framework users and opaque to bypassing code.
 unsafe impl<T> ZeroCopy for T where T: Pod + 'static + __sealed::HopperZeroCopySealed {}
@@ -132,10 +124,8 @@ unsafe impl<T> ZeroCopy for T where T: Pod + 'static + __sealed::HopperZeroCopyS
 
 /// A `ZeroCopy` type with a compile-time-known wire size.
 ///
-/// The default associated-const body returns `size_of::<Self>()`,
-/// which matches every Hopper layout today. Macros may override it
-/// in a future revision if the in-memory and on-wire representations
-/// ever diverge (e.g. compact trailing tags for optional fields).
+/// The associated constant defaults to `size_of::<Self>()`. The blanket
+/// implementation below applies that value to each `ZeroCopy` type.
 pub trait WireLayout: ZeroCopy {
     /// Size of the on-wire representation, in bytes.
     const WIRE_SIZE: usize = core::mem::size_of::<Self>();
@@ -150,10 +140,6 @@ impl<T: ZeroCopy> WireLayout for T {}
 // ══════════════════════════════════════════════════════════════════════
 
 /// Hopper account layout identity, the top of the unified trait stack.
-///
-/// This is the audit-blessed trait: its member list matches the PDF's
-/// "proposed trait model" section exactly, so Hopper's long-term ABI
-/// story is anchored in the vocabulary the audit uses.
 ///
 /// `WIRE_FINGERPRINT` is the first 8 bytes of the canonical SHA-256
 /// wire descriptor emitted by the `#[hopper::state]` expansion in the

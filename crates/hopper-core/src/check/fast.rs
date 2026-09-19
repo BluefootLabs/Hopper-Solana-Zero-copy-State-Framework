@@ -36,7 +36,7 @@ use hopper_runtime::{error::ProgramError, AccountView, ProgramResult};
 // never actually written). `read_account_header` reinterprets an
 // `&AccountView` as `*const *const u8` and dereferences it, which is
 // only correct if `AccountView` is exactly a pointer to the
-// `RuntimeAccount` — its sole non-ZST field. If hopper-native ever grows
+// `RuntimeAccount`, its sole non-ZST field. If hopper-native ever grows
 // `AccountView` (adds a field, changes the repr), this assertion fails
 // to compile and flags the fast path for review *before* it can silently
 // read the wrong bytes. That matters for security: this path gates
@@ -94,7 +94,7 @@ unsafe fn read_account_header(account: &AccountView<'_>) -> u32 {
     // 2. The pointer is valid and points to a RuntimeAccount in the input buffer.
     // 3. The RuntimeAccount starts with [borrow_state, is_signer, is_writable, executable].
     let ptr = account as *const AccountView as *const u8;
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let raw_ptr = unsafe { *(ptr as *const *const u8) };
     unsafe { core::ptr::read_unaligned(raw_ptr as *const u32) }
 }
@@ -114,7 +114,7 @@ pub fn check_account_fast(account: &AccountView<'_>, expected_header: u32) -> Pr
     // Fast path: one compare for all flags
     #[cfg(target_os = "solana")]
     {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let actual = unsafe { read_account_header(account) };
         if (actual & expected_header) == expected_header {
             return Ok(());

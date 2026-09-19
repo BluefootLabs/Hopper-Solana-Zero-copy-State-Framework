@@ -1,5 +1,5 @@
 //! I7 self-describing transactions: the touch-map emit fires on the
-//! handler's **Ok** path ONLY, driven by the generated dispatcher — never
+//! handler's **Ok** path ONLY, driven by the generated dispatcher, never
 //! from a `Drop` (which would fire on `?`/`Err` returns too, the CONFIRMED
 //! P2).
 //!
@@ -67,7 +67,7 @@ mod bump_prog {
     }
 
     /// Err path: touches state, then FAILS. The dispatcher must NOT emit a
-    /// touch map — `?` on `handler(...)` short-circuits before the finish
+    /// touch map, `?` on `handler(...)` short-circuits before the finish
     /// call, so a rolled-back instruction advertises nothing (P2 fix).
     #[instruction(1)]
     #[allow(unused_mut, unused_variables)]
@@ -131,7 +131,7 @@ fn opt_in_advertises_the_const_control_does_not() {
 #[test]
 fn dispatcher_emits_on_ok_path_and_not_on_err_path() {
     // Ok discriminator: the dispatcher runs the handler, then (because
-    // Bump::EMIT_TOUCH_MAP is true) reaches the finish call — off-chain a
+    // Bump::EMIT_TOUCH_MAP is true) reaches the finish call, off-chain a
     // no-op, but the whole path compiles and runs to Ok. This is the
     // borrow-check proof: `ctx.finish_with_touch_map()` is reached after
     // the bound context was moved into and dropped by the handler.
@@ -142,7 +142,7 @@ fn dispatcher_emits_on_ok_path_and_not_on_err_path() {
     );
 
     // Err discriminator: the handler returns Err via `?`, so the
-    // dispatcher short-circuits BEFORE the const-guarded finish call — the
+    // dispatcher short-circuits BEFORE the const-guarded finish call, the
     // failed, rolled-back instruction self-describes nothing. We observe
     // the propagated error; the emit position relative to `?` is pinned by
     // the codegen unit tests and the runtime Ok-only regression test.

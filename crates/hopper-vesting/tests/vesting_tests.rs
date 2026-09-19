@@ -9,34 +9,54 @@ mod vesting_tests {
 
     #[test]
     fn before_cliff_returns_zero() {
-        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, 500), 0);
-        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, 1_999), 0);
+        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, 500).unwrap(), 0);
+        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, 1_999).unwrap(), 0);
     }
 
     #[test]
     fn at_cliff_returns_proportional() {
-        let v = vested_amount(TOTAL, START, CLIFF, END, CLIFF);
+        let v = vested_amount(TOTAL, START, CLIFF, END, CLIFF).unwrap();
         // elapsed = 1000, duration = 4000 => 25%
         assert_eq!(v, 250_000);
     }
 
     #[test]
     fn at_end_returns_total() {
-        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, END), TOTAL);
-        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, END + 1000), TOTAL);
+        assert_eq!(vested_amount(TOTAL, START, CLIFF, END, END).unwrap(), TOTAL);
+        assert_eq!(
+            vested_amount(TOTAL, START, CLIFF, END, END + 1000).unwrap(),
+            TOTAL
+        );
     }
 
     #[test]
     fn midpoint_linear() {
         let mid = (START + END) / 2; // 3000
-        let v = vested_amount(TOTAL, START, CLIFF, END, mid);
+        let v = vested_amount(TOTAL, START, CLIFF, END, mid).unwrap();
         // elapsed = 2000, duration = 4000 => 50%
         assert_eq!(v, 500_000);
     }
 
     #[test]
     fn zero_duration_returns_total() {
-        assert_eq!(vested_amount(TOTAL, START, START, START, START), TOTAL);
+        assert_eq!(
+            vested_amount(TOTAL, START, START, START, START).unwrap(),
+            TOTAL
+        );
+    }
+
+    #[test]
+    fn invalid_timestamp_order_is_rejected_before_time_shortcuts() {
+        assert!(vested_amount(TOTAL, START, START - 1, END, 0).is_err());
+        assert!(vested_amount(TOTAL, START, END + 1, END, i64::MAX).is_err());
+    }
+
+    #[test]
+    fn extreme_valid_timestamps_do_not_overflow() {
+        assert_eq!(
+            vested_amount(u64::MAX, i64::MIN, 0, i64::MAX, 0).unwrap(),
+            1_u64 << 63
+        );
     }
 
     #[test]
@@ -77,6 +97,7 @@ mod vesting_tests {
         assert_eq!(elapsed_steps(100, 50, month), 0);
         // Zero step_duration
         assert_eq!(elapsed_steps(0, 100, 0), 0);
+        assert_eq!(elapsed_steps(i64::MIN, i64::MAX, 1), u32::MAX);
     }
 
     #[test]
@@ -88,14 +109,14 @@ mod vesting_tests {
 
         // Before cliff
         let now = start + 100 * 86_400;
-        assert_eq!(vested_amount(total, start, cliff, end, now), 0);
+        assert_eq!(vested_amount(total, start, cliff, end, now).unwrap(), 0);
 
         // At cliff (25% elapsed)
-        let v = vested_amount(total, start, cliff, end, cliff);
+        let v = vested_amount(total, start, cliff, end, cliff).unwrap();
         assert_eq!(v, 2_500_000);
 
         // 2 years in (50%)
-        let v = vested_amount(total, start, cliff, end, start + 2 * 365 * 86_400);
+        let v = vested_amount(total, start, cliff, end, start + 2 * 365 * 86_400).unwrap();
         assert_eq!(v, 5_000_000);
 
         // Claim half of what's vested

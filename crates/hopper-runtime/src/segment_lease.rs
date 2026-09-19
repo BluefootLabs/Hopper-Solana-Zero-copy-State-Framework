@@ -1,46 +1,36 @@
 //! RAII-leased typed segment guards.
 //!
-//! The Hopper Safety Audit called out that `SegmentBorrowRegistry` was
-//! being used as an **instruction-sticky ledger**: every `segment_ref` /
-//! `segment_mut` call appended an entry, nothing ever released, and the
-//! entries outlived the returned `Ref<T>` / `RefMut<T>` for the rest of
-//! the instruction. That model makes legitimate sequential patterns
-//! like
+//! [`SegmentBorrowRegistry`]
+//! records live byte-range borrows. [`SegmentLease`] owns one registry entry
+//! and removes it on drop. [`SegRef`] and [`SegRefMut`] pair that lease with an
+//! account-data guard, allowing sequential access after the previous guard is
+//! dropped while rejecting incompatible live ranges.
+//!
+//! For example, both mutations below are sequential because the first guard is
+//! dropped before the second is acquired:
 //!
 //! ```ignore
 //! { let mut b = ctx.segment_mut::<WireU64>(0, BAL)?; *b += amount; }
 //! { let mut b = ctx.segment_mut::<WireU64>(0, BAL)?; *b += more;   }
 //! ```
 //!
-//! impossible inside one instruction, because the second call would
-//! collide with the lingering entry from the first.
-//!
-//! [`SegmentLease`], [`SegRef`], and [`SegRefMut`] replace that model
-//! with real RAII: the registry entry lives exactly as long as the
-//! returned typed guard, and dropping the guard releases the entry.
-//! Sequential non-overlapping (and sequential same-region-read-then-
-//! write) patterns now behave exactly the way Rust borrowers expect.
-//!
 //! ## Representation
 //!
 //! `SegmentLease` stores a raw pointer to the registry plus a
-//! `PhantomData<&'a mut SegmentBorrowRegistry>`. Raw is necessary
-//! because the returned `SegRef<T>` otherwise exclusively borrows the
-//! whole `Context`, which would prevent even reading *another* account
-//!, a regression far worse than the sticky behavior we are fixing.
-//! The `PhantomData` ties the lease's lifetime to the registry's, so
-//! use-after-free is impossible at the type level. Drop performs a
-//! bounded exact release; no allocation, no heap touch.
+//! `PhantomData<&'a mut SegmentBorrowRegistry>`. A raw pointer avoids extending
+//! a Rust `&mut` borrow of the entire context through the returned segment
+//! guard. The lifetime marker ties the lease to the registry borrow, and `Drop`
+//! performs an exact entry release without allocation.
 //!
 //! ## Why a wrapper, not a field on `Ref`/`RefMut`
 //!
 //! The canonical `hopper_runtime::Ref` / `RefMut` are kept flat on
 //! Solana (`{ptr, state_ptr}` = 2 words, see `borrow.rs`). Adding a
-//! registry pointer to them would re-inflate the flat representation
-//! for every access path, even the whole-account `load()` path that
+//! registry pointer to them would expand the representation
+//! for all access paths, including the whole-account `load()` path that
 //! doesn't touch the segment registry. Keeping the lease as a separate
-//! wrapper means `load()` stays at 2 words and only segment access
-//! pays for the lease (one extra pointer-word on Solana).
+//! wrapper leaves `load()` at two words while segment access carries the
+//! additional lease pointer.
 
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
@@ -53,7 +43,7 @@ use crate::segment_borrow::{SegmentBorrow, SegmentBorrowRegistry};
 // ══════════════════════════════════════════════════════════════════════
 
 /// RAII lease on one registered entry in a
-/// [`SegmentBorrowRegistry`](crate::segment_borrow::SegmentBorrowRegistry).
+/// [`SegmentBorrowRegistry`].
 ///
 /// On drop, the lease removes the registered entry via exact match.
 /// It is returned wrapped inside [`SegRef`] / [`SegRefMut`]; callers
@@ -102,7 +92,7 @@ impl<'a> SegmentLease<'a> {
     /// Used by batch APIs (`AccountView::split_segments_mut`) that
     /// register several disjoint borrows against one
     /// `&'a mut SegmentBorrowRegistry` and then hand back several
-    /// coexisting guards — each guard needs its own lease, but only one
+    /// coexisting guards. Each guard needs its own lease, but only one
     /// `&mut` exists. The batch helper takes the registry's raw pointer
     /// once and binds every lease's lifetime to that single `&'a mut`.
     ///
@@ -280,7 +270,7 @@ impl<T: ?Sized> core::fmt::Debug for SegRefMut<'_, T> {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  SegmentsMut — simultaneous disjoint mutable segment access
+//  SegmentsMut, simultaneous disjoint mutable segment access
 // ══════════════════════════════════════════════════════════════════════
 
 /// A guard over **several disjoint typed sub-ranges** of one account,
@@ -290,7 +280,7 @@ impl<T: ?Sized> core::fmt::Debug for SegRefMut<'_, T> {
 /// registry leases (one per range) that proved pairwise disjointness at
 /// construction and release on drop. Because the ranges are disjoint and
 /// all sit inside the one borrow, [`all_mut`](Self::all_mut) can hand out
-/// `N` independent `&mut T` simultaneously — the generalized
+/// `N` independent `&mut T` simultaneously. This is the generalized
 /// `split_at_mut` for account fields that ordinary `segment_mut` cannot
 /// express.
 pub struct SegmentsMut<'a, T, const N: usize> {

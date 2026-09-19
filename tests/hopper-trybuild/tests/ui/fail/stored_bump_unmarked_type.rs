@@ -1,6 +1,6 @@
 //! `bump = stored` reads the canonical bump from the state type's
 //! `#[bump]`-marked field. A type WITHOUT the marker has no
-//! `CANONICAL_BUMP_ABS_OFFSET`, so the context must fail to compile —
+//! `CANONICAL_BUMP_ABS_OFFSET`, so the context must fail to compile,
 //! and a field merely NAMED `bump` changes nothing (no name-based
 //! auto-detection).
 

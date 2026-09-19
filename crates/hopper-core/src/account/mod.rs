@@ -1,13 +1,15 @@
 //! Account memory architecture.
 //!
-//! Hopper supports four account memory styles:
+//! Hopper supports four 16-byte-headered account memory styles:
 //!
 //! 1. **Fixed Layout** -- Classic zero-copy `#[repr(C)]` overlay with a 16-byte header.
 //! 2. **Overlay Layout** -- Multiple typed views over different regions of one account.
 //! 3. **Segmented Layout** -- Fixed prefix + dynamic typed segments with a segment table.
 //! 4. **Arena Layout** -- Accounts as typed storage arenas (slab allocators, ring buffers).
 //!
-//! All styles share the same 16-byte header format for self-description.
+//! The four styles above share the same 16-byte header format. Hopper also
+//! supports opt-in fixed and dynamic compact accounts using `[disc][body]`
+//! without that header through `hopper-runtime`.
 
 mod cursor;
 mod dynamic;

@@ -2,11 +2,10 @@
 //!
 //! Schema-driven inspector library for Hopper programs.
 //!
-//! The manager is an **inspector, not an engine**. It consumes the canonical
-//! runtime/layout/schema truth published by Hopper programs and returns
-//! human-readable reports. It never invents its own semantics, every byte,
-//! offset, and label comes from `hopper_schema::ProgramManifest` or the raw
-//! account bytes themselves.
+//! The manager is an **inspector, not an engine**. It renders caller-supplied
+//! `hopper_schema::ProgramManifest` values and raw account bytes as structured
+//! or human-readable reports. It does not authenticate that a manifest was
+//! published by a deployment or that the supplied bytes came from a cluster.
 //!
 //! ## Design
 //!

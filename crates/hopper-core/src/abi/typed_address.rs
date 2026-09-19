@@ -60,13 +60,13 @@ const _: () = assert!(core::mem::align_of::<TypedAddress<()>>() == 1);
 // SAFETY: #[repr(transparent)] over [u8; 32], all bit patterns valid, align 1.
 unsafe impl<T: Copy + 'static> crate::account::Zeroable for TypedAddress<T> {}
 unsafe impl<T: Copy + 'static> crate::account::Pod for TypedAddress<T> {}
-// Audit Step 5 seal: Hopper-authored primitive.
+// This framework-owned wire primitive is part of the sealed zero-copy set.
 unsafe impl<T: Copy + 'static> ::hopper_runtime::__sealed::HopperZeroCopySealed
     for TypedAddress<T>
 {
 }
 
-// SIZE defaults to size_of::<Self>() == 32, proven by the trait (I15).
+// FixedLayout::SIZE defaults to size_of::<Self>(); the const asserts pin it to 32.
 impl<T> crate::account::FixedLayout for TypedAddress<T> {}
 
 impl<T> TypedAddress<T> {
@@ -231,10 +231,10 @@ const _: () = assert!(core::mem::align_of::<UntypedAddress>() == 1);
 // SAFETY: Transparent over [u8; 32], align 1, all bits valid.
 unsafe impl crate::account::Zeroable for UntypedAddress {}
 unsafe impl crate::account::Pod for UntypedAddress {}
-// Audit Step 5 seal: Hopper-authored primitive.
+// This framework-owned wire primitive is part of the sealed zero-copy set.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for UntypedAddress {}
 
-// SIZE defaults to size_of::<Self>() == 32, proven by the trait (I15).
+// FixedLayout::SIZE defaults to size_of::<Self>(); the const asserts pin it to 32.
 impl crate::account::FixedLayout for UntypedAddress {}
 
 impl UntypedAddress {

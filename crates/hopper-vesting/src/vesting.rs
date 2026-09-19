@@ -12,6 +12,7 @@ use hopper_runtime::error::ProgramError;
 ///
 /// Returns 0 before the cliff, `total` after `end`, and a proportional
 /// amount in between. Uses u128 intermediate to avoid overflow.
+/// Returns `InvalidArgument` unless `start <= cliff <= end`.
 ///
 /// ```text
 ///   vested
@@ -24,23 +25,32 @@ use hopper_runtime::error::ProgramError;
 ///     start cliff       end
 /// ```
 #[inline(always)]
-pub fn vested_amount(total: u64, start: i64, cliff: i64, end: i64, now: i64) -> u64 {
+pub fn vested_amount(
+    total: u64,
+    start: i64,
+    cliff: i64,
+    end: i64,
+    now: i64,
+) -> Result<u64, ProgramError> {
+    if start > cliff || cliff > end {
+        return Err(ProgramError::InvalidArgument);
+    }
     if now < cliff {
-        return 0;
+        return Ok(0);
     }
     if now >= end {
-        return total;
+        return Ok(total);
     }
-    let elapsed = (now - start) as u128;
-    let duration = (end - start) as u128;
+    let elapsed = (now as i128 - start as i128) as u128;
+    let duration = (end as i128 - start as i128) as u128;
     if duration == 0 {
-        return total;
+        return Ok(total);
     }
     let vested = (total as u128) * elapsed / duration;
     if vested > total as u128 {
-        total
+        Ok(total)
     } else {
-        vested as u64
+        Ok(vested as u64)
     }
 }
 
@@ -88,9 +98,9 @@ pub fn elapsed_steps(start: i64, now: i64, step_duration: i64) -> u32 {
     if now <= start || step_duration <= 0 {
         return 0;
     }
-    let elapsed = (now - start) as u64;
-    let steps = elapsed / step_duration as u64;
-    if steps > u32::MAX as u64 {
+    let elapsed = (now as i128 - start as i128) as u128;
+    let steps = elapsed / step_duration as u128;
+    if steps > u32::MAX as u128 {
         u32::MAX
     } else {
         steps as u32

@@ -112,7 +112,7 @@ mod tests {
     /// must be entirely in-bounds of one allocation, and an unaligned
     /// cast trips the rustc 1.78+ debug misalignment check. This is
     /// also why overlay-facing args use align-1 `Pod` payloads
-    /// (`OptionByte<[u8; 32]>`, wire types) — a raw `u64` payload only
+    /// (`OptionByte<[u8; 32]>`, wire types), a raw `u64` payload only
     /// appears here to exercise tag validation.
     #[repr(C, align(8))]
     struct AlignedBuf([u8; core::mem::size_of::<OptionByte<u64>>()]);
@@ -160,10 +160,10 @@ mod tests {
     fn zero_tag_ignores_value_payload() {
         // A None with garbage value bytes still decodes cleanly. The
         // value field lives at offset 8 (after repr(C) padding), so the
-        // garbage goes there — not at offset 1.
+        // garbage goes there; not at offset 1.
         let mut buf = AlignedBuf([0u8; core::mem::size_of::<OptionByte<u64>>()]);
         buf.0[8..16].copy_from_slice(&0x1234_5678_9ABC_DEF0u64.to_le_bytes());
-        // SAFETY: as in `malformed_tag_rejects` — aligned, full-size,
+        // SAFETY: as in `malformed_tag_rejects`, aligned, full-size,
         // access through the validated path only.
         let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert!(o.get().unwrap().is_none());

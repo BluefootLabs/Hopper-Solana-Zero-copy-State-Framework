@@ -31,13 +31,13 @@ pub const MAX_STATIC_CPI_ACCOUNTS: usize = 64;
 /// Raised from 128 to 255 for **SIMD-0339** (`increase_cpi_account_info_limit`,
 /// agave gate `H6iVbVaDZgDphcPbcZwc5LoznMPWQfnJ1AM7L1xzqvt5`, live on testnet
 /// epoch 883), which lifts the runtime CPI account-info limit from 64 to 255.
-/// This is a *ceiling* constant only — it does not size any stack array, so
+/// This is a *ceiling* constant only; it does not size any stack array, so
 /// widening it costs nothing for programs that stay small. The actual scratch
 /// allocation is governed by a per-call const-generic `MAX_ACCOUNTS`.
 ///
 /// Under 0339 every distinct account-info also carries a per-info CU cost, so
 /// passing the *fewest* infos per CPI becomes a cost axis. [`DynCpi`] exploits
-/// this by deduplicating account-infos by pubkey — see
+/// this by deduplicating account-infos by pubkey; see
 /// [`invoke_signed_deduped`].
 ///
 /// [`DynCpi`]: crate::dyn_cpi::DynCpi
@@ -80,7 +80,7 @@ pub unsafe fn invoke_unchecked(
             data_len: instruction.data.len() as u64,
         };
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
                 &c_instruction as *const _ as *const u8,
@@ -124,7 +124,7 @@ pub unsafe fn invoke_signed_unchecked(
             data_len: instruction.data.len() as u64,
         };
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
                 &c_instruction as *const _ as *const u8,
@@ -189,7 +189,7 @@ fn signer_authority_supplied(signers_seeds: &[Signer<'_, '_>]) -> bool {
     !signers_seeds.is_empty()
 }
 
-/// Per-account meta↔view correspondence + borrow-state validation — the
+/// Per-account meta↔view correspondence + borrow-state validation, the
 /// borrow-checked tier.
 ///
 /// For each account: the view at index `i` must name the same address as
@@ -198,7 +198,7 @@ fn signer_authority_supplied(signers_seeds: &[Signer<'_, '_>]) -> bool {
 /// ([`AccountView::check_borrow_mut`]) and read-only metas must be
 /// shared-borrowable ([`AccountView::check_borrow`]). This is exactly the
 /// per-account check Pinocchio's safe `invoke` performs before a CPI. No
-/// signer, writability, or duplicate-writable validation happens here —
+/// signer, writability, or duplicate-writable validation happens here,
 /// those belong to the default [`invoke_signed`] tier.
 #[inline]
 #[cfg_attr(target_os = "solana", allow(dead_code))]
@@ -217,7 +217,7 @@ fn validate_cpi_borrows(
         // Without this, a caller passing views in a different order than
         // the metas would borrow-check the wrong (account, mutability)
         // pair and then reach `invoke_unchecked` with its aliasing
-        // contract undischarged — UB from safe code. Pinocchio's safe
+        // contract undischarged, UB from safe code. Pinocchio's safe
         // `invoke` keeps exactly this check for exactly this reason
         // (solana-instruction-view `cpi.rs`).
         if !address_eq(account_views[i].address(), instruction.accounts[i].address) {
@@ -231,7 +231,7 @@ fn validate_cpi_borrows(
         i += 1;
     }
 
-    // BLD-MUT writable hand-off gate: swept once per CPI behind the
+    // Sweep the mutation-completeness hand-off gate once per CPI behind the
     // liveness branch, never reachable from the per-meta loop (the
     // 2026-07-09 bisect measured closure-reachable gate machinery at
     // ~+52 CU per router hop for ungated programs; see invoke_signed).
@@ -259,7 +259,7 @@ fn is_host_system_transfer(instruction: &InstructionView<'_, '_, '_, '_>) -> boo
 }
 
 // This validator only walks `instruction.accounts` (address/signer/
-// writable/borrow checks) — it never inspects `instruction.data` — so it
+// writable/borrow checks); it never inspects `instruction.data`; so it
 // is not actually Transfer-specific. `emulate_host_system_create_account`,
 // `emulate_host_system_allocate`, and `emulate_host_system_assign` below
 // reuse it verbatim for their host emulations instead of duplicating the
@@ -304,7 +304,7 @@ fn validate_host_system_transfer(
         i += 1;
     }
 
-    // BLD-MUT writable hand-off gate — post-loop sweep, mirroring the
+    // Sweep the mutation-completeness hand-off gate after the loop, matching the
     // on-chain tiers' once-per-CPI placement so the host emulation's
     // error surface (including the borrow-before-delegation precedence)
     // stays identical to on-chain.
@@ -339,10 +339,10 @@ fn emulate_host_system_transfer(
     let from = account_views[0];
     let to = account_views[1];
 
-    // BLD-MUT: pre-validate BOTH sides against the lamport gate before
+    // Pre-validate both sides against the lamport gate before
     // any balance mutation. Relying on the per-account `set_lamports`
     // funnel alone would debit `from` and then have `to` refused at the
-    // funnel, destroying lamports in host state on the error path — a
+    // funnel, destroying lamports in host state on the error path, a
     // transfer must be all-or-nothing.
     crate::write_policy::check_lamport_mutation(from.address())?;
     crate::write_policy::check_lamport_mutation(to.address())?;
@@ -376,7 +376,7 @@ fn emulate_host_system_transfer(
 
 #[cfg(not(target_os = "solana"))]
 fn is_host_system_create_account(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
-    // `CreateAccount { lamports, space, owner }` —
+    // `CreateAccount { lamports, space, owner }`,
     // `[0u32 LE][lamports: u64 LE][space: u64 LE][owner: 32 bytes]`
     // (52 bytes). See `hopper_system::encoders::encode_create_account`.
     crate::address::address_is_zero(instruction.program_id)
@@ -392,7 +392,7 @@ fn is_host_system_create_account(instruction: &InstructionView<'_, '_, '_, '_>) 
 /// brand-new account before writing the Hopper layout header into it.
 /// Off-chain, the raw syscall wrappers ([`invoke_unchecked`] /
 /// [`invoke_signed_unchecked`]) are no-ops by design (there is no runtime
-/// to service the syscall) — without this emulation the account is left
+/// to service the syscall), without this emulation the account is left
 /// at its pre-CPI zero-length state and the header write that immediately
 /// follows fails with `AccountDataTooSmall`, making every `init` /
 /// `init_if_needed` context untestable end-to-end through a host harness.
@@ -424,8 +424,8 @@ fn emulate_host_system_create_account(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
-    // BLD-MUT: pre-validate BOTH sides against the lamport gate before any
-    // balance mutation — see the identical note on
+    // Pre-validate both sides against the lamport gate before any
+    // balance mutation; see the identical note on
     // `emulate_host_system_transfer`.
     crate::write_policy::check_lamport_mutation(from.address())?;
     crate::write_policy::check_lamport_mutation(to.address())?;
@@ -445,7 +445,7 @@ fn emulate_host_system_create_account(
     // SAFETY: `to` was validated writable by `validate_host_system_transfer`
     // (the generic meta-check reused above) before this point, and this
     // function stands in for the System Program's own CreateAccount
-    // handler — the one caller the real runtime authorizes to assign a
+    // handler, the one caller the real runtime authorizes to assign a
     // fresh (System-owned, empty) account's owner.
     unsafe {
         to.assign(&owner);
@@ -456,7 +456,7 @@ fn emulate_host_system_create_account(
 
 #[cfg(not(target_os = "solana"))]
 fn is_host_system_allocate(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
-    // `Allocate { space }` — `[8u32 LE][space: u64 LE]` (12 bytes).
+    // `Allocate { space }`, `[8u32 LE][space: u64 LE]` (12 bytes).
     // See `hopper_system::encoders::encode_allocate`.
     crate::address::address_is_zero(instruction.program_id)
         && instruction.data.len() == 12
@@ -468,15 +468,15 @@ fn is_host_system_allocate(instruction: &InstructionView<'_, '_, '_, '_>) -> boo
 /// `hopper_init!`'s PRE-FUNDED branch (`current_lamports > 0 &&
 /// data_len == 0`) reaches this CPI, via [`crate::system::Allocate`],
 /// after topping the account up to the rent-exempt minimum with a
-/// `Transfer` — instead of `CreateAccount`, which refuses an account
+/// `Transfer`, instead of `CreateAccount`, which refuses an account
 /// that already carries lamports. Off-chain the raw syscall wrappers are
 /// no-ops, so without this emulation that branch silently leaves the
 /// account at zero length and the header write that follows fails with
 /// `AccountDataTooSmall`. This reproduces the System Program's own
 /// observable effect: resize the account to `space`, zero-filling the
 /// new region (mirroring [`AccountView::resize`]'s on-chain growth
-/// semantics). No lamports move in an `Allocate`, so — unlike the
-/// Transfer/CreateAccount emulations — there is deliberately no BLD-MUT
+/// semantics). No lamports move in an `Allocate`, so unlike the
+/// Transfer/CreateAccount emulations there is deliberately no mutation-completeness
 /// lamport-mutation precheck here; the shared validator's
 /// writable/borrow/delegation sweep is the whole gate, exactly as for
 /// the real instruction.
@@ -503,7 +503,7 @@ fn emulate_host_system_allocate(
 
 #[cfg(not(target_os = "solana"))]
 fn is_host_system_assign(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
-    // `Assign { owner }` — `[1u32 LE][owner: 32 bytes]` (36 bytes).
+    // `Assign { owner }`, `[1u32 LE][owner: 32 bytes]` (36 bytes).
     // See `hopper_system::encoders::encode_assign`.
     crate::address::address_is_zero(instruction.program_id)
         && instruction.data.len() == 36
@@ -513,11 +513,11 @@ fn is_host_system_assign(instruction: &InstructionView<'_, '_, '_, '_>) -> bool 
 /// Host-only emulation of the System Program's `Assign`.
 ///
 /// The third leg of `hopper_init!`'s PRE-FUNDED branch (Transfer-shortfall
-/// → `Allocate` → `Assign`), via [`crate::system::Assign`] — see
+/// → `Allocate` → `Assign`), via [`crate::system::Assign`]; see
 /// [`emulate_host_system_allocate`] for why the branch needs host
 /// emulation at all. This reproduces the System Program's own observable
 /// effect: set the account's owner. Like the real `Assign`, it moves no
-/// lamports, so there is deliberately no BLD-MUT lamport-mutation
+/// lamports, so there is deliberately no mutation-completeness lamport-mutation
 /// precheck; the shared validator's writable/borrow/delegation sweep is
 /// the whole gate.
 #[cfg(not(target_os = "solana"))]
@@ -534,7 +534,7 @@ fn emulate_host_system_assign(
     // SAFETY: `target` was validated writable by
     // `validate_host_system_transfer` (the generic meta-check reused at
     // the dispatch site) before this point, and this function stands in
-    // for the System Program's own Assign handler — the one caller the
+    // for the System Program's own Assign handler, the one caller the
     // real runtime authorizes to reassign a System-owned account's owner
     // (with the assignee's signature, which the same validator checked
     // against the builder's writable_signer meta).
@@ -587,10 +587,10 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     let metas_len = instruction.accounts.len();
 
     // Fused validate+build (default tier). `check_meta` runs the default
-    // tier's per-account contract — address identity, required-signer
+    // tier's per-account contract, address identity, required-signer
     // presence (or supplied PDA authority), writability coverage,
-    // and borrow state — in the *same* pass that materializes each
-    // `CpiAccount` scratch slot. `post_check` then runs the BLD-MUT
+    // and borrow state, in the *same* pass that materializes each
+    // `CpiAccount` scratch slot. `post_check` then runs the mutation-completeness
     // lamport-delegation sweep (once per CPI, gate-liveness-guarded; see
     // the note at the sweep) and the duplicate-writable footgun scan,
     // then the syscall.
@@ -627,7 +627,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
             Ok(())
         },
         || {
-            // BLD-MUT: a writable CPI meta delegates unbounded data AND
+            // A writable CPI meta delegates unbounded data and
             // lamport mutation to the callee. The delegation sweep runs
             // ONCE per CPI here (not per meta) behind a liveness branch:
             // keeping gate machinery reachable from the per-meta closure
@@ -656,8 +656,8 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 /// AND writes the `CpiAccount` scratch slot in the same iteration, replacing
 /// the previous validate-walk-then-build-walk pair. Slots `metas_len..
 /// ACCOUNTS` (account infos with no corresponding meta) are build-only, as
-/// before. `post_check` runs once after the pass — e.g. the default tier's
-/// duplicate-writable scan, which needs the full meta list — and before the
+/// before. `post_check` runs once after the pass; e.g. the default tier's
+/// duplicate-writable scan, which needs the full meta list, and before the
 /// syscall.
 ///
 /// Fusing preserves observable behavior exactly: `check_meta` is invoked in
@@ -712,7 +712,7 @@ fn dispatch_cpi_fixed<const ACCOUNTS: usize>(
     // SAFETY: `check_meta`/`post_check` validated the borrow state of each
     // account view (writable metas exclusively borrowable, read-only metas
     // shared-borrowable), so no live borrow conflicts with the runtime's
-    // access during the CPI — exactly the invariant
+    // access during the CPI, exactly the invariant
     // `invoke_unchecked`/`invoke_signed_unchecked` require.
     unsafe {
         if signers_seeds.is_empty() {
@@ -797,7 +797,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         i += 1;
     }
 
-    // BLD-MUT writable hand-off gate, swept once per CPI behind the
+    // Sweep the mutation-completeness hand-off gate once per CPI behind the
     // liveness branch (never reachable from the hot per-meta loop; see
     // the 2026-07-09 bisect note in `invoke_signed`'s sweep).
     if crate::write_policy::lamport_gate_active() {
@@ -819,7 +819,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count)
     };
 
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts)
@@ -862,7 +862,7 @@ fn validate_cpi_accounts_deduped(
 ) -> ProgramResult {
     // Duplicate-writable footgun: two writable metas naming one account.
     // The infos are deduped, so `validate_no_duplicate_writable`'s
-    // view-pair scan cannot observe it — check meta addresses directly.
+    // view-pair scan cannot observe it, check meta addresses directly.
     let mut i = 0;
     while i < instruction.accounts.len() {
         if instruction.accounts[i].is_writable {
@@ -911,9 +911,9 @@ fn validate_cpi_accounts_deduped(
         i += 1;
     }
 
-    // BLD-MUT writable hand-off gate over the FULL un-deduplicated meta
+    // Sweep the mutation-completeness hand-off gate over the full, non-deduplicated meta
     // list (dedup collapses infos, never the delegation requirement),
-    // swept once per CPI behind the liveness branch — never reachable
+    // swept once per CPI behind the liveness branch, never reachable
     // from the per-meta loop (2026-07-09 bisect; see invoke_signed).
     if crate::write_policy::lamport_gate_active() {
         let mut m = 0;
@@ -931,8 +931,8 @@ fn validate_cpi_accounts_deduped(
     Ok(())
 }
 
-/// Invoke a CPI whose account-info list has been **deduplicated by pubkey**
-/// — the SIMD-0339 fewest-infos-per-CPI optimization.
+/// Invoke a CPI whose account-info list has been **deduplicated by pubkey**,
+/// the SIMD-0339 fewest-infos-per-CPI optimization.
 ///
 /// `instruction.accounts` (the metas) may reference the same account in
 /// several positions and the callee still sees that full ordered list.
@@ -944,7 +944,7 @@ fn validate_cpi_accounts_deduped(
 ///
 /// `infos.len()` must be `<= MAX_INFOS` (the deduped list is what is handed
 /// to the syscall). Validation runs over the full, un-deduplicated meta
-/// list via [`validate_cpi_accounts_deduped`], so this path is exactly as
+/// list via the private `validate_cpi_accounts_deduped` helper, so this path is
 /// strict as the default [`invoke_signed`] tier.
 #[inline]
 pub fn invoke_signed_deduped<const MAX_INFOS: usize>(
@@ -1023,7 +1023,7 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 
 // -- Borrow-checked (Pinocchio-equivalent) tier -------------------------
 
-/// Invoke a CPI with **borrow-state validation only** — the
+/// Invoke a CPI with **borrow-state validation only**, the
 /// Pinocchio-equivalent mid tier.
 ///
 /// # Validation tiers
@@ -1037,7 +1037,7 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 /// | borrow_checked | `invoke_borrow_checked` / [`invoke_signed_borrow_checked`] | Per-account borrow state only: writable metas must be exclusively borrowable, read-only metas shared-borrowable. |
 /// | unchecked | [`invoke_unchecked`] / [`invoke_signed_unchecked`] (`unsafe`) | Nothing. |
 ///
-/// Every **safe** tier additionally consults the BLD-MUT lamport gate
+/// Every **safe** tier additionally consults the mutation-completeness lamport gate
 /// on writable metas: under a `strict_writes` context that declared its
 /// lamport dimension (`lamports(...)`), handing an account to a callee
 /// as writable requires that account to carry a whole-account data
@@ -1048,7 +1048,7 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 /// # What this tier is
 ///
 /// This tier performs exactly the per-account borrow-state checks that
-/// Pinocchio's `invoke` performs before its syscall — nothing more. It
+/// Pinocchio's `invoke` performs before its syscall; nothing more. It
 /// skips the default tier's meta↔view address comparison, signer/PDA
 /// matching, the writability re-check, and the O(n²) pairwise
 /// duplicate-writable scan, which together cost roughly 9–13 extra
@@ -1061,8 +1061,8 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 /// # When it is appropriate
 ///
 /// Use this tier when the accounts were already validated at parse
-/// time — the entrypoint/context layer has checked addresses and
-/// writability, so re-checking per CPI buys nothing — i.e. when you
+/// time, the entrypoint/context layer has checked addresses and
+/// writability, so re-checking per CPI buys nothing; i.e. when you
 /// want the exact validation level of a raw Pinocchio program.
 ///
 /// The default tier's duplicate-writable rejection guards a real
@@ -1070,8 +1070,8 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 /// callee double-mutate state behind your back) and is deliberately
 /// **not** weakened or removed. Wide-CPI callers who have already run
 /// `require_unique_writable_accounts` (the check-layer graph
-/// constraint) — or whose account shape statically precludes duplicate
-/// writables — can safely opt down to `borrow_checked`.
+/// constraint), or whose account shape statically precludes duplicate
+/// writables, can safely opt down to `borrow_checked`.
 ///
 /// Off-chain (host builds) the syscall is a no-op; validation still
 /// runs, and host-side System-program transfers are emulated the same
@@ -1084,7 +1084,7 @@ pub fn invoke_borrow_checked<const ACCOUNTS: usize>(
     invoke_signed_borrow_checked::<ACCOUNTS>(instruction, account_views, &[])
 }
 
-/// Invoke a signed CPI with **borrow-state validation only** — the
+/// Invoke a signed CPI with **borrow-state validation only**, the
 /// Pinocchio-equivalent mid tier.
 ///
 /// See [`invoke_borrow_checked`] for the full tier table, what this
@@ -1112,9 +1112,9 @@ pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
     let metas_len = instruction.accounts.len();
 
     // Fused validate+build (borrow_checked tier). `check_meta` runs the
-    // per-account checks `validate_cpi_borrows` did — meta↔view address
-    // correspondence and borrow state — while the scratch slot is
-    // materialized in the same pass. The BLD-MUT lamport-delegation scan
+    // per-account checks `validate_cpi_borrows` did, meta↔view address
+    // correspondence and borrow state, while the scratch slot is
+    // materialized in the same pass. The mutation-completeness lamport-delegation scan
     // runs ONCE per CPI in `post_check`, NOT per meta: the 2026-07-09
     // router bisect measured that any *reachable* gate-machinery call
     // inside this per-meta closure forces it into an outlined,
@@ -1122,8 +1122,8 @@ pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
     // installed a gate (branch-inside variants only recovered to ~+21;
     // machinery-unreachable-from-the-closure recovered fully:
     // 1,564/3,044/4,525 → 1,559/3,035/4,512 measured). Gated programs
-    // keep full enforcement — the sweep still refuses before the syscall
-    // hand-off in `dispatch_cpi_fixed` — with one documented precedence
+    // keep full enforcement, the sweep still refuses before the syscall
+    // hand-off in `dispatch_cpi_fixed`, with one documented precedence
     // shift: in a multi-fault instruction, borrow errors now surface
     // before delegation errors (both are pre-syscall refusals).
     dispatch_cpi_fixed::<ACCOUNTS>(
@@ -1182,7 +1182,7 @@ mod tests {
     fn make_account(address: [u8; 32]) -> (std::vec::Vec<u64>, AccountView<'static>) {
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 16).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1196,7 +1196,7 @@ mod tests {
                 data_len: 16,
             });
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }
@@ -1276,7 +1276,7 @@ mod tests {
             accounts: &metas,
         };
 
-        // Default tier: duplicate writable metas are rejected — the
+        // Default tier: duplicate writable metas are rejected, the
         // Sealevel double-mutation footgun `validate_no_duplicate_writable`
         // exists to guard.
         let err = invoke::<2>(&instruction, &[&first, &second]).unwrap_err();
@@ -1284,7 +1284,7 @@ mod tests {
 
         // borrow_checked tier: per-account borrow state ONLY, matching
         // what Pinocchio's `invoke` checks. Not rejecting duplicates is
-        // the documented contract of this tier — callers opt down only
+        // the documented contract of this tier, callers opt down only
         // after `require_unique_writable_accounts` (or a statically
         // duplicate-free account shape) has ruled the footgun out.
         invoke_borrow_checked::<2>(&instruction, &[&first, &second]).unwrap();
@@ -1311,7 +1311,7 @@ mod tests {
         );
     }
 
-    // -- BLD-MUT lamport gate on writable metas -------------------------
+    // Lamport gate on writable metas.
 
     // Guarded-tier semantics: installs a data-declaring policy, which the
     // `unguarded-raw-surfaces` fence refuses at install (covered by its
@@ -1471,7 +1471,7 @@ mod tests {
         // delegation gate then never fires for it, so without the
         // emulation's own both-sides pre-validation the refusal would
         // come from the `set_lamports` funnel *after* `from` was
-        // already debited — destroying a lamport in host state.
+        // already debited, destroying a lamport in host state.
         let metas = [
             InstructionAccount::writable(accounts[0].address()),
             InstructionAccount::readonly(accounts[1].address()),

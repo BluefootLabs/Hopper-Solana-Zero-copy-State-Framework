@@ -3,7 +3,7 @@
 //! Wraps [`mollusk_svm::Mollusk`] so example and integration tests can
 //! load a compiled Hopper `.so`, seed program-owned accounts with a
 //! valid Hopper header, fire instructions, and read back lamports,
-//! account data, and compute-unit cost — all without spinning up a
+//! account data, and compute-unit cost without spinning up a
 //! validator.
 //!
 //! The name [`LiteSvmHarness`] reflects the role (a lightweight,
@@ -94,7 +94,7 @@ impl LiteSvmHarness {
     /// [`Self::capture_logs`] was never called). Lines look exactly like
     /// an RPC transaction's `logMessages`: `Program <id> invoke [1]`,
     /// `Program log: ...`, `Program data: <base64>`, `Program <id>
-    /// success` / `failed ...` — so log-stream decoders (touch maps,
+    /// success` / `failed ...`; so log-stream decoders (touch maps,
     /// events) can be exercised against real execution output.
     pub fn logs(&self) -> Vec<String> {
         self.logs
@@ -119,7 +119,7 @@ impl LiteSvmHarness {
         Account::new(lamports, space, &self.program_id)
     }
 
-    /// The System Program's keyed account, as an instruction fixture —
+    /// The System Program's keyed account, as an instruction fixture,
     /// required whenever the tested instruction CPIs into the System
     /// Program (init lifecycles, transfers).
     pub fn system_program_account() -> (Pubkey, Account) {
@@ -130,7 +130,7 @@ impl LiteSvmHarness {
     ///
     /// Any instruction that CPIs into the executing program must carry
     /// the program's account in its account list (a self-CPI target has
-    /// to be a transaction account) — Hopper's `event_cpi` contexts and
+    /// to be a transaction account), Hopper's `event_cpi` contexts and
     /// Anchor's `#[event_cpi]` both append it for exactly this reason.
     /// The fixture matches [`Self::load`]'s registration (Mollusk's
     /// default upgradeable-loader entry), so the runtime resolves the

@@ -37,6 +37,7 @@ fn test_isqrt_large_values() {
     // u64::MAX * u64::MAX fits in u128
     let val = u64::MAX as u128;
     assert_eq!(isqrt(val * val).unwrap(), u64::MAX);
+    assert_eq!(isqrt(u128::MAX).unwrap(), u64::MAX);
 }
 
 // =====================================================================
@@ -70,6 +71,15 @@ fn test_cp_out_zero_reserves_errors() {
     assert!(constant_product_out(1_000_000, 0, 100_000, 30).is_err());
 }
 
+#[test]
+fn test_cp_out_rejects_invalid_fee() {
+    assert_eq!(
+        constant_product_out(1_000_000, 2_000_000, 100_000, 10_000),
+        Err(hopper_runtime::error::ProgramError::InvalidArgument)
+    );
+    assert!(constant_product_out(1_000_000, 2_000_000, 100_000, u16::MAX).is_err());
+}
+
 // =====================================================================
 // constant_product_in tests
 // =====================================================================
@@ -87,6 +97,15 @@ fn test_cp_in_amount_out_too_large() {
     // amount_out >= reserve_out must fail
     assert!(constant_product_in(1_000_000, 2_000_000, 2_000_000, 0).is_err());
     assert!(constant_product_in(1_000_000, 2_000_000, 3_000_000, 0).is_err());
+}
+
+#[test]
+fn test_cp_in_rejects_invalid_fee() {
+    assert_eq!(
+        constant_product_in(1_000_000, 2_000_000, 100_000, 10_000),
+        Err(hopper_runtime::error::ProgramError::InvalidArgument)
+    );
+    assert!(constant_product_in(1_000_000, 2_000_000, 100_000, u16::MAX).is_err());
 }
 
 // =====================================================================

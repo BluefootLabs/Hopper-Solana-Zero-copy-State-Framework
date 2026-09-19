@@ -102,10 +102,10 @@ pub unsafe fn assign(view: &BackendAccountView<'_>, new_owner: &Address) {
 /// [`lamports::transfer_lamports`](crate::lamports::transfer_lamports)
 /// helper). When an instruction-scoped lamport
 /// gate is installed (`strict_writes` + declared lamport dimension,
-/// BLD-MUT), mutation on an undeclared account is refused here with
+/// mutation-completeness contract), mutation on an undeclared account is refused here with
 /// `Custom(0xD000 | index)` before any balance changes. The gate is
 /// consulted by the account's **address value** read from the live
-/// view right here — the gate store holds copied values, no pointers.
+/// view right here, the gate store holds copied values, no pointers.
 #[inline(always)]
 pub fn try_set_lamports(view: &BackendAccountView<'_>, lamports: u64) -> ProgramResult {
     crate::write_policy::check_lamport_mutation(account_address(view))?;
@@ -115,7 +115,7 @@ pub fn try_set_lamports(view: &BackendAccountView<'_>, lamports: u64) -> Program
 
 /// Close an account at the backend level (drains lamports to zero and
 /// wipes the header), gated by the same lamport gate as
-/// [`try_set_lamports`] — the native close mutates the balance without
+/// [`try_set_lamports`], the native close mutates the balance without
 /// crossing the set-lamports funnel, so it must consult the gate itself.
 #[inline(always)]
 pub fn close(view: &BackendAccountView<'_>) -> ProgramResult {

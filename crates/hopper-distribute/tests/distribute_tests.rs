@@ -28,6 +28,22 @@ mod distribute_tests {
     }
 
     #[test]
+    fn largest_fractional_remainders_receive_dust() {
+        // Exact quotas are 2/7, 6/7, and 6/7. An index-first round-robin
+        // implementation would incorrectly produce [1, 1, 0].
+        let mut out = [0u64; 3];
+        proportional_split(2, &[1, 3, 3], &mut out).unwrap();
+        assert_eq!(out, [0, 1, 1]);
+    }
+
+    #[test]
+    fn equal_remainders_use_input_order() {
+        let mut out = [0u64; 3];
+        proportional_split(2, &[1, 1, 1], &mut out).unwrap();
+        assert_eq!(out, [1, 1, 0]);
+    }
+
+    #[test]
     fn single_recipient() {
         let mut out = [0u64; 1];
         proportional_split(999, &[100], &mut out).unwrap();
@@ -60,6 +76,67 @@ mod distribute_tests {
     fn rejects_all_zero_shares() {
         let mut out = [0u64; 2];
         assert!(proportional_split(100, &[0, 0], &mut out).is_err());
+    }
+
+    /// Straightforward largest-remainder reference: sort by remainder
+    /// descending, ties by input order, award one unit to the first
+    /// `total - sum(floor)` recipients.
+    fn reference_split(total: u64, shares: &[u64]) -> Vec<u64> {
+        let sum: u128 = shares.iter().map(|&s| s as u128).sum();
+        let mut out: Vec<u64> = shares
+            .iter()
+            .map(|&s| (s as u128 * total as u128 / sum) as u64)
+            .collect();
+        let left = total - out.iter().sum::<u64>();
+        let mut order: Vec<usize> = (0..shares.len()).collect();
+        order.sort_by_key(|&i| {
+            (
+                std::cmp::Reverse(shares[i] as u128 * total as u128 % sum),
+                i,
+            )
+        });
+        for &i in order.iter().take(left as usize) {
+            out[i] += 1;
+        }
+        out
+    }
+
+    #[test]
+    fn matches_the_sorting_reference_including_extremes() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let mut cases: Vec<(u64, Vec<u64>)> = vec![
+            (u64::MAX, vec![u64::MAX, u64::MAX, 1]),
+            (u64::MAX, vec![u64::MAX; 7]),
+            (u64::MAX - 1, vec![3, 3, 3, 1]),
+            (7, vec![1; 40]),
+        ];
+        for _ in 0..300 {
+            let n = (next() % 24 + 1) as usize;
+            let big = next() % 2 == 0;
+            let shares: Vec<u64> = (0..n)
+                .map(|_| if big { next() } else { next() % 1_000 })
+                .collect();
+            let total = if next() % 2 == 0 {
+                next()
+            } else {
+                next() % 10_000
+            };
+            if shares.iter().any(|&s| s != 0) {
+                cases.push((total, shares));
+            }
+        }
+        for (total, shares) in cases {
+            let mut out = vec![0u64; shares.len()];
+            proportional_split(total, &shares, &mut out).unwrap();
+            assert_eq!(out, reference_split(total, &shares), "{total} {shares:?}");
+            assert_eq!(out.iter().map(|&v| v as u128).sum::<u128>(), total as u128);
+        }
     }
 
     #[test]

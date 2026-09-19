@@ -7,26 +7,22 @@
 //! [`hopper_runtime::token`] / [`hopper_runtime::system`] now construct every
 //! instruction-data buffer by calling a small, pure, `#[inline(always)]`
 //! encoder in `hopper_runtime::{token,system}::encoders`. Those encoders
-//! return the exact bytes that leave the program on a CPI. Because a builder's
+//! return the bytes that leave the program on a CPI. Because a builder's
 //! `invoke_signed*` path delegates to one of them (instead of building the
 //! buffer inline and dropping it straight into the syscall), the shipped bytes
-//! are directly callable — and therefore directly model-checkable.
+//! are directly callable and model-checkable.
 //!
 //! The `#[cfg(kani)]` proofs below call the shipped
 //! `hopper_runtime::{token,system}::encoders::*` functions **directly** and
-//! pin, over fully symbolic inputs, each field's discriminator, byte offset,
-//! endianness, and the total encoded length. This is the change that retires
-//! the previous batch's caveat: those encoders used to build their buffer
-//! inline inside a private `invoke_signed*` method and never return it, so
-//! from outside `hopper-runtime` they were unobservable and this module could
-//! only prove a hand-written *mirror* of the wire format. The mirror is gone
-//! as the proof target; the proofs now verify the code that actually runs.
+//! pin, over symbolic inputs, each field's discriminator, byte offset,
+//! endianness, and total encoded length. The proofs therefore exercise the
+//! encoder functions called by the CPI builders.
 //!
 //! ## The reference encoders are now a differential oracle
 //!
 //! The [`spl_token`] and [`system`] modules in this file retain an
 //! independent, second implementation of the same wire formats. They are no
-//! longer the proof target — they serve as a **differential oracle**. The
+//! longer the proof target. They serve as a **differential oracle**. The
 //! `*_matches_reference` proofs assert, byte-for-byte over symbolic inputs,
 //! that the shipped encoder equals this independent reference, so the shipped
 //! bytes are pinned from two directions at once: a direct wire-format proof
@@ -35,17 +31,17 @@
 //!
 //! ## CBMC tractability
 //!
-//! Per the `raw_input` `PID_WORD` lesson, scalars are compared as one word
+//! Scalars are compared as one word
 //! (`u64::from_le_bytes(..)`), never a slice `==`, and a 32-byte pubkey region
-//! is proven with a single symbolic index `i in 0..32` and one assertion —
+//! is proven with a single symbolic index `i in 0..32` and one assertion,
 //! universal over all offsets, with no 32-iteration `memcmp` loop that would
 //! blow up the SAT formula. The differential proofs use the same discipline
 //! (field-wise / symbolic-index equality between the two fixed-size buffers),
-//! so every harness stays free of large comparison loops.
+//! which avoids large comparison loops in the harnesses.
 //!
 //! ## Provenance of the shipped encoders (runtime source)
 //!
-//! SPL Token — `crates/hopper-runtime/src/token.rs`, `pub mod encoders`:
+//! SPL Token: `crates/hopper-runtime/src/token.rs`, `pub mod encoders`:
 //! Transfer 3, Approve 4, MintTo 7, Burn 8, TransferChecked 12,
 //! ApproveChecked 13, MintToChecked 14, BurnChecked 15, Revoke 5,
 //! CloseAccount 9, FreezeAccount 10, ThawAccount 11, SyncNative 17,
@@ -53,7 +49,7 @@
 //! (`encode_initialize_account_with_owner`), SetAuthority 6
 //! (`encode_set_authority`).
 //!
-//! System — `crates/hopper-runtime/src/system.rs`, `pub mod encoders`:
+//! System: `crates/hopper-runtime/src/system.rs`, `pub mod encoders`:
 //! CreateAccount 0, Transfer 2, Assign 1, Allocate 8. System discriminators
 //! are 4-byte `u32` LE (only the low byte is nonzero for these tags).
 
@@ -63,7 +59,7 @@
 // These are an independent second implementation kept only as a proof
 // oracle: the `#[cfg(kani)]` `*_matches_reference` harnesses prove the
 // shipped `hopper_runtime::token::encoders` byte-equal to these for all
-// symbolic inputs. Do not call these from production code — use the
+// symbolic inputs. Do not call these from production code, use the
 // builders in `hopper_runtime::token`.
 // =====================================================================
 
@@ -121,89 +117,89 @@ pub mod spl_token {
         data
     }
 
-    /// Reference `Transfer { amount }` — `[3][amount: u64 LE]` (9 bytes).
+    /// Reference `Transfer { amount }`, `[3][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_transfer(amount: u64) -> [u8; 9] {
         amount_ix(IX_TRANSFER, amount)
     }
 
-    /// Reference `Approve { amount }` — `[4][amount: u64 LE]` (9 bytes).
+    /// Reference `Approve { amount }`, `[4][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_approve(amount: u64) -> [u8; 9] {
         amount_ix(IX_APPROVE, amount)
     }
 
-    /// Reference `MintTo { amount }` — `[7][amount: u64 LE]` (9 bytes).
+    /// Reference `MintTo { amount }`, `[7][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_mint_to(amount: u64) -> [u8; 9] {
         amount_ix(IX_MINT_TO, amount)
     }
 
-    /// Reference `Burn { amount }` — `[8][amount: u64 LE]` (9 bytes).
+    /// Reference `Burn { amount }`, `[8][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_burn(amount: u64) -> [u8; 9] {
         amount_ix(IX_BURN, amount)
     }
 
-    /// Reference `TransferChecked { amount, decimals }` —
+    /// Reference `TransferChecked { amount, decimals }`,
     /// `[12][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_transfer_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_TRANSFER_CHECKED, amount, decimals)
     }
 
-    /// Reference `ApproveChecked { amount, decimals }` —
+    /// Reference `ApproveChecked { amount, decimals }`,
     /// `[13][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_approve_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_APPROVE_CHECKED, amount, decimals)
     }
 
-    /// Reference `MintToChecked { amount, decimals }` —
+    /// Reference `MintToChecked { amount, decimals }`,
     /// `[14][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_mint_to_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_MINT_TO_CHECKED, amount, decimals)
     }
 
-    /// Reference `BurnChecked { amount, decimals }` —
+    /// Reference `BurnChecked { amount, decimals }`,
     /// `[15][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_burn_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_BURN_CHECKED, amount, decimals)
     }
 
-    /// Reference `Revoke` — `[5]` (1 byte).
+    /// Reference `Revoke`, `[5]` (1 byte).
     #[inline(always)]
     pub fn encode_revoke() -> [u8; 1] {
         [IX_REVOKE]
     }
 
-    /// Reference `CloseAccount` — `[9]` (1 byte).
+    /// Reference `CloseAccount`, `[9]` (1 byte).
     #[inline(always)]
     pub fn encode_close_account() -> [u8; 1] {
         [IX_CLOSE_ACCOUNT]
     }
 
-    /// Reference `FreezeAccount` — `[10]` (1 byte).
+    /// Reference `FreezeAccount`, `[10]` (1 byte).
     #[inline(always)]
     pub fn encode_freeze_account() -> [u8; 1] {
         [IX_FREEZE_ACCOUNT]
     }
 
-    /// Reference `ThawAccount` — `[11]` (1 byte).
+    /// Reference `ThawAccount`, `[11]` (1 byte).
     #[inline(always)]
     pub fn encode_thaw_account() -> [u8; 1] {
         [IX_THAW_ACCOUNT]
     }
 
-    /// Reference `SyncNative` — `[17]` (1 byte).
+    /// Reference `SyncNative`, `[17]` (1 byte).
     #[inline(always)]
     pub fn encode_sync_native() -> [u8; 1] {
         [IX_SYNC_NATIVE]
     }
 
-    /// Reference `InitializeAccount2 { owner }` — `[16][owner: 32 bytes]`
+    /// Reference `InitializeAccount2 { owner }`, `[16][owner: 32 bytes]`
     /// (33 bytes).
     #[inline(always)]
     pub fn encode_initialize_account2(owner: &[u8; 32]) -> [u8; 33] {
@@ -213,7 +209,7 @@ pub mod spl_token {
         data
     }
 
-    /// Reference `InitializeAccount3 { owner }` — `[18][owner: 32 bytes]`
+    /// Reference `InitializeAccount3 { owner }`, `[18][owner: 32 bytes]`
     /// (33 bytes).
     #[inline(always)]
     pub fn encode_initialize_account3(owner: &[u8; 32]) -> [u8; 33] {
@@ -271,7 +267,7 @@ pub mod system {
     /// Reference `CreateAccount { lamports, space, owner }`.
     ///
     /// Layout: `[disc: u32 LE = 0][lamports: u64 LE][space: u64 LE]
-    /// [owner: 32 bytes]` — 52 bytes.
+    /// [owner: 32 bytes]`, 52 bytes.
     #[inline(always)]
     pub fn encode_create_account(lamports: u64, space: u64, owner: &[u8; 32]) -> [u8; 52] {
         let mut data = [0u8; 52];
@@ -284,7 +280,7 @@ pub mod system {
 
     /// Reference `Transfer { lamports }`.
     ///
-    /// Layout: `[disc: u32 LE = 2][lamports: u64 LE]` — 12 bytes.
+    /// Layout: `[disc: u32 LE = 2][lamports: u64 LE]`, 12 bytes.
     #[inline(always)]
     pub fn encode_transfer(lamports: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -295,7 +291,7 @@ pub mod system {
 
     /// Reference `Assign { owner }`.
     ///
-    /// Layout: `[disc: u32 LE = 1][owner: 32 bytes]` — 36 bytes.
+    /// Layout: `[disc: u32 LE = 1][owner: 32 bytes]`, 36 bytes.
     #[inline(always)]
     pub fn encode_assign(owner: &[u8; 32]) -> [u8; 36] {
         let mut data = [0u8; 36];
@@ -306,7 +302,7 @@ pub mod system {
 
     /// Reference `Allocate { space }`.
     ///
-    /// Layout: `[disc: u32 LE = 8][space: u64 LE]` — 12 bytes.
+    /// Layout: `[disc: u32 LE = 8][space: u64 LE]`, 12 bytes.
     #[inline(always)]
     pub fn encode_allocate(space: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -328,14 +324,14 @@ pub mod system {
     /// `UpgradeNonceAccount` discriminator (u32 LE).
     pub const IX_UPGRADE_NONCE: u32 = 12;
 
-    /// Reference `AdvanceNonceAccount` — `[4u32 LE]` — 4 bytes.
+    /// Reference `AdvanceNonceAccount`, `[4u32 LE]`, 4 bytes.
     #[inline(always)]
     pub fn encode_advance_nonce_account() -> [u8; 4] {
         IX_ADVANCE_NONCE.to_le_bytes()
     }
 
-    /// Reference `WithdrawNonceAccount { lamports }` —
-    /// `[5u32 LE][lamports: u64 LE]` — 12 bytes.
+    /// Reference `WithdrawNonceAccount { lamports }`,
+    /// `[5u32 LE][lamports: u64 LE]`, 12 bytes.
     #[inline(always)]
     pub fn encode_withdraw_nonce_account(lamports: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -344,8 +340,8 @@ pub mod system {
         data
     }
 
-    /// Reference `InitializeNonceAccount { authority }` —
-    /// `[6u32 LE][authority: 32 bytes]` — 36 bytes.
+    /// Reference `InitializeNonceAccount { authority }`,
+    /// `[6u32 LE][authority: 32 bytes]`, 36 bytes.
     #[inline(always)]
     pub fn encode_initialize_nonce_account(authority: &[u8; 32]) -> [u8; 36] {
         let mut data = [0u8; 36];
@@ -354,8 +350,8 @@ pub mod system {
         data
     }
 
-    /// Reference `AuthorizeNonceAccount { new_authority }` —
-    /// `[7u32 LE][new_authority: 32 bytes]` — 36 bytes.
+    /// Reference `AuthorizeNonceAccount { new_authority }`,
+    /// `[7u32 LE][new_authority: 32 bytes]`, 36 bytes.
     #[inline(always)]
     pub fn encode_authorize_nonce_account(new_authority: &[u8; 32]) -> [u8; 36] {
         let mut data = [0u8; 36];
@@ -364,7 +360,7 @@ pub mod system {
         data
     }
 
-    /// Reference `UpgradeNonceAccount` — `[12u32 LE]` — 4 bytes.
+    /// Reference `UpgradeNonceAccount`, `[12u32 LE]`, 4 bytes.
     #[inline(always)]
     pub fn encode_upgrade_nonce_account() -> [u8; 4] {
         IX_UPGRADE_NONCE.to_le_bytes()
@@ -621,10 +617,10 @@ mod tests {
 // Two families, both driven by the `scripts/kani-spl-layouts.{sh,ps1}` lane
 // (CI lane `kani-spl-layout-proofs`):
 //
-//   * `*_layout` — prove the SHIPPED `hopper_runtime::{token,system}::encoders`
+//   * `*_layout`, prove the SHIPPED `hopper_runtime::{token,system}::encoders`
 //     directly: correct discriminator, little-endian field offsets, exact
 //     total length, over fully symbolic inputs.
-//   * `*_matches_reference` — differential-oracle proofs: the shipped encoder
+//   * `*_matches_reference`, differential-oracle proofs: the shipped encoder
 //     is byte-equal to the independent reference encoder in this file for all
 //     symbolic inputs.
 //
@@ -674,7 +670,7 @@ mod kani_proofs {
         assert_eq!(a[off + i], b[off + i]);
     }
 
-    // ── SPL Token: amount instructions — shipped-encoder layout ─────
+    // ── SPL Token: amount instructions, shipped-encoder layout ─────
 
     #[kani::proof]
     fn spl_transfer_layout() {
@@ -712,7 +708,7 @@ mod kani_proofs {
         assert_eq!(word_at(&d, 1), amount);
     }
 
-    // ── SPL Token: checked instructions — shipped-encoder layout ────
+    // ── SPL Token: checked instructions, shipped-encoder layout ────
 
     #[kani::proof]
     fn spl_transfer_checked_layout() {
@@ -770,7 +766,7 @@ mod kani_proofs {
         assert_eq!(rt_token::encode_initialize_account(), [1]);
     }
 
-    // ── SPL Token: initialize-account-with-owner — shipped layout ───
+    // ── SPL Token: initialize-account-with-owner, shipped layout ───
 
     #[kani::proof]
     fn spl_initialize_account2_layout() {
@@ -790,7 +786,7 @@ mod kani_proofs {
         assert_pubkey_region(&d, 1, &owner);
     }
 
-    // ── SPL Token: SetAuthority (both COption branches) — shipped ───
+    // ── SPL Token: SetAuthority (both COption branches), shipped ───
 
     #[kani::proof]
     fn spl_set_authority_some_layout() {
@@ -814,7 +810,7 @@ mod kani_proofs {
         assert_eq!(d[2], 0);
     }
 
-    // ── System program — shipped-encoder layout ─────────────────────
+    // ── System program, shipped-encoder layout ─────────────────────
 
     /// The 4-byte u32 discriminator: low byte = tag, high 3 bytes = 0.
     #[inline]
@@ -865,7 +861,7 @@ mod kani_proofs {
         assert_pubkey_region(&d, 20, &owner);
     }
 
-    // ── System durable-nonce family (fixed-size) — shipped layout ───
+    // ── System durable-nonce family (fixed-size), shipped layout ───
 
     #[kani::proof]
     fn system_advance_nonce_account_layout() {

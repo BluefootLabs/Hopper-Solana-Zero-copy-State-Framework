@@ -128,6 +128,11 @@ fn write_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Res
     writeln!(f, "const {}Disc byte = {}", pascal, layout.disc)?;
     writeln!(f, "const {}Version byte = {}", pascal, layout.version)?;
     writeln!(f, "const {}TotalSize = {}", pascal, layout.total_size)?;
+    writeln!(
+        f,
+        "const {}HasDynamicTail = {}",
+        pascal, layout.has_dynamic_tail
+    )?;
     write!(f, "var {}LayoutID = [8]byte{{", pascal)?;
     write_byte_list(f, &layout.layout_id)?;
     writeln!(f, "}}")?;
@@ -149,9 +154,11 @@ fn write_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Res
         )?;
         writeln!(f, "\t\treturn ErrBufferTooSmall")?;
         writeln!(f, "\t}}")?;
-        writeln!(f, "\tif len(data) != {}TotalSize {{", pascal)?;
-        writeln!(f, "\t\treturn fmt.Errorf(\"%w: expected %d got %d\", ErrCompactSizeMismatch, {}TotalSize, len(data))", pascal)?;
-        writeln!(f, "\t}}")?;
+        if !layout.has_dynamic_tail {
+            writeln!(f, "\tif len(data) != {}TotalSize {{", pascal)?;
+            writeln!(f, "\t\treturn fmt.Errorf(\"%w: expected %d got %d\", ErrCompactSizeMismatch, {}TotalSize, len(data))", pascal)?;
+            writeln!(f, "\t}}")?;
+        }
         writeln!(f, "\tif data[0] != {}Disc {{", pascal)?;
         writeln!(f, "\t\treturn fmt.Errorf(\"%w: expected %d got %d\", ErrDiscriminatorMismatch, {}Disc, data[0])", pascal)?;
         writeln!(f, "\t}}")?;
@@ -502,6 +509,7 @@ mod tests {
             version: 1,
             layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
             total_size: 56,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: FIELDS,
         }];
@@ -585,6 +593,7 @@ mod tests {
             version: 1,
             layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
             total_size: 9,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FIELDS,
         }];
@@ -603,6 +612,18 @@ mod tests {
         }
     }
 
+    fn dynamic_compact_manifest() -> ProgramManifest {
+        let fixed = compact_manifest();
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..fixed.layouts[0]
+        };
+        ProgramManifest {
+            layouts: alloc::boxed::Box::leak(alloc::boxed::Box::new([dynamic_layout])),
+            ..fixed
+        }
+    }
+
     #[test]
     fn go_client_emits_layout_assertion_and_decoder() {
         let out = GoClientGen(&manifest()).to_string();
@@ -615,9 +636,20 @@ mod tests {
     #[test]
     fn go_compact_decoder_validates_exact_size_and_discriminator() {
         let out = GoClientGen(&compact_manifest()).to_string();
+        assert!(out.contains("const CompactVaultHasDynamicTail = false"));
+        assert!(out.contains("len(data) < CompactVaultTotalSize"));
         assert!(out.contains("if len(data) != CompactVaultTotalSize"));
         assert!(out.contains("if data[0] != CompactVaultDisc"));
         assert!(!out.contains("return assertLayoutID(data, CompactVaultLayoutID)"));
+    }
+
+    #[test]
+    fn go_compact_dynamic_decoder_uses_minimum_size() {
+        let out = GoClientGen(&dynamic_compact_manifest()).to_string();
+        assert!(out.contains("const CompactVaultHasDynamicTail = true"));
+        assert!(out.contains("len(data) < CompactVaultTotalSize"));
+        assert!(!out.contains("if len(data) != CompactVaultTotalSize"));
+        assert!(out.contains("if data[0] != CompactVaultDisc"));
     }
 
     #[test]

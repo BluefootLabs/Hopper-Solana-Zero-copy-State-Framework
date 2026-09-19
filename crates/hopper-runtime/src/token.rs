@@ -75,12 +75,12 @@ fn require_multisig_signers_direct(multisig_signers: &[&AccountView<'_>]) -> Pro
 /// Every SPL Token builder in this file constructs its instruction-data
 /// buffer by calling exactly one of these functions before handing the bytes
 /// to [`crate::cpi`]. They are the single, **shipped** source of truth for the
-/// SPL Token wire format — the exact bytes that leave the program on a CPI —
+/// SPL Token wire format, the exact bytes that leave the program on a CPI,
 /// not a mirror or a parallel re-implementation.
 ///
 /// They are exposed as `#[doc(hidden)] pub` for one reason: so the Kani layout
 /// proofs in the `hopper-token` crate can call the shipped encoders directly
-/// and prove — over fully symbolic inputs — that the bytes the CPI path emits
+/// and prove, over fully symbolic inputs, that the bytes the CPI path emits
 /// carry the canonical discriminator, field order/offsets, endianness, and
 /// total length. Proving the shipped functions (rather than a copy of them) is
 /// what lets Hopper claim the encoders themselves are formally verified.
@@ -94,7 +94,7 @@ fn require_multisig_signers_direct(multisig_signers: &[&AccountView<'_>]) -> Pro
 /// inline construction.
 #[doc(hidden)]
 pub mod encoders {
-    /// `[disc][amount: u64 LE]` — the 9-byte shape shared by the plain
+    /// `[disc][amount: u64 LE]`, the 9-byte shape shared by the plain
     /// `Transfer` (3), `Approve` (4), `MintTo` (7), and `Burn` (8)
     /// instructions.
     #[inline(always)]
@@ -105,7 +105,7 @@ pub mod encoders {
         data
     }
 
-    /// `[disc][amount: u64 LE][decimals: u8]` — the 10-byte shape shared by
+    /// `[disc][amount: u64 LE][decimals: u8]`, the 10-byte shape shared by
     /// the `TransferChecked` (12), `ApproveChecked` (13), `MintToChecked`
     /// (14), and `BurnChecked` (15) instructions.
     #[inline(always)]
@@ -117,96 +117,96 @@ pub mod encoders {
         data
     }
 
-    /// SPL Token `Transfer { amount }` — `[3][amount: u64 LE]` (9 bytes).
+    /// SPL Token `Transfer { amount }`, `[3][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_transfer(amount: u64) -> [u8; 9] {
         amount_ix(3, amount)
     }
 
-    /// SPL Token `Approve { amount }` — `[4][amount: u64 LE]` (9 bytes).
+    /// SPL Token `Approve { amount }`, `[4][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_approve(amount: u64) -> [u8; 9] {
         amount_ix(4, amount)
     }
 
-    /// SPL Token `MintTo { amount }` — `[7][amount: u64 LE]` (9 bytes).
+    /// SPL Token `MintTo { amount }`, `[7][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_mint_to(amount: u64) -> [u8; 9] {
         amount_ix(7, amount)
     }
 
-    /// SPL Token `Burn { amount }` — `[8][amount: u64 LE]` (9 bytes).
+    /// SPL Token `Burn { amount }`, `[8][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_burn(amount: u64) -> [u8; 9] {
         amount_ix(8, amount)
     }
 
-    /// SPL Token `TransferChecked { amount, decimals }` —
+    /// SPL Token `TransferChecked { amount, decimals }`,
     /// `[12][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_transfer_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(12, amount, decimals)
     }
 
-    /// SPL Token `ApproveChecked { amount, decimals }` —
+    /// SPL Token `ApproveChecked { amount, decimals }`,
     /// `[13][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_approve_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(13, amount, decimals)
     }
 
-    /// SPL Token `MintToChecked { amount, decimals }` —
+    /// SPL Token `MintToChecked { amount, decimals }`,
     /// `[14][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_mint_to_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(14, amount, decimals)
     }
 
-    /// SPL Token `BurnChecked { amount, decimals }` —
+    /// SPL Token `BurnChecked { amount, decimals }`,
     /// `[15][amount: u64 LE][decimals: u8]` (10 bytes).
     #[inline(always)]
     pub fn encode_burn_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(15, amount, decimals)
     }
 
-    /// SPL Token `Revoke` — `[5]` (1 byte).
+    /// SPL Token `Revoke`, `[5]` (1 byte).
     #[inline(always)]
     pub fn encode_revoke() -> [u8; 1] {
         [5]
     }
 
-    /// SPL Token `CloseAccount` — `[9]` (1 byte).
+    /// SPL Token `CloseAccount`, `[9]` (1 byte).
     #[inline(always)]
     pub fn encode_close_account() -> [u8; 1] {
         [9]
     }
 
-    /// SPL Token `FreezeAccount` — `[10]` (1 byte).
+    /// SPL Token `FreezeAccount`, `[10]` (1 byte).
     #[inline(always)]
     pub fn encode_freeze_account() -> [u8; 1] {
         [10]
     }
 
-    /// SPL Token `ThawAccount` — `[11]` (1 byte).
+    /// SPL Token `ThawAccount`, `[11]` (1 byte).
     #[inline(always)]
     pub fn encode_thaw_account() -> [u8; 1] {
         [11]
     }
 
-    /// SPL Token `SyncNative` — `[17]` (1 byte).
+    /// SPL Token `SyncNative`, `[17]` (1 byte).
     #[inline(always)]
     pub fn encode_sync_native() -> [u8; 1] {
         [17]
     }
 
-    /// SPL Token `InitializeAccount` — `[1]` (1 byte). Mint/owner/rent travel
+    /// SPL Token `InitializeAccount`, `[1]` (1 byte). Mint/owner/rent travel
     /// in the account-meta list, not the instruction data.
     #[inline(always)]
     pub fn encode_initialize_account() -> [u8; 1] {
         [1]
     }
 
-    /// SPL Token `InitializeAccount2`/`InitializeAccount3 { owner }` —
+    /// SPL Token `InitializeAccount2`/`InitializeAccount3 { owner }`,
     /// `[disc][owner: 32 bytes]` (33 bytes). `disc` is 16 for
     /// `InitializeAccount2` and 18 for `InitializeAccount3`.
     #[inline(always)]
@@ -412,13 +412,13 @@ pub fn require_token_mint(
 /// matches `expected_authority`.
 ///
 /// SPL Mint layout (82 bytes total):
-/// - [0..4]   COption tag for mint_authority (u32 LE; 0 = None, 1 = Some)
-/// - [4..36]  mint_authority pubkey (only meaningful when tag == 1)
-/// - [36..44] supply (u64 LE)
-/// - [44]     decimals
-/// - [45]     is_initialized
-/// - [46..50] COption tag for freeze_authority
-/// - [50..82] freeze_authority pubkey
+/// - `0..4`: COption tag for mint_authority (u32 LE; 0 = None, 1 = Some)
+/// - `4..36`: mint_authority pubkey (only meaningful when tag == 1)
+/// - `36..44`: supply (u64 LE)
+/// - `44`: decimals
+/// - `45`: is_initialized
+/// - `46..50`: COption tag for freeze_authority
+/// - `50..82`: freeze_authority pubkey
 ///
 /// Behavior: if the tag says `None`, the check fails with
 /// `InvalidAccountData` (the caller asked for a specific authority
@@ -823,7 +823,7 @@ impl Revoke<'_> {
 
 /// Builder for SPL Token TransferChecked (instruction index 12).
 ///
-/// Adds mint + decimals validation over [`Transfer`]. Required for
+/// Adds mint and decimals validation over the legacy `Transfer` builder. Required for
 /// accounts that participate in Token-2022 extension flows.
 pub struct TransferChecked<'a> {
     pub from: &'a AccountView<'a>,
@@ -988,7 +988,7 @@ impl MintToChecked<'_> {
 
 /// Builder for SPL Token BurnChecked (instruction index 15).
 ///
-/// Decimals-verified counterpart to [`Burn`]. Prefer this over
+/// Decimals-verified counterpart to the legacy `Burn` builder. Prefer this over
 /// `Burn` whenever the mint's decimals are known to the caller,
 /// so the SPL token program can reject a mis-routed call at CPI time.
 pub struct BurnChecked<'a> {
@@ -2095,7 +2095,7 @@ mod tests {
         let mut token_backing =
             std::vec![0u64; (RuntimeAccount::SIZE + token_data_len).div_ceil(8)];
         let token_raw = token_backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             token_raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -2112,14 +2112,14 @@ mod tests {
             let data_ptr = (token_raw as *mut u8).add(RuntimeAccount::SIZE);
             core::ptr::copy_nonoverlapping(token_owner_bytes.as_ptr(), data_ptr.add(32), 32);
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let token_backend = unsafe { NativeAccountView::new_unchecked(token_raw) };
         let token_view = crate::account::AccountView::from_backend(token_backend);
 
         // Authority: no data needed, just an address field.
         let mut auth_backing = std::vec![0u64; (RuntimeAccount::SIZE).div_ceil(8)];
         let auth_raw = auth_backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             auth_raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -2133,7 +2133,7 @@ mod tests {
                 data_len: 0,
             });
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let auth_backend = unsafe { NativeAccountView::new_unchecked(auth_raw) };
         let auth_view = crate::account::AccountView::from_backend(auth_backend);
 
@@ -2169,7 +2169,7 @@ mod tests {
         let data_len = 50;
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -2183,7 +2183,7 @@ mod tests {
                 data_len: data_len as u64,
             });
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let token = crate::account::AccountView::from_backend(backend);
 
@@ -2215,7 +2215,7 @@ mod tests {
         let token_data_len = 165;
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + token_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -2232,7 +2232,7 @@ mod tests {
             core::ptr::copy_nonoverlapping(mint_bytes.as_ptr(), data_ptr, 32);
             core::ptr::copy_nonoverlapping(owner_bytes.as_ptr(), data_ptr.add(32), 32);
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let view = crate::account::AccountView::from_backend(backend);
         (backing, view)
@@ -2253,7 +2253,7 @@ mod tests {
         let mint_data_len = 82;
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + mint_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -2278,7 +2278,7 @@ mod tests {
             *data_ptr.add(45) = 1;
             // freeze_authority COption tag = None (bytes 46..50 stay zero).
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let view = crate::account::AccountView::from_backend(backend);
         (backing, view)

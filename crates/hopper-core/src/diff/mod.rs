@@ -110,8 +110,8 @@ impl<const SIZE: usize> StateSnapshot<SIZE> {
         // NOTE (binary size): `get(..)` rather than `[..compare_len]`. A range
         // index LLVM cannot statically bound emits `slice_end_index_len_fail`,
         // which *formats* its arguments and links `Formatter::pad_integral`,
-        // `do_count_chars` and the integer `Display` impls — ~3.7 KiB of
-        // `core::fmt` — into every Hopper program's `.text`. `compare_len` is
+        // `do_count_chars` and the integer `Display` impls, ~3.7 KiB of
+        // `core::fmt`, into every Hopper program's `.text`. `compare_len` is
         // the min of both lengths so both ranges resolve; an unresolvable one
         // would degrade to an empty slice (an empty diff), never a panic.
         StateDiff {
@@ -171,7 +171,7 @@ impl<const SIZE: usize> StateSnapshot<SIZE> {
     /// **Refuses a truncated snapshot.** A snapshot captured from an
     /// account larger than `SIZE` holds only the first `SIZE` bytes, so
     /// restoring it would rewrite the head and silently leave the
-    /// mutated tail in place — a partial rollback masquerading as a full
+    /// mutated tail in place, a partial rollback masquerading as a full
     /// one. That is a correctness/security trap for the rollback use
     /// case, so a truncated snapshot returns `InvalidAccountData`
     /// instead. Use a `StateSnapshot<SIZE>` whose `SIZE` covers the whole
@@ -215,7 +215,7 @@ pub struct StateDiff<'a> {
     new_full_len: usize,
     /// Whether the source snapshot was truncated (account larger than
     /// the snapshot buffer). When true, this diff only reflects the
-    /// captured prefix — see [`is_complete`](StateDiff::is_complete).
+    /// captured prefix; see [`is_complete`](StateDiff::is_complete).
     truncated: bool,
 }
 
@@ -225,7 +225,7 @@ impl<'a> StateDiff<'a> {
     /// `false` means the before-snapshot was truncated to its buffer
     /// size, so any mutation confined to bytes past the window is
     /// invisible here. **Audit-trail and invariant consumers must treat
-    /// an incomplete diff as inconclusive** — a `has_changes() == false`
+    /// an incomplete diff as inconclusive**, a `has_changes() == false`
     /// on an incomplete diff does not prove the account was unchanged.
     #[inline(always)]
     pub fn is_complete(&self) -> bool {

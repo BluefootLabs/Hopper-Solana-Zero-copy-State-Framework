@@ -1,18 +1,18 @@
-//! Declared write-sets enforced at borrow acquisition (innovation I12).
+//! Declared write sets enforced at borrow acquisition.
 //!
 //! Sealevel's account model stops at one bit of write granularity: the
 //! transaction-level `writable` flag covers the *entire* account. This
 //! module extends that to **byte-range granularity**: an instruction
 //! declares the exact ranges it is allowed to write, and the
 //! [`Context`](crate::context::Context) rejects any write borrow outside
-//! the declared set *at acquisition time* — before a single byte moves.
+//! the declared set at acquisition time, before a byte is exposed mutably.
 //!
 //! ## How it composes
 //!
 //! - `#[hopper::context(strict_writes)]` compiles the context's declared
 //!   `mut` / `mut(seg, ...)` attributes into a `static` [`WritePolicy`]
-//!   and installs it during `bind()`. Nothing is computed at runtime; the
-//!   policy is a const slice scanned at each write acquire.
+//!   and installs it during `bind()`. The descriptors are constant data, and
+//!   the policy scans that slice at each write acquisition.
 //! - Every Context-mediated write path is gated: segment writes
 //!   (`segment_mut`, `segment_mut_const`, `segment_mut_typed`,
 //!   `split_segments_mut`), whole-account typed loads (`load_mut`), and
@@ -21,27 +21,27 @@
 //!   declares only field ranges, `load_mut` / `as_mut_ptr` are refused and
 //!   the handler must use the declared segment accessors. That is the
 //!   discipline the policy exists to enforce.
-//! - Paired with the `touch-map` feature (I7), the declared set can be
+//! - Paired with the `touch-map` feature, the declared set can be
 //!   compared against the *actual* footprint in tests: declared-vs-actual
-//!   write verification with no instrumentation in the program itself.
+//!   write verification from the emitted touch records.
 //!
-//! ## The lamport dimension (BLD-MUT)
+//! ## The lamport dimension
 //!
 //! Byte ranges cover **data**; Sealevel writability also covers
 //! **lamport** mutation (close, top-up, transfer). A policy built with
 //! [`WritePolicy::with_lamports`] declares that second dimension: the
-//! listed account indices may have their lamports mutated, every other
+//! listed account indices may have their lamports mutated; other
 //! account's lamport mutation is refused. Because lamport operations
 //! flow through `AccountView` (not `Context`), enforcement uses an
 //! instruction-scoped ambient gate ([`try_install_lamport_gate`])
 //! consulted by the runtime's lamport choke points: the
-//! `native_boundary` `try_set_lamports`/`close` funnel (which every
-//! runtime and `hopper-core` lifecycle lamport path crosses) and the
+//! `native_boundary` `try_set_lamports`/`close` funnel used by the
+//! runtime and `hopper-core` lifecycle helpers, and the
 //! validated CPI tiers' writable-meta construction (a writable CPI
 //! hand-off is unbounded delegation of both dimensions).
 //!
-//! The gate stores address **values** copied at install time — never a
-//! pointer into the account slice — and checks compare the address of
+//! The gate stores address **values** copied at install time rather than a
+//! pointer into the account slice. Checks compare the address of
 //! the live view being mutated against those values. A leaked guard
 //! (`mem::forget`) therefore leaves an observable *stale value policy*
 //! installed (fail-closed for unknown addresses) rather than any form
@@ -52,9 +52,9 @@
 //! ## Enforcement boundary
 //!
 //! The policy governs access **through `Context`** (data ranges) and
-//! through the runtime's `AccountView`/CPI surface (lamports) — which
-//! is every path `#[hopper::context]`-generated code and the supported
-//! safe APIs use. Direct substrate access (`hopper_native` calls such
+//! through the runtime's `AccountView`/CPI surface (lamports). Generated
+//! `#[hopper::context]` code and the documented safe APIs use those paths.
+//! Direct substrate access (`hopper_native` calls such
 //! as `batch::transfer_lamports`, or `try_borrow_mut` on the raw
 //! backend view) and the `unsafe` unchecked CPI tier are outside the
 //! governed surface, exactly like the documented raw-pointer escape
@@ -68,8 +68,8 @@
 //! expose it as a generated `ctx.transfer_lamports(..)` method) runs
 //! the substrate helper's exact arithmetic through the
 //! `native_boundary` funnel, checking **both** sides against the gate
-//! before any balance changes — so gated programs keep the
-//! mutation-complete guarantee without paying for a System CPI.
+//! before any balance changes, so gated programs retain the declared lamport
+//! checks without paying for a System CPI.
 //!
 //! [`AccountView`]: crate::account::AccountView
 
@@ -149,7 +149,7 @@ pub const fn write_policy_violation(account_index: u8) -> ProgramError {
 /// `account_index` is the position in the instruction's account list
 /// (the same index handed to [`Context::account`](crate::context::Context::account)).
 /// Offsets are absolute within the account data, including any layout
-/// header bytes — the same convention the segment access primitives use.
+/// header bytes, the same convention the segment access primitives use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct WriteRange {
     /// Instruction account-list index this range applies to.
@@ -263,7 +263,7 @@ impl WriteRange {
     }
 
     /// Allow writes to the **open-ended tail** `[offset, +inf)` on
-    /// `account_index` — the grant a growable `Seq<T>` tail needs.
+    /// `account_index`, the grant a growable `Seq<T>` tail needs.
     ///
     /// `size` is `u32::MAX`, so [`contains`](Self::contains) admits any
     /// sub-range starting at or after `offset` regardless of how large the
@@ -297,7 +297,7 @@ impl WriteRange {
     }
 }
 
-/// The lamport-write dimension of a [`WritePolicy`] (BLD-MUT).
+/// The lamport-write dimension of a [`WritePolicy`].
 ///
 /// A [`WriteRange`] covers **data** bytes; Sealevel writability also
 /// covers **lamport** credits/debits (close, top-up, transfer). This
@@ -339,7 +339,7 @@ pub struct WritePolicy {
     pub allows: &'static [WriteRange],
     /// Invocation-parametric rules that narrow selected static envelopes.
     pub parametric: &'static [ParametricWriteRange],
-    /// Declared lamport-write permission set (BLD-MUT). See
+    /// Declared lamport-write permission set. See
     /// [`LamportPolicy`] for the exact semantics of each variant.
     pub lamports: LamportPolicy,
 }
@@ -348,7 +348,7 @@ impl WritePolicy {
     /// Wrap a const slice of allowed ranges as a policy.
     ///
     /// The lamport dimension is left [`LamportPolicy::Undeclared`], which
-    /// preserves the pre-BLD-MUT contract exactly: lamport mutation is
+    /// preserves the behavior without a mutation-completeness contract: lamport mutation is
     /// ungoverned and the policy is not mutation-complete.
     #[inline(always)]
     pub const fn new(allows: &'static [WriteRange]) -> Self {
@@ -629,7 +629,7 @@ impl WritePolicy {
     }
 }
 
-// ── Lamport gate (BLD-MUT) ───────────────────────────────────────────
+// Lamport gate.
 //
 // The data dimension is enforced *inside* `Context`, which sees the
 // account index on every write acquire. Lamport mutation, by contrast,
@@ -638,9 +638,9 @@ impl WritePolicy {
 // The gate bridges that: `bind()` on a `strict_writes` context whose
 // policy declares the lamport dimension installs an instruction-scoped
 // ambient record derived from `(account slice, policy)`, and the
-// runtime's lamport choke points — `native_boundary::try_set_lamports`,
+// runtime's lamport choke points, `native_boundary::try_set_lamports`,
 // `native_boundary::close`, and the validated CPI tiers' writable-meta
-// construction — consult it before mutating.
+// construction, consult it before mutating.
 //
 // ## Value-based storage (nothing ambient is ever dereferenced)
 //
@@ -652,8 +652,8 @@ impl WritePolicy {
 // values. Because nothing in the store is pointer-shaped, a leaked
 // guard (`mem::forget`, a forgotten bound context) degrades to a
 // **stale value policy**: the stale gate keeps governing later checks
-// on its tier — observable over-/stale enforcement that fails closed
-// for unknown addresses — until the tier's slots run out, at which
+// on its tier, observable over-/stale enforcement that fails closed
+// for unknown addresses, until the tier's slots run out, at which
 // point further installs fail loudly. It can never become a dangling
 // read. (An earlier design stored a raw pointer to the account slice
 // and claimed the guard's lifetime bounded every ambient read; safe
@@ -675,7 +675,7 @@ impl WritePolicy {
 // increasing token counter. Install claims a free slot under a unique
 // token; `Drop` clears exactly the slot holding its own token (scan +
 // match) and nothing else; checks consult the still-active slot with
-// the HIGHEST token — the most recently installed gate — so nested
+// the HIGHEST token, the most recently installed gate; so nested
 // binds shadow outer gates while alive and dropping guards in any
 // order can only ever free the dropper's own slot, never corrupt or
 // resurrect another gate. When no slot is free, install FAILS CLOSED
@@ -692,7 +692,7 @@ pub const LAMPORT_GATE_INSTALL_ERROR_PAGE: u32 = 0xD1_00;
 /// Install refused: the instruction's account slice has more accounts
 /// than [`LAMPORT_GATE_CAPACITY`]. The gate refuses loudly rather than
 /// silently truncating the governed set (a truncated gate would treat
-/// the overflow accounts as foreign — surprising, and wrong the moment
+/// the overflow accounts as foreign, surprising, and wrong the moment
 /// one of them was declared).
 pub const LAMPORT_GATE_TOO_MANY_ACCOUNTS: ProgramError =
     ProgramError::Custom(LAMPORT_GATE_INSTALL_ERROR_PAGE | 0x01);
@@ -709,7 +709,7 @@ pub const LAMPORT_GATE_DEPTH_EXCEEDED: ProgramError =
 /// occupies the process-global single-slot store. On `no_std`
 /// multi-threaded hosts without the `thread-local-registry` feature the
 /// gate cannot attribute nesting to a thread, so a concurrent second
-/// install is refused loudly — never silently shared with, or allowed
+/// install is refused loudly, never silently shared with, or allowed
 /// to corrupt, the gate another thread installed. Enable
 /// `thread-local-registry` (or run gated instructions one at a time)
 /// to lift this.
@@ -723,7 +723,7 @@ pub const AMBIENT_GATE_TOO_MANY_ARGUMENTS: ProgramError =
 
 /// Install refused: this build carries the `unguarded-raw-surfaces` size
 /// opt-out, but the policy declares data write ranges (fixed or
-/// parametric) — governance the opt-out build cannot enforce on the raw
+/// parametric), governance the opt-out build cannot enforce on the raw
 /// `AccountView` surfaces. Refusing at install keeps the bypass loud on
 /// EVERY tier: macro-bound strict contexts are already a compile error in
 /// such builds, and this is the runtime fence for hand-rolled installs.
@@ -772,7 +772,7 @@ enum GateInstallError {
 
 /// One gated account: the address VALUE copied at install time plus the
 /// permission bits precomputed from the installed policy. Contains no
-/// pointers and is never dereferenced — only compared.
+/// pointers and is never dereferenced, only compared.
 #[derive(Clone, Copy)]
 struct GateEntry {
     /// Address value copied from the account slice at install time.
@@ -866,8 +866,8 @@ struct GateStore<const DEPTH: usize> {
     /// the linker place it in `.bss` (`NOBITS`, no file bytes), while a
     /// *single* non-zero byte anywhere in the struct forces it into
     /// `.data` (`PROGBITS`) and writes the whole
-    /// `DEPTH x capacity x size_of::<GateEntry>()` array — tens of KiB of
-    /// zeros — into every program's `.so`. That is exactly what a
+    /// `DEPTH x capacity x size_of::<GateEntry>()` array, tens of KiB of
+    /// zeros, into every program's `.so`. That is exactly what a
     /// `next_token: 1` initializer used to do. `initial_gate_store_is_all_zero_bytes`
     /// pins this.
     issued: u64,
@@ -875,7 +875,7 @@ struct GateStore<const DEPTH: usize> {
     ///
     /// This is the hot-path fast-out: `check_lamport_mutation` /
     /// `check_lamport_delegation` run on EVERY runtime lamport write and
-    /// EVERY writable CPI meta — including in the vast majority of
+    /// EVERY writable CPI meta, including in the vast majority of
     /// programs that never declare `lamports(...)`. Without this counter
     /// the no-gate path still walked the `DEPTH` slots per call, and the
     /// router bench measured that dead scanning at ~+44 CU **per hop**
@@ -898,7 +898,7 @@ struct GateStore<const DEPTH: usize> {
 }
 
 impl<const DEPTH: usize> GateStore<DEPTH> {
-    /// All-zero by construction — see [`GateStore::issued`]. Do not add a
+    /// All-zero by construction; see [`GateStore::issued`]. Do not add a
     /// non-zero field initializer here without re-reading that doc.
     #[cfg_attr(target_os = "solana", allow(dead_code))]
     const fn new() -> Self {
@@ -930,7 +930,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         // NOTE (binary size): every index in this function is derived from a
         // value LLVM cannot statically bound (a `usize::MAX` sentinel, or the
         // stored `len`). A `slice[i]` it cannot prove in-bounds emits
-        // `panic_bounds_check`, which *formats* its arguments — dragging
+        // `panic_bounds_check`, which *formats* its arguments, dragging
         // `core::fmt` (Formatter::pad_integral, do_count_chars, the integer
         // Display impls) into `.text`. One such site costs ~5 KiB in every
         // Hopper program. So this whole path uses iterators / `get`/`get_mut`,
@@ -984,7 +984,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         for (dst, src) in slot.args.iter_mut().zip(args.iter().copied()) {
             *dst = src;
         }
-        // Tokens are 1, 2, 3, ... — `issued` counts up from a zeroed store
+        // Tokens are 1, 2, 3, ..., `issued` counts up from a zeroed store
         // (which is what keeps this static in `.bss`; see the field doc).
         // 0 is the free-slot sentinel, so skip it on the (2^64 installs,
         // practically unreachable) wrap.
@@ -1003,7 +1003,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     }
 
     /// Free exactly the slot installed under `token` (no-op when the
-    /// token is not present — e.g. an inert guard). A guard can only
+    /// token is not present; e.g. an inert guard). A guard can only
     /// ever clear its own slot, never another gate's. Returns whether a
     /// live slot was actually freed, so tier wrappers can maintain their
     /// fast-path liveness flag.
@@ -1018,7 +1018,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
             // incapable of wrapping regardless.
             self.installed = self.installed.saturating_sub(1);
             // Removing the governing gate resumes the next-highest live
-            // one: rescan (rare path — only when the INNER of a nested
+            // one: rescan (rare path, only when the INNER of a nested
             // pair drops, never on ordinary single-gate teardown after
             // the counter already hit zero).
             if token == self.top_token {
@@ -1045,7 +1045,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// outer gate resumes governing.
     fn active_slot(&self) -> Option<&GateSlot> {
         // Tokens are unique and monotonic, so "highest token" is exactly
-        // "most recently installed" — maintained as `top_token`/`top_idx`
+        // "most recently installed", maintained as `top_token`/`top_idx`
         // by install/remove, making this a two-load lookup instead of a
         // DEPTH-slot scan on every gated check. `get` (not indexing)
         // keeps the path provably panic-free (see the binary-size note in
@@ -1081,8 +1081,8 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         // `lamports(...)`) intentionally leaves the LAMPORT dimension
         // ungoverned for backward compatibility: direct lamport
         // arithmetic AND writable-CPI delegation both pass through. Both
-        // hand lamports to another party — delegation is a strict superset
-        // of a direct debit — so a policy that carries no lamport
+        // hand lamports to another party, delegation is a strict superset
+        // of a direct debit; so a policy that carries no lamport
         // authority cannot govern either without retroactively refusing
         // lamport moves an already-deployed program performs. The DATA
         // dimension (raw data mutation, account transitions, out-of-set
@@ -1132,7 +1132,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     }
 }
 
-/// Spinlocked single-slot gate store — the host fallback tier's cell
+/// Spinlocked single-slot gate store, the host fallback tier's cell
 /// (`no_std` multi-threaded hosts without the `thread-local-registry`
 /// feature). Also compiled under `test` so the tier's occupancy
 /// semantics stay unit-testable while the thread-local tier is the
@@ -1157,7 +1157,7 @@ struct SpinlockGateStore {
 // SAFETY: all access to `cell` goes through `with_lock`, which
 // serializes via the acquire/release spinlock, so no two threads can
 // observe the store concurrently; and the store contains only plain
-// values (addresses, flags, tokens — no pointers or references), so no
+// values (addresses, flags, tokens, no pointers or references), so no
 // other thread-affine state is smuggled across threads.
 #[cfg(all(
     not(target_os = "solana"),
@@ -1207,7 +1207,7 @@ impl SpinlockGateStore {
 pub(crate) const SBF_GATE_DEPTH: usize = 2;
 
 /// End offset (exclusive) of the lamport gate store inside the reserved
-/// VM-heap scratch (`hopper_native::HEAP_RUNTIME_RESERVED`) — i.e. the
+/// VM-heap scratch (`hopper_native::HEAP_RUNTIME_RESERVED`); i.e. the
 /// first byte a LATER ambient consumer may claim. The touch log
 /// (`segment_borrow::touch_log`) starts at this offset rounded up to 8.
 /// Anyone adding a third consumer extends from THAT module's end the
@@ -1248,13 +1248,13 @@ mod gate_store {
     /// see [`hopper_native::HEAP_RUNTIME_RESERVED`]).
     ///
     /// Why the heap and not a `static`: deployed SBF programs cannot carry
-    /// writable sections AT ALL — the loader's ELF parser rejects
+    /// writable sections AT ALL, the loader's ELF parser rejects
     /// `.bss`/`.data` (`WritableSectionNotSupported`), so ANY `static mut`
     /// here makes every program that links the gate fail to load. (Found
     /// empirically: Mollusk refused the parity vault; the loader is the
     /// same parser mainnet uses.) The VM heap is the one writable region a
     /// program owns, and it is **zero-initialized by the VM on every
-    /// invocation** — which composes exactly with two invariants this
+    /// invocation**; which composes exactly with two invariants this
     /// module already pins:
     ///
     /// - `GateStore::new()` is ALL-ZERO (`initial_gate_store_is_all_zero_bytes`),
@@ -1365,7 +1365,7 @@ mod gate_store {
     /// Host fallback tier (`no_std` hosts without the thread-local
     /// feature): one process-global spinlocked slot. Cross-thread
     /// sharing means the one active gate governs every thread's lamport
-    /// writes in this configuration — the same (documented) imprecision
+    /// writes in this configuration, the same (documented) imprecision
     /// the fallback borrow registry accepts, and it fails closed rather
     /// than open. A second install while one gate is active is refused
     /// with [`super::LAMPORT_GATE_CONTENDED`] (see
@@ -1406,7 +1406,7 @@ mod gate_store {
 /// account the installed policy does not permit; an inner (newer) gate
 /// shadows it until that inner guard drops. Dropping frees exactly this
 /// guard's slot (matched by unique token), so guards may be dropped in
-/// any order without disturbing — or resurrecting — other gates.
+/// any order without disturbing, or resurrecting, other gates.
 ///
 /// ## Leak behavior (`mem::forget`)
 ///
@@ -1415,7 +1415,7 @@ mod gate_store {
 /// installed: later checks on this tier keep being governed by it
 /// (addresses it does not know fail closed) until enough leaks exhaust
 /// the tier's [`LAMPORT_GATE_DEPTH`] slots and further installs fail
-/// loudly. That is observable over-/stale enforcement — never memory
+/// loudly. That is observable over-/stale enforcement, never memory
 /// unsafety.
 ///
 /// The `'accounts` lifetime parameter is retained for API stability
@@ -1439,10 +1439,10 @@ impl Drop for LamportGateGuard<'_> {
 }
 
 /// Install the instruction-scoped lamport gate for `accounts` under
-/// `policy` — the fallible entry point.
+/// `policy`, the fallible entry point.
 ///
 /// Returns an inert guard (nothing installed) unless `policy` declares
-/// its lamport dimension ([`WritePolicy::with_lamports`]) — a data-only
+/// its lamport dimension ([`WritePolicy::with_lamports`]), a data-only
 /// policy keeps the passthrough behavior. `#[hopper::context(
 /// strict_writes, lamports(...))]`-generated `bind()` calls this (and
 /// fails the bind on error) and stores the guard in the bound context,
@@ -1474,12 +1474,12 @@ pub fn try_install_lamport_gate<'accounts>(
 ///
 /// Under the `unguarded-raw-surfaces` size opt-out, installing a policy
 /// that declares data write ranges is refused with
-/// [`AMBIENT_GATE_UNGUARDED_BUILD`] — that build cannot enforce the raw
+/// [`AMBIENT_GATE_UNGUARDED_BUILD`], that build cannot enforce the raw
 /// surfaces, and a silently half-enforced gate is worse than a loud
 /// refusal. Lamports-only policies still install, with EXACTLY this
 /// enforcement split (pinned by the opt-out-shape tests): the direct
-/// lamport funnel ([`check_lamport_mutation`]) and writable-CPI
-/// delegation ([`check_lamport_delegation`]) stay enforced; raw DATA
+/// lamport funnel (`check_lamport_mutation`) and writable-CPI
+/// delegation (`check_lamport_delegation`) stay enforced; raw DATA
 /// borrows and resize/close TRANSITIONS are compiled out with the rest
 /// of the raw-surface guard, so a lamports-only gate on this build
 /// refuses neither. A program that needs the data or transition
@@ -1517,11 +1517,11 @@ pub fn try_install_ambient_gate_with_args<'accounts>(
 ///
 /// # Panics
 ///
-/// Panics (failing the whole invocation — still fail-closed, still
+/// Panics (failing the whole invocation, still fail-closed, still
 /// loud) if the install is refused: more accounts than
 /// [`LAMPORT_GATE_CAPACITY`], no free gate slot, or a contended host
 /// fallback store. Callers that want the refusal as a
-/// [`ProgramError`] — every generated `bind()` does — must use
+/// [`ProgramError`], every generated `bind()` does, must use
 /// [`try_install_lamport_gate`].
 #[inline]
 pub fn install_lamport_gate<'accounts>(
@@ -1549,7 +1549,7 @@ pub fn lamport_gate_active() -> bool {
 ///
 /// The caller passes the address it read from the **live view** it is
 /// about to mutate (an always-safe read); it is compared against the
-/// address values copied at install time — nothing stored is
+/// address values copied at install time; nothing stored is
 /// dereferenced. `Ok(())` when no gate is installed (the dimension is
 /// opt-in) or when the governing gate permits lamport mutation on that
 /// address.
@@ -1623,7 +1623,7 @@ mod gate_store_layout_tests {
     /// initializer is entirely zero; one non-zero byte moves it to `.data`
     /// (`PROGBITS`) and writes the whole ~35 KiB array of zeros into every
     /// Hopper program's binary. A `next_token: 1` initializer did exactly
-    /// that, costing 35,656 file bytes — 61% of the vault's `.so`.
+    /// that, costing 35,656 file bytes, 61% of the vault's `.so`.
     ///
     /// This pins every field's initializer at zero. If you add a field to
     /// `GateStore`/`GateSlot`/`GateEntry`, its zero value must be valid, or
@@ -1791,14 +1791,14 @@ mod tests {
         static P: WritePolicy = WritePolicy::new(&[WriteRange::tail_from(1, TAIL_OFF)]);
 
         // Any sub-range at or past the tail offset is admitted, no matter
-        // how large the account grows — the size is u32::MAX and `contains`
+        // how large the account grows, the size is u32::MAX and `contains`
         // widens to u64 so `TAIL_OFF + u32::MAX` cannot wrap.
         assert!(P.check_write(1, TAIL_OFF, 4).is_ok()); // the u32 count prefix
         assert!(P.check_write(1, TAIL_OFF + 4, 32).is_ok()); // first element
         assert!(P.check_write(1, TAIL_OFF, 10 * 1024 * 1024).is_ok()); // grown far
         assert!(P.check_write(1, TAIL_OFF + 1_000_000, 32).is_ok());
 
-        // Every byte of the fixed head is refused with the indexed error —
+        // Every byte of the fixed head is refused with the indexed error,
         // the open-ended tail range does NOT leak backwards onto the head.
         assert_eq!(P.check_write(1, 0, 8), Err(write_policy_violation(1)));
         assert_eq!(P.check_write(1, 16, 8), Err(write_policy_violation(1)));
@@ -1809,7 +1809,7 @@ mod tests {
         // The load-bearing property: a tail range with `offset != 0` is
         // NOT a whole-account grant. CPI writable-meta delegation demands
         // `contains(0, u32::MAX)`, which starts at 0 and this range does
-        // not — so delegation stays refused and the head stays protected.
+        // not; so delegation stays refused and the head stays protected.
         assert!(!P.allows_whole_account_write(1));
         // A tail range anchored at 0 (a degenerate "whole tail from the
         // start") IS a whole-account grant, by the same rule.
@@ -1825,7 +1825,7 @@ mod tests {
         assert!(EDGE.check_write(0, u32::MAX - 4, 8).is_err());
     }
 
-    // ── Lamport dimension (BLD-MUT) ─────────────────────────────────
+    // Lamport dimension.
 
     #[test]
     fn undeclared_lamport_dimension_permits_everything_and_is_incomplete() {
@@ -1842,7 +1842,7 @@ mod tests {
         assert!(P.allows_lamport_mutation(0));
         assert!(P.allows_lamport_mutation(3));
         assert!(!P.allows_lamport_mutation(1));
-        // An empty declared set refuses every account — a valid,
+        // An empty declared set refuses every account, a valid,
         // mutation-complete "no lamport writes anywhere" contract.
         static NONE: WritePolicy = WritePolicy::with_lamports(&[], &[]);
         assert!(NONE.lamports_declared());
@@ -2002,7 +2002,7 @@ mod tests {
             Err(write_policy_violation(u8::MAX)),
         );
         // The DATA and TRANSITION dimensions are compiled out with the
-        // raw-surface guard in this build shape — the documented,
+        // raw-surface guard in this build shape, the documented,
         // deliberate enforcement split (on the default build the same
         // install refuses BOTH of these on a foreign account; see
         // `public_raw_surfaces_are_governed_by_the_ambient_gate`). Pinned
@@ -2073,14 +2073,14 @@ mod tests {
     #[test]
     #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn data_only_policy_governs_data_but_passes_the_lamport_dimension() {
-        // A data-only `strict_writes` policy (no `lamports(...)`) — the shape
-        // a BARE `strict_writes` context installs — governs the DATA
+        // A data-only `strict_writes` policy (no `lamports(...)`), the shape
+        // a BARE `strict_writes` context installs, governs the DATA
         // dimension (raw data mutation, transitions, out-of-set accounts)
         // while leaving the whole LAMPORT dimension passthrough: both direct
         // lamport arithmetic AND writable-CPI delegation. That carve-out is
         // what lets a bare-strict program keep performing writable CPIs
-        // (System CreateAccount, Token transfer) after the gate is installed
-        // — governing delegation would refuse every one of them, since a
+        // (System CreateAccount, Token transfer) after the gate is installed,
+        // governing delegation would refuse every one of them, since a
         // data-only policy declares no lamport authority to hand a callee.
         let (_b0, a0) = make_account(30);
         let accounts = [a0];
@@ -2099,7 +2099,7 @@ mod tests {
         assert!(check_lamport_mutation(foreign.address()).is_ok());
 
         // Lamport dimension (writable-CPI delegation): also passthrough for a
-        // data-only policy — the backward-compat carve-out, so bare-strict
+        // data-only policy, the backward-compat carve-out, so bare-strict
         // programs can still delegate accounts to CPI callees.
         assert!(check_lamport_delegation(accounts[0].address()).is_ok());
         assert!(check_lamport_delegation(foreign.address()).is_ok());
@@ -2200,7 +2200,7 @@ mod tests {
             // `accounts` and its backing buffer are freed here.
         }
 
-        // The stale gate is still installed — as VALUES, so probing it
+        // The stale gate is still installed, as VALUES, so probing it
         // after the accounts are gone is plain comparison, not UB.
         assert!(lamport_gate_active());
 
@@ -2214,7 +2214,7 @@ mod tests {
         );
 
         // An address equal to the stale entry is governed by the stale
-        // permission bits (allowed here) — stale-value semantics, by
+        // permission bits (allowed here), stale-value semantics, by
         // value, no liveness required.
         assert!(check_lamport_mutation(&stale_address).is_ok());
 
@@ -2240,7 +2240,7 @@ mod tests {
             Err(write_policy_violation(0))
         );
 
-        // Drop the OUTER guard first — out of creation order. Under the
+        // Drop the OUTER guard first, out of creation order. Under the
         // old prev-chain this restored a stale snapshot over the live
         // inner gate; under the token store it frees only outer's slot.
         drop(outer);
@@ -2250,7 +2250,7 @@ mod tests {
             Err(write_policy_violation(0))
         );
         // Outer's account is now foreign to the (still governing) inner
-        // gate — fail closed, not fail open.
+        // gate, fail closed, not fail open.
         assert_eq!(
             check_lamport_mutation(outer_accounts[0].address()),
             Err(write_policy_violation(u8::MAX))

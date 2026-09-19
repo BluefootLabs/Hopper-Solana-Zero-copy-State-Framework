@@ -140,6 +140,12 @@ fn write_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Res
         "#define HOPPER_{}_TOTAL_SIZE {}u",
         upper, layout.total_size
     )?;
+    writeln!(
+        f,
+        "#define HOPPER_{}_HAS_DYNAMIC_TAIL {}",
+        upper,
+        if layout.has_dynamic_tail { 1 } else { 0 }
+    )?;
     write!(f, "static const uint8_t HOPPER_{}_LAYOUT_ID[8] = {{", upper)?;
     write_byte_list(f, &layout.layout_id)?;
     writeln!(f, "}};")?;
@@ -155,7 +161,18 @@ fn write_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Res
     writeln!(f, "static inline HopperClientError hopper_assert_{}_layout(const uint8_t *data, size_t data_len) {{", snake)?;
     if layout_is_compact(layout) {
         writeln!(f, "    if (data_len == 0u || data_len < HOPPER_{}_TOTAL_SIZE) return HOPPER_CLIENT_BUFFER_TOO_SMALL;", upper)?;
-        writeln!(f, "    if (data_len != HOPPER_{}_TOTAL_SIZE || data[0] != HOPPER_{}_DISC) return HOPPER_CLIENT_LAYOUT_MISMATCH;", upper, upper)?;
+        if !layout.has_dynamic_tail {
+            writeln!(
+                f,
+                "    if (data_len != HOPPER_{}_TOTAL_SIZE) return HOPPER_CLIENT_LAYOUT_MISMATCH;",
+                upper
+            )?;
+        }
+        writeln!(
+            f,
+            "    if (data[0] != HOPPER_{}_DISC) return HOPPER_CLIENT_LAYOUT_MISMATCH;",
+            upper
+        )?;
         writeln!(f, "    return HOPPER_CLIENT_OK;")?;
     } else {
         writeln!(
@@ -564,6 +581,7 @@ mod tests {
             version: 1,
             layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
             total_size: 56,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: FIELDS,
         }];
@@ -647,6 +665,7 @@ mod tests {
             version: 1,
             layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
             total_size: 9,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FIELDS,
         }];
@@ -665,6 +684,18 @@ mod tests {
         }
     }
 
+    fn dynamic_compact_manifest() -> ProgramManifest {
+        let fixed = compact_manifest();
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..fixed.layouts[0]
+        };
+        ProgramManifest {
+            layouts: alloc::boxed::Box::leak(alloc::boxed::Box::new([dynamic_layout])),
+            ..fixed
+        }
+    }
+
     #[test]
     fn c_client_emits_layout_assertion_and_decoder() {
         let out = CClientGen(&manifest()).to_string();
@@ -677,10 +708,21 @@ mod tests {
     #[test]
     fn c_compact_decoder_validates_exact_size_and_discriminator() {
         let out = CClientGen(&compact_manifest()).to_string();
+        assert!(out.contains("#define HOPPER_COMPACT_VAULT_HAS_DYNAMIC_TAIL 0"));
+        assert!(out.contains("data_len < HOPPER_COMPACT_VAULT_TOTAL_SIZE"));
         assert!(out.contains("data_len != HOPPER_COMPACT_VAULT_TOTAL_SIZE"));
         assert!(out.contains("data[0] != HOPPER_COMPACT_VAULT_DISC"));
         assert!(!out
             .contains("hopper_assert_layout_id(data, data_len, HOPPER_COMPACT_VAULT_LAYOUT_ID)"));
+    }
+
+    #[test]
+    fn c_compact_dynamic_decoder_uses_minimum_size() {
+        let out = CClientGen(&dynamic_compact_manifest()).to_string();
+        assert!(out.contains("#define HOPPER_COMPACT_VAULT_HAS_DYNAMIC_TAIL 1"));
+        assert!(out.contains("data_len < HOPPER_COMPACT_VAULT_TOTAL_SIZE"));
+        assert!(!out.contains("data_len != HOPPER_COMPACT_VAULT_TOTAL_SIZE"));
+        assert!(out.contains("data[0] != HOPPER_COMPACT_VAULT_DISC"));
     }
 
     #[test]

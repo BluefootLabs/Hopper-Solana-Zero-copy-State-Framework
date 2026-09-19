@@ -1,4 +1,4 @@
-//! # Competitor-bug-class regression suite (I20)
+//! # Competitor-bug-class regression suite
 //!
 //! Quasar's open tracker carries several unsoundness/correctness classes
 //! that Hopper claims structural immunity to. Each test below pins one
@@ -38,7 +38,7 @@ fn make_account(
     data: &[u8],
 ) -> (Vec<u64>, AccountView<'static>) {
     // Word-sized backing: `RuntimeAccount` has u64 fields (align 8), and a
-    // `Vec<u8>` allocation only guarantees alignment 1 — writing the header
+    // `Vec<u8>` allocation only guarantees alignment 1, writing the header
     // through an under-aligned pointer would be UB by spec even where the
     // system allocator happens to over-align (adversarial review 2026-07-07).
     let total = RuntimeAccount::SIZE + data.len();
@@ -89,7 +89,7 @@ fn make_distinct_accounts(count: usize) -> (Vec<Vec<u64>>, Vec<AccountView<'stat
 }
 
 // =====================================================================
-// Class 1 — remaining-accounts capacity honesty
+// Class 1, remaining-accounts capacity honesty
 // =====================================================================
 
 /// Bug class: `Remaining<T, N>` advertises capacity `N` but the real cap
@@ -132,7 +132,7 @@ fn remaining_advertised_length_is_true_length_at_zero_and_nonzero() {
 /// `hopper-runtime/src/remaining.rs::MAX_REMAINING_ACCOUNTS` and the
 /// explicit `RemainingError::Overflow` in `RemainingIter::next` /
 /// `RemainingAccounts::get`. This test pins: the documented cap of 64 is
-/// enforced loudly — at exactly 64 accounts every slot is served, at 65
+/// enforced loudly, at exactly 64 accounts every slot is served, at 65
 /// the 65th access is a hard `Overflow` error (both modes' iterators),
 /// never a silently truncated or aliased view.
 #[test]
@@ -150,7 +150,7 @@ fn remaining_cap_is_exact_and_loud_at_the_64_boundary() {
 
     // One past the cap: 64 slots served, 65th is a hard error, then the
     // iterator terminates deterministically. Same behavior in
-    // passthrough mode — the cap is not a strict-mode side effect.
+    // passthrough mode, the cap is not a strict-mode side effect.
     let (_backings, views) = make_distinct_accounts(MAX_REMAINING_ACCOUNTS + 1);
     for view in [
         RemainingAccounts::strict(&[], &views),
@@ -183,7 +183,7 @@ fn remaining_cap_is_exact_and_loud_at_the_64_boundary() {
 /// `signers` overflow checks. This test pins: a bounded typed set of
 /// `N` parses exactly `len` accounts when `len <= N` (each slot the real
 /// account), refuses `len > N` with `Overflow`, and never fabricates
-/// entries past `len` — at 0, at `N`, and at `N + 1`.
+/// entries past `len`, at 0, at `N`, and at `N + 1`.
 #[test]
 fn typed_remaining_sets_parse_exactly_what_they_advertise() {
     // Zero accounts through an N=4 window.
@@ -301,14 +301,14 @@ fn typed_and_lazy_parsers_report_and_enforce_true_capacity() {
 }
 
 // =====================================================================
-// Class 3 — duplicate-account aliasing
+// Class 3, duplicate-account aliasing
 // =====================================================================
 
 /// Bug class: raw-handler footgun where `ptr::read`-aliased AccountViews
 /// allow two unchecked mutable borrows of the same account (Quasar raw
 /// handlers, open 2026-07). Hopper guard:
 /// `hopper-runtime/src/audit.rs::AccountAudit::require_unique_writable`
-/// / `require_unique_signers` / `require_all_unique` — the exact
+/// / `require_unique_signers` / `require_all_unique`, the exact
 /// implementations behind `Context::require_unique_*_accounts`. This
 /// test pins: an instruction account slice containing the same address
 /// twice is rejected whenever a duplicate is writable or claims a
@@ -411,7 +411,7 @@ fn overlapping_mutable_segment_borrows_on_one_account_are_rejected() {
 }
 
 // =====================================================================
-// Class 4 — migration stale state
+// Class 4, migration stale state
 // =====================================================================
 
 /// Body layout used by the migration stale-state pin below. V1 wrote
@@ -422,7 +422,7 @@ fn overlapping_mutable_segment_borrows_on_one_account_are_rejected() {
 struct CounterV2 {
     v: [u8; 8],
 }
-// SAFETY: repr(C) single byte-array field — every bit pattern is valid,
+// SAFETY: repr(C) single byte-array field, every bit pattern is valid,
 // alignment 1, no padding.
 unsafe impl hopper_runtime::Zeroable for CounterV2 {}
 // SAFETY: as above.
@@ -476,7 +476,7 @@ fn make_v1_counter_account(address_byte: u8) -> (Vec<u64>, AccountView<'static>)
 /// grown layout exposes stale prior-version bytes through the new view
 /// (Quasar issue #239, open 2026-07). Hopper guard:
 /// `hopper-runtime/src/migrate.rs::apply_pending_migrations` +
-/// `MigrationEdge` — the migrator receives the full mutable body and the
+/// `MigrationEdge`, the migrator receives the full mutable body and the
 /// runtime stamps the header epoch only after the edge succeeded. This
 /// test pins: after a 1→2 edge that grows the layout, the newly claimed
 /// region carries migrator-written bytes (no 0xAA stale garbage leaks
@@ -529,7 +529,7 @@ fn migration_edge_that_grows_the_layout_leaves_no_stale_bytes() {
 struct PoisonV2 {
     v: [u8; 8],
 }
-// SAFETY: repr(C) single byte-array field — every bit pattern is valid,
+// SAFETY: repr(C) single byte-array field, every bit pattern is valid,
 // alignment 1, no padding.
 unsafe impl hopper_runtime::Zeroable for PoisonV2 {}
 // SAFETY: as above.
@@ -567,7 +567,7 @@ impl LayoutMigration for PoisonV2 {
 /// leaves half-migrated state masquerading as the new epoch (the
 /// stale-state family of Quasar issue #239, open 2026-07). Hopper
 /// guard: `hopper-runtime/src/migrate.rs::apply_pending_migrations`
-/// step ordering — the header's `schema_epoch` is bumped only after the
+/// step ordering, the header's `schema_epoch` is bumped only after the
 /// edge's migrator returned `Ok`. This test pins: when the migrator
 /// errors, the error propagates verbatim and the header epoch still
 /// reads the old value, so the account can never be mistaken for a
@@ -591,7 +591,7 @@ fn failed_migration_edge_never_advances_the_schema_epoch() {
 }
 
 // =====================================================================
-// Anchor coarse-borrow bug classes (BLD-ABUG)
+// Anchor coarse-borrow bug classes (coarse-borrow regression)
 //
 // Anchor's borrow tracker is account-index granular: a 256-bit MUT_MASK
 // (`[u64; 4]`, one bit per account entry) records *which* accounts an
@@ -604,7 +604,7 @@ fn failed_migration_edge_never_advances_the_schema_epoch() {
 // APIs and is pinned in the companion core suite.)
 // =====================================================================
 
-/// Anchor bug class: read-only-account-gets-mutated — a handler or CPI
+/// Anchor bug class: read-only-account-gets-mutated, a handler or CPI
 /// writes an account the context declared read-only, and it goes
 /// undetected because the coarse 256-bit MUT_MASK (`[u64; 4]`) tracks
 /// account *indices*, not byte ranges: an account read-only *for this
@@ -618,7 +618,7 @@ fn failed_migration_edge_never_advances_the_schema_epoch() {
 /// This test pins: the byte-range write-set rejects (a) a write to an
 /// account absent from the set, (b) a write to an undeclared byte range
 /// of an account that *is* partially writable, and (c) every write under
-/// an empty policy (a machine-checked read-only instruction) — the first
+/// an empty policy (a machine-checked read-only instruction), the first
 /// two being distinctions the account-index mask cannot represent.
 /// Pinned at host level (the const policy decision; the `Context` wiring
 /// that calls it is exercised in `context.rs::write_policy_tests`).
@@ -626,8 +626,8 @@ fn failed_migration_edge_never_advances_the_schema_epoch() {
 fn strict_writes_rejects_writes_outside_the_declared_byte_range_set() {
     // A representative declared write-set: the vault (instruction account
     // 1) may be written only in its balance field `[16, 24)`; account 2
-    // is wholly writable. Account 0 — an authority/config the instruction
-    // only reads — appears nowhere in the set.
+    // is wholly writable. Account 0, an authority/config the instruction
+    // only reads, appears nowhere in the set.
     static POLICY: WritePolicy =
         WritePolicy::new(&[WriteRange::new(1, 16, 8), WriteRange::whole_account(2)]);
 
@@ -646,7 +646,7 @@ fn strict_writes_rejects_writes_outside_the_declared_byte_range_set() {
     assert_eq!(POLICY.check_write(1, 0, 8), Err(write_policy_violation(1)));
     assert_eq!(POLICY.check_write(1, 24, 8), Err(write_policy_violation(1)));
     // A write straddling the declared range and adjacent bytes is refused
-    // as a whole — there is no partial acceptance of the in-range prefix.
+    // as a whole; there is no partial acceptance of the in-range prefix.
     assert!(POLICY.check_write(1, 20, 8).is_err());
 
     // The wholly-writable account still accepts any range: byte-range
@@ -665,7 +665,7 @@ fn strict_writes_rejects_writes_outside_the_declared_byte_range_set() {
     assert!(READ_ONLY.check_write(1, 16, 8).is_err());
 }
 
-/// Anchor bug class: stale-account-view-after-CPI — a borrowed data view
+/// Anchor bug class: stale-account-view-after-CPI, a borrowed data view
 /// is used after a CPI that could have reallocated or mutated the same
 /// account, because the account-granular borrow model neither ties the
 /// borrow to a byte range nor re-checks it across the CPI boundary (their
@@ -676,8 +676,8 @@ fn strict_writes_rejects_writes_outside_the_declared_byte_range_set() {
 /// account-level borrow byte behind
 /// `hopper-native::AccountView::try_borrow`/`try_borrow_mut`. This test
 /// pins, at host level: while a write lease over a byte range is live,
-/// any conflicting acquire over those bytes — the exact borrow a
-/// CPI-passing helper or a later reader would take — is rejected with
+/// any conflicting acquire over those bytes, the exact borrow a
+/// CPI-passing helper or a later reader would take, is rejected with
 /// `AccountBorrowFailed`; the conflict is byte-range precise (a disjoint
 /// range is still allowed); the block lifts only when the lease is
 /// released, so a view can never silently outlive the borrow that
@@ -690,8 +690,8 @@ fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
     let vault = Address::new_from_array([51; 32]);
 
     // A live write lease over `[0, 32)` models a mutable view held across
-    // a mutating operation. A read acquire over the overlapping `[16, 24)`
-    // — a stale view being consumed while the write is in flight — is
+    // a mutating operation. A read acquire over the overlapping `[16, 24)`,
+    // a stale view being consumed while the write is in flight, is
     // rejected. Anchor's account-index bit does not track the range, so it
     // cannot observe this overlap at all.
     let mut registry = SegmentBorrowRegistry::new();
@@ -702,7 +702,7 @@ fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
     );
 
     // Byte-range precision: a disjoint range is not a view of the written
-    // bytes, so it is admitted even while the write is live — Hopper does
+    // bytes, so it is admitted even while the write is live, Hopper does
     // not over-block, the way an account-granular exclusive lock would.
     registry.register_read(&vault, 32, 8).unwrap();
 
@@ -737,7 +737,7 @@ fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
 // where the realloc lifecycle APIs live.
 // =====================================================================
 
-/// Anchor v2 bug class: Slab read alias during a mutable borrow —
+/// Anchor v2 bug class: Slab read alias during a mutable borrow,
 /// anchor-next #4616 ("v2: Prevent Slab read aliases during mutable
 /// borrows", fixed 2026-06-02). Before the fix, `Slab::load` /
 /// `load_mut` cached a typed header pointer into account data without
@@ -746,10 +746,10 @@ fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
 /// bytes and alias the Slab's `&H` / `&mut H`; the fix retrofits manual
 /// borrow-state marking into each Slab constructor. Hopper guards (both
 /// centralized, not per-wrapper retrofits):
-/// `hopper-runtime/src/segment_borrow.rs::SegmentBorrowRegistry::register`
-/// — every typed segment acquire (`account.rs::segment_ref` /
+/// `hopper-runtime/src/segment_borrow.rs::SegmentBorrowRegistry::register`,
+/// every typed segment acquire (`account.rs::segment_ref` /
 /// `segment_mut`) registers a byte-range lease and conflicting acquires
-/// are refused — and the `borrow_state` byte in
+/// are refused, and the `borrow_state` byte in
 /// `hopper-native/src/raw_account.rs`, which every view copy shares
 /// because it lives in the account header itself. At the typed-guard
 /// level the alias is additionally unrepresentable in safe code: both
@@ -762,7 +762,7 @@ fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
 #[test]
 fn anchor_4616_shared_read_alias_during_live_mutable_borrow_is_refused() {
     // Ledger level: a live mutable lease over the Slab-shaped header
-    // region [8, 40) — the `&mut H` a Slab hands out — refuses any
+    // region [8, 40), the `&mut H` a Slab hands out, refuses any
     // overlapping shared acquire, in the exact-overlap and
     // partial-overlap shapes, while a disjoint tail read stays legal.
     let slab = Address::new_from_array([61; 32]);

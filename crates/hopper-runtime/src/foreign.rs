@@ -1,9 +1,7 @@
 //! Manifest-backed foreign-account lenses.
 //!
-//! The Hopper Safety Audit (page 14, "Manifest-backed foreign account
-//! lenses") proposed a verifiable cross-program read API as the next
-//! step beyond ad-hoc offset-based foreign reads. This module
-//! implements it.
+//! This module provides manifest-backed foreign-account lenses as a
+//! verifiable alternative to ad-hoc offset-based foreign reads.
 //!
 //! # Problem
 //!
@@ -42,7 +40,7 @@
 //! - A manifest account located at the canonical manifest PDA
 //!   (`find_program_address(&[MANIFEST_SEED], &foreign_program_id)`)
 //!   whose payload has already been verified by a prior instruction
-//! - A Hopper-authored IDL that emits manifest constants as part of
+//! - A Hopper IDL that emits manifest constants as part of
 //!   its client-generation output
 
 use crate::account::AccountView;
@@ -618,7 +616,7 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
     /// success, return a read-only lens into its body.
     ///
     /// The four verification steps correspond one-to-one with the
-    /// audit's page-14 requirements:
+    /// checked-lens requirements:
     ///
     /// 1. owner match
     /// 2. discriminator match (both `T::DISC` *and* `manifest.expected_disc`)
@@ -703,7 +701,7 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         // cannot outlive the underlying borrow guard.
         // `Ref<T>` derefs to `T`; the `&T` annotation drives the coercion.
         let layout_ref: &T = &self.inner;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let base = layout_ref as *const T as *const u8;
             let field_ptr = base.add(OFFSET) as *const F;

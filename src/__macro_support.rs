@@ -74,8 +74,11 @@ impl<'a> Decoder<'a> {
     }
 
     #[inline]
-    fn read_copy<T: Copy>(&mut self) -> Result<T, ProgramError> {
+    fn read_copy<T: hopper_runtime::ValuePod>(&mut self) -> Result<T, ProgramError> {
         let bytes = self.take(size_of::<T>())?;
+        // SAFETY: `take` returned exactly `size_of::<T>()` initialized bytes,
+        // and `ValuePod` guarantees every such bit pattern is a valid `T`.
+        // `read_unaligned` imposes no alignment requirement on the byte slice.
         Ok(unsafe { core::ptr::read_unaligned(bytes.as_ptr() as *const T) })
     }
 }

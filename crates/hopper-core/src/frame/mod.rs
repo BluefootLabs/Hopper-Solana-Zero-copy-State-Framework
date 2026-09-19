@@ -186,7 +186,7 @@ impl<'a> Frame<'a> {
     /// - Borrow conflicts are checked at runtime.
     /// - The returned [`SegRef<T>`] owns both the byte-slice borrow and
     ///   a RAII lease on the segment registry entry. Dropping it
-    ///   releases **both**, no sticky-ledger residue from post-audit.
+    ///   releases **both**, leaving no sticky-ledger residue.
     #[inline]
     pub fn segment_ref<'f, T: Pod + FixedLayout>(
         &'f mut self,
@@ -220,7 +220,7 @@ impl<'a> Frame<'a> {
         // guard and yields a `Ref<T>` whose lifetime is tied to the
         // account borrow; the `SegmentLease` we build immediately after
         // releases the registry entry on drop.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
         let inner: Ref<'f, T> = unsafe { data.project(ptr) };
         // SAFETY: `borrow` was just registered in `self.segment_borrows`;
@@ -300,7 +300,7 @@ impl<'a> Frame<'a> {
 
         // The write pointer must carry *mutable* provenance: derive it
         // through `as_bytes_mut_ptr` (a `&mut [u8]` reborrow), never by
-        // const→mut casting a shared reborrow — writes through a
+        // const→mut casting a shared reborrow, writes through a
         // shared-tagged pointer are UB under Stacked Borrows (same
         // fix as `borrow.rs::RefMut::from_backend`). This is the final
         // use of the `&mut` before `project` consumes the guard.
@@ -312,7 +312,7 @@ impl<'a> Frame<'a> {
         // was derived from the guard's own mutable reborrow.
         let inner: RefMut<'f, T> = unsafe { data.project(ptr) };
         let lease: SegmentLease<'f> =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { SegmentLease::new(&mut self.segment_borrows, borrow) };
         Ok(SegRefMut::new(inner, lease))
     }
@@ -499,10 +499,9 @@ impl<'a> Drop for FrameAccountMut<'a> {
 // -- Audit regression tests ------------------------------------------
 //  Audit regression tests
 //
-// Lock in the Hopper Safety Audit's top-priority fix: Frame's segment
-// accessors now hand back `Ref<T>` / `RefMut<T>` that keep the
+// Frame's segment accessors hand back `Ref<T>` / `RefMut<T>` that keep the
 // underlying account borrow alive for their full lifetime. The
-// pre-audit version dropped the byte-slice guard before returning the
+// The earlier version dropped the byte-slice guard before returning the
 // typed reference, which is silent UB. These tests prove the guard is
 // still live at use time.
 #[cfg(test)]
@@ -528,7 +527,7 @@ mod audit_tests {
     fn make_account(data_len: usize, seed: u8) -> (std::vec::Vec<u64>, AccountView<'static>) {
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -544,7 +543,7 @@ mod audit_tests {
         }
         // Zero the Hopper header region so the frame doesn't trip on
         // uninitialized bytes later.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let view = unsafe { core::mem::transmute::<NativeAccountView, AccountView>(backend) };
         (backing, view)
@@ -556,17 +555,16 @@ mod audit_tests {
 
     #[test]
     fn frame_segment_mut_writes_through_ref_mut() {
-        // This test is the ground-truth for the audit fix: the fact
-        // that we can write through `RefMut<Counter>` returned by
+        // Writing through `RefMut<Counter>` returned by
         // `Frame::segment_mut` and see the write persist proves the
         // projection and guard release are now correctly tied together.
-        // Pre-audit this same code compiled but the byte-slice guard
+        // Previously this same code compiled but the byte-slice guard
         // had already been dropped when `segment_mut` returned, any
         // overlapping borrow tracking was racing against stale state.
         let (_backing, account) = make_account(HEADER_LEN + 8, 1);
         let program_id = NativeAddress::new_from_array([9; 32]);
         let hopper_program_id =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
@@ -584,7 +582,7 @@ mod audit_tests {
         // bytes via the underlying account view.
         let bytes = frame.account(0).unwrap().data().unwrap();
         let slice: &[u8] = &bytes;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let raw_u64 =
             unsafe { core::ptr::read_unaligned(slice.as_ptr().add(HEADER_LEN) as *const u64) };
         assert_eq!(raw_u64, 7);
@@ -595,19 +593,19 @@ mod audit_tests {
         // Seed the counter via direct byte access, then verify a
         // `segment_ref` returned guard lets us read that value. The
         // crucial property this exercises: `Ref<'_, Counter>` deref
-        // into `Counter` after `segment_ref` returns, which pre-audit
+        // into `Counter` after `segment_ref` returns, which previously
         // would have been reading through a dropped byte-slice guard.
         let (_backing, account) = make_account(HEADER_LEN + 8, 2);
         {
             let mut bytes = account.try_borrow_mut().unwrap();
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let slot = unsafe { bytes.as_bytes_mut_ptr().add(HEADER_LEN) as *mut u64 };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::ptr::write_unaligned(slot, 99) };
         }
         let program_id = NativeAddress::new_from_array([9; 32]);
         let hopper_program_id =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
@@ -618,14 +616,14 @@ mod audit_tests {
 
     /// Audit regression: post-fix, dropping a `SegRefMut` from
     /// `Frame::segment_mut` must release the segment-registry lease so
-    /// a sequential re-acquire on the same region succeeds. Pre-audit
+    /// a sequential re-acquire on the same region succeeds. Previously
     /// the sticky ledger blocked this for the rest of the instruction.
     #[test]
     fn frame_segment_lease_releases_on_drop() {
         let (_backing, account) = make_account(HEADER_LEN + 8, 3);
         let program_id = NativeAddress::new_from_array([9; 32]);
         let hopper_program_id =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
@@ -637,7 +635,7 @@ mod audit_tests {
         }
         assert_eq!(frame.segment_borrows().len(), 0);
 
-        // Second write on the same region, pre-audit this returned
+        // A second write on the same region previously returned
         // `AccountBorrowFailed`; now it succeeds because the prior
         // lease has been released.
         {

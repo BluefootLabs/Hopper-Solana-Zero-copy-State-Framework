@@ -7,17 +7,16 @@
 //!
 //! ## Why this exists
 //!
-//! Neither Pinocchio, Anchor zero-copy, nor Quasar ships a symmetric off-chain
-//! SDK that understands the framework's own wire shapes. Clients for those
-//! frameworks tend to re-implement borsh/IDL decoders from scratch and always
-//! lag on-chain semantics. Hopper closes that loop:
+//! Hopper's SDK consumes Hopper-specific manifests, receipts, fingerprints,
+//! and segment metadata. It complements ecosystem clients, including Anchor's
+//! official TypeScript and Rust clients, rather than replacing them:
 //!
 //! - **Receipts are a first-class wire format** (72-byte fixed, with 64-byte
 //!   legacy decode support, documented in the program manifest). This crate
 //!   parses them and narrates them.
 //! - **Layout fingerprints are mutual**. A client can verify the on-chain
 //!   account header matches the layout_id it was compiled against before any
-//!   decoding. No "surprise layout change" incidents.
+//!   decoding, so a mismatch can be rejected before field access.
 //! - **Segment-aware partial reads**. Because Hopper knows field offsets at the
 //!   segment level, clients can load just the bytes they need. the same
 //!   property the on-chain side uses to minimize CU cost.

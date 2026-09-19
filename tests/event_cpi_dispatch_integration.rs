@@ -7,7 +7,7 @@
 //! `#[hopper::context(event_cpi)]` plus `ctx.emit_event_cpi(&event)`:
 //!
 //! - the context macro auto-appends the two Anchor-parity trailing
-//!   account slots (event-authority PDA + the program's own account) —
+//!   account slots (event-authority PDA + the program's own account),
 //!   `ACCOUNT_COUNT` grows by 2 and both slots are validated at bind;
 //! - the bound context gains `emit_event_cpi`, which encodes the wire
 //!   format `[0xE0, 0x1E, tag, payload]` and self-invokes with the
@@ -21,8 +21,8 @@
 //! hopper-svm host harness. Off-chain there is no ledger to record
 //! inner instructions, so the runtime's host CPI emulation validates
 //! the self-CPI's address/privilege shape and supplied PDA authority,
-//! then captures the would-be inner instruction — program id, authority
-//! address, and the EXACT instruction-data bytes — via
+//! then captures the would-be inner instruction, program id, authority
+//! address, and the EXACT instruction-data bytes, via
 //! `cpi_event::take_host_captured_event_cpis()`. The captured bytes are
 //! asserted byte-for-byte against the public `encode_event_cpi` encoder
 //! and round-tripped through the public `decode_event_cpi` decoder, the
@@ -31,7 +31,7 @@
 //! Wire-size receipt (measured in `emit_one_liner_produces_the_exact_wire_bytes`):
 //! Hopper spends 3 bytes of instruction-data overhead per event (2-byte
 //! marker + 1-byte tag). Anchor's `emit_cpi!` spends 16 (8-byte
-//! `EVENT_IX_TAG_LE` + the event's own 8-byte discriminator) — 13 fewer
+//! `EVENT_IX_TAG_LE` + the event's own 8-byte discriminator), 13 fewer
 //! bytes per event, or 5 fewer counting only the event-identification
 //! layer (3 vs one 8-byte hash discriminator).
 
@@ -178,7 +178,7 @@ fn drive_control<'info>(
     control_prog::process_instruction(&mut ctx)
 }
 
-/// `[disc = 0, amount u64 LE]` — the generated decoder enforces the length.
+/// `[disc = 0, amount u64 LE]`, the generated decoder enforces the length.
 fn deposit_data(amount: u64) -> [u8; 9] {
     let mut data = [0u8; 9];
     data[1..].copy_from_slice(&amount.to_le_bytes());
@@ -263,7 +263,7 @@ fn emit_one_liner_produces_the_exact_wire_bytes() {
         "the appended event-authority slot must sign the CPI"
     );
 
-    // Exact wire bytes: marker, tag, then the event's Pod payload —
+    // Exact wire bytes: marker, tag, then the event's Pod payload,
     // byte-compared against the public encoder so producer and
     // consumer are pinned to each other.
     let expected_event = Deposited {
@@ -294,7 +294,7 @@ fn emit_one_liner_produces_the_exact_wire_bytes() {
     // per event (2-byte marker + 1-byte tag). Anchor's emit_cpi wire is
     // 16 bytes of overhead (8-byte EVENT_IX_TAG_LE instruction
     // discriminator + the event's 8-byte discriminator) before the
-    // same payload — 13 more per event.
+    // same payload, 13 more per event.
     assert_eq!(
         event.data.len() - core::mem::size_of::<Deposited>(),
         3,

@@ -1,6 +1,6 @@
 //! Segment-level borrow registry for fine-grained access control.
 //!
-//! The account-level [`BorrowRegistry`](crate::borrow_registry) prevents
+//! The account-level borrow registry prevents
 //! aliasing across entire accounts. This module adds **segment-level**
 //! conflict detection: two borrows of the *same* account are allowed when
 //! their byte ranges don't overlap, or when both are read-only.
@@ -15,7 +15,7 @@
 //! | Write    | Write | yes          | ❌       |
 //! | *any*    | *any* | no           | ✅       |
 //!
-//! ## Zero-Cost Design
+//! ## Bounded representation
 //!
 //! - Fixed-capacity array (no heap)
 //! - Inline conflict checks
@@ -87,7 +87,7 @@ pub struct SegmentBorrow {
     /// Fast-path prefix of the account address.
     pub key_fp: u64,
     /// Full account address, authoritative identity, checked whenever
-    /// the fast-path fingerprint matches. Pre-audit we relied on the
+    /// the fast-path fingerprint matches. Previously the implementation relied on the
     /// fingerprint alone and claimed it was "collision-free for any
     /// realistic instruction"; that was probabilistic, not a guarantee.
     pub key: Address,
@@ -129,10 +129,10 @@ pub struct SegmentBorrowRegistry {
     entries: [MaybeUninit<SegmentBorrow>; MAX_SEGMENT_BORROWS],
     len: u8,
     // The touch LOG does not live here. It records every distinct
-    // `(account, offset, size, kind)` the instruction ever touched —
+    // `(account, offset, size, kind)` the instruction ever touched,
     // including whole-account borrows taken straight off an
     // `AccountView` with no `Context` (wrapper `get_mut`, raw
-    // `load_mut`) — so its storage is instruction-ambient (see
+    // `load_mut`); so its storage is instruction-ambient (see
     // [`touch_log`]), the same three-tier scheme as the lamport gate
     // store. The registry keeps the recording/introspection API and
     // delegates.
@@ -142,8 +142,8 @@ pub struct SegmentBorrowRegistry {
 ///
 /// This caps *slots*, not coverage: at capacity the log coalesces
 /// records whose union is exactly the touched byte set (see
-/// [`touch_log`]), so contiguous same-kind workloads of any size — columnar
-/// writes, sequence pushes — still produce a COMPLETE map. Overflow (a
+/// [`touch_log`]), so contiguous same-kind workloads of any size, columnar
+/// writes, sequence pushes, still produce a COMPLETE map. Overflow (a
 /// partial map, flagged on the wire) now requires more than this many
 /// *pairwise-unmergeable* ranges in one instruction.
 #[cfg(feature = "touch-map")]
@@ -155,7 +155,7 @@ pub const MAX_TOUCH_RECORDS: usize = 32;
 //
 // A touch map is emitted as ONE `sol_log_data` segment (it appears in the
 // transaction log as a `Program data: <base64>` line) and is a **public,
-// versioned wire format** — decoders exist in `hopper tx explain`, in the
+// versioned wire format**, decoders exist in `hopper tx explain`, in the
 // generated TypeScript client (`decodeHopperTouchMap`), and in this module's
 // tests. Any change to the layout below requires bumping
 // [`TOUCH_MAP_VERSION`].
@@ -181,11 +181,11 @@ pub const MAX_TOUCH_RECORDS: usize = 32;
 // MUST verify magic, version, and the exact-length equation; together these
 // make accidental collision with other `Program data:` payloads (e.g.
 // Anchor's 8-byte sha256 event discriminators, whose first byte is
-// uniformly distributed) practically impossible — a colliding payload would
+// uniformly distributed) practically impossible, a colliding payload would
 // need byte0 = 0x7A, byte1 = 0x01, and a total length satisfying the count
 // equation.
 //
-// Honesty rules: a map with flag bit0 set is PARTIAL — the instruction
+// Honesty rules: a map with flag bit0 set is PARTIAL, the instruction
 // touched more than [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges (the
 // log coalesces exact unions under pressure before ever declaring a map
 // partial; see [`touch_log`]); a map with flag bit1 set omitted at least
@@ -235,7 +235,7 @@ pub struct TouchMapRecord {
 }
 
 /// Encode a touch map into the versioned v1 wire format documented above
-/// (`touch-map` feature). Pure function: no syscalls, no allocation —
+/// (`touch-map` feature). Pure function: no syscalls, no allocation,
 /// returns the fixed-capacity buffer plus the number of valid bytes.
 ///
 /// `overflowed` must be the touch log's overflow flag so partial maps are
@@ -244,7 +244,7 @@ pub struct TouchMapRecord {
 /// not fit in 31 bits are skipped here (impossible for real Solana
 /// accounts, which cap at 10 MiB) and reported via flag bit1 rather than
 /// silently truncated. If more than [`MAX_TOUCH_RECORDS`] records are
-/// passed, the excess is dropped and the overflow flag is set — the
+/// passed, the excess is dropped and the overflow flag is set, the
 /// record count byte never lies about the encoded payload.
 #[cfg(feature = "touch-map")]
 pub fn encode_touch_map(
@@ -287,22 +287,22 @@ pub fn encode_touch_map(
 
 /// Instruction-ambient touch log (`touch-map` feature).
 ///
-/// The log used to live inside [`SegmentBorrowRegistry`] — which meant
+/// The log used to live inside [`SegmentBorrowRegistry`]; which meant
 /// only `Context`-mediated borrows could record, and whole-account
 /// borrows taken straight off an `AccountView` (wrapper `get_mut`, raw
 /// `load_mut`) were a disclosed blind spot in the emitted touch map.
 /// Moving the storage to the same instruction-ambient scheme as the
 /// lamport gate store closes that: `AccountView::try_borrow_mut`
 /// records its own footprint with no `Context` in reach, so EVERY
-/// mutable data borrow — segment lease, typed load, wrapper accessor,
-/// lifecycle write — lands in the same log.
+/// mutable data borrow, segment lease, typed load, wrapper accessor,
+/// lifecycle write, lands in the same log.
 ///
 /// Storage tiers mirror `write_policy::gate_store` exactly:
 ///
 /// - **SBF**: the reserved bottom of the VM heap, right after the gate
 ///   store. Deployed programs cannot carry writable sections at all
 ///   (the loader rejects `.bss`/`.data`), and the VM zeroes the heap
-///   on every invocation — and an all-zero [`TouchLog`] IS the valid
+///   on every invocation, and an all-zero [`TouchLog`] IS the valid
 ///   empty log (pinned by a test), so instruction scoping is free and
 ///   no init code runs. Each CPI level is its own VM with its own
 ///   heap, so levels never share a log.
@@ -311,7 +311,7 @@ pub fn encode_touch_map(
 /// - **Host fallback** (`no_std` hosts without the feature): one
 ///   process-global spinlocked log. Cross-thread sharing means
 ///   concurrent instructions pollute each other's MAPS (never memory
-///   safety) — the same documented imprecision as the fallback borrow
+///   safety), the same documented imprecision as the fallback borrow
 ///   registry. [`Context::new`](crate::context::Context::new) resets
 ///   the log, which keeps single-threaded hosts exact.
 ///
@@ -321,10 +321,10 @@ pub fn encode_touch_map(
 /// `(account, offset, size, kind)`, which is what lets `hopper tx
 /// explain` name individual fields. At capacity it **coalesces**:
 /// records whose union is exactly the touched byte set merge
-/// ([`merge_exact`]) — granularity degrades, coverage stays exact and
+/// ([`merge_exact`]), granularity degrades, coverage stays exact and
 /// complete, and the map carries no flag because it is not partial.
 /// Only when an incoming range cannot be absorbed AND no pair of
-/// records is mergeable does the log set `overflow` — a PARTIAL map,
+/// records is mergeable does the log set `overflow`, a PARTIAL map,
 /// flagged as such on the wire. Contiguous large workloads therefore
 /// never produce a partial map; only more than [`MAX_TOUCH_RECORDS`]
 /// pairwise-unmergeable ranges (including alternating read/write ranges) do.
@@ -336,7 +336,7 @@ pub(crate) mod touch_log {
     use crate::address::Address;
 
     /// Merge two touch records when their union is EXACTLY the byte set
-    /// the pair touched — the rule that lets a full log trade
+    /// the pair touched, the rule that lets a full log trade
     /// granularity for completeness instead of declaring a partial map.
     ///
     /// Two records merge only when they name the same account and:
@@ -347,11 +347,11 @@ pub(crate) mod touch_log {
     /// - **a read wholly contained in a write** → the write record,
     ///   unchanged. The write already claims strictly more access than
     ///   the read, so dropping the narrower read loses no coverage. A
-    ///   write is NEVER widened by a read — that would claim write
+    ///   write is NEVER widened by a read, that would claim write
     ///   access to bytes that were only read.
     ///
     /// A same-kind union whose size exceeds `u32` is refused (both
-    /// records stay) rather than truncated — unreachable for real
+    /// records stay) rather than truncated, unreachable for real
     /// accounts (10 MiB cap) but the guard keeps the function total.
     pub(crate) fn merge_exact(a: &SegmentBorrow, b: &SegmentBorrow) -> Option<SegmentBorrow> {
         if a.key_fp != b.key_fp || !address_eq(&a.key, &b.key) {
@@ -397,7 +397,7 @@ pub(crate) mod touch_log {
     /// coalesces exact unions under capacity pressure ([`merge_exact`]).
     ///
     /// INVARIANT (load-bearing on SBF): the all-zero byte pattern is a
-    /// valid, EMPTY log — `len = 0`, `overflow = 0`, entries ignored.
+    /// valid, EMPTY log, `len = 0`, `overflow = 0`, entries ignored.
     /// The SBF tier materializes this struct over zeroed VM heap with
     /// no initialization whatsoever.
     #[repr(C)]
@@ -446,19 +446,19 @@ pub(crate) mod touch_log {
 
         /// Full-log path: degrade GRANULARITY, never coverage.
         ///
-        /// 1. **Absorb** — merge the incoming range into an existing
+        /// 1. **Absorb**, merge the incoming range into an existing
         ///    record when the union is exactly the touched byte set
-        ///    ([`merge_exact`]). The backward scan hits the hot case —
+        ///    ([`merge_exact`]). The backward scan hits the hot case,
         ///    a loop extending the most recently recorded range
-        ///    (columnar writes, sequence pushes) — in one step.
-        /// 2. **Compact** — coalesce the log itself; a freed slot takes
+        ///    (columnar writes, sequence pushes), in one step.
+        /// 2. **Compact**, coalesce the log itself; a freed slot takes
         ///    the incoming record verbatim.
-        /// 3. **Overflow** — only when the instruction has touched more
+        /// 3. **Overflow**, only when the instruction has touched more
         ///    than [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges is
         ///    the map declared partial.
         ///
-        /// Once `overflow` is set the log is partial for good — a
-        /// dropped range cannot be un-dropped — so later records still
+        /// Once `overflow` is set the log is partial for good, a
+        /// dropped range cannot be un-dropped; so later records still
         /// absorb (coverage keeps improving for free) but the
         /// quadratic compaction is not retried.
         fn record_under_pressure(&mut self, borrow: &SegmentBorrow) {
@@ -502,7 +502,7 @@ pub(crate) mod touch_log {
                             self.remove_at(j);
                             merged_any = true;
                             // The removal shifted the next candidate
-                            // into slot `j` — do not advance.
+                            // into slot `j`, do not advance.
                         } else {
                             j += 1;
                         }
@@ -544,7 +544,7 @@ pub(crate) mod touch_log {
 
     /// Test hook for the SBF heap-tier invariant, in BOTH directions
     /// and without ever reading a padding byte (a byte-view of the
-    /// struct reads uninitialized padding — UB the Miri lane caught in
+    /// struct reads uninitialized padding, UB the Miri lane caught in
     /// the previous form of this pin):
     ///
     /// 1. an all-zero, 8-aligned region overlays as a VALID, EMPTY log
@@ -614,13 +614,13 @@ pub(crate) mod touch_log {
     }
 
     /// Whether the log dropped a range it could neither store, absorb,
-    /// nor make room for by compaction — the map is partial.
+    /// nor make room for by compaction, the map is partial.
     #[inline]
     pub(crate) fn overflowed() -> bool {
         with_log(|log| log.overflow != 0)
     }
 
-    /// Clear the log — the start-of-instruction reset `Context::new`
+    /// Clear the log, the start-of-instruction reset `Context::new`
     /// performs. On SBF this is redundant with per-invocation heap
     /// zeroing (kept because it is two byte-writes and makes the
     /// contract independent of who created how many contexts); on hosts
@@ -661,7 +661,7 @@ pub(crate) mod touch_log {
         /// ends where this offset begins, const-asserted there).
         pub(super) fn with_log<R>(f: impl FnOnce(&mut TouchLog) -> R) -> R {
             let ptr = (hopper_native::HEAP_START_ADDRESS + TOUCH_HEAP_OFFSET) as *mut TouchLog;
-            // SAFETY: see the doc comment above — unique access
+            // SAFETY: see the doc comment above, unique access
             // (single-threaded, non-reentrant closures), valid pointee
             // (zeroed per invocation = valid empty log), 8-aligned,
             // in-bounds of the reserved region (both const-asserted).
@@ -701,7 +701,7 @@ pub(crate) mod touch_log {
         use core::sync::atomic::{AtomicBool, Ordering};
 
         /// Host fallback tier (`no_std` hosts without the thread-local
-        /// feature): one process-global spinlocked log — the same shape
+        /// feature): one process-global spinlocked log, the same shape
         /// as `write_policy::SpinlockGateStore`. Cross-thread sharing
         /// pollutes MAPS, never memory: the lock serializes access.
         struct SpinlockTouchLog {
@@ -778,7 +778,7 @@ impl SegmentBorrowRegistry {
     /// mutually excludes live segment leases (segment acquires take
     /// shared account borrows; the whole-account path takes the
     /// exclusive one). Their *liveness* therefore never belongs in this
-    /// registry — only their cumulative footprint does. Since the log
+    /// registry, only their cumulative footprint does. Since the log
     /// moved to ambient storage, `AccountView::try_borrow_mut` records
     /// this footprint itself; the method remains for callers that hold
     /// a registry and want to stamp a footprint explicitly.
@@ -805,8 +805,8 @@ impl SegmentBorrowRegistry {
         touch_log::len()
     }
 
-    /// Whether the touch log dropped a range — more than
-    /// [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges were touched —
+    /// Whether the touch log dropped a range, more than
+    /// [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges were touched,
     /// and the map is therefore partial (`touch-map` feature). Full
     /// logs coalesce exact unions before ever reporting `true` here.
     #[cfg(feature = "touch-map")]
@@ -849,7 +849,7 @@ impl SegmentBorrowRegistry {
         Ok(borrow)
     }
 
-    /// Mutable counterpart of [`register_leased_read`].
+    /// Mutable counterpart of [`Self::register_leased_read`].
     #[inline(always)]
     pub fn register_leased_write(
         &mut self,
@@ -905,8 +905,8 @@ impl SegmentBorrowRegistry {
         // uninitialized slot owned by this registry.
         unsafe { self.entries.get_unchecked_mut(len).write(new) };
         self.len = (len + 1) as u8;
-        // Touch map (I7): record the successful registration in the
-        // append-only log. Releases never remove touch records — the log
+        // Record the successful registration in the touch map.
+        // append-only log. Releases never remove touch records, the log
         // is the instruction's cumulative footprint.
         #[cfg(feature = "touch-map")]
         self.record_touch(&new);
@@ -1694,7 +1694,7 @@ mod touch_map_tests {
         // Touch more distinct ranges than the log holds. Register/release
         // pairs keep the live ledger small while the touch log accumulates.
         // The stride leaves an 8-byte gap between consecutive ranges, so no
-        // exact union exists and coalescing cannot save the map — the
+        // exact union exists and coalescing cannot save the map, the
         // honest outcome is a flagged partial log.
         let mut i: u32 = 0;
         while (i as usize) < MAX_TOUCH_RECORDS + 3 {
@@ -1708,7 +1708,7 @@ mod touch_map_tests {
 
     /// The columnar pattern (Sentinel's `record_entry`, `Seq` pushes) at
     /// a scale the granular log cannot hold: contiguous cells must
-    /// coalesce into exact unions — a COMPLETE, unflagged map — instead
+    /// coalesce into exact unions, a COMPLETE, unflagged map, instead
     /// of truncating into a partial one.
     #[test]
     fn columnar_contiguous_writes_coalesce_instead_of_overflowing() {
@@ -1721,7 +1721,7 @@ mod touch_map_tests {
             i += 1;
         }
         // Granularity degraded, coverage did not: no overflow flag, and
-        // the records' union is exactly [0, cells * 8) — no gap (nothing
+        // the records' union is exactly [0, cells * 8), no gap (nothing
         // touched went missing) and no byte beyond it (nothing untouched
         // was claimed).
         assert!(!reg.touch_map_overflowed());
@@ -1751,7 +1751,7 @@ mod touch_map_tests {
 
     /// Under pressure, a read wholly inside an existing write is
     /// absorbed (the write already claims strictly more access), while a
-    /// read poking OUTSIDE the write must never vanish into it — that
+    /// read poking OUTSIDE the write must never vanish into it, that
     /// union would fake write access to bytes that were only read. With
     /// every slot pairwise-unmergeable, the honest outcome for the
     /// poking read is the overflow flag.
@@ -1778,7 +1778,7 @@ mod touch_map_tests {
         assert!(!reg.touch_map_overflowed());
 
         // Read straddling the write's end: not absorbable, not
-        // compactable — flagged partial, and the write stays EXACTLY as
+        // compactable, flagged partial, and the write stays EXACTLY as
         // acquired.
         let r2 = reg.register_leased_read(&key(1), 60, 8).unwrap();
         reg.release(&r2);
@@ -1791,8 +1791,8 @@ mod touch_map_tests {
     }
 
     /// The reverse absorption: a write covering an already-recorded read
-    /// upgrades that slot to the write — a kind that genuinely occurred,
-    /// over a superset of the bytes — instead of overflowing.
+    /// upgrades that slot to the write, a kind that genuinely occurred,
+    /// over a superset of the bytes, instead of overflowing.
     #[test]
     fn pressure_upgrades_contained_read_to_the_covering_write() {
         let mut reg = SegmentBorrowRegistry::new();
@@ -1820,7 +1820,7 @@ mod touch_map_tests {
     }
 
     /// When the incoming range cannot be absorbed anywhere, compaction
-    /// folds mergeable neighbors to free a slot — and first-touch order
+    /// folds mergeable neighbors to free a slot, and first-touch order
     /// survives (the merged record keeps its earliest constituent's
     /// slot; the newcomer appends after).
     #[test]
@@ -1868,7 +1868,7 @@ mod touch_map_tests {
         assert_eq!((m.offset, m.size, m.kind), (0, 16, AccessKind::Write));
         let m = merge_exact(&mk(4, 8, AccessKind::Read), &mk(0, 6, AccessKind::Read)).unwrap();
         assert_eq!((m.offset, m.size, m.kind), (0, 12, AccessKind::Read));
-        // A gap never bridges — the union would claim untouched bytes.
+        // A gap never bridges, the union would claim untouched bytes.
         assert!(merge_exact(&mk(0, 8, AccessKind::Write), &mk(9, 8, AccessKind::Write)).is_none());
         // Different accounts never merge.
         let other = SegmentBorrow {
@@ -1885,7 +1885,7 @@ mod touch_map_tests {
         assert_eq!((m.offset, m.size, m.kind), (0, 64, AccessKind::Write));
         let m = merge_exact(&mk(0, 64, AccessKind::Write), &mk(4, 4, AccessKind::Read)).unwrap();
         assert_eq!((m.offset, m.size, m.kind), (0, 64, AccessKind::Write));
-        // ...but a read poking outside the write must NOT merge — the
+        // ...but a read poking outside the write must NOT merge, the
         // union would fake write access to read-only bytes.
         assert!(merge_exact(&mk(60, 8, AccessKind::Read), &mk(0, 64, AccessKind::Write)).is_none());
         assert!(merge_exact(&mk(0, 64, AccessKind::Write), &mk(60, 8, AccessKind::Read)).is_none());
@@ -2012,11 +2012,11 @@ mod touch_map_tests {
 
     /// The SBF tier materializes [`touch_log::TouchLog`] over the VM's
     /// ZEROED heap with no initialization at all, so the all-zero byte
-    /// pattern being the valid EMPTY log is load-bearing — same pin as
+    /// pattern being the valid EMPTY log is load-bearing, same pin as
     /// `initial_gate_store_is_all_zero_bytes` for the gate store.
     /// Checked field-wise in both directions (zeroed-overlay reads
     /// empty; `new()` is field-for-field zero): a whole-struct byte
-    /// view would read uninitialized PADDING bytes — UB the Miri Tree
+    /// view would read uninitialized PADDING bytes, UB the Miri Tree
     /// Borrows lane caught in the previous form of this test.
     #[cfg(feature = "touch-map")]
     #[test]
@@ -2026,7 +2026,7 @@ mod touch_map_tests {
     }
 
     /// The gap this ambient move closes: a typed mutable load taken
-    /// straight off an `AccountView` — NO `Context` anywhere — must
+    /// straight off an `AccountView`, NO `Context` anywhere, must
     /// land in the instruction touch log, because that is exactly what
     /// wrapper accessors (`Account::get_mut`) do under the hood.
     #[cfg(feature = "touch-map")]
@@ -2043,7 +2043,7 @@ mod touch_map_tests {
         struct Blob {
             v: [u8; 8],
         }
-        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // SAFETY: repr(C), byte-array field, every bit pattern valid,
         // align 1, no padding.
         unsafe impl crate::Zeroable for Blob {}
         // SAFETY: as above.
@@ -2094,7 +2094,7 @@ mod touch_map_tests {
         }
 
         touch_log::reset();
-        // Raw byte borrows (the fixture write above) do NOT record —
+        // Raw byte borrows (the fixture write above) do NOT record,
         // only typed mutable loads do.
         assert_eq!(touch_log::len(), 0, "raw try_borrow_mut must not record");
 

@@ -32,8 +32,12 @@ pub struct RuntimeAccount {
     pub is_writable: u8,
     /// 1 if executable, 0 otherwise.
     pub executable: u8,
-    /// Delta between original and current data length (realloc tracking).
-    pub resize_delta: i32,
+    /// Original account data length, stored in the ABI's four padding bytes.
+    ///
+    /// The field name is retained for source compatibility with Hopper 0.3.0;
+    /// it is an immutable resize baseline, not a cumulative delta. Entrypoint
+    /// parsing initializes it before exposing an [`AccountView`](crate::AccountView).
+    pub resize_delta: u32,
     /// Account public key (32 bytes).
     pub address: Address,
     /// Owning program (32 bytes).

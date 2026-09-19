@@ -2,7 +2,7 @@
 //!
 //! `AccountView` is the canonical typed state gateway for Hopper programs.
 //! It wraps Hopper Native's account representation behind a transparent
-//! boundary, delegating all methods with zero-cost type conversion.
+//! representation boundary and delegates account operations to that layer.
 //!
 //! Key capabilities:
 //! - Chainable validation (`check_signer()?.check_writable()?`)
@@ -134,7 +134,7 @@ impl<'info> AccountView<'info> {
     /// to a new owner. The caller must ensure no concurrent mutation.
     #[inline(always)]
     pub unsafe fn owner(&self) -> &Address {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { native_boundary::account_owner(self.backend()) }
     }
 
@@ -220,22 +220,22 @@ impl<'info> AccountView<'info> {
     /// Try to obtain an exclusive (mutable) borrow of the account data.
     ///
     /// Touch-map note: this RAW byte surface does not stamp the touch
-    /// log — segment leases route their exclusive borrows through here
+    /// log, segment leases route their exclusive borrows through here
     /// and would smear every narrow lease into a whole-account record,
     /// destroying the map's field precision. The TYPED whole-account
     /// surfaces ([`load_mut`](Self::load_mut) /
     /// [`load_compact_mut`](Self::load_compact_mut)) record instead.
     ///
     /// Ambient-gate note: under a bound `strict_writes` context this raw
-    /// whole-account write borrow is governed — the instruction-ambient
+    /// whole-account write borrow is governed, the instruction-ambient
     /// gate refuses it unless the declared policy covers the full data
     /// range, closing the historical "raw borrow bypasses the write
     /// policy" surface. With no gate installed the check is one load and
     /// branch. Segment leases use the crate-internal ungated variant
     /// because they gate the exact range themselves; the migration crank
     /// uses it under its own `check_migratable` authorization (a
-    /// whole-layout transform, distinct from the byte-range gate — see
-    /// [`try_borrow_mut_ungated`](Self::try_borrow_mut_ungated)).
+    /// whole-layout transform, distinct from the byte-range gate; see the
+    /// crate-private `try_borrow_mut_ungated` helper.
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let len = self.data_len();
@@ -253,7 +253,7 @@ impl<'info> AccountView<'info> {
     /// - Segment leases gate the exact requested range against the
     ///   installed byte-range policy, then take the ungated borrow.
     /// - The migration crank ([`crate::migrate`]) does not consult the
-    ///   byte-range gate at all — a layout migration rewrites the whole
+    ///   byte-range gate at all, a layout migration rewrites the whole
     ///   body by construction, which no byte-range policy would permit.
     ///   It is governed instead by its own `check_migratable`
     ///   authorization (the account must be writable and owned by the
@@ -285,7 +285,7 @@ impl<'info> AccountView<'info> {
     /// The runtime validates the requested byte range, registers a
     /// **leased** read borrow in the provided instruction-scoped
     /// registry, and returns a [`SegRef<T>`](crate::SegRef) that
-    /// releases the lease on drop. This replaces the pre-audit
+    /// releases the lease on drop. This replaces the earlier
     /// "instruction-sticky" behaviour: the registry entry is now tied
     /// to the returned guard's lifetime, so sequential patterns like
     /// `let x = segment_ref…; drop(x); let y = segment_ref…;` work
@@ -347,7 +347,7 @@ impl<'info> AccountView<'info> {
                     return Err(e);
                 }
             };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
             unsafe { data.project(ptr) }
         };
@@ -358,7 +358,7 @@ impl<'info> AccountView<'info> {
         Ok(crate::SegRef::new(inner, lease))
     }
 
-    /// Project a mutable typed segment. Mirror of [`segment_ref`]; the
+    /// Project a mutable typed segment. Mirror of [`Self::segment_ref`]; the
     /// returned [`SegRefMut<T>`](crate::SegRefMut) carries both the
     /// account-level exclusive borrow guard and the segment-registry
     /// lease, so dropping it is a full release, no lingering entries.
@@ -408,7 +408,7 @@ impl<'info> AccountView<'info> {
 
         #[cfg(target_os = "solana")]
         let inner: RefMut<'_, T> = {
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let native_ref = unsafe { self.backend().segment_mut_unchecked::<T>(abs_offset) };
             let native_ref = match native_ref {
                 Ok(nr) => nr,
@@ -429,12 +429,12 @@ impl<'info> AccountView<'info> {
                     return Err(e);
                 }
             };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let ptr = unsafe { data.as_bytes_mut_ptr().add(abs_offset as usize) as *mut T };
             unsafe { data.project(ptr) }
         };
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let lease = unsafe { crate::SegmentLease::new(borrows, borrow) };
         Ok(crate::SegRefMut::new(inner, lease))
     }
@@ -447,8 +447,8 @@ impl<'info> AccountView<'info> {
     /// `segment_mut` call exclusively borrows the registry for the
     /// returned guard's lifetime, so two `segment_mut` calls cannot
     /// coexist. `split_segments_mut` registers **all** `N` ranges up
-    /// front — proving pairwise disjointness once through the borrow
-    /// registry — and returns an array of `N` guards that live together
+    /// front, proving pairwise disjointness once through the borrow
+    /// registry, and returns an array of `N` guards that live together
     /// and each release their lease on drop.
     ///
     /// Every range is `(abs_offset, size)` where `size == size_of::<T>()`.
@@ -471,8 +471,8 @@ impl<'info> AccountView<'info> {
         ranges: [(u32, u32); N],
     ) -> Result<crate::SegmentsMut<'a, T, N>, ProgramError> {
         // Under a bound `strict_writes` context, every requested range is
-        // checked against the instruction-ambient write gate — the same
-        // exact-range rule as `segment_mut` — so the batch surface cannot
+        // checked against the instruction-ambient write gate, the same
+        // exact-range rule as `segment_mut`; so the batch surface cannot
         // be used to bypass the declared policy from outside a `Context`.
         for (off, size) in ranges {
             crate::write_policy::check_data_mutation(self.address(), off, size)?;
@@ -584,7 +584,7 @@ impl<'info> AccountView<'info> {
 
     // ── Const-driven segment access ─────────────────────────────────
 
-    /// Project a typed segment described by a compile-time [`Segment`].
+    /// Project a typed segment described by a compile-time [`crate::Segment`].
     ///
     /// This is the "const-driven" access form the Hopper design demands:
     /// the offset and size come from a `const SEG: Segment = ...;`
@@ -611,7 +611,7 @@ impl<'info> AccountView<'info> {
         self.segment_ref::<T>(borrows, segment.offset, segment.size)
     }
 
-    /// Mutable const-Segment access. See [`segment_ref_const`] for the
+    /// Mutable const-Segment access. See [`Self::segment_ref_const`] for the
     /// contract, this is the exclusive variant.
     #[inline(always)]
     pub fn segment_mut_const<'a, T: crate::Pod>(
@@ -622,11 +622,11 @@ impl<'info> AccountView<'info> {
         self.segment_mut::<T>(borrows, segment.offset, segment.size)
     }
 
-    /// Project a typed segment described by a [`TypedSegment`].
+    /// Project a typed segment described by a [`crate::TypedSegment`].
     ///
     /// This is the tightest form of segment access Hopper exposes: both
     /// the type `T` and the offset are compile-time constants baked
-    /// into the [`TypedSegment`] marker, so the call collapses to a
+    /// into the [`crate::TypedSegment`] marker, so the call collapses to a
     /// single `ptr + literal_offset` add with a literal size in the
     /// bounds check. The marker argument is a zero-sized token, free
     /// to pass around.
@@ -645,7 +645,7 @@ impl<'info> AccountView<'info> {
         self.segment_ref::<T>(borrows, OFFSET, core::mem::size_of::<T>() as u32)
     }
 
-    /// Mutable typed-segment access. See [`segment_ref_typed`] for the
+    /// Mutable typed-segment access. See [`Self::segment_ref_typed`] for the
     /// contract, this is the exclusive variant.
     #[inline(always)]
     pub fn segment_mut_typed<'a, T: crate::Pod, const OFFSET: u32>(
@@ -683,7 +683,7 @@ impl<'info> AccountView<'info> {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
@@ -725,7 +725,7 @@ impl<'info> AccountView<'info> {
         // Typed whole-account write borrows stamp the instruction-
         // AMBIENT touch log directly (no Context in reach here), which
         // is what makes wrapper `get_mut` / raw `load_mut` visible to
-        // emitted touch maps. Footprint only — liveness stays with the
+        // emitted touch maps. Footprint only, liveness stays with the
         // account borrow byte. Reads are not recorded (validators read
         // every account; the map's job is write containment).
         #[cfg(feature = "touch-map")]
@@ -734,7 +734,7 @@ impl<'info> AccountView<'info> {
             data.len() as u32,
             crate::segment_borrow::AccessKind::Write,
         );
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_mut_ptr().add(T::TYPE_OFFSET) as *mut T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
@@ -772,7 +772,7 @@ impl<'info> AccountView<'info> {
     pub fn load_compact<T: crate::CompactLayout>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::validate_compact(&data)?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr =
             unsafe { data.as_bytes_ptr().add(crate::compact::COMPACT_BODY_OFFSET) as *const T };
         // SAFETY: length and disc validated above; `ptr` points into the borrowed body.
@@ -791,7 +791,7 @@ impl<'info> AccountView<'info> {
             data.len() as u32,
             crate::segment_borrow::AccessKind::Write,
         );
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe {
             data.as_bytes_mut_ptr()
                 .add(crate::compact::COMPACT_BODY_OFFSET) as *mut T
@@ -953,7 +953,7 @@ impl<'info> AccountView<'info> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let ptr = data.as_ptr() as *const T;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { data.project(ptr) })
     }
 
@@ -977,7 +977,7 @@ impl<'info> AccountView<'info> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let ptr = data.as_bytes_mut_ptr() as *mut T;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { data.project(ptr) })
     }
 
@@ -1010,7 +1010,7 @@ impl<'info> AccountView<'info> {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Wire identity and size validated above.
         Ok(unsafe { data.project(ptr) })
@@ -1100,8 +1100,8 @@ impl<'info> AccountView<'info> {
     /// instruction-ambient write policy over **exactly that range**.
     ///
     /// This is the precise-authority spelling of "clear these bytes." The
-    /// naive alternative — take a whole-account `try_borrow_mut` and slice
-    /// — demands authority over every byte of the account, so a narrow but
+    /// naive alternative, take a whole-account `try_borrow_mut` and slice,
+    /// demands authority over every byte of the account, so a narrow but
     /// entirely legitimate declaration (a `tail(seq)` grant zero-filling
     /// the tail it just grew) would be refused by its own policy. Gating
     /// the exact range keeps the refusal honest: it fires when the bytes
@@ -1131,8 +1131,8 @@ impl<'info> AccountView<'info> {
 
     /// Zero the bytes a grow just appended: `[previous_len, data_len)`.
     ///
-    /// Authorized by the **transition** dimension, not the byte-range one
-    /// — deliberately, and this is the whole reason it is a separate
+    /// Authorized by the **transition** dimension, not the byte-range one,
+    /// deliberately, and this is the whole reason it is a separate
     /// method from [`zero_range`](Self::zero_range):
     ///
     /// - The bytes did not exist when the policy was declared. Clearing
@@ -1250,8 +1250,8 @@ impl<'info> AccountView<'info> {
 
     /// Chainable check that this account's owner is **one of** `programs`.
     ///
-    /// Accepts an account from any of several programs — most commonly an SPL
-    /// Token *or* Token-2022 mint / token account — and rejects every other
+    /// Accepts an account from any of several programs, most commonly an SPL
+    /// Token *or* Token-2022 mint / token account, and rejects every other
     /// owner. This is [`check_owned_by`](Self::check_owned_by) generalized to a
     /// set; an empty `programs` slice always rejects.
     #[inline]
@@ -1395,7 +1395,7 @@ impl<'info> AccountView<'info> {
     /// Fused signer/writable validation (the generated-context hot path).
     ///
     /// Validates both requirements with a **single packed-flags read and
-    /// one masked compare** — the same shape a hand-rolled
+    /// one masked compare**, the same shape a hand-rolled
     /// `header & MASK == MASK` check compiles to, since `need_signer` /
     /// `need_writable` are compile-time literals at every macro call site
     /// and this function is `#[inline(always)]`. On mismatch it falls back
@@ -1459,7 +1459,7 @@ impl<'info> AccountView<'info> {
     /// transfer is authorized.
     #[inline(always)]
     pub unsafe fn assign(&self, new_owner: &Address) {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             native_boundary::assign(self.backend(), new_owner);
         }
@@ -1496,10 +1496,9 @@ impl<'info> AccountView<'info> {
     /// - `destination` must be **writable**, receiving lamports
     ///   requires write permission on the credit side.
     ///
-    /// This is the Hopper Safety Audit's recommended tightening: the
-    /// pre-audit version mutated lamports and zeroed data without
+    /// The earlier version mutated lamports and zeroed data without
     /// checking either side, relying on the runtime to reject the
-    /// transaction later. The audit flagged that as "encouraging
+    /// transaction later. That encouraged
     /// patterns that will only be rejected later", the safe API
     /// should surface the violation at call time.
     #[inline]
@@ -1524,7 +1523,7 @@ impl<'info> AccountView<'info> {
         Ok(())
     }
 
-    /// Unchecked variant of [`close_to`].
+    /// Unchecked variant of [`Self::close_to`].
     ///
     /// Retained for the rare caller that has already verified the
     /// preconditions (e.g. inside a validated `#[hopper::context]`
@@ -1532,7 +1531,7 @@ impl<'info> AccountView<'info> {
     /// when the preconditions are guaranteed by the surrounding code.
     ///
     /// "Unchecked" waives only those two PREconditions. The ambient
-    /// write gate is not a precondition a caller can pre-verify — it is
+    /// write gate is not a precondition a caller can pre-verify; it is
     /// the instruction's installed policy, and closing an account both
     /// zeroes its data and ends its presence, so the same transition
     /// rule as [`close`](Self::close) / [`close_to`](Self::close_to)
@@ -1590,7 +1589,7 @@ impl<'info> AccountView<'info> {
     /// The caller must ensure no mutable borrow is active.
     #[inline(always)]
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.backend().borrow_unchecked() }
     }
 
@@ -1603,7 +1602,7 @@ impl<'info> AccountView<'info> {
     // `mut_from_ref`: intentional. Account data lives behind an SVM-owned raw
     // pointer; `AccountView` models shared access while exposing interior
     // mutability through this documented `unsafe` contract. Aliasing is the
-    // caller's invariant — see `hopper_native::AccountView::borrow_unchecked_mut`.
+    // caller's invariant; see `hopper_native::AccountView::borrow_unchecked_mut`.
     #[allow(clippy::mut_from_ref)]
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
@@ -1619,7 +1618,7 @@ impl<'info> AccountView<'info> {
     /// The caller must guarantee the new length is within the permitted increase.
     #[inline(always)]
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             self.backend().resize_unchecked(new_len);
         }
@@ -1632,7 +1631,7 @@ impl<'info> AccountView<'info> {
     /// The caller must ensure no active borrows exist.
     #[inline(always)]
     pub unsafe fn close_unchecked(&self) {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             self.backend().close_unchecked();
         }
@@ -1890,7 +1889,7 @@ mod tests {
     ) -> (std::vec::Vec<u64>, AccountView<'static>) {
         let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + total_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1904,7 +1903,7 @@ mod tests {
                 data_len: total_data_len as u64,
             });
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let account = AccountView::from_backend(backend);
         (backing, account)
@@ -2492,13 +2491,13 @@ mod tests {
         }
         // ── raw_ref → state byte held, so load_mut rejected
         {
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let _r = unsafe { account.raw_ref::<[u8; 16]>() }.unwrap();
             assert!(account.load_mut::<TestLayout>().is_err());
         }
         // ── raw_mut → exclusive, so even shared read rejected
         {
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let _w = unsafe { account.raw_mut::<[u8; 16]>() }.unwrap();
             assert!(account.load::<TestLayout>().is_err());
         }
@@ -2514,9 +2513,9 @@ mod tests {
             // the `seg_lease_releases_on_drop_and_allows_reacquire`
             // test below and in `segment_borrow::tests::*`.
         }
-        // ── post-audit RAII behaviour: after the lease drops, the
+        // RAII behaviour: after the lease drops, the
         //    registry is empty again and a fresh overlapping write
-        //    succeeds. Pre-audit this would have permanently stuck a
+        //    succeeds. Previously this would have permanently stuck a
         //    read entry and rejected every subsequent write for the
         //    rest of the instruction.
         assert_eq!(borrows.len(), 0);
@@ -2525,9 +2524,9 @@ mod tests {
             .unwrap();
     }
 
-    /// Post-audit RAII behaviour: a `SegRefMut` acquired, dropped, and
+    /// RAII behavior: a `SegRefMut` acquired, dropped, and
     /// then re-acquired in sequence must succeed. The sticky-ledger
-    /// model the Hopper Safety Audit called out rejected the second
+    /// earlier sticky-ledger model rejected the second
     /// acquire because the first's entry persisted after drop.
     #[test]
     fn seg_lease_releases_on_drop_and_allows_reacquire() {
@@ -2547,7 +2546,7 @@ mod tests {
         }
         // Lease dropped → registry empty.
         assert_eq!(borrows.len(), 0);
-        // Second acquire on the exact same region succeeds; pre-audit
+        // A second acquire on the exact same region succeeds; previously
         // this was rejected.
         {
             let mut second = account
@@ -2564,7 +2563,7 @@ mod tests {
     }
 
     /// Two overlapping writes that are simultaneously alive must still
-    /// be rejected, the audit fix is scoped to sequential, not
+    /// be rejected; lease release applies to sequential, not
     /// aliasing, patterns. This test locks in that guarantee.
     #[test]
     fn seg_lease_still_rejects_simultaneous_overlap() {
@@ -2659,7 +2658,7 @@ mod tests {
         const A_TYPED: TypedSegment<[u8; 8], { crate::layout::HopperHeader::SIZE as u32 }> =
             TypedSegment::new();
 
-        // Post-audit (RAII leases): a single registry suffices for
+        // With RAII leases, a single registry suffices for
         // sequential write-then-read. The write lease auto-releases on
         // scope exit, so the read is free to acquire the same region.
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
@@ -2786,7 +2785,7 @@ mod tests {
     }
 
     /// `zero_appended` clears only bytes a grow created, under the same
-    /// TRANSITION authority the resize required — so the `realloc_zero`
+    /// TRANSITION authority the resize required; so the `realloc_zero`
     /// lifecycle works under a narrow `mut(seg)` grant (whose ranges
     /// cannot cover bytes that did not exist when it was written), while
     /// an account the instruction has no data authority over is still
@@ -2803,7 +2802,7 @@ mod tests {
         let (_bf, foreign) = make_account(32, 73);
         let accounts = [a0];
         // A NARROW head-only grant: bytes [0,8) only. Nothing declares the
-        // region past 16 — exactly the realloc-appended shape.
+        // region past 16, exactly the realloc-appended shape.
         static NARROW: WritePolicy = WritePolicy::new(&[WriteRange::new(0, 0, 8)]);
 
         {
@@ -2851,7 +2850,7 @@ mod tests {
     /// data_len)`: a head-only declaration refuses it, a `tail_from`
     /// declaration (the open-ended `tail(seg)` lowering) and a
     /// whole-account grant both authorize it. Pins the 34c7a60 gate
-    /// wiring — a revert to the pre-guard body (plain `try_borrow_mut`)
+    /// wiring, a revert to the pre-guard body (plain `try_borrow_mut`)
     /// or a widened check range `(0, len)` goes red here.
     #[test]
     #[cfg(not(feature = "unguarded-raw-surfaces"))]

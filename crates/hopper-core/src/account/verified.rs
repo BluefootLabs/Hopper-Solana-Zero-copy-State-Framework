@@ -296,7 +296,7 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
         if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &*(self.data().as_ptr().add(offset) as *const U) })
     }
 
@@ -312,7 +312,7 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
         if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &mut *(self.data_mut().as_mut_ptr().add(offset) as *mut U) })
     }
 }

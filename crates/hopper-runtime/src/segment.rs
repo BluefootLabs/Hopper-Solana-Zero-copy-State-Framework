@@ -1,23 +1,19 @@
 //! Runtime-local segment primitive.
 //!
-//! `Segment` is the tiny memory-contract descriptor that every segment
-//! access routes through: `{offset, size}`, 8 bytes on 32-bit accounts,
-//! `Copy`, `const`-constructable, no strings, no extra fields. It is the
-//! runtime counterpart to `hopper_core::segment_map::StaticSegment`
-//! (which carries a human-readable name for tooling), the runtime
-//! never needs the name, so this primitive stays bare.
+//! `Segment` stores an absolute byte offset and size in two `u32` fields. It is
+//! `Copy`, const-constructable, and carries no field name. The corresponding
+//! `hopper_core::segment_map::StaticSegment` adds a name for schema and tooling
+//! use.
 //!
 //! # Design
 //!
-//! The finish-line audit was explicit: segment access must be
-//! compile-time enforced and runtime cheap. Every Hopper segment
-//! accessor should eventually lower to `ptr + const_offset -> cast`
-//! and nothing more. Using this primitive means:
+//! Generated accessors can embed a `Segment` constant next to their layout
+//! metadata:
 //!
 //! - macros emit `const BALANCE: Segment = Segment::body(0, 8);`
 //! - call sites read `account.segment_mut_const::<u64>(&mut b, BALANCE)?`
-//! - the compiler substitutes the constant, collapses the call chain,
-//!   and on Solana SBF you see one register-add over `data_ptr`.
+//! - the compiler can propagate the constant through bounds checks and pointer
+//!   arithmetic.
 //!
 //! `Segment` never appears in an on-chain layout, it is a compile-time
 //! description only. Use `hopper_core::account::SegmentDescriptor` for
@@ -27,9 +23,8 @@ use crate::layout::HopperHeader;
 
 /// Compile-time descriptor of a typed byte range inside an account.
 ///
-/// Fields are `u32` because every Solana account is bounded by
-/// `u32::MAX` in practice and we want the whole primitive to fit in a
-/// single 64-bit register.
+/// The `u32` fields match Hopper's segment metadata encoding and keep the
+/// descriptor eight bytes wide.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct Segment {
@@ -63,9 +58,7 @@ impl Segment {
     }
 
     /// One-past-the-end byte offset, widened to `u64` so `offset + size`
-    /// cannot wrap. (The registry's `ranges_overlap` learned this same
-    /// lesson in the audit: comparing wrapped `u32` ends turns an
-    /// out-of-range segment into a falsely *contained* one.)
+    /// cannot wrap before containment and overlap comparisons.
     #[inline(always)]
     pub const fn end(&self) -> u64 {
         self.offset as u64 + self.size as u64
@@ -91,8 +84,8 @@ impl Segment {
 // Where `Segment` carries `(offset, size)` at runtime, `TypedSegment`
 // folds **both** values into the type system: `T` determines the size
 // via `size_of::<T>()`, and `OFFSET` is a const generic. The struct
-// itself is a ZST, no memory at all. This is the finish-line audit's
-// "const-generic segments & compile-time offsets" innovation: at every
+// itself is a ZST, no memory at all. This is the runtime's
+// const-generic segment implementation: at every
 // call site the compiler substitutes the literal offset and literal
 // size into the bounds check + pointer add, leaving pure
 // `ptr + constant` arithmetic in the emitted BPF.

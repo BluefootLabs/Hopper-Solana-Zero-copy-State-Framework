@@ -79,7 +79,7 @@ impl CuBudget {
     ///
     /// On BPF, reads the `sol_remaining_compute_units` syscall
     /// (SIMD-0049; live on all current clusters). Off-chain, returns
-    /// `u64::MAX` — host builds have no CU meter, so guards built on
+    /// `u64::MAX`, host builds have no CU meter, so guards built on
     /// this pass trivially, matching the crate's other host fallbacks.
     #[inline(always)]
     pub fn remaining() -> u64 {
@@ -103,7 +103,7 @@ impl CuBudget {
     /// pattern: `let b = CuBudget::snapshot(); ...; b.used()`.
     ///
     /// Note: this no longer emits a `sol_log_compute_units` log line the
-    /// way pre-SIMD-0049 versions did — it *reads* instead. Use
+    /// way pre-SIMD-0049 versions did; it *reads* instead. Use
     /// [`checkpoint`](Self::checkpoint) for the logging behavior.
     #[inline(always)]
     pub fn snapshot() -> Self {
@@ -129,7 +129,7 @@ impl CuBudget {
     #[inline(always)]
     pub fn checkpoint() {
         #[cfg(target_os = "solana")]
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             crate::syscalls::sol_log_compute_units_();
         }

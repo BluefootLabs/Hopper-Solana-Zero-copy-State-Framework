@@ -1,9 +1,10 @@
 [package]
 name = "hopper-token"
 version = "0.3.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
-authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Hopper-owned SPL Token builder surface. Thin, no_std instruction builders over Hopper Runtime."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"

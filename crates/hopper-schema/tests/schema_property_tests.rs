@@ -19,6 +19,7 @@ fn prop_schema_same_manifest_noop() {
         disc: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
         total_size: 24,
+        has_dynamic_tail: false,
         field_count: 1,
         fields,
     };
@@ -58,6 +59,7 @@ fn prop_schema_append_compatible() {
         disc: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
         total_size: 24,
+        has_dynamic_tail: false,
         field_count: 1,
         fields: old_fields,
     };
@@ -67,6 +69,7 @@ fn prop_schema_append_compatible() {
         disc: 1,
         layout_id: [8, 7, 6, 5, 4, 3, 2, 1],
         total_size: 28,
+        has_dynamic_tail: false,
         field_count: 2,
         fields: new_fields,
     };
@@ -96,6 +99,7 @@ fn prop_schema_changed_type_requires_migration() {
         disc: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
         total_size: 24,
+        has_dynamic_tail: false,
         field_count: 1,
         fields: old_fields,
     };
@@ -105,6 +109,7 @@ fn prop_schema_changed_type_requires_migration() {
         disc: 1,
         layout_id: [9, 9, 9, 9, 9, 9, 9, 9],
         total_size: 32,
+        has_dynamic_tail: false,
         field_count: 1,
         fields: new_fields,
     };

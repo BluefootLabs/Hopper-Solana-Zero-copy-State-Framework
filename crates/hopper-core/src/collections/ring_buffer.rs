@@ -38,7 +38,7 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
     /// guard), this validates the geometry *once*, here: a buffer whose
     /// header claims `head >= capacity` or `count > capacity` is
     /// **rejected** with `InvalidAccountData`. Every method then operates
-    /// on a proven-consistent view — the mutators (`set_head` via
+    /// on a proven-consistent view, the mutators (`set_head` via
     /// `% cap`, `set_count` via clamp) preserve the invariant, and since
     /// the handler holds `&mut [u8]` exclusively the bytes cannot change
     /// underneath the view. Corrupt input fails fast and loud at the
@@ -81,7 +81,7 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
     ///
     /// Reads the validated count field. `from_bytes` proved
     /// `count <= capacity` and every mutator preserves it, so this needs
-    /// no clamp — the value is trusted by construction.
+    /// no clamp, the value is trusted by construction.
     #[inline(always)]
     pub fn count(&self) -> usize {
         let bytes = [self.data[4], self.data[5], self.data[6], self.data[7]];
@@ -137,8 +137,8 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
 
         // Prove the write's *actual* precondition locally, not by
         // convention: `write_unaligned::<T>` touches
-        // `offset .. offset + size_of::<T>()`, so that exact range — not
-        // the logical `head < cap` — is what must be in-bounds. Checking
+        // `offset .. offset + size_of::<T>()`, so that exact range; not
+        // the logical `head < cap`, is what must be in-bounds. Checking
         // it here makes the unsafe block self-evidently sound regardless
         // of the geometry math upstream (`assert_zero_copy_element`
         // already ties `SIZE == size_of`, but the direct check stands on
@@ -160,8 +160,8 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
 
         // Preserve the `count <= cap` invariant `from_bytes` established:
         // `min(count + 1, cap)` grows toward capacity and saturates there
-        // (full-ring overwrite keeps count == cap). Writing on every push
-        // — not only when `count < cap` — also self-heals should the
+        // (full-ring overwrite keeps count == cap). Writing on every push,
+        // not only when `count < cap`, also self-heals should the
         // field ever drift, so the stored count stays a valid `1..=cap`.
         let count = self.count();
         self.set_count((count + 1).min(cap));
@@ -182,7 +182,7 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
         // at `(head - count) mod cap`; logical index 0 is the oldest.
         // `from_bytes` proved `head < cap` and `count <= cap`, so the
         // else-branch subtraction cannot underflow. (This is why `oldest`
-        // returns the first-pushed element — verified by the
+        // returns the first-pushed element, verified by the
         // `ring_push_and_read` / `ring_wraps_around` tests.)
         let start = if head >= count {
             head - count
@@ -295,7 +295,7 @@ mod tests {
     fn head_equal_to_capacity_is_normalized_at_construction() {
         // `head == capacity` (an un-renormalized wrap position) is folded
         // to 0 so the `head < capacity` invariant holds exactly, rather
-        // than rejected — a zeroed-then-lightly-touched account stays
+        // than rejected, a zeroed-then-lightly-touched account stays
         // usable.
         let mut buf = [0u8; 8 + 4 * 3]; // capacity 3
         buf[0..4].copy_from_slice(&3u32.to_le_bytes()); // head = capacity

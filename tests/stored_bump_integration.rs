@@ -3,7 +3,7 @@
 //! The state author marks the canonical-bump field with `#[bump]`; the
 //! context author writes `bump = stored`. The macro then verifies the PDA
 //! with ONE `create_program_address` hash against the byte read from the
-//! already-validated account layout — no `find_program_address` search, no
+//! already-validated account layout, no `find_program_address` search, no
 //! hand-written `config.load::<T>()?.bump` expression, and no name-based
 //! auto-detection anywhere (a field merely named `bump` changes nothing).
 

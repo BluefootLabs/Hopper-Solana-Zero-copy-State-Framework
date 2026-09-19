@@ -1,6 +1,6 @@
 #![allow(clippy::assertions_on_constants)]
 
-//! BLD-I24: `strict_writes` write-sets are scheduler-legible with zero
+//! `strict_writes` write sets are scheduler-legible with zero
 //! manual authoring.
 //!
 //! The `#[hopper::context(strict_writes)]` macro compiles the `mut(seg)`
@@ -52,7 +52,7 @@ pub struct Inspect {
     pub ledger: Ledger,
 }
 
-/// BLD-MUT: a mutation-complete context — both dimensions declared.
+/// A mutation-complete context with both dimensions declared.
 /// `ledger` may write only its `balance` field (data dimension);
 /// `fee_sink` is a declared lamport credit target (lamport dimension);
 /// `config` and `authority` may be mutated in NEITHER dimension.
@@ -220,7 +220,7 @@ fn manifest_json_publishes_the_context_write_set() {
     let manifest = ProgramManifest {
         name: "strict_writes_it",
         version: "0.0.1",
-        description: "BLD-I24 declared-vs-published consistency fixture",
+        description: "declared-vs-published consistency fixture",
         layouts: &[],
         layout_metadata: &[],
         instructions: &INSTRUCTIONS,
@@ -244,7 +244,7 @@ fn manifest_json_publishes_the_context_write_set() {
     assert!(!json.contains("mutationComplete"));
 }
 
-// ── BLD-MUT: lamport dimension + mutation completeness ─────────────
+// Lamport dimension and mutation completeness.
 
 static PAYOUT_ACCOUNTS: [AccountEntry; 4] = [
     AccountEntry {
@@ -326,9 +326,9 @@ fn manifest_json_publishes_mutation_complete_for_lamports_context() {
     static INSTRUCTIONS: [InstructionDescriptor; 1] = [PAYOUT_IX];
     static CONTEXTS: [ContextDescriptor; 1] = [Payout::SCHEMA_METADATA];
     let manifest = ProgramManifest {
-        name: "bld_mut_it",
+        name: "mutation_complete_it",
         version: "0.0.1",
-        description: "BLD-MUT mutation-complete publication fixture",
+        description: "mutation-complete publication fixture",
         layouts: &[],
         layout_metadata: &[],
         instructions: &INSTRUCTIONS,
@@ -345,12 +345,12 @@ fn manifest_json_publishes_mutation_complete_for_lamports_context() {
 
 #[test]
 fn effective_writable_demotes_exactly_the_untouched_account() {
-    // ledger: data range declared — stays writable.
+    // ledger: data range declared, stays writable.
     assert!(PAYOUT_IX.effective_writable(0, true));
-    // fee_sink: lamport permission, zero data ranges — stays writable
+    // fee_sink: lamport permission, zero data ranges, stays writable
     // (demoting it would break the declared lamport credit on chain).
     assert!(PAYOUT_IX.effective_writable(1, true));
-    // config: neither dimension — the over-declared flag is demoted.
+    // config: neither dimension, the over-declared flag is demoted.
     assert!(!PAYOUT_IX.effective_writable(2, true));
     // authority: read-only is never promoted.
     assert!(!PAYOUT_IX.effective_writable(3, false));
@@ -399,7 +399,7 @@ fn payout_handler<'info>(
     );
 
     // Dropping the bound scope uninstalls the gate: lamport access
-    // returns to the ungoverned (pre-BLD-MUT) contract.
+    // returns to the ungoverned contract that applies without a policy.
     drop(bound);
     accounts[2].try_set_lamports(accounts[2].lamports())?;
     Ok(())
@@ -459,17 +459,17 @@ fn runtime_gate_refuses_undeclared_lamport_mutation_for_bound_scope() {
     );
 }
 
-// ── BLD-MUT: `sweep = target` end-to-end under the gate ─────────────
+// `sweep = target` end-to-end under the gate.
 //
 // The generated sweep helper drains through the runtime lamport funnel
 // (`try_set_lamports`), so a mutation-complete context must imply both
 // sweep roles or its own helper would be refused by its own gate.
-// (This surface previously could not compile at all — the emission
-// called a nonexistent `try_borrow_mut_lamports` — so this test is the
+// (This surface previously could not compile at all, the emission
+// called a nonexistent `try_borrow_mut_lamports`; so this test is the
 // first executable proof of the sweep contract.)
 
 /// `lamports()` (empty explicit list) is valid: ONLY the implied
-/// lifecycle roles — here the sweep source + target — may move
+/// lifecycle roles, here the sweep source + target, may move
 /// lamports.
 #[hopper::context(strict_writes, lamports())]
 pub struct SweepFees {
@@ -559,10 +559,10 @@ fn sweep_helper_executes_end_to_end_under_the_lamport_gate() {
     );
 }
 
-// ── BLD-MUT: the gated transfer on the bound context ────────────────
+// The gated transfer on the bound context.
 //
 // A mutation-complete context exposes `ctx.transfer_lamports(..)`,
-// delegating to `hopper_runtime::transfer_lamports` — the substrate
+// delegating to `hopper_runtime::transfer_lamports`, the substrate
 // helper's arithmetic run through the gated funnel. These tests prove
 // the generated method end-to-end: declared→declared moves exact
 // balances; a transfer touching an undeclared account is refused with
@@ -617,7 +617,7 @@ fn toll_handler<'info>(
         bound.transfer_lamports(bound.config_account()?, bound.fee_sink_account()?, 1),
         Err(write_policy_violation(2))
     );
-    // To-undeclared: same refusal shape — and crucially the DECLARED
+    // To-undeclared: same refusal shape, and crucially the DECLARED
     // debit side must not have been half-applied.
     assert_eq!(
         bound.transfer_lamports(bound.payer_slot_account()?, bound.config_account()?, 1),

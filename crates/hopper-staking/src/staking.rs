@@ -58,7 +58,8 @@ pub fn update_reward_per_token(
 /// `reward_per_token` is the current global accumulator.
 /// `user_reward_debt` is the user's stored reward debt.
 ///
-/// Returns the claimable reward amount as u64.
+/// Returns the claimable reward amount as u64. Rejects a debt checkpoint that
+/// exceeds the user's current accumulated reward.
 ///
 /// ```rust,ignore
 /// let claimable = pending_rewards(user.staked, pool.reward_per_token, user.reward_debt)?;
@@ -74,7 +75,9 @@ pub fn pending_rewards(
         .ok_or(ProgramError::ArithmeticOverflow)?
         / REWARD_PRECISION;
     let debt_normalized = user_reward_debt / REWARD_PRECISION;
-    let pending = accumulated.saturating_sub(debt_normalized);
+    let pending = accumulated
+        .checked_sub(debt_normalized)
+        .ok_or(ProgramError::InvalidAccountData)?;
     if pending > u64::MAX as u128 {
         return Err(ProgramError::ArithmeticOverflow);
     }
@@ -86,11 +89,13 @@ pub fn pending_rewards(
 /// Store this value in the user's account after every stake/unstake/claim.
 ///
 /// ```rust,ignore
-/// user.reward_debt = update_reward_debt(user.staked, pool.reward_per_token);
+/// user.reward_debt = update_reward_debt(user.staked, pool.reward_per_token)?;
 /// ```
 #[inline(always)]
-pub fn update_reward_debt(user_staked: u64, reward_per_token: u128) -> u128 {
-    (user_staked as u128) * reward_per_token
+pub fn update_reward_debt(user_staked: u64, reward_per_token: u128) -> Result<u128, ProgramError> {
+    (user_staked as u128)
+        .checked_mul(reward_per_token)
+        .ok_or(ProgramError::ArithmeticOverflow)
 }
 
 /// Calculate the emission rate (rewards per second).

@@ -109,7 +109,7 @@ macro_rules! hopper_layout {
         unsafe impl $crate::hopper_core::account::Pod for $name {}
 
         // Audit final-API Step 5 seal. `hopper_layout!` stamps the
-        // Hopper-authored marker so the `ZeroCopy` blanket picks up
+        // framework-defined marker so the `ZeroCopy` blanket picks up
         // declarative layouts the same way it picks up `#[hopper::state]`
         // ones.
         unsafe impl $crate::hopper_runtime::__sealed::HopperZeroCopySealed for $name {}
@@ -182,6 +182,7 @@ macro_rules! hopper_layout {
                     disc: <$name>::DISC,
                     layout_id: <$name>::LAYOUT_ID,
                     total_size: <$name>::LEN,
+                    has_dynamic_tail: false,
                     field_count: FIELD_COUNT,
                     fields: &FIELDS,
                 }
@@ -925,6 +926,7 @@ macro_rules! hopper_manifest {
                 disc: <$name>::DISC,
                 layout_id: <$name>::LAYOUT_ID,
                 total_size: <$name>::LEN,
+                has_dynamic_tail: false,
                 field_count: FIELD_COUNT,
                 fields: &FIELDS,
             }
@@ -1469,6 +1471,7 @@ macro_rules! hopper_interface {
                     disc: <$name>::DISC,
                     layout_id: <$name>::LAYOUT_ID,
                     total_size: <$name>::LEN,
+                    has_dynamic_tail: false,
                     field_count: FIELD_COUNT,
                     fields: &FIELDS,
                 }

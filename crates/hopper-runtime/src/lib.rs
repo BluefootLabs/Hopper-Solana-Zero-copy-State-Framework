@@ -51,7 +51,7 @@ pub mod utils;
 pub mod zerocopy;
 // Re-export the sealed marker module at the crate root so macro
 // codegen can address it as `::hopper_runtime::__sealed::...`. It's
-// doc-hidden because it's the audit's Step 5 enforcement surface,
+// doc-hidden because it is the sealed enforcement surface,
 // not a normal-user-facing API.
 #[doc(hidden)]
 pub use zerocopy::__sealed;
@@ -457,7 +457,7 @@ macro_rules! hopper_unsafe_region {
         // the expanded tree the same way as the macro name.
         const _HOPPER_UNSAFE_REGION_LABEL: &str = $label;
         #[allow(unused_unsafe)]
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { $body }
     }};
 }
@@ -477,7 +477,7 @@ macro_rules! msg {
             let _ = write!(wrapper, $fmt, $($arg)*);
             let len = wrapper.pos();
             $crate::log::log(
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe { core::str::from_utf8_unchecked(&buf[..len]) }
             );
         }
@@ -488,7 +488,7 @@ macro_rules! msg {
     }};
 }
 
-/// Emit a Hopper event via self-CPI for reliable indexing — the
+/// Emit a Hopper event via self-CPI for reliable indexing, the
 /// manual-wiring form.
 ///
 /// Most programs should not call this directly: `#[hopper::context(event_cpi)]`
@@ -502,14 +502,14 @@ macro_rules! msg {
 /// instruction in the transaction metadata. Log output is size-capped; inner
 /// instructions are retained. Anchor's `emit_cpi!` solves the same problem
 /// with the same trick; Hopper's lives in pure Rust so it works under
-/// `no_std` and any of the three backends — and its wire format is
+/// `no_std` and any of the three backends, and its wire format is
 /// 3 bytes of overhead (2-byte marker + 1-byte tag) against Anchor's 16
 /// (8-byte instruction tag + 8-byte event discriminator).
 ///
 /// ## Required program plumbing (manual form only)
 ///
 /// The caller must declare a sentinel handler so the dispatcher routes
-/// the self-CPI somewhere — and should authenticate it rather than
+/// the self-CPI somewhere, and should authenticate it rather than
 /// no-op, or forged events become possible:
 ///
 /// ```ignore
@@ -633,7 +633,7 @@ macro_rules! hopper_entrypoint {
                 core::mem::MaybeUninit::<$crate::__hopper_native::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::__hopper_native::raw_input::deserialize_accounts::<$maximum>(
                     input,
@@ -641,11 +641,11 @@ macro_rules! hopper_entrypoint {
                 )
             };
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_program_id = unsafe {
                 &*(&program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_accounts = unsafe {
                 core::slice::from_raw_parts(
                     accounts.as_ptr() as *const $crate::AccountView<'_>,
@@ -678,12 +678,12 @@ macro_rules! program_entrypoint {
 /// directly under [SIMD-0321], whose gate is active on all public
 /// clusters (mainnet-beta since 2026-04-01). Post the 2026-07-07 fused
 /// single-pass walk this is CU-neutral (+/- 2, measured 2026-07-21) on
-/// programs whose accounts fit the declared maximum — the fused scanner
-/// already banks the old "~30-40 CU" saving — so the feature stays
+/// programs whose accounts fit the declared maximum, the fused scanner
+/// already banks the old "~30-40 CU" saving; so the feature stays
 /// opt-in; it is the foundation of the SIMD-0449 table path.
 ///
 /// Without the `simd-0321` cargo feature this macro expands to the
-/// standard scanning entrypoint — identical semantics, sound everywhere
+/// standard scanning entrypoint, identical semantics, sound everywhere
 /// today. With the feature it expands to the two-argument form, which
 /// null-checks `r2` and falls back to the scanning parse as defense in
 /// depth.
@@ -735,7 +735,7 @@ macro_rules! hopper_fast_entrypoint {
 
                 if $crate::__hopper_native::raw_input::SIMD_0449_TABLE_ENABLED {
                     // SIMD-0449 build: consume the runtime's appended
-                    // pre-deduplicated account-pointer table — O(1)
+                    // pre-deduplicated account-pointer table, O(1)
                     // resolution plus one pointer copy per account. The gate
                     // is a `const`, so the untaken branch folds away entirely.
                     // Macro programs reach this arm the same way the native
@@ -815,7 +815,7 @@ macro_rules! fast_entrypoint {
     };
 }
 
-/// Declare the Hopper lazy entrypoint — RUNTIME-typed, matching the
+/// Declare the Hopper lazy entrypoint, RUNTIME-typed, matching the
 /// eager `hopper_fast_entrypoint!`'s layering.
 ///
 /// The handler receives `&mut hopper_runtime::lazy::LazyContext` (also

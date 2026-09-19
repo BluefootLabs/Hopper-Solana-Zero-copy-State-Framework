@@ -14,7 +14,7 @@
 /// one tag read + one shift instead of a 25-arm match inlined into every
 /// entrypoint, and the native<->runtime glue converts by ROUND-TRIPPING
 /// the u64 code instead of two more 25-arm identity matches. The DWARF
-/// size attribution measured the match forms at 880 bytes — 13% of the
+/// size attribution measured the match forms at 880 bytes, 13% of the
 /// parity vault's `.text`. Append new variants with the next sequential
 /// discriminant, mirrored in the native enum; the exhaustive tests below
 /// refuse to compile otherwise.
@@ -82,7 +82,7 @@ impl From<ProgramError> for u64 {
                 // the fieldless variants (Custom was matched above), so
                 // its tag is the explicit discriminant `1..=25`.
                 let tag = unsafe { *(&builtin as *const ProgramError as *const u64) };
-                // Variant k encodes to (k + 1) << 32 — the old per-arm
+                // Variant k encodes to (k + 1) << 32, the old per-arm
                 // to_builtin(k - 1) table without the 25-arm match.
                 (tag + 1) << BUILTIN_BIT_SHIFT
             }
@@ -174,7 +174,7 @@ impl core::fmt::Display for ProgramError {
 // The two enums are LAYOUT-IDENTICAL twins: both `#[repr(u64)]` with the
 // same variant set, the same explicit discriminants `0..=25`, and the
 // same single `u32` payload on `Custom`. That makes the glue an identity
-// BY LAYOUT — a transmute, zero instructions — where a 25-arm identity
+// BY LAYOUT, a transmute, zero instructions, where a 25-arm identity
 // match used to sit in every binary (measured: 880 B of the parity
 // vault's debug .text) and a u64 round-trip cost +3..+8 CU on benched
 // rows. The correspondence is pinned three ways: the const asserts
@@ -312,7 +312,7 @@ mod tag_encoding_tests {
     /// Every variant's u64 code, pinned against the pre-tag-read reference
     /// table (the old 25-arm match, reproduced verbatim). The reference
     /// match is EXHAUSTIVE on purpose: adding a variant without updating
-    /// this test — and giving it the next sequential discriminant — must
+    /// this test, and giving it the next sequential discriminant, must
     /// not compile.
     #[test]
     fn u64_conversion_matches_reference_for_every_variant() {

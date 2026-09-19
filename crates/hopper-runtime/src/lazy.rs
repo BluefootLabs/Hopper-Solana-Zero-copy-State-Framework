@@ -1,22 +1,10 @@
 //! Runtime-typed lazy account parsing.
 //!
-//! The substrate's [`hopper_native::LazyContext`] defers account parsing
-//! until a handler asks for each account — the R3 bench lab measured
-//! where that pays (0–2-account dispatch paths) and where it does not
-//! (see `BENCHMARKS.md`). Its API, however, speaks SUBSTRATE types
-//! (native `AccountView`, native `ProgramError`), which left a layering
-//! hole: the runtime's `hopper_lazy_entrypoint!` handed handlers the
-//! raw substrate context, while the eager `hopper_fast_entrypoint!`
-//! bridges to runtime types — so lazy programs needed hand-written glue
-//! that eager programs never did (found the honest way: our own bench
-//! target would not compile).
-//!
-//! This module is the missing bridge, mirroring the eager macro's
-//! layering exactly: a [`LazyContext`] wrapper whose every method
-//! speaks RUNTIME types. The casts are the same layout facts the eager
-//! macro relies on — runtime [`AccountView`](crate::AccountView) is
-//! `repr(transparent)` over the native view, and the two `ProgramError`
-//! enums are layout twins with a `From` glue in both directions.
+//! The substrate's [`hopper_native::LazyContext`] defers account parsing until
+//! a handler requests an account. This module wraps that context with Hopper
+//! runtime [`AccountView`], [`Address`], and [`ProgramError`] types. The
+//! wrapper delegates parsing to the substrate;
+//! it does not copy account data.
 //!
 //! ```ignore
 //! hopper::lazy_entrypoint!(process);
@@ -31,9 +19,8 @@
 //! }
 //! ```
 //!
-//! Substrate authors who want the native-typed context keep it: the
-//! substrate macro (`hopper::substrate`-level `hopper_lazy_entrypoint!`)
-//! is unchanged; only the runtime/facade spelling bridges.
+//! Programs that want native substrate types can use the substrate-level
+//! `hopper_lazy_entrypoint!` macro directly.
 
 use crate::account::AccountView;
 use crate::address::Address;
@@ -44,7 +31,7 @@ use crate::error::ProgramError;
 /// Construction happens inside the runtime's `hopper_lazy_entrypoint!`
 /// expansion ([`LazyContext::from_native`]); handlers only ever see this
 /// wrapper. Every method delegates to the substrate implementation and
-/// converts at the boundary — no re-parsing, no copies of account data.
+/// converts at the boundary without re-parsing or copying account data.
 pub struct LazyContext<'a, 'info> {
     inner: &'a mut hopper_native::LazyContext<'info>,
 }
@@ -186,7 +173,7 @@ mod tests {
 
     /// Build a minimal loader input frame: `count` fresh accounts of
     /// `data_len` bytes each (first one a signer), then instruction
-    /// data, then a program id — the same layout the native lazy tests
+    /// data, then a program id, the same layout the native lazy tests
     /// construct, reduced to what these bridge tests need.
     fn build_frame(
         count: u64,
@@ -277,7 +264,7 @@ mod tests {
     #[test]
     fn signer_requirement_maps_to_the_runtime_error() {
         let mut frame = build_frame(2, 8, &[0], [1; 32]);
-        // SAFETY: as above — well-formed frame, outlives the context.
+        // SAFETY: as above, well-formed frame, outlives the context.
         let mut native = unsafe { hopper_native::lazy::lazy_deserialize(frame.as_mut_ptr()) };
         let mut ctx = LazyContext::from_native(&mut native);
         ctx.skip(1).expect("skip the signer");

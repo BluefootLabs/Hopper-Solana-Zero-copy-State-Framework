@@ -19,11 +19,9 @@
 //!
 //! Both reprs expose the same surface: `Deref`/`DerefMut` into `T`,
 //! `as_ptr` / `as_mut_ptr`, byte-slice narrowing (`slice`, `slice_from`),
-//! and byte-level pointer projection (`project`). Whoever reads a
-//! generated accessor like `ctx.vault_balance_mut()` cannot tell which
-//! repr is in use. and on Solana the compiler collapses every hop to
-//! `ptr + offset -> cast`, exactly the shape the finish-line audit
-//! demanded.
+//! and byte-level pointer projection (`project`). Generated accessors use the
+//! same API on both targets while the target-specific representation remains
+//! internal.
 
 use core::marker::PhantomData;
 
@@ -133,7 +131,7 @@ impl<'a> Ref<'a, [u8]> {
         // borrow lifetime.
         let bytes = unsafe { &*self.ptr };
         let new_ptr = &bytes[offset..] as *const [u8];
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.project(new_ptr) }
     }
 
@@ -149,7 +147,7 @@ impl<'a> Ref<'a, [u8]> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let new_ptr = &bytes[offset..end] as *const [u8];
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { self.project(new_ptr) })
     }
 
@@ -193,7 +191,7 @@ impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
         // Solana the borrow is kept alive by the `state` field's Drop
         // impl; on host targets by the `guard` + `token` fields. Field
         // drop order guarantees the pointee outlives the `&self` borrow.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { &*self.ptr }
     }
 }
@@ -207,7 +205,7 @@ impl<T: ?Sized> Drop for Ref<'_, T> {
         }
         // Mirror `hopper_native::borrow::Ref::drop`: decrement the
         // shared count, restoring NOT_BORROWED on the last release.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let current = *self.state;
             if current == 1 {
@@ -316,7 +314,7 @@ impl<'a> RefMut<'a, [u8]> {
     /// Narrow an exclusive byte-slice borrow to a tail starting at `offset`.
     #[inline(always)]
     pub fn slice_from(self, offset: usize) -> RefMut<'a, [u8]> {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let bytes = unsafe { &mut *self.ptr };
         let new_ptr = &mut bytes[offset..] as *mut [u8];
         unsafe { self.project(new_ptr) }
@@ -325,7 +323,7 @@ impl<'a> RefMut<'a, [u8]> {
     /// Narrow an exclusive byte-slice borrow to a checked sub-slice.
     #[inline(always)]
     pub fn slice(self, offset: usize, len: usize) -> Result<RefMut<'a, [u8]>, ProgramError> {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let bytes = unsafe { &mut *self.ptr };
         let end = offset
             .checked_add(len)
@@ -334,7 +332,7 @@ impl<'a> RefMut<'a, [u8]> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let new_ptr = &mut bytes[offset..end] as *mut [u8];
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { self.project(new_ptr) })
     }
 
@@ -397,7 +395,7 @@ impl<T: ?Sized> Drop for RefMut<'_, T> {
             return;
         }
         // Exclusive borrow. restore NOT_BORROWED.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             *self.state = hopper_native::NOT_BORROWED;
         }

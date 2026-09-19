@@ -146,8 +146,8 @@ macro_rules! wire_int {
         }
 
         // Operator sugar is overflow-CHECKED: on overflow it panics,
-        // which on SBF aborts the transaction — a loud fail-safe. The
-        // pre-audit impls used native `+`/`-`/`*`, which wrap silently
+        // which on SBF aborts the transaction, a loud fail-safe. The
+        // Earlier impls used native `+`/`-`/`*`, which wrap silently
         // in release builds: `balance += amount` compiling to wrapping
         // arithmetic on mainnet is the classic exploit shape. Handlers
         // that want a clean recoverable error should use the
@@ -284,14 +284,14 @@ macro_rules! wire_int {
         unsafe impl crate::account::Zeroable for $name {}
         unsafe impl crate::account::Pod for $name {}
 
-        // Audit Step 5 seal: stamp the Hopper-authored marker so the
+        // Stamp the framework-owned marker so the
         // blanket `ZeroCopy` impl picks this primitive up. A user
         // bypassing the wire_int! path with their own bare
         // `unsafe impl Pod` does not get the seal.
         unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for $name {}
 
-        // SIZE defaults to size_of::<Self>() == $size, proven by the
-        // trait (I15); the wire size is pinned by WIRE_SIZE above.
+        // FixedLayout::SIZE defaults to size_of::<Self>(); WIRE_SIZE and the
+        // const asserts above pin the encoded width.
         impl crate::account::FixedLayout for $name {}
     };
 }
@@ -403,7 +403,7 @@ mod tests {
     #[should_panic(expected = "wire integer addition overflowed")]
     fn operator_overflow_panics_instead_of_wrapping() {
         // Pre-fix the operators used native `+`, which WRAPS in release
-        // builds — u64::MAX + 1 silently became 0. The operators must
+        // builds, u64::MAX + 1 silently became 0. The operators must
         // abort loudly; the recoverable path is checked_add_assign.
         let mut w = WireU64::new(u64::MAX);
         w += 1;

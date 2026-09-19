@@ -12,7 +12,7 @@ pub struct WireBool([u8; 1]);
 
 // Equality compares the *boolean projection*, not raw bytes: the wire
 // rule above makes 0xFF just as `true` as 0x01, so a byte-derived
-// PartialEq would report `WireBool([0xFF]) != WireBool::TRUE` — byte
+// PartialEq would report `WireBool([0xFF]) != WireBool::TRUE`, byte
 // equality disagreeing with the type's own semantics. (Lawful Eq: the
 // projection partitions all 256 patterns into exactly two classes.)
 impl PartialEq for WireBool {
@@ -81,10 +81,10 @@ unsafe impl crate::abi::WireType for WireBool {
 // SAFETY: #[repr(transparent)] over [u8; 1], all bit patterns valid.
 unsafe impl crate::account::Zeroable for WireBool {}
 unsafe impl crate::account::Pod for WireBool {}
-// Audit Step 5 seal: Hopper-authored primitive.
+// This framework-owned wire primitive is part of the sealed zero-copy set.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for WireBool {}
 
-// SIZE defaults to size_of::<Self>() == 1, proven by the trait (I15).
+// FixedLayout::SIZE defaults to size_of::<Self>(); the const asserts pin it to 1.
 impl crate::account::FixedLayout for WireBool {}
 
 #[cfg(test)]

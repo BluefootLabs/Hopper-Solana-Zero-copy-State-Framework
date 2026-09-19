@@ -48,7 +48,7 @@ struct Handler {
     /// positional `arg{i}` so the manifest row is always well-formed.
     arg_names: Vec<String>,
     arg_types: Vec<Type>,
-    /// Whether the handler carries the `#[receipt]` modifier — the
+    /// Whether the handler carries the `#[receipt]` modifier, the
     /// per-instruction truth behind the manifest's `receipt_expected`
     /// column (a receipt is emitted on the Ok path iff the author
     /// opted in; the context-level `RECEIPT_EXPECTED` const only says
@@ -328,8 +328,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // `#[hopper::context(event_cpi)]` advertises `EVENT_CPI = true` on
     // the spec type (the same const-advertisement shape as
     // `EMIT_TOUCH_MAP`). The dispatcher cannot know at MACRO time
-    // whether any bound context opted in — contexts are usually
-    // declared outside the module — so it emits a module const
+    // whether any bound context opted in, contexts are usually
+    // declared outside the module; so it emits a module const
     // `__HOPPER_EVENT_CPI_ENABLED` that ORs `EVENT_CPI` across every
     // typed context spec referenced by a handler, and guards the
     // reserved `[0xE0, 0x1E]` event sink behind it. The OR resolves at
@@ -360,10 +360,10 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             }
         }
     }
-    // A user discriminator that collides with the reserved marker —
+    // A user discriminator that collides with the reserved marker,
     // exactly `[0xE0]` (which would shadow every marker-prefixed
     // payload) or anything starting `[0xE0, 0x1E]` (which would shadow
-    // specific events) — cannot coexist with a live sink. Whether any
+    // specific events), cannot coexist with a live sink. Whether any
     // context opted in is unknowable here, so the collision lowers to a
     // const-assert on `__HOPPER_EVENT_CPI_ENABLED` that fails the
     // downstream build ONLY when both the colliding discriminator and
@@ -413,7 +413,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             .all(|(index, h)| usize::from(h.discriminator[0]) == index);
 
     // Instruction-level disassembly (CU-path audit, 2026-07-07) showed the
-    // indirect `callx` costs ~7 instructions of setup plus lost inlining —
+    // indirect `callx` costs ~7 instructions of setup plus lost inlining,
     // a small dispatch `match` (2 instructions for N=1) beats the table
     // until roughly 6-10 arms. Only emit the table when it can win.
     const MIN_TABLE_DISPATCH_ARMS: usize = 8;
@@ -445,7 +445,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // (0xE0 = 224) is out of the dense 0..N range whenever the
         // table is sink-eligible (a table covering 224 means a handler
         // OWNS `[0xE0]`, which `marker_conflict` catches), so the check
-        // lives inside the existing >= bounds-miss branch — zero cost
+        // lives inside the existing >= bounds-miss branch, zero cost
         // for every real instruction.
         let table_sink_check: TokenStream = if event_sink_live {
             quote! {
@@ -627,7 +627,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     //
     // - `__HOPPER_INSTRUCTION_DESCRIPTORS`: one `InstructionDescriptor`
     //   row per TYPED handler (`ctx: Ctx<Spec>` / `Context<Spec>`), in
-    //   dispatch order. RAW `&mut Context<'_>` handlers are skipped —
+    //   dispatch order. RAW `&mut Context<'_>` handlers are skipped,
     //   their account shape is opaque to the schema layer (no spec type
     //   to consult), the same exclusion the touch-map/event-sink emits
     //   document. `tag` remains byte zero for compact/legacy lookup while
@@ -671,9 +671,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             /// Manifest `AccountEntry` rows for one typed handler,
             /// converted at const-eval from the bound context's
             /// `SCHEMA_METADATA.accounts`. `name` / `writable` /
-            /// `signer` / `layout_ref` carry over verbatim; `seeds`
-            /// stay empty in this pass (the full seed expressions
-            /// remain published on the `ContextDescriptor`).
+            /// `signer` / `layout_ref` / `seeds` carry over verbatim.
             #[doc(hidden)]
             #[allow(non_upper_case_globals, dead_code)]
             pub const #accounts_arr_ident:
@@ -695,7 +693,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                         writable: __src[__i].writable,
                         signer: __src[__i].signer,
                         layout_ref: __src[__i].layout_ref,
-                        seeds: &[],
+                        seeds: __src[__i].seeds,
                     };
                     __i += 1;
                 }
@@ -790,7 +788,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         });
     }
     items.push(syn::parse_quote! {
-        /// Instruction rows for `hopper::program_manifest!` — one per
+        /// Instruction rows for `hopper::program_manifest!`, one per
         /// typed handler, wired from the same generated consts the
         /// runtime enforces (`SCHEMA_METADATA`, `STRICT_WRITES`,
         /// `WRITE_RANGES`, `MUTATION_COMPLETE`, `LAMPORT_ACCOUNTS`)
@@ -811,7 +809,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .map(|spec| quote! { #spec::SCHEMA_METADATA })
         .collect();
     items.push(syn::parse_quote! {
-        /// Context descriptors for `hopper::program_manifest!` — each
+        /// Context descriptors for `hopper::program_manifest!`, each
         /// distinct typed spec's `SCHEMA_METADATA`, verbatim, in first-
         /// bound order.
         #[doc(hidden)]
@@ -825,7 +823,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // Self-CPI event sink plumbing (only when a typed spec exists to
     // consult; raw-only programs emit nothing and stay byte-identical).
     if !typed_specs.is_empty() {
-        // `false || A::EVENT_CPI || B::EVENT_CPI || ...` — built by
+        // `false || A::EVENT_CPI || B::EVENT_CPI || ...`, built by
         // folding rather than a `quote!` separator so the expression is
         // a plain const-evaluable OR chain over the deduplicated specs.
         let mut event_cpi_or: TokenStream = quote! { false };
@@ -912,7 +910,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // default builds); with the feature it emits the r2 two-argument
     // entrypoint, null-checked back to the scanning parse on any runtime
     // that leaves r2 zero. Emitting it here (fixed 2026-07-21) is what
-    // makes the `simd-0321` feature reach macro programs at all — the
+    // makes the `simd-0321` feature reach macro programs at all, the
     // previous hardcoded `program_entrypoint!` silently ignored it. The
     // feature stays opt-in: post-fusion A/Bs measured the r2 path
     // CU-neutral (+/- 2) on in-repo programs for ~368 bytes of dual-path
@@ -1158,14 +1156,14 @@ fn expect_u8_lit(expr: &Expr) -> Result<u8> {
 /// table covers exactly the fixed-size `DecodeInstructionArg`
 /// implementations (primitives, their `Wire*` twins, 32-byte address
 /// types, and `[u8; N]`-style arrays with literal lengths). Anything
-/// else — variable-length args (`&[u8]`, `BoundedString`,
-/// `BoundedVec`), const-generic lengths, unknown user types — returns
+/// else, variable-length args (`&[u8]`, `BoundedString`,
+/// `BoundedVec`), const-generic lengths, unknown user types, returns
 /// `0`, the documented "unknown" sentinel: a size is never fabricated.
 fn arg_wire_size(ty: &Type) -> u16 {
     match ty {
         // `&[u8; N]` decodes as a borrowed fixed array: same wire size
         // as the owned form. (`&[u8]` recurses into `Type::Slice`,
-        // which falls through to 0 — its length is caller-defined.)
+        // which falls through to 0, its length is caller-defined.)
         Type::Reference(reference) => arg_wire_size(&reference.elem),
         Type::Array(array) => {
             let elem = arg_wire_size(&array.elem);
@@ -1367,7 +1365,7 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
             ContextBinding::Raw => quote! { #fn_name(ctx) },
             // Typed context, args-less: bind, run the handler, and on the
             // Ok path only, const-guard the self-describing touch-map
-            // emit (I7). See `ok_path_touch_map_emit` for the rationale.
+            // emit (touch-map). See `ok_path_touch_map_emit` for the rationale.
             ContextBinding::Typed { spec } => {
                 let emit = ok_path_touch_map_emit(spec);
                 quote! {{
@@ -1403,7 +1401,7 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
     // matches Anchor's "seeds refer to an arg the handler also sees"
     // ergonomics but with real typed bindings.
     //
-    // `emit` is the Ok-path, const-guarded touch-map finish call (I7);
+    // `emit` is the Ok-path, const-guarded touch-map finish call (touch-map);
     // it is empty for raw contexts, which have no typed spec to name.
     let (ctx_expr, emit) = match (&handler.binding, ctx_args) {
         (ContextBinding::Raw, _) => (quote! { ctx }, TokenStream::new()),
@@ -1445,7 +1443,7 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
     }}
 }
 
-/// Innovation I7: the Ok-path, const-guarded self-describing touch-map
+/// Touch-map support: the Ok-path, const-guarded self-describing touch-map
 /// emit that a dispatch helper runs after its typed handler returns Ok.
 ///
 /// `<Spec>::EMIT_TOUCH_MAP` is a `const bool` the `#[hopper::context]`
@@ -1455,12 +1453,12 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
 /// `if` (zero instructions) for every context that did not opt in, so
 /// this taxes nobody on the golden path.
 ///
-/// It runs ONLY on the Ok path — the dispatch helper places it after
+/// It runs ONLY on the Ok path, the dispatch helper places it after
 /// `handler(...)?`, so any `Err` (via `?`, `require!`, a failed
 /// invariant, an access-control gate) short-circuits before reaching it.
 /// A failed, rolled-back instruction therefore never emits a
 /// self-describing record advertising Write ranges it did not keep. This
-/// is the fix for the CONFIRMED P2 where a `Drop`-based emit fired on
+/// is the fix for the failed-instruction emission regression where a `Drop`-based emit fired on
 /// every scope exit, including error returns. `ctx` is borrowable here
 /// because the bound context (which reborrowed `&mut ctx`) was moved into
 /// the handler and dropped when it returned, so the reborrow has ended.
@@ -2418,11 +2416,11 @@ mod ctx_args_tests {
             .join(" ")
     }
 
-    /// I7 regression (CONFIRMED P2 fix): an args-less TYPED handler emits
+    /// touch-map regression (failed-instruction emission regression fix): an args-less TYPED handler emits
     /// the self-describing touch-map finish call on the **Ok path only**.
     /// The generated shape runs `handler(Spec::bind(ctx)?)?` first, so any
     /// `Err` short-circuits via `?` BEFORE the const-guarded
-    /// `finish_with_touch_map()` — a failed instruction emits nothing.
+    /// `finish_with_touch_map()`, a failed instruction emits nothing.
     /// The guard is `if Spec::EMIT_TOUCH_MAP { ... }`, a `const` the
     /// compiler dead-code-eliminates when the context did not opt in.
     #[test]
@@ -2486,7 +2484,7 @@ mod ctx_args_tests {
 
     /// A RAW `&mut Context<'_>` handler has no typed context spec to name,
     /// so it can consult no `EMIT_TOUCH_MAP` const and must emit no touch
-    /// map — this form simply never self-describes. Its codegen also stays
+    /// map; this form simply never self-describes. Its codegen also stays
     /// byte-for-byte the prior tail expression.
     #[test]
     fn handler_invocation_raw_never_emits_touch_map() {
@@ -3048,7 +3046,7 @@ mod manifest_statics_tests {
     fn account_conversion_uses_the_module_level_len_const_copy_loop() {
         let out = two_handler_program();
         // Length const at module level, fed by the spec's own
-        // SCHEMA_METADATA — no small-literal assumptions anywhere, so
+        // SCHEMA_METADATA, no small-literal assumptions anywhere, so
         // composed/optional/event_cpi contexts of any flattened length
         // convert unchanged.
         assert!(
@@ -3059,8 +3057,7 @@ mod manifest_statics_tests {
             "module-level LEN const expected: {out}",
         );
         // The converted array is sized by that const and filled by a
-        // const-eval while-loop copying name/writable/signer/layout_ref
-        // with seeds pinned empty.
+        // const-eval while-loop copying every public account-contract column.
         assert!(
             out.contains(
                 "[::hopper::hopper_schema::AccountEntry;__HOPPER_IX_initialize_ACCOUNTS_LEN]"
@@ -3076,7 +3073,7 @@ mod manifest_statics_tests {
             "writable:__src[__i].writable",
             "signer:__src[__i].signer",
             "layout_ref:__src[__i].layout_ref",
-            "seeds:&[]",
+            "seeds:__src[__i].seeds",
         ] {
             assert!(
                 out.contains(column),
@@ -3109,7 +3106,7 @@ mod manifest_statics_tests {
         }
     }
 
-    /// `receipt_expected` is the HANDLER's `#[receipt]` opt-in — the
+    /// `receipt_expected` is the HANDLER's `#[receipt]` opt-in, the
     /// context-level `RECEIPT_EXPECTED` const (true for any context
     /// with a mutable account) must NOT back the column, or every
     /// mutating instruction would falsely claim a receipt.
@@ -3307,7 +3304,7 @@ mod manifest_statics_tests {
                 "wire size for `{ty}` must be {size}",
             );
         }
-        // Unknown / variable-length entries stay 0 — never fabricated.
+        // Unknown / variable-length entries stay 0, never fabricated.
         for ty in [
             quote!(&[u8]),
             quote!(BoundedString<16>),

@@ -100,8 +100,17 @@ impl HopperSvm {
         let program_result = {
             let native_views: Vec<NativeAccountView<'_>> = backing
                 .iter_mut()
-                .map(|account| unsafe { NativeAccountView::new_unchecked(account.raw_mut()) })
+                .map(|account| {
+                    // SAFETY: Each `BackingAccount` begins with an initialized,
+                    // u64-aligned `RuntimeAccount` followed by its data and
+                    // realloc headroom. The distinct mutable iteration keeps
+                    // the views disjoint, and `backing` outlives every view.
+                    unsafe { NativeAccountView::new_unchecked(account.raw_mut()) }
+                })
                 .collect();
+            // SAFETY: Hopper's runtime `AccountView` is layout-checked as
+            // transparent over `NativeAccountView`. The source slice remains
+            // alive and unchanged for the complete dispatcher call.
             let runtime_accounts =
                 unsafe { hopper_runtime::native_boundary::wrap_account_slice(&native_views) };
             process(&program_id, runtime_accounts, instruction_data)
@@ -125,11 +134,11 @@ impl BackingAccount {
         // after the account's initial data, mirroring the real BPF loader's
         // input buffer layout (see `hopper_native::lazy::non_dup_stride`,
         // which folds the identical reserve into its account stride).
-        // Without this slack, any in-instruction growth of the account —
+        // Without this slack, any in-instruction growth of the account,
         // `AccountView::resize`/`resize_raw`, and by extension the
         // System Program's `CreateAccount` (host-emulated in
         // `hopper_runtime::cpi`, which the `init`/`init_if_needed`
-        // lifecycle CPIs through) — would write past this backing
+        // lifecycle CPIs through), would write past this backing
         // buffer's actual allocation.
         let byte_len =
             RuntimeAccount::SIZE + account.data.len() + hopper_native::MAX_PERMITTED_DATA_INCREASE;
@@ -137,6 +146,11 @@ impl BackingAccount {
         let mut backing = Self {
             words: vec![0; word_len],
         };
+        // SAFETY: `Vec<u64>` supplies `RuntimeAccount` alignment, and
+        // `word_len` covers the header, initial data, and permitted realloc
+        // headroom. The header write initializes the allocation before use;
+        // the following copy uses nonoverlapping source and destination ranges
+        // whose length is exactly the fixture's data length.
         unsafe {
             let raw = backing.raw_mut();
             raw.write(RuntimeAccount {
@@ -144,7 +158,10 @@ impl BackingAccount {
                 is_signer: account.is_signer as u8,
                 is_writable: account.is_writable as u8,
                 executable: account.executable as u8,
-                resize_delta: 0,
+                // The slot holds the entry-time data length that bounds
+                // realloc growth, as Hopper's entrypoint parsers set it. A
+                // zero here would cap every account at 10 KiB total.
+                resize_delta: (account.data.len() as u32).to_le(),
                 address: to_native_address(&account.address),
                 owner: to_native_address(&account.owner),
                 lamports: account.lamports,
@@ -160,6 +177,10 @@ impl BackingAccount {
     }
 
     fn to_fixture(&self) -> AccountFixture {
+        // SAFETY: `new` initialized the leading `RuntimeAccount`, and program
+        // access can change `data_len` only within the realloc headroom reserved
+        // in the same allocation. The copied slice remains within that live
+        // allocation and is consumed before `self` can be mutated or dropped.
         unsafe {
             let raw = &*self.raw();
             let data_len = raw.data_len as usize;

@@ -48,12 +48,12 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     let mut accounts = [UNINIT; 254]; // MAX_TX_ACCOUNTS
 
     let (program_id, count, instruction_data) =
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { crate::raw_input::deserialize_accounts::<254>(input, &mut accounts) };
 
     // Respect MAX: only pass up to MAX accounts to the callback.
     let effective_count = count.min(MAX);
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let account_slice = unsafe {
         core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'_>, effective_count)
     };
@@ -99,14 +99,14 @@ macro_rules! hopper_program_entrypoint {
                 core::mem::MaybeUninit::<$crate::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::raw_input::deserialize_accounts::<$maximum>(input, &mut accounts)
             };
 
             match $process_instruction(
                 &program_id,
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe {
                     core::slice::from_raw_parts(
                         accounts.as_ptr() as *const $crate::AccountView<'_>,
@@ -231,7 +231,7 @@ macro_rules! hopper_fast_entrypoint {
 
                 if $crate::raw_input::SIMD_0449_TABLE_ENABLED {
                     // SIMD-0449 build: consume the runtime's appended
-                    // pre-deduplicated account-pointer table — O(1)
+                    // pre-deduplicated account-pointer table, O(1)
                     // resolution plus one pointer copy per account. The
                     // gate is a `const`, so the untaken branch folds
                     // away entirely.
@@ -318,7 +318,7 @@ macro_rules! hopper_lazy_entrypoint {
         /// Called by the Solana runtime; `input` is a valid BPF input buffer.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let mut ctx = unsafe { $crate::lazy::lazy_deserialize(input) };
             match $process(&mut ctx) {
                 Ok(()) => $crate::SUCCESS,
@@ -374,7 +374,7 @@ pub const HEAP_LENGTH: usize = 32 * 1024;
 /// right after the [`BumpAllocator`] cursor word: the byte range
 /// `[HEAP_START + 8, HEAP_START + 8 + HEAP_RUNTIME_RESERVED)`.
 ///
-/// Why this exists: deployed SBF programs cannot carry writable sections —
+/// Why this exists: deployed SBF programs cannot carry writable sections,
 /// the loader rejects `.bss`/`.data` outright (`WritableSectionNotSupported`),
 /// so a `static mut` is not merely costly, it makes the program FAIL TO
 /// LOAD. The only writable, per-invocation, zero-initialized memory a
@@ -400,7 +400,7 @@ pub const HEAP_RUNTIME_RESERVED: usize = 20 * 1024;
 /// keeping the hot path zero-allocation. For programs that must never
 /// allocate, prefer [`no_allocator!`] so any stray allocation traps.
 ///
-/// Install it with [`default_allocator!`].
+/// Install it with `default_allocator!`.
 pub struct BumpAllocator {
     /// Heap region start address.
     pub start: usize,
@@ -471,7 +471,7 @@ macro_rules! nostd_panic_handler {
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
             // Abort immediately, spin_loop() would burn CU indefinitely.
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::arch::asm!("mov r0, 1", "exit", options(noreturn)) };
         }
     };

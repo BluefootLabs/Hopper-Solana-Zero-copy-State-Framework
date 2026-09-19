@@ -22,19 +22,19 @@ pub const IX_CREATE_IDEMPOTENT: u8 = 1;
 /// `AssociatedTokenAccountInstruction::RecoverNested` discriminator.
 pub const IX_RECOVER_NESTED: u8 = 2;
 
-/// Encode `Create`. Layout: `[0]` — 1 byte.
+/// Encode `Create`. Layout: `[0]`, 1 byte.
 #[inline(always)]
 pub fn encode_create() -> [u8; 1] {
     [IX_CREATE]
 }
 
-/// Encode `CreateIdempotent`. Layout: `[1]` — 1 byte.
+/// Encode `CreateIdempotent`. Layout: `[1]`, 1 byte.
 #[inline(always)]
 pub fn encode_create_idempotent() -> [u8; 1] {
     [IX_CREATE_IDEMPOTENT]
 }
 
-/// Encode `RecoverNested`. Layout: `[2]` — 1 byte.
+/// Encode `RecoverNested`. Layout: `[2]`, 1 byte.
 #[inline(always)]
 pub fn encode_recover_nested() -> [u8; 1] {
     [IX_RECOVER_NESTED]

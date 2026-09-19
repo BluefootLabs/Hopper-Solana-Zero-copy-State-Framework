@@ -22,7 +22,7 @@
 /// ```
 ///
 /// and the compiler keeps the fast path straight-line, pushing the
-/// spill into the cold branch. Same story for [`unlikely`] in the
+/// spill into the cold branch. The `unlikely` helper expresses the inverse
 /// opposite direction.
 ///
 /// On host targets (tests, off-chain tooling) future versions may

@@ -6,8 +6,8 @@
 //! the right size** decodes to a valid `T` and the type has alignment 1
 //! (so the offset within the BPF input buffer is always valid for `T`).
 //!
-//! The Hopper Safety Audit flagged that requiring only `T: Copy` is too
-//! loose: `bool`, `char`, references, and structs with padding are all
+//! Requiring only `T: Copy` is too loose: `bool`, `char`, references,
+//! and structs with padding are all
 //! `Copy + Sized` but **not** safe to overlay on raw bytes. This module
 //! carries the tightened marker.
 //!
@@ -30,12 +30,11 @@
 //! the derived `unsafe impl Pod`. Hand-authored layouts opt in via
 //! `unsafe impl Pod for MyLayout {}`.
 //!
-//! ## Compile-fail demonstration (Hopper Safety Audit regression)
+//! ## Compile-fail demonstration
 //!
-//! The following mis-use patterns are rejected at compile time. The
-//! audit's Must-Fix #5, "enforce field-level Pod proof at macro
-//! expansion time", is now enforced by Hopper's own `Pod + Zeroable`
-//! proof layer, so every zero-copy access path rejects them automatically.
+//! The following misuse patterns are rejected at compile time. Hopper's
+//! `Pod + Zeroable` proof layer enforces field-level validity during macro
+//! expansion, so every zero-copy access path rejects them automatically.
 //!
 //! `bool` is not Pod (the bit patterns `0x02..=0xFF` don't decode to
 //! a valid `bool`):

@@ -135,6 +135,13 @@ const fn feed_layout(mut state: ConstSha256, layout: &LayoutManifest) -> ConstSh
     state = field_u8(state, b"layout.version", layout.version);
     state = field_bytes(state, b"layout.layout_id", &layout.layout_id);
     state = field_u64(state, b"layout.total_size", layout.total_size as u64);
+    // Preserve the established v1 stream byte-for-byte for fixed layouts.
+    // Dynamic-tail metadata did not exist in the original v1 schema, so true
+    // is encoded as an optional, typed extension. The 0xb2 bool chunk is
+    // unambiguous before the following 0xb6 field-count chunk.
+    if layout.has_dynamic_tail {
+        state = field_bool(state, b"layout.has_dynamic_tail", true);
+    }
     state = field_u64(state, b"layout.field_count", layout.field_count as u64);
     feed_fields(state, b"layout.fields.len", layout.fields)
 }
@@ -590,6 +597,8 @@ const fn fixed_chunk(state: ConstSha256, kind: u8, value: &[u8]) -> ConstSha256 
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+
     use super::*;
     use crate::{AccountEntry, ArgDescriptor, FieldIntent, RemainingAccountsDescriptor};
 
@@ -606,6 +615,7 @@ mod tests {
         version: 1,
         layout_id: [9; 8],
         total_size: 24,
+        has_dynamic_tail: false,
         field_count: 1,
         fields: FIELDS,
     }];
@@ -735,6 +745,15 @@ mod tests {
         let mut changed_policy = MANIFEST;
         changed_policy.policies = OTHER_POLICIES;
         assert_ne!(original, interface_commitment(&changed_policy));
+
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..LAYOUTS[0]
+        };
+        let mut changed_size_policy = MANIFEST;
+        changed_size_policy.layouts =
+            alloc::boxed::Box::leak(alloc::boxed::Box::new([dynamic_layout]));
+        assert_ne!(original, interface_commitment(&changed_size_policy));
     }
 
     #[test]

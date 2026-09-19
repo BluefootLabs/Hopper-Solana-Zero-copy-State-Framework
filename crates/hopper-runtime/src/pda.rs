@@ -24,8 +24,8 @@ pub fn create_program_address(
 ///
 /// Panics if no viable bump exists (matching upstream
 /// `Pubkey::find_program_address`), and on non-SVM hosts, where the sha256
-/// syscall is unavailable. The pre-audit host fallback silently returned
-/// `(Address::default(), 0)` — the all-zero System Program address — which
+/// syscall is unavailable. The earlier host fallback silently returned
+/// `(Address::default(), 0)`, the all-zero System Program address; which
 /// made host tests "pass" derivation while comparing against a meaningless
 /// key. Host tests should exercise PDA paths through the SVM harness.
 #[inline]
@@ -139,7 +139,7 @@ pub fn find_and_verify_pda(
     {
         let expected_addr = account.as_backend().address();
         let backend_expected =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { &*(expected_addr as *const hopper_native::address::Address) };
         verify_pda_sha256_loop(backend_expected, seeds, program_id)
     }
@@ -167,7 +167,7 @@ pub fn verify_pda_strict(
     #[cfg(target_os = "solana")]
     {
         let backend_expected =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { &*(expected as *const Address as *const hopper_native::address::Address) };
         verify_pda_sha256_loop(backend_expected, seeds, program_id).map(|_| ())
     }
@@ -189,11 +189,11 @@ pub fn verify_pda_strict(
 // ---------------------------------------------------------------------
 /// Returns the matching bump on success.
 ///
-/// `#[inline(always)]` is deliberate and MEASURED — do not "fix" the
+/// `#[inline(always)]` is deliberate and MEASURED, do not "fix" the
 /// duplication: outlining this (`inline(never)`) was tried on 2026-07-09
 /// and saved only 88 bytes of release `.text` while costing **+44..+73
 /// CU on every benched vault row** (Authorize 420→464, Counter 518→591,
-/// Deposit 1653→1697, Withdraw 494→541) — the call boundary defeats
+/// Deposit 1653→1697, Withdraw 494→541), the call boundary defeats
 /// LLVM's per-call-site specialization of the seed-list build and bump
 /// loop, and the syscall does NOT dominate at that point. Size-per-CU,
 /// the inlined copies win decisively.
@@ -210,19 +210,19 @@ fn verify_pda_sha256_loop(
     let sptr = slices.as_mut_ptr() as *mut &[u8];
     let mut i = 0;
     while i < n {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { sptr.add(i).write(*seeds.get_unchecked(i)) };
         i += 1;
     }
     let mut bump_byte = [255u8];
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         sptr.add(n).write(&bump_byte as &[u8]);
         sptr.add(n + 1).write(backend_pid.as_ref());
         sptr.add(n + 2)
             .write(hopper_native::address::PDA_MARKER.as_slice());
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let input = unsafe { core::slice::from_raw_parts(sptr as *const &[u8], n + 3) };
 
     let mut bump: u16 = 256;
@@ -231,7 +231,7 @@ fn verify_pda_sha256_loop(
         bump_byte[0] = bump as u8;
 
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             hopper_native::syscalls::sol_sha256(
                 input as *const _ as *const u8,
@@ -240,7 +240,7 @@ fn verify_pda_sha256_loop(
             );
         }
         let derived =
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { &*(hash.as_ptr() as *const hopper_native::address::Address) };
         if hopper_native::address::address_eq(derived, expected) {
             return Ok(bump as u8);

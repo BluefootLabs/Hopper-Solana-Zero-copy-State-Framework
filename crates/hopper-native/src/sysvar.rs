@@ -90,12 +90,12 @@ pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 /// running that legacy config** and byte-matches [`Rent::minimum_balance`]
 /// when the live sysvar carries those same constants.
 ///
-/// # SAFETY-CRITICAL caveat — do NOT gate reaping on this
+/// # SAFETY-CRITICAL caveat, do NOT gate reaping on this
 ///
 /// Because the constants are hardcoded, this function cannot see a rent
 /// *reprice*. It can overcharge after a reduction or under-fund after a later
 /// increase. Any code path that decides whether an account is safe from
-/// reaping — topping an account up to exemption, or gating a resize on it —
+/// reaping, topping an account up to exemption, or gating a resize on it,
 /// must therefore use the live value.
 ///
 /// For those paths read the live [`Rent`] sysvar and call
@@ -138,7 +138,7 @@ impl Rent {
     }
 
     /// Minimum lamports for rent exemption at `data_len`, computed from the
-    /// **live sysvar** values — the correct source for reaping-relevant
+    /// **live sysvar** values, the correct source for reaping-relevant
     /// decisions after a rent reprice.
     ///
     /// This follows Solana's own `solana_rent::Rent::minimum_balance`:
@@ -196,7 +196,7 @@ pub struct EpochSchedule {
 // definition (solana-sdk `epoch-schedule`) is `#[repr(C)]` with field
 // order `slots_per_epoch, leader_schedule_slot_offset, warmup,
 // first_normal_epoch, first_normal_slot`. The `bool` sits between two
-// u64 fields, so the layout depends on `repr(C)` padding — any drift in
+// u64 fields, so the layout depends on `repr(C)` padding, any drift in
 // field order or repr here silently misreads every field after `warmup`.
 // These asserts fail the build if that ever happens.
 const _: () = {
@@ -658,7 +658,7 @@ mod abi_tests {
 mod rent_tests {
     use super::*;
 
-    /// Loader bound on serialized account data (10 MiB) — the largest
+    /// Loader bound on serialized account data (10 MiB), the largest
     /// `data_len` any rent calculation ever sees on-chain.
     const LOADER_MAX_DATA_LEN: usize = 10_485_760;
 
@@ -740,7 +740,7 @@ mod rent_tests {
 
     /// The sysvar path must byte-match Solana's runtime formula across a
     /// range of data sizes, repriced per-byte costs, and fractional
-    /// thresholds — including a `lamports_per_byte_year` past f64's 53-bit
+    /// thresholds, including a `lamports_per_byte_year` past f64's 53-bit
     /// exact-integer range, where the old all-f64 form could drift.
     #[test]
     fn sysvar_minimum_balance_byte_matches_solana_reference() {
@@ -753,13 +753,13 @@ mod rent_tests {
             (1_000_000, 6_960, 2.0),  // hypothetical 2x reprice
             (500_000, 3_480, 2.5),    // fractional threshold
             (10_485_760, 3_480, 2.0), // max size
-            // `lpby` just past f64's 2^53 exact-integer range — the case
+            // `lpby` just past f64's 2^53 exact-integer range, the case
             // that motivates the integer product + single f64 step (an
             // all-f64 formula would lose a lamport here). `data_len` is
             // kept small so the *integer* product stays inside u64: at
             // this `lpby`, (overhead + data_len) must be < ~2044 or the
             // product overflows u64 entirely (a regime Solana itself
-            // never reaches — `lpby` is a fixed cluster constant).
+            // never reaches, `lpby` is a fixed cluster constant).
             (1_024, 9_007_199_254_740_993, 2.0),
         ];
         for &(dl, lpby, threshold) in cases {

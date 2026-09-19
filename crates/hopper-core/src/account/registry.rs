@@ -16,7 +16,7 @@
 //!   field becomes a `StaticSegment { name, offset, size }` const,
 //!   with the offset reported relative to the body (post-header).
 //!   Access is via the `Layout::segment("balance")` static lookup.
-//! - **[`SegmentDescriptor`] (this module)** - *runtime* metadata
+//! - **[`crate::account::SegmentDescriptor`]** - *runtime* metadata
 //!   for accounts whose segment table grows on-chain. Each entry
 //!   carries `offset + size + flags + version + count + capacity`,
 //!   stored in the account's segment-registry table. Access is via
@@ -456,7 +456,7 @@ impl<'a> SegmentRegistryMut<'a> {
             }
             // Checked: a wrapped `current_offset` would give a later
             // segment a small offset that lands *inside* an earlier
-            // segment's region — overlapping, silently corrupting data.
+            // segment's region, overlapping, silently corrupting data.
             // (hopper-core opts out of the workspace overflow-checks
             // profile, so the wrap would otherwise be invisible.)
             current_offset = current_offset
@@ -497,7 +497,7 @@ impl<'a> SegmentRegistryMut<'a> {
     /// Get the mutable data slice for a segment by ID.
     ///
     /// Returns an error if the segment is locked, frozen, or has an
-    /// immutable role (`Audit`). Use [`segment_data_mut_unchecked`] to
+    /// immutable role (`Audit`). Use [`Self::segment_data_mut_unchecked`] to
     /// bypass role enforcement (e.g., during initial account setup).
     #[inline]
     pub fn segment_data_mut(&mut self, id: &SegmentId) -> Result<&mut [u8], ProgramError> {
@@ -727,7 +727,7 @@ mod tests {
         const B: SegmentId = segment_id("b");
         // Give the entry table room, then declare a first segment whose
         // size is near u32::MAX so the running data offset for the second
-        // would wrap — pre-fix that wrap silently placed segment B on top
+        // would wrap, pre-fix that wrap silently placed segment B on top
         // of an earlier region; now it's refused.
         let buf_len = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + 2 * SEGMENT_ENTRY_SIZE;
         let mut account = std::vec![0u8; buf_len];

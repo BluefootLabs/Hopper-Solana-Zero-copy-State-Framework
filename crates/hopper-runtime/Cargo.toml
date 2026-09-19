@@ -1,9 +1,10 @@
 [package]
 name = "hopper-runtime"
 version = "0.3.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
-authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Canonical low-level runtime surface for Hopper programs: direct account memory, validation, borrow guards, CPI, and zero-copy state access."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
@@ -43,7 +44,7 @@ copy = []
 # context and want the ~1.7 KiB gate-check code provably unlinked.
 # Soundness fence, both tiers: `strict_writes` codegen const-asserts the
 # guard (compile error), and hand-rolled installs of a data-declaring
-# policy are refused at install time with AMBIENT_GATE_UNGUARDED_BUILD —
+# policy are refused at install time with AMBIENT_GATE_UNGUARDED_BUILD.
 # never a silent bypass on any tier.
 unguarded-raw-surfaces = []
 # Opt-in sBPF v3 / SIMD-0178 static syscalls. Forwards to hopper-native so the

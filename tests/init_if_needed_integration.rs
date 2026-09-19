@@ -6,7 +6,7 @@
 //! `CreateAccount` CPI lifecycle (fund, allocate, assign, zero-init, write
 //! the Hopper layout header) exactly like a plain `init` would. A
 //! NONEMPTY slot instead runs the same owner-check + `load::<T>()`
-//! layout-header validation an ordinary already-existing field runs — and
+//! layout-header validation an ordinary already-existing field runs, and
 //! the lifecycle helper becomes a no-op, so no second `CreateAccount` CPI
 //! ever fires against an account that already exists.
 //!
@@ -22,11 +22,11 @@
 //!    required (non-init) field would produce for the same fixture;
 //! 4. present + foreign layout header → same, for a header mismatch;
 //! 5. composite v2 lifted the v1 restriction that refused any lifecycle
-//!    attribute on a context embedding `#[composite]` — but only for the
+//!    attribute on a context embedding `#[composite]`; but only for the
 //!    OUTER container. This proves the outer side actually runs, not
 //!    just expands;
 //! 6. pre-funded + unallocated → bind succeeds via `hopper_init!`'s OTHER
-//!    create branch (Transfer-shortfall + Allocate + Assign — CreateAccount
+//!    create branch (Transfer-shortfall + Allocate + Assign, CreateAccount
 //!    refuses an account that already carries lamports): the payer is
 //!    debited exactly the shortfall (exactly zero when the slot already
 //!    holds the rent-exempt minimum), and the account still ends
@@ -48,7 +48,7 @@ pub struct Ledger {
 }
 
 /// `init_if_needed` context. `ledger` may arrive empty (create it) or
-/// already-populated (validate it) — from the caller's perspective bind
+/// already-populated (validate it), from the caller's perspective bind
 /// either succeeds or fails with the same shape of error either way; only
 /// whether the CPI-create lifecycle actually fires differs.
 #[derive(hopper::Accounts)]
@@ -89,7 +89,7 @@ pub struct CheckAuthority<'info> {
 /// (`init` / `init_if_needed` / `zero` / `close` / `realloc` / `sweep`)
 /// on a context embedding `#[composite]` at all; v2 lifted that
 /// restriction for the OUTER side only (an INNER embedded context stays
-/// restricted — a compile-time `assert!` pinned by expansion tests in
+/// restricted, a compile-time `assert!` pinned by expansion tests in
 /// `hopper-macros-proc`, not re-tested here).
 #[derive(hopper::Accounts)]
 pub struct OuterUpsert<'info> {
@@ -182,7 +182,7 @@ fn system_program_fixture() -> AccountFixture {
 }
 
 /// The Solana "brand new account" convention: no data, no lamports.
-/// Deliberately a signer too — the System Program's `CreateAccount`
+/// Deliberately a signer too, the System Program's `CreateAccount`
 /// requires the account being created to consent (sign) unless a PDA's
 /// seeds authorize it instead, matching a fresh client-generated keypair.
 fn empty_fixture(addr_byte: u8) -> AccountFixture {
@@ -199,7 +199,7 @@ fn empty_fixture(addr_byte: u8) -> AccountFixture {
 /// The pre-funded-but-unallocated shape: someone already sent lamports to
 /// the address (an airdrop, a prior partial flow) but no data was ever
 /// allocated. `CreateAccount` refuses an account that already carries
-/// lamports, so `hopper_init!` must take its OTHER branch here —
+/// lamports, so `hopper_init!` must take its OTHER branch here,
 /// Transfer-shortfall + Allocate + Assign. Writable AND signer: the
 /// System Program requires the allocated/assigned account itself to
 /// consent (sign), exactly as for `CreateAccount`.
@@ -231,7 +231,7 @@ fn ledger_fixture_owned_by(addr_byte: u8, owner: Address, value: u64) -> Account
     .writable()
 }
 
-/// Correct owner, but a foreign layout header (wrong disc) — the
+/// Correct owner, but a foreign layout header (wrong disc), the
 /// nonempty-but-invalid arm that must fail `load::<Ledger>()`.
 fn ledger_fixture_foreign_layout(addr_byte: u8) -> AccountFixture {
     let mut data = vec![0u8; Ledger::LEN];
@@ -295,7 +295,7 @@ fn empty_slot_binds_and_runs_the_full_init_cpi_lifecycle() {
 
     // The Hopper layout header, pinned at the byte level (wire format:
     // disc at byte 0, version at byte 1, layout fingerprint at bytes
-    // 4..12) — direct assertions on the init lifecycle's own header
+    // 4..12), direct assertions on the init lifecycle's own header
     // write, not merely transitive trust in `with_mut`'s re-validation
     // having accepted it above.
     assert_eq!(
@@ -314,7 +314,7 @@ fn empty_slot_binds_and_runs_the_full_init_cpi_lifecycle() {
         "header bytes 4..12 must be the layout fingerprint"
     );
 
-    // The payer paid for it — the create CPI actually moved lamports,
+    // The payer paid for it, the create CPI actually moved lamports,
     // it did not merely flip a flag.
     let payer = &result.resulting_accounts[0];
     assert!(
@@ -357,8 +357,8 @@ fn nonempty_valid_slot_binds_without_recreating_and_preserves_state() {
         "preexisting state must be preserved, then usable by the handler"
     );
 
-    // Structural preservation: the handler mutates exactly ONE range —
-    // the 8-byte `total` field at HEADER_LEN..HEADER_LEN + 8 — so every
+    // Structural preservation: the handler mutates exactly ONE range,
+    // the 8-byte `total` field at HEADER_LEN..HEADER_LEN + 8; so every
     // other byte must survive verbatim. The ranges around the mutated
     // field are compared explicitly (not via a value-level spot check) so
     // a future multi-field Ledger cannot hide corruption of an untouched
@@ -484,7 +484,7 @@ fn prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall() 
         result.program_result
     );
 
-    // (a) Allocated, assigned, header-written, and immediately usable —
+    // (a) Allocated, assigned, header-written, and immediately usable,
     // the same end state the CreateAccount arm proves, reached through
     // the other branch.
     let ledger = &result.resulting_accounts[1];
@@ -518,7 +518,7 @@ fn prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall() 
         "the account is usable immediately after bind: zero-initialized then mutated by the handler"
     );
 
-    // (b) The payer was debited EXACTLY the shortfall — this pins the
+    // (b) The payer was debited EXACTLY the shortfall; this pins the
     // Transfer+Allocate+Assign path as DISTINCT from CreateAccount, which
     // would have debited the full rent-exempt minimum.
     let payer = &result.resulting_accounts[0];
@@ -533,7 +533,7 @@ fn prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall() 
         "the account must end topped up to exactly the rent-exempt minimum"
     );
     // Lamport conservation: everything in the post-state is exactly what
-    // the two fixtures brought in — nothing minted, nothing destroyed.
+    // the two fixtures brought in; nothing minted, nothing destroyed.
     assert_eq!(payer.lamports + ledger.lamports, 10_000_000_000 + prefunded);
 }
 
@@ -557,7 +557,7 @@ fn prefunded_at_minimum_debits_the_payer_nothing_but_still_allocates_and_assigns
     // false at equality, so the payer is debited exactly 0.
     assert_eq!(
         result.resulting_accounts[0].lamports, 10_000_000_000,
-        "at/above the minimum the shortfall Transfer must not fire — the payer is debited exactly 0"
+        "at/above the minimum the shortfall Transfer must not fire, the payer is debited exactly 0"
     );
 
     // ... but Allocate + Assign still ran, and the account is usable.
@@ -566,7 +566,7 @@ fn prefunded_at_minimum_debits_the_payer_nothing_but_still_allocates_and_assigns
     assert_eq!(ledger.owner, PROGRAM_ID);
     assert_eq!(
         ledger.lamports, rent_min,
-        "the account keeps exactly its pre-funding — no top-up, no refund"
+        "the account keeps exactly its pre-funding, no top-up, no refund"
     );
     assert_eq!(ledger_total(ledger), 1);
 }
@@ -581,7 +581,7 @@ fn published_surface_names_init_if_needed_and_its_bind_time_contract() {
     let meta = Upsert::SCHEMA_METADATA;
     assert!(
         !meta.accounts[1].optional,
-        "init_if_needed is not the Option<...> spelling — it is unconditionally present"
+        "init_if_needed is not the Option<...> spelling; it is unconditionally present"
     );
     assert_eq!(meta.accounts[1].kind, "Ledger");
     assert_eq!(meta.accounts[1].layout_ref, "Ledger");

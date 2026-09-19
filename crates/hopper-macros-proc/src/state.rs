@@ -23,7 +23,7 @@ struct StateOptions {
     /// `LayoutMigration` edges (`#[hopper::migrate]` +
     /// `layout_migrations!`) so `#[account(epoch_migrate)]` has a target.
     schema_epoch: u32,
-    /// Audit innovation I5 (hybrid serialization). When set, the
+    /// Hybrid serialization (hybrid serialization). When set, the
     /// layout emits tail-access helpers that read/write a
     /// length-prefixed dynamic payload at offset
     /// `HEADER_LEN + BODY_SIZE`.
@@ -370,7 +370,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         layout_id_hex
     );
 
-    // ── Audit I5: hybrid-serialization tail helpers ──────────────────
+    // ── Hybrid serialization: hybrid-serialization tail helpers ──────────────────
     //
     // When the user writes `#[hopper::state(dynamic_tail = MyTail)]`,
     // emit `tail_len`, `tail_read`, `tail_write`, and a
@@ -384,7 +384,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let dynamic_tail_methods = if let Some(tail_ty) = &dynamic_tail {
         quote! {
             /// This layout opts in to the Hopper hybrid-serialization
-            /// tail (audit innovation I5). Fixed body remains zero-copy;
+            /// tail (hybrid serialization). Fixed body remains zero-copy;
             /// tail access is explicit via the `tail_*` helpers below.
             pub const HAS_DYNAMIC_TAIL: bool = true;
 
@@ -644,12 +644,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
             /// Compile-time layout manifest for this account type.
             ///
-            /// One `const` carries the full schema row — name, disc,
+            /// One `const` carries the full schema row, name, disc,
             /// version, 8-byte layout fingerprint, total size (header +
             /// body), and a per-field descriptor table with the REAL
             /// authored types and header-relative offsets the macro
             /// already computes. Field intents come from the declared
-            /// `#[role = "..."]` attributes (`Custom` when undeclared —
+            /// `#[role = "..."]` attributes (`Custom` when undeclared,
             /// nothing is guessed). `hopper::program_manifest!` lists
             /// layouts as `MyLayout::LAYOUT_MANIFEST`, and
             /// `SchemaExport::layout_manifest()` returns this same
@@ -699,6 +699,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     disc: #name::DISC,
                     layout_id: #name::LAYOUT_ID,
                     total_size: #name::LEN,
+                    has_dynamic_tail: #name::HAS_DYNAMIC_TAIL,
                     field_count: FIELD_COUNT,
                     fields: &FIELDS,
                 }
@@ -716,10 +717,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             //   2. "Which invariant guards field `X`?". `FIELD_INVARIANTS`
             //   3. "Which FieldIntent enum value does the runtime use?". //      the manifest's FieldDescriptor.intent column.
             //
-            // No other Solana framework ships this. Anchor has no field
-            // intent at all. Quasar tracks offsets but not semantics.
-            // Pinocchio deliberately stays schema-free. Hopper's edge is
-            // that the *same source declaration* flows into the manifest,
+            // The *same source declaration* flows into the manifest,
             // the Python client, the receipt narrative, and any future
             // lint pass that wants to say "this field was declared as a
             // balance but a non-financial invariant is guarding it."
@@ -756,8 +754,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 __StateCopyProof(::core::marker::PhantomData);
         };
 
-        // Hopper field-level Pod proof (Hopper Safety Audit Must-Fix
-        // #4 / #5). Each field type is forced through this bound;
+        // Hopper field-level Pod proof. Each field type is forced through
+        // this bound;
         // a `bool`, `char`, reference, or non-`Pod` nested
         // struct fails the trait bound *on the field*, not at some
         // distant `segment_ref::<T>()` call site.
@@ -776,7 +774,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         unsafe impl ::hopper::__runtime::Zeroable for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
         // Audit final-API Step 5 seal. `#[hopper::state]` stamps
-        // the Hopper-authored marker so the `ZeroCopy` blanket
+        // the framework-defined marker so the `ZeroCopy` blanket
         // picks up the type. Bare `unsafe impl Pod` outside this
         // macro path is not automatically `ZeroCopy`.
         unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for #name {}
@@ -936,7 +934,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     let mut field_role_literals: Vec<LitStr> = Vec::new();
     let mut field_invariant_literals: Vec<LitStr> = Vec::new();
     let mut running_offset = quote! { 0u32 };
-    // Offset tokens of the single `#[bump]`-marked field, when present —
+    // Offset tokens of the single `#[bump]`-marked field, when present,
     // same contract as the headered walk: at most one marker, `u8` only.
     let mut canonical_bump_offset: Option<TokenStream> = None;
 
@@ -950,7 +948,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         if meta.bump {
             // Soundness gates for `bump = stored`, mirrored from the
             // headered walk so the marker's documented contract (exactly
-            // one marked field, literal `u8`) holds on EVERY layout tier —
+            // one marked field, literal `u8`) holds on EVERY layout tier,
             // a silently-swallowed marker here previously compiled to
             // nothing and surfaced later as a confusing missing-const
             // error at the `bump = stored` use site.
@@ -1092,7 +1090,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     // ── Compact dynamic-tail wiring ────────────────────────────────────
     // A compact layout may carry a dynamic tail (`[disc][fixed_head][tail]`).
     // The tail's u32 length prefix lives at `COMPACT_LEN`, and we reuse the
-    // same offset-parameterized tail runtime as the headered path — only the
+    // same offset-parameterized tail runtime as the headered path, only the
     // prefix offset differs (1-byte disc vs 16-byte header).
     let has_tail = options.dynamic_tail.is_some() || options.raw_tail || options.dynamic;
 
@@ -1431,7 +1429,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
             /// (`[disc:u8][body]`, no 16-byte header) and field offsets
             /// fold in the single discriminator byte. Field intents come
             /// from declared `#[role = "..."]` attributes (`Custom` when
-            /// undeclared — nothing is guessed).
+            /// undeclared; nothing is guessed).
             pub const LAYOUT_MANIFEST: ::hopper::hopper_schema::LayoutManifest = {
                 const FIELD_COUNT: usize = #compact_field_count;
                 const NAMES: [&str; FIELD_COUNT] = [#(#field_name_literals),*];
@@ -1470,6 +1468,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
                     disc: #name::DISC,
                     layout_id: #name::LAYOUT_ID,
                     total_size: #name::COMPACT_LEN,
+                    has_dynamic_tail: #name::HAS_DYNAMIC_TAIL,
                     field_count: FIELD_COUNT,
                     fields: &FIELDS,
                 }
@@ -1831,8 +1830,8 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
 
 /// Build the 8-byte wire fingerprint for a layout.
 ///
-/// The Hopper Safety Audit flagged the pre-fix algorithm. hashing
-/// raw Rust token strings. as source-spelling-dependent and therefore
+/// The earlier algorithm hashed raw Rust token strings, which was
+/// source-spelling-dependent and therefore
 /// unsuitable as a long-term ABI identity primitive. A rename of
 /// `foo::bar::WireU64` to `crate::WireU64`, or a swap of the generic
 /// parameter on `TypedAddress<Authority>` → `TypedAddress<Token>`,
@@ -1842,8 +1841,8 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
 /// each field's type to a **canonical wire stem**:
 ///
 /// - `Type::Path`. the last `::`-separated path segment only
-///   (`foo::bar::WireU64` → `WireU64`). `TypedAddress<T>` — the one
-///   framework type whose generic is phantom-only — has its parameter
+///   (`foo::bar::WireU64` → `WireU64`). `TypedAddress<T>`, the one
+///   framework type whose generic is phantom-only, has its parameter
 ///   stripped (`TypedAddress<Authority>` → `TypedAddress`) so
 ///   retagging an address stays ABI-invisible. Any other generic
 ///   argument is folded into the stem (`Pair<WireU32>` →
@@ -1903,8 +1902,8 @@ fn canonical_wire_stem(ty: &syn::Type) -> String {
         syn::Type::Path(type_path) => {
             if let Some(last) = type_path.path.segments.last() {
                 let stem = last.ident.to_string();
-                // `TypedAddress<T>`'s parameter is phantom-only — the wire
-                // shape is 32 bytes regardless of `T` — so it is deliberately
+                // `TypedAddress<T>`'s parameter is phantom-only, the wire
+                // shape is 32 bytes regardless of `T`; so it is deliberately
                 // stripped: retagging an address must not shift the ABI
                 // fingerprint. Every OTHER generic argument is treated as
                 // potentially size-bearing (a nested Pod overlay like
@@ -2022,7 +2021,7 @@ fn strip_int_literal_suffix(raw: &str) -> String {
 //  Canonical wire fingerprint. regression tests
 // ══════════════════════════════════════════════════════════════════════
 //
-// These tests lock in the audit's "no source-spelling drift" invariant:
+// These tests lock in the no-source-spelling-drift invariant:
 // path imports, full-qualification, and phantom-only generic parameters
 // MUST produce the same wire fingerprint, because none of them change
 // the byte layout of the serialized account.
@@ -2050,7 +2049,7 @@ mod fingerprint_tests {
     fn phantom_generic_parameters_are_stripped() {
         // `TypedAddress<Authority>` and `TypedAddress<Token>` have
         // identical byte layout; they must hash the same under the
-        // post-audit canonical algorithm.
+        // canonical algorithm.
         assert_eq!(
             fp(parse_quote!(TypedAddress<Authority>)),
             fp(parse_quote!(TypedAddress<Token>)),
@@ -2067,7 +2066,7 @@ mod fingerprint_tests {
         // `Pair<WireU32>` and `Pair<WireU64>` are different byte
         // layouts and MUST produce different stems. (Batch 4 audit
         // finding: the pre-fix algorithm stripped ALL generic
-        // arguments, so these collided — and `Pack<WireU64, WireU32>`
+        // arguments, so these collided, and `Pack<WireU64, WireU32>`
         // vs `Pack<WireU32, WireU64>` even collided at equal total
         // size, defeating the foreign-lens drift check entirely.)
         assert_ne!(
@@ -2341,7 +2340,7 @@ mod layout_manifest_tests {
             out.contains("pubconstLAYOUT_MANIFEST:::hopper::hopper_schema::LayoutManifest="),
             "LAYOUT_MANIFEST const expected: {out}",
         );
-        // The literal wires the layout's own contract consts — nothing
+        // The literal wires the layout's own contract consts; nothing
         // is restated by hand.
         for wired in [
             "name:stringify!(Ledger)",
@@ -2367,7 +2366,7 @@ mod layout_manifest_tests {
             "field names table expected: {out}",
         );
         // REAL canonical types, stringified from the authored field
-        // types — no lookup table, no guessing.
+        // types, no lookup table, no guessing.
         assert!(
             out.contains("constTYPES:[&str;FIELD_COUNT]=[\"Address\",\"WireU64\"];"),
             "canonical type table expected: {out}",

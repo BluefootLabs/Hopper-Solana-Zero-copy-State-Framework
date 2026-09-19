@@ -2,20 +2,20 @@
 //!
 //! Provides both the canonical `#[hopper::state]`, `#[hopper::context]`,
 //! `#[hopper::program]` surface and the legacy `#[hopper_state]`,
-//! `#[hopper_context]`, `#[hopper_program]` aliases. All entry points generate
-//! zero-cost code targeting Hopper's runtime primitives.
+//! `#[hopper_context]`, `#[hopper_program]` aliases. The generated code targets
+//! Hopper's runtime and schema primitives.
 //!
-//! **Not required.** Every feature these macros provide is achievable through
-//! Hopper's declarative `macro_rules!` macros or hand-written code. These
-//! exist purely for developer velocity. The generated code compiles to the
-//! exact same pointer arithmetic as raw Pinocchio.
+//! **Optional.** Layouts, account validation, and dispatch can also be authored
+//! with Hopper's declarative macros or runtime APIs. This crate provides the
+//! attribute and derive syntax for those mechanisms.
 //!
 //! # Design Philosophy
 //!
-//! - **Macros generate code, not behavior.** No hidden runtime logic.
-//! - **Everything inlines.** No function calls that wouldn't exist in hand-written code.
-//! - **No heap.** Generated code is `no_std`, `no_alloc`.
-//! - **Optional.** Core Hopper never depends on this crate.
+//! - **Runtime-backed.** Generated implementations call Hopper's public
+//!   validation, layout, and dispatch primitives.
+//! - **On-chain compatible.** Generated program code is `no_std` and does not
+//!   require an allocator.
+//! - **Optional dependency.** Hopper's core crates do not depend on this crate.
 
 extern crate proc_macro;
 
@@ -39,7 +39,8 @@ use proc_macro::TokenStream;
 /// Generate a `SegmentMap` implementation for a zero-copy layout struct.
 ///
 /// Computes field offsets at compile time and emits a const segment table.
-/// The generated code is zero-cost. Segment lookups resolve to const loads.
+/// Generated field accessors use the emitted constant offsets. The named
+/// `SegmentMap::segment` helper performs a linear scan of the static table.
 ///
 /// # Example
 ///
@@ -174,12 +175,12 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// `#[derive(Accounts)]` - Anchor-spelled drop-in for `#[hopper::context]`.
 ///
-/// Functionally identical to the attribute form: every constraint Hopper
-/// recognises (`init`, `init_if_needed`, `mut`, `signer`, `seeds`, `bump`,
+/// The derive accepts Hopper's context constraints, including `init`,
+/// `init_if_needed`, `mut`, `signer`, `seeds`, `bump`,
 /// `payer`, `space`, `has_one`, `owner`, `address`, `constraint`,
 /// `token::*`, `mint::*`, `associated_token::*`, the Token-2022 extension
 /// gates, `dup`, `sweep`, `executable`, `rent_exempt`, `realloc`, `zero`,
-/// `close`) all work in the derive form. Hopper-specific authoring sugar
+/// and `close`. Hopper-specific authoring syntax
 /// (segment-tagged `mut(field, …)`, `read(field, …)`, the inline
 /// `#[hopper::pipeline]` / `#[hopper::receipt]` / `#[hopper::invariant]`
 /// stack) also works untouched.
@@ -216,9 +217,9 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// The generated code is identical to `#[hopper::context]` on the same
-/// struct - same binder type, same accessors, same constraint validation
-/// pipeline. No runtime difference between the two spellings.
+/// The derive and attribute forms feed the same context expansion pipeline,
+/// producing the same binder and constraint-validation model for equivalent
+/// input.
 #[proc_macro_derive(
     Accounts,
     attributes(account, accounts, signer, instruction, validate, composite)
@@ -268,8 +269,7 @@ pub fn program(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `impl FixedLayout` so it can participate in every Hopper segment /
 /// raw access API.
 ///
-/// This is the Hopper Safety Audit's "derive macros for Pod and layout"
-/// recommendation delivered standalone: use it on sub-structs, wire
+/// Use this standalone derive on sub-structs, wire
 /// helpers, or any `#[repr(C)]` overlay that isn't a full top-level
 /// account layout.
 ///
@@ -309,8 +309,8 @@ pub fn pod(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `<FN_NAME>_EDGE: hopper_runtime::MigrationEdge` constant so the
 /// layout author can compose edges via `hopper::layout_migrations!`.
 ///
-/// Closes Hopper Safety Audit innovation I4 ("Schema epoch with
-/// in-place migration helpers"). Runtime chain application and
+/// Generates schema-epoch migration metadata and in-place helpers.
+/// Runtime chain application and
 /// atomic-per-edge `schema_epoch` bump live in
 /// `hopper_runtime::migrate`.
 ///
@@ -376,7 +376,7 @@ pub fn event(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Attaches a `"Crank"` capability tag to the instruction descriptor
 /// in the program manifest and optionally captures
 /// `seeds(account_name = [...])` hints so a keeper-bot CLI can
-/// resolve every PDA without per-program config.
+/// resolve the PDA inputs described by those hints.
 ///
 /// Cranks must be zero-arg handlers. Any value argument is a
 /// compile-time error, because the crank runner cannot invent
@@ -415,10 +415,9 @@ pub fn declare_program(input: TokenStream) -> TokenStream {
 /// `From<T> for u32`, and two const tables (`CODE_TABLE`, `INVARIANT_TABLE`)
 /// that the schema crate surfaces in the manifest.
 ///
-/// Per-variant `#[invariant = "name"]` attributes are the innovation: when
-/// a runtime invariant check fails, the corresponding error carries the
-/// invariant name, and the off-chain SDK can render "Invariant `x` failed"
-/// instead of an opaque hex code.
+/// Per-variant `#[invariant = "name"]` attributes link an error variant to
+/// invariant metadata so off-chain tooling can render the declared name
+/// alongside the numeric code.
 ///
 /// # Example
 /// ```ignore
@@ -554,8 +553,9 @@ pub fn dynamic_account(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `__HOPPER_CONST_<NAME>: hopper_schema::ConstantDescriptor` sibling
 /// is emitted, capturing the stringified type and initializer
 /// expression. Collect the descriptors into a slice and hand it to
-/// `hopper_schema::AnchorIdlWithConstants` (or
-/// `AnchorIdlFromManifestWithConstants`) when emitting the IDL.
+/// `hopper_schema::anchor_idl::AnchorIdlWithConstants` (or
+/// `hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants`) when
+/// emitting the IDL.
 ///
 /// # Example
 ///

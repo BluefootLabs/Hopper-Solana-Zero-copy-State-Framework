@@ -62,8 +62,8 @@ pub const fn minimum_balance(data_len: usize) -> u64 {
 /// Rent-exempt minimum read from the **live** Rent sysvar on-chain.
 /// Host tests use the compile-time snapshot because no runtime sysvar exists.
 ///
-/// Use this for value-bearing decisions — funding a new account, the
-/// realloc top-up — so that if the cluster ever re-governs the rent
+/// Use this for value-bearing decisions, funding a new account, the
+/// realloc top-up; so that if the cluster ever re-governs the rent
 /// parameters, Hopper charges the live amount rather than a stale
 /// hard-coded one. An on-chain sysvar read failure is returned to the caller;
 /// value-bearing checks must not silently fall back to stale constants.

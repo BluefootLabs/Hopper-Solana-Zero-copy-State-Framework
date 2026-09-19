@@ -4,13 +4,10 @@
 //! A `#[hopper::state(compact, disc = N, dynamic)]` layout has the wire shape
 //! `[disc:u8][fixed_head][tail]` -- no 16-byte header and no length prefix. The
 //! `tail` region (everything after the fixed head) can be overlaid with any of
-//! Hopper's zero-copy collections for O(1), cast-in-place element access. That
-//! is the `[disc][fixed_head][tail_collection]` shape the competitive audit
-//! flagged as the Quasar-class compact-dynamic story -- order books, event
-//! rings, registries, slabs -- now first-class on a 1-byte header.
+//! Hopper's supported zero-copy collections. This produces a
+//! `[disc][fixed_head][tail_collection]` account without a decode pass.
 //!
-//! The collections are re-exported here under the `Tail*` names used across the
-//! audit and the Quasar comparison:
+//! The collections are re-exported here under `Tail*` aliases:
 //!
 //! | Tail alias       | Backing collection | Tail wire shape                  |
 //! |------------------|--------------------|----------------------------------|

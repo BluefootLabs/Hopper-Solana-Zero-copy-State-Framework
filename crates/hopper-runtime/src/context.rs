@@ -54,7 +54,7 @@ pub struct Context<'a> {
     /// Prefer the `borrows()` / `borrows_mut()` accessors in new code.
     pub(crate) segment_borrows: SegmentBorrowRegistry,
     /// Declared write-set enforced on every Context-mediated write
-    /// acquire (innovation I12). `None` (the default) means no policy:
+    /// acquire (write-policy enforcement). `None` (the default) means no policy:
     /// writes are governed by the Sealevel `writable` flag and the
     /// borrow system alone, with zero added cost beyond one pointer
     /// compare per write acquire.
@@ -91,11 +91,11 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// Install a declared write policy (innovation I12).
+    /// Install a declared write policy (write-policy enforcement).
     ///
-    /// From this point on, **every** Context-mediated write acquire —
+    /// From this point on, **every** Context-mediated write acquire,
     /// segment writes, whole-account `load_mut`, and the raw escape
-    /// hatches `raw_mut` / `as_mut_ptr` — must be fully contained in one
+    /// hatches `raw_mut` / `as_mut_ptr`, must be fully contained in one
     /// of the policy's declared ranges or it fails with
     /// `Custom(0xD000 | account_index)` before any byte is written.
     /// Whole-account paths claim `[0, data_len)`, so a policy that
@@ -106,7 +106,7 @@ impl<'a> Context<'a> {
     /// `mut` / `mut(seg, ...)` declarations into a `static` policy
     /// and installs it during `bind()`; calling this by hand is the raw
     /// equivalent. Direct substrate access on the raw
-    /// [`AccountView`](crate::account::AccountView) (via
+    /// [`AccountView`] (via
     /// [`account`](Self::account)) is outside the governed surface, like
     /// every other documented escape hatch.
     #[inline(always)]
@@ -253,8 +253,8 @@ impl<'a> Context<'a> {
 
     /// Visit every distinct `(account, offset, size, R/W)` range this
     /// instruction has touched so far (`touch-map` feature, innovation
-    /// I7). The log is cumulative — RAII lease releases do not remove
-    /// records — so calling this at the end of a handler yields the
+    /// touch-map). The log is cumulative, RAII lease releases do not remove
+    /// records; so calling this at the end of a handler yields the
     /// instruction's segment-level footprint in first-touch order.
     /// Pair with [`touch_map_overflowed`](Self::touch_map_overflowed).
     #[cfg(feature = "touch-map")]
@@ -287,7 +287,7 @@ impl<'a> Context<'a> {
     /// Each touched `(account, offset, size, R/W)` range is resolved to
     /// the account's slot index in this context's account list. A touch
     /// whose address is not among the instruction accounts (should be
-    /// impossible — every touch originates from an account in this
+    /// impossible, every touch originates from an account in this
     /// context) or whose slot exceeds `u8::MAX` is skipped and reported
     /// via flag bit1 rather than mis-attributed. Flag bit0 carries the
     /// touch log's overflow state so partial maps are honestly marked.
@@ -341,7 +341,7 @@ impl<'a> Context<'a> {
     /// `decodeHopperTouchMap` helper can reconstruct the instruction's
     /// field-level state effects from the signature alone.
     ///
-    /// Call at the end of a handler, after the last state access — the
+    /// Call at the end of a handler, after the last state access, the
     /// touch log is cumulative, so this snapshots everything touched so
     /// far. Off-chain (`cfg(not(target_os = "solana"))`) the syscall is a
     /// no-op; use [`encode_touch_map`](Self::encode_touch_map) to test
@@ -354,13 +354,13 @@ impl<'a> Context<'a> {
 
     /// Opt-in post-handler epilogue: finalize a successful instruction by
     /// emitting its touch map, making the transaction self-describing
-    /// (innovation I7).
+    /// (touch-map support).
     ///
     /// This is the single hook the `#[hopper::context(emit_touch_map)]`
     /// opt-in drives, so a developer gets the self-describing touch-map
     /// record on the golden path without hand-writing the `sol_log_data`
-    /// syscall. The generated **dispatcher** — which alone sees the
-    /// handler's `Result` — calls this on the handler's **Ok** path only,
+    /// syscall. The generated **dispatcher**; which alone sees the
+    /// handler's `Result`, calls this on the handler's **Ok** path only,
     /// guarded by the context's `EMIT_TOUCH_MAP` const:
     ///
     /// ```ignore
@@ -370,10 +370,10 @@ impl<'a> Context<'a> {
     /// ```
     ///
     /// It is deliberately NOT called from a `Drop` for the bound context:
-    /// Rust runs drop glue on every scope exit — including `?`/`Err`
-    /// returns — and a `Drop` cannot observe the handler's `Result`, so it
+    /// Rust runs drop glue on every scope exit, including `?`/`Err`
+    /// returns, and a `Drop` cannot observe the handler's `Result`, so it
     /// would emit a misleading record advertising Write ranges for a
-    /// failed, rolled-back instruction (adversarial review, CONFIRMED P2).
+    /// failed, rolled-back instruction (adversarial review, failed-instruction emission regression).
     /// Routing on the Ok path makes the record fire exclusively on
     /// success. It is also deliberately routed through a runtime helper
     /// (rather than a macro-emitted `#[cfg]`) so the **feature gate lives
@@ -381,7 +381,7 @@ impl<'a> Context<'a> {
     /// `cfg` bodies decide whether it does anything.
     ///
     /// With the `touch-map` feature **on** it forwards to
-    /// [`emit_touch_map`](Self::emit_touch_map) — one `sol_log_data`
+    /// [`emit_touch_map`](Self::emit_touch_map), one `sol_log_data`
     /// record on-chain, a no-op off-chain. With the feature **off** the
     /// [zero-cost sibling](#method.finish_with_touch_map) is compiled
     /// instead, so the generated call emits nothing and costs nothing.
@@ -409,7 +409,7 @@ impl<'a> Context<'a> {
     /// `self.accounts[from..]`. A range index LLVM cannot statically bound
     /// emits `slice_end_index_len_fail`, which *formats* its arguments and
     /// links `Formatter::pad_integral`, `do_count_chars` and the integer
-    /// `Display` impls — ~3.7 KiB of `core::fmt` — into every Hopper
+    /// `Display` impls, ~3.7 KiB of `core::fmt`, into every Hopper
     /// program's `.text`. These are `#[inline(always)]` hot-path helpers,
     /// so one panicking index here taxes every program. Keep them `get`-based.
     #[inline(always)]
@@ -533,7 +533,7 @@ impl<'a> Context<'a> {
         self.check_write_policy(index, 0, data_len)?;
         // The touch-map footprint records inside `try_borrow_mut` (the
         // choke point every mutable data borrow crosses), so this path
-        // no longer stamps it explicitly — one source of truth.
+        // no longer stamps it explicitly, one source of truth.
         view.load_mut::<T>()
     }
 
@@ -566,14 +566,14 @@ impl<'a> Context<'a> {
     /// prevents conflicting write access to the same byte range for
     /// the guard's lifetime.
     ///
-    /// # Canonical path (audit ST1 / winning-architecture spec)
+    /// # Canonical path
     ///
     /// Three variants exist for different offset sources:
     ///
     /// | Variant | Use when |
     /// |---|---|
     /// | [`segment_ref_typed`](Self::segment_ref_typed) (canonical) | Offset is a compile-time constant (the common case). The `const OFFSET: u32` generic becomes an immediate in the pointer arithmetic. |
-    /// | [`segment_ref_const`](Self::segment_ref_const) | Offset comes from a runtime [`Segment`] value (dispatching dynamically between named fields). |
+    /// | [`segment_ref_const`](Self::segment_ref_const) | Offset comes from a runtime [`crate::Segment`] value (dispatching dynamically between named fields). |
     /// | `segment_ref` (this method) | Offset is fully dynamic (iterating segments in a loop, for example). |
     ///
     /// `#[hopper::context]`-generated accessors default to the canonical
@@ -631,10 +631,9 @@ impl<'a> Context<'a> {
     /// exclusive borrow, then returns a [`SegRefMut<T>`](crate::SegRefMut)
     /// that releases on drop.
     ///
-    /// This is the primitive that enables safe concurrent mutation of
-    /// non-overlapping account regions. Hopper's core innovation .
-    /// and the lease model (added post-audit) makes sequential
-    /// same-region borrows inside one instruction work correctly.
+    /// This primitive permits concurrent mutation of non-overlapping account
+    /// regions. The lease model also permits sequential same-region borrows
+    /// within one instruction.
     #[inline(always)]
     pub fn segment_mut<'b, T: crate::Pod>(
         &'b mut self,
@@ -659,13 +658,13 @@ impl<'a> Context<'a> {
     /// [`seq_mut`](crate::tail::SeqTailWrite::seq_mut) yields the O(1)
     /// streaming cursor.
     ///
-    /// The tail region is `[body_end, data_len)` — the whole account past
+    /// The tail region is `[body_end, data_len)`, the whole account past
     /// the fixed head. Under an installed [write policy](Self::set_write_policy)
     /// this whole region must be granted (a `mut(<seq_field>)` declaration
     /// compiles to an open-ended [`tail_from`](crate::write_policy::WriteRange::tail_from)
     /// range), so the fixed head stays protected. Exactly ONE segment
-    /// lease is registered — covering the entire tail region, NOT one per
-    /// element — so overlap detection and the touch map see a single
+    /// lease is registered, covering the entire tail region, NOT one per
+    /// element; so overlap detection and the touch map see a single
     /// tail-region write record regardless of how many elements are
     /// pushed.
     #[inline]
@@ -684,7 +683,7 @@ impl<'a> Context<'a> {
             .ok_or(ProgramError::AccountDataTooSmall)?;
         // The whole tail region must be a granted write range (the
         // open-ended `tail_from` range contains it; a fixed head range
-        // would refuse a grown region — exactly the protection intended).
+        // would refuse a grown region, exactly the protection intended).
         self.check_write_policy(index, body_end, region_len)?;
         // ONE write lease over the whole tail region (one touch record).
         let borrow =
@@ -740,7 +739,7 @@ impl<'a> Context<'a> {
         Ok(crate::tail::SeqTailRead::new(region, lease))
     }
 
-    /// Const-driven segment read: pass a compile-time [`Segment`] and the
+    /// Const-driven segment read: pass a compile-time [`crate::Segment`] and the
     /// account index. Lowers to the same pointer-plus-const-offset shape
     /// as `segment_ref` but without the caller hand-rolling the offset +
     /// size arguments.
@@ -774,7 +773,7 @@ impl<'a> Context<'a> {
     }
 
     /// Typed-segment read: the type and offset are both compile-time
-    /// constants, baked into a [`TypedSegment`] zero-sized marker.
+    /// constants, baked into a [`crate::TypedSegment`] zero-sized marker.
     #[inline(always)]
     pub fn segment_ref_typed<'b, T: crate::Pod, const OFFSET: u32>(
         &'b mut self,
@@ -788,7 +787,7 @@ impl<'a> Context<'a> {
         view.segment_ref_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
     }
 
-    /// Typed-segment write. Mirrors [`segment_ref_typed`] for the
+    /// Typed-segment write. Mirrors [`Self::segment_ref_typed`] for the
     /// exclusive path.
     #[inline(always)]
     pub fn segment_mut_typed<'b, T: crate::Pod, const OFFSET: u32>(
@@ -822,7 +821,7 @@ impl<'a> Context<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { view.raw_ref::<T>() }
     }
 
@@ -843,7 +842,7 @@ impl<'a> Context<'a> {
         // Whole-account write claim: an installed write policy gates the
         // raw path exactly like `load_mut` (coarse, never under-claims).
         self.check_write_policy(index, 0, view.data_len() as u32)?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { view.raw_mut::<T>() }
     }
 
@@ -864,7 +863,7 @@ impl<'a> Context<'a> {
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.raw_mut::<T>(index) }
     }
 
@@ -1203,7 +1202,7 @@ mod write_policy_tests {
 
     fn make_account(address_byte: u8) -> (std::vec::Vec<u64>, AccountView<'static>) {
         // Word-sized backing: `RuntimeAccount` has u64 fields (align 8) and a
-        // `Vec<u8>` allocation only guarantees alignment 1 — writing the
+        // `Vec<u8>` allocation only guarantees alignment 1, writing the
         // header through an under-aligned pointer is UB by spec even where
         // the system allocator happens to over-align. Caught by the Miri
         // Tree Borrows lane (`scripts/miri-core.*`); same fix as the
@@ -1271,7 +1270,7 @@ mod write_policy_tests {
         }
         assert!(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).is_ok());
 
-        // An undeclared range is refused with the indexed policy error —
+        // An undeclared range is refused with the indexed policy error,
         // before any borrow state changes, so reads still work after.
         assert_eq!(
             ctx.segment_mut::<[u8; 8]>(0, 0).unwrap_err(),
@@ -1366,7 +1365,7 @@ mod write_policy_tests {
     struct PolicyLayout {
         a: [u8; 8],
     }
-    // SAFETY: repr(C), all-byte-array fields — every bit pattern valid,
+    // SAFETY: repr(C), all-byte-array fields, every bit pattern valid,
     // no padding, align 1.
     unsafe impl crate::Zeroable for PolicyLayout {}
     // SAFETY: as above.
@@ -1394,7 +1393,7 @@ mod write_policy_tests {
         ctx.set_write_policy(&FIELD_POLICY);
 
         // The whole-account claim `[0, data_len)` is refused by a
-        // field-granular policy — with the policy error, not a layout
+        // field-granular policy, with the policy error, not a layout
         // error, proving the gate runs before any borrow or header read.
         assert_eq!(
             ctx.load_mut::<PolicyLayout>(0).unwrap_err(),
@@ -1423,7 +1422,7 @@ mod write_policy_tests {
         let mut ctx = Context::new(&pid, &accounts, &[]);
 
         // A segment write followed by a whole-account borrow recorded
-        // through the same ledger: the I7 map now sees both shapes.
+        // through the same ledger: the touch map now sees both shapes.
         drop(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).unwrap());
         {
             let view = ctx.account(0).unwrap();
@@ -1452,7 +1451,7 @@ mod write_policy_tests {
         let mut ctx = Context::new(&pid, &accounts, &[]);
 
         // A write and a read on account 1, a read on account 0, and a
-        // whole-account write on account 0 — every touch shape.
+        // whole-account write on account 0, every touch shape.
         drop(ctx.segment_mut::<[u8; 8]>(1, BALANCE_OFF).unwrap());
         drop(ctx.segment_ref::<[u8; 8]>(1, NONCE_OFF).unwrap());
         drop(ctx.segment_ref::<[u8; 4]>(0, 0).unwrap());
@@ -1512,7 +1511,7 @@ mod write_policy_tests {
 
         // Touch more distinct ranges than the log capacity. The stride
         // leaves a one-byte gap between consecutive ranges so no exact
-        // union exists — coalescing (which keeps contiguous workloads
+        // union exists, coalescing (which keeps contiguous workloads
         // complete) cannot save this map, and the honest outcome is the
         // wire-visible overflow flag.
         let addr = *ctx.account(0).unwrap().address();
@@ -1586,8 +1585,8 @@ mod write_policy_tests {
 
     /// The mirror of the opt-in: a context that touched nothing (a handler
     /// that did no state access, or one whose context did NOT opt in and
-    /// so whose dispatcher never calls the helper) has an empty footprint
-    /// — the epilogue would emit a header-only record with zero touch
+    /// so whose dispatcher never calls the helper) has an empty footprint,
+    /// the epilogue would emit a header-only record with zero touch
     /// entries. This pins "without the opt-in / without touches, produces
     /// none".
     #[cfg(feature = "touch-map")]
@@ -1613,10 +1612,10 @@ mod write_policy_tests {
         ctx.finish_with_touch_map();
     }
 
-    /// CONFIRMED P2 regression: the touch-map record must be emitted on
+    /// Failed-instruction emission regression: the touch-map record must be emitted on
     /// the handler's **Ok** path ONLY, never on `Err`. This reconstructs
     /// the exact shape the dispatcher generates for an opted-in typed
-    /// context —
+    /// context,
     ///
     /// ```ignore
     /// handler(Ctx::bind(&mut ctx)?, ..)?;              // Err short-circuits
@@ -1624,7 +1623,7 @@ mod write_policy_tests {
     /// Ok(())
     /// ```
     ///
-    /// — and drives it with a handler that returns `Err` and the same
+    /// and drives it with a handler that returns `Err` and the same
     /// handler that returns `Ok`. The old `Drop`-based emit fired on both
     /// paths (drop glue runs on every scope exit) and so leaked a
     /// misleading record for the rolled-back instruction; the Ok-only
@@ -1642,17 +1641,17 @@ mod write_policy_tests {
 
         // Faithful reconstruction of the generated dispatch helper body.
         // `emitted` captures each record the Ok-path finish point would
-        // send — its length is the number of touch-map records emitted.
+        // send, its length is the number of touch-map records emitted.
         fn generated_dispatch(
             ctx: &mut Context<'_>,
             handler: impl FnOnce(&mut Context<'_>) -> ProgramResult,
             emitted: &mut std::vec::Vec<std::vec::Vec<u8>>,
         ) -> ProgramResult {
-            // `handler(Ctx::bind(&mut ctx)?, ..)?` — an `Err` here
+            // `handler(Ctx::bind(&mut ctx)?, ..)?`, an `Err` here
             // short-circuits before the emit below, exactly as `?` does
             // after a real bound handler returns.
             handler(ctx)?;
-            // `if Ctx::EMIT_TOUCH_MAP { ctx.finish_with_touch_map(); }` —
+            // `if Ctx::EMIT_TOUCH_MAP { ctx.finish_with_touch_map(); }`,
             // reached only on the Ok path. Off-chain the syscall is a
             // no-op, so snapshot the identical bytes to observe the emit.
             if EMIT_TOUCH_MAP {
@@ -1665,7 +1664,7 @@ mod write_policy_tests {
 
         // A handler that touches state, then fails (as `require!`/`?`
         // would). The touch log is populated, but the instruction rolls
-        // back — so NO self-describing record may be emitted.
+        // back; so NO self-describing record may be emitted.
         let (_b, account) = make_account(1);
         let accounts = [account];
         let pid = Address::new([9u8; 32]);

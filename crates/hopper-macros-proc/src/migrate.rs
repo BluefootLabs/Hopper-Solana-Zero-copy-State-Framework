@@ -1,7 +1,7 @@
 //! `#[hopper::migrate(from = N, to = M)]`. declare a schema-epoch edge.
 //!
-//! Closes audit innovation I4 macro side. The attribute decorates a
-//! user-authored function that mutates an account body in-place from
+//! The attribute decorates a user-authored function that mutates an account
+//! body in place from
 //! `from` to `to`. The macro emits the fn unchanged plus a paired
 //! `EDGE` constant of type `hopper_runtime::MigrationEdge` inside the
 //! same module so downstream composition (`hopper::layout_migrations!`)

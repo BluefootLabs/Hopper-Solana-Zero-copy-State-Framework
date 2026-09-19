@@ -26,7 +26,9 @@
 //! - **Evolution**: Append-only versioned layouts with migration helpers
 //! - **Interfaces**: Cross-program read-only views with ABI proof
 //!
-//! Built on hopper-native. Compatible with jiminy account layouts.
+//! Built on `hopper-native`. Foreign layouts can be integrated through the
+//! explicit interface and overlay APIs; no Jiminy wire-compatibility contract
+//! is implied.
 //!
 //! ## Feature flags
 //!
@@ -37,8 +39,8 @@
 //! only touch raw fields and segments can disable every optional surface:
 //!
 //! ```toml
-//! hopper-core = { version = "0.1", default-features = false,
-//!                 features = ["programs", "cpi"] }
+//! hopper-core = { package = "hopper-systems", version = "0.3.0",
+//!                 default-features = false, features = ["programs", "cpi"] }
 //! ```
 //!
 //! That lean configuration drops `frame`, `receipt`, `policy`, `graph`,
@@ -163,16 +165,11 @@ pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
 
 /// Narrow, hot-path-only prelude.
 ///
-/// The finish-line audit demanded that Hopper's "core identity" stay
-/// tight: **memory + access + layout**. Everything else, frame-based
-/// execution, receipts, policies, validation graphs, migrations, virtual
-/// state, diffing, explain, is opt-in power, not launch identity.
-///
 /// This prelude ships only the types and helpers a Hopper program needs
 /// to declare state, bind accounts, check invariants, and make CPIs.
-/// For the full surface (historical compatibility), use
-/// [`prelude`](crate::prelude) which glob-imports this and then adds the
-/// advanced subsystems on top.
+/// For the feature-gated frame, receipt, policy, migration, diff, and explain
+/// surfaces, use [`prelude_advanced`] or the compatibility
+/// [`prelude`].
 pub mod prelude_core {
     // ── ABI primitives: typed addresses, role tags ──────────────────
     pub use crate::abi::{
@@ -213,10 +210,8 @@ pub mod prelude_core {
 
     // ── Dispatch and events: program plumbing ───────────────────────
     pub use crate::dispatch::{
-        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16, EVENT_CPI_PREFIX,
+        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16,
     };
-    #[cfg(feature = "cpi")]
-    pub use crate::event::emit_event_cpi;
     pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
 
     // ── Field + segment metadata (compile-time layout truth) ────────
@@ -426,10 +421,8 @@ pub mod prelude {
     #[cfg(feature = "diff")]
     pub use crate::diff::{StateDiff, StateSnapshot};
     pub use crate::dispatch::{
-        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16, EVENT_CPI_PREFIX,
+        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16,
     };
-    #[cfg(feature = "cpi")]
-    pub use crate::event::emit_event_cpi;
     pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
     pub use crate::field_map::{FieldInfo, FieldMap};
     #[cfg(feature = "frame")]

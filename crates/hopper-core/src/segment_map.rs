@@ -11,7 +11,8 @@
 //!
 //! - **`SegmentMap` + [`StaticSegment`]** - fixed-layout structs annotated
 //!   with `#[hopper::state]`. The segment list is known at compile time;
-//!   lookups fold to const loads.
+//!   generated field accessors can use constant offsets. The named
+//!   [`SegmentMap::segment`] helper scans the static descriptor slice.
 //! - **[`SegmentRegistry`](crate::account::SegmentRegistry) +
 //!   [`SegmentDescriptor`](crate::account::SegmentDescriptor)** - accounts
 //!   whose segment count grows on-chain (extension-heavy patterns,
@@ -21,12 +22,12 @@
 //! Most Hopper programs use the compile-time path. The runtime registry
 //! exists for genuinely dynamic layouts.
 //!
-//! ## Design Philosophy
+//! ## Representation
 //!
 //! Segment offsets are evaluated at compile time and stored as constants.
-//! This means segment lookups compile down to a const load, no string
-//! matching, no branching, no heap. The generated code is the same shape
-//! as raw Pinocchio pointer arithmetic.
+//! Callers that select a field statically can use the corresponding generated
+//! descriptor directly. Runtime lookup by field name performs a linear scan
+//! and string comparison over [`SegmentMap::SEGMENTS`].
 //!
 //! ## Example
 //!
@@ -77,9 +78,8 @@ impl StaticSegment {
 /// Compile-time segment layout for a zero-copy struct.
 ///
 /// Types implementing this trait declare their byte-level field map
-/// as a constant array. This enables segment-level access with
-/// zero runtime overhead, the compiler can resolve segment offsets
-/// to immediate constants in the generated code.
+/// as a constant array. Generated accessors may embed offsets from that table;
+/// [`segment`](Self::segment) remains a runtime name lookup.
 ///
 /// ## Runtime vs Compile-Time
 ///
@@ -94,8 +94,7 @@ pub trait SegmentMap {
 
     /// Look up a segment by field name.
     ///
-    /// Linear scan over const array. For layouts with ≤16 fields (the norm),
-    /// this compiles to a small branchless sequence.
+    /// Performs a linear scan over the constant descriptor array.
     #[inline]
     fn segment(name: &str) -> Option<StaticSegment> {
         let mut i = 0;

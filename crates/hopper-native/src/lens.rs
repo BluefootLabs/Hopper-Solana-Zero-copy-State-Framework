@@ -1,13 +1,8 @@
 //! Cross-program account lenses -- read foreign fields by offset.
 //!
-//! When Program A wants to read a field from Program B's account, every
-//! existing framework requires importing Program B's full type definition
-//! at compile time. This creates tight coupling between programs.
-//!
-//! Hopper lenses solve this: read specific fields from foreign account
-//! data by byte offset and type, no compile-time dependency required.
-//! This enables composability patterns that were previously impossible
-//! without shared crate dependencies.
+//! Hopper lenses read fields from foreign account data by byte offset and type
+//! without importing the foreign program's Rust type. This reduces compile-time
+//! coupling when the caller already has a reviewed layout contract.
 //!
 //! # Safety
 //!
@@ -43,7 +38,7 @@ use crate::project::Projectable;
 
 /// Read a `Projectable` field from account data at the given byte offset.
 ///
-/// **Tier-C escape hatch** per the Hopper Safety Audit. `Projectable`
+/// **Tier-C escape hatch.** `Projectable`
 /// only requires `Copy + 'static`, which is too permissive to protect
 /// against padding/alignment bugs. New code should prefer
 /// [`read_field_pod`] which enforces the stronger [`crate::Pod`]
@@ -66,8 +61,8 @@ pub fn read_field<'a, T: Projectable>(
 /// Bounds and alignment are still checked at runtime, just as in the
 /// generic [`read_field`] escape hatch.
 ///
-/// Use this in cross-program readers that want the audit-grade
-/// guarantee without dropping down to hand-written pointer arithmetic.
+/// Use this in cross-program readers that want the checked projection
+/// contract without dropping down to hand-written pointer arithmetic.
 ///
 /// # Example
 ///
@@ -134,7 +129,7 @@ pub fn read_le_u64(account: &AccountView<'_>, offset: usize) -> Result<u64, Prog
     if offset.checked_add(8).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 8];
     unsafe {
@@ -150,7 +145,7 @@ pub fn read_le_u32(account: &AccountView<'_>, offset: usize) -> Result<u32, Prog
     if offset.checked_add(4).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 4];
     unsafe {
@@ -166,7 +161,7 @@ pub fn read_le_u16(account: &AccountView<'_>, offset: usize) -> Result<u16, Prog
     if offset.checked_add(2).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 2];
     unsafe {
@@ -181,7 +176,7 @@ pub fn read_u8(account: &AccountView<'_>, offset: usize) -> Result<u8, ProgramEr
     if offset >= account.data_len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     Ok(unsafe { *account.data_ptr_unchecked().add(offset) })
 }
 

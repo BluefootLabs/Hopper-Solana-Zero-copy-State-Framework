@@ -193,7 +193,7 @@ pub fn safe_realloc_unchecked(
     // borrow be taken right now?" and wants no authority over the bytes.
     // Acquiring a real whole-account borrow here would demand whole-account
     // write authority from the instruction-ambient write gate, which a
-    // legitimately narrow declaration does not grant — a `tail(seq)` grant
+    // legitimately narrow declaration does not grant, a `tail(seq)` grant
     // that resizes its own tail would be refused by its own policy. The
     // length transition itself is governed, separately and precisely, by
     // `resize` -> `check_account_transition` on the next line.
@@ -468,7 +468,7 @@ mod tests {
         let accounts = [account, destination];
 
         // Account 0 (closed) is declared; the destination (index 1) is
-        // not — the credit side of the drain must be refused before any
+        // not, the credit side of the drain must be refused before any
         // balance moves.
         static P: WritePolicy = WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
         let _gate = install_lamport_gate(&accounts, &P);

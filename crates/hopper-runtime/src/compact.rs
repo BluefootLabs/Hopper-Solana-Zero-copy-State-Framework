@@ -1,6 +1,7 @@
 //! Tier 1 of the three-tier metadata model: compact account access.
 //!
-//! See [`docs/THREE_TIER_METADATA.md`](../../../docs/THREE_TIER_METADATA.md).
+//! See the repository's
+//! [three-tier metadata design](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/THREE_TIER_METADATA.md).
 //!
 //! A *compact* account stores exactly one discriminator byte followed by
 //! the zero-copy body:
@@ -81,7 +82,7 @@ pub trait CompactLayout: Sized + Copy + crate::Pod {
 /// **no** 16-byte universal header, while keeping Hopper's registry, schema,
 /// and fingerprint tooling.
 ///
-/// Unlike [`CompactLayout`], the wire length is **not** fixed — the tail may
+/// Unlike [`CompactLayout`], the wire length is **not** fixed, the tail may
 /// be empty or grow via `resize`. The fixed head is still overlaid zero-copy
 /// at [`COMPACT_BODY_OFFSET`]; the tail is read/written through the
 /// macro-generated `tail_*` helpers, which operate on a length-prefixed

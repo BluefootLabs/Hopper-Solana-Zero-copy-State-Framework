@@ -1,13 +1,13 @@
-//! Const-generic CPI builder -- stack-only, zero-allocation CPI calls.
+//! Const-generic CPI builder with inline, fixed-capacity storage.
 //!
-//! Both account count and data size are const generics, ensuring everything
-//! lives on the SBF stack (4096 bytes). No heap allocation ever.
+//! Account count and data size are const generics. The builders store their
+//! buffers inline and do not require a heap allocator.
 //!
 //! ## Design
 //!
 //! - `HopperCpi<A, D>` -- fully const-generic: accounts + data
 //! - `HopperCpiBuf<A, MAX>` -- const accounts, runtime data length
-//! - Uses `MaybeUninit` for zero-cost initialization
+//! - Uses `MaybeUninit` for incremental buffer initialization
 //! - Direct `sol_invoke_signed_c` syscall on SBF
 //!
 //! ```ignore
@@ -127,7 +127,7 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
                     as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
-            // Build the InstructionAccount array from a VALID template —
+            // Build the InstructionAccount array from a VALID template,
             // never `mem::zeroed()`: `InstructionAccount` carries an
             // `&Address`, and a zeroed (null) reference is UB at the
             // moment it exists, even if overwritten before use.
@@ -160,8 +160,8 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
                     return Err(ProgramError::InvalidArgument);
                 }
                 // SAFETY: `Signer`/`Seed` are repr(C) raw-pointer pairs;
-                // all-zero (null pointer, zero length) is a valid — if
-                // unusable — value, and every slot consumed below is
+                // all-zero (null pointer, zero length) is a valid, if
+                // unusable, value, and every slot consumed below is
                 // overwritten first.
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
                 let signer_count = seeds.len();
@@ -288,7 +288,7 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
                     as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
-            // Valid-template init — never `mem::zeroed()` for reference-
+            // Valid-template init, never `mem::zeroed()` for reference-
             // carrying types (see HopperCpi).
             let mut ix_accounts: [InstructionAccount; ACCTS] =
                 [InstructionAccount::readonly(self.program_id); ACCTS];
@@ -319,8 +319,8 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
                     return Err(ProgramError::InvalidArgument);
                 }
                 // SAFETY: `Signer`/`Seed` are repr(C) raw-pointer pairs;
-                // all-zero (null pointer, zero length) is a valid — if
-                // unusable — value, and every slot consumed below is
+                // all-zero (null pointer, zero length) is a valid, if
+                // unusable, value, and every slot consumed below is
                 // overwritten first.
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
                 let signer_count = seeds.len();

@@ -13,16 +13,16 @@
 //! These tests drive the real codegen through the hopper-svm host harness,
 //! proving:
 //!
-//! 1. slots flatten — `ACCOUNT_COUNT` sums (outer = leaves + inner count),
+//! 1. slots flatten, `ACCOUNT_COUNT` sums (outer = leaves + inner count),
 //!    and a field declared AFTER the composite resolves to its flattened
 //!    slot (a write through it lands in the right account);
-//! 2. BOTH validators enforce — a failure in the OUTER's own field
+//! 2. BOTH validators enforce, a failure in the OUTER's own field
 //!    (payer not a signer) AND a failure in an INNER field at its
 //!    flattened offset (inner authority not a signer, inner vault wrong
 //!    owner) each fail the bind;
-//! 3. state writes through the inner bound context persist — writing via
+//! 3. state writes through the inner bound context persist, writing via
 //!    `ctx.check()?.vault_load_mut()` mutates the inner's flattened slot;
-//! 4. nested bumps compose — `ctx.bumps().check` is the inner's `Bumps`.
+//! 4. nested bumps compose, `ctx.bumps().check` is the inner's `Bumps`.
 
 #![cfg(feature = "proc-macros")]
 
@@ -39,8 +39,8 @@ pub struct Vault {
     pub balance: WireU64,
 }
 
-/// The INNER (nested) context. A plain validation context — no lifecycle,
-/// args, or advanced options — so it is embeddable. Its two slots are a
+/// The INNER (nested) context. A plain validation context, no lifecycle,
+/// args, or advanced options; so it is embeddable. Its two slots are a
 /// signer authority and a mutable program-owned vault account.
 #[derive(hopper::Accounts)]
 pub struct VaultCheck<'info> {
@@ -164,7 +164,7 @@ fn valid_accounts() -> [AccountFixture; 4] {
 
 /// The published schema must describe every FLATTENED slot: leaves as
 /// literals, the composite spliced (verbatim) from the inner context's
-/// own descriptors — never one opaque row for N slots. The length is
+/// own descriptors, never one opaque row for N slots. The length is
 /// additionally const-asserted against `ACCOUNT_COUNT` inside the
 /// generated composed array, so a mismatch cannot even compile.
 #[test]
@@ -229,7 +229,7 @@ fn valid_set_binds_and_writes_land_in_the_correct_flattened_slots() {
         111,
         "the write through the inner bound context must persist to slot 2"
     );
-    // The trailing field (flattened slot 3) received the outer write — the
+    // The trailing field (flattened slot 3) received the outer write, the
     // field AFTER the composite resolved to the correct flattened slot.
     assert_eq!(
         vault_balance(&result.resulting_accounts[3]),

@@ -2,7 +2,8 @@
 //!
 //! Anchor-compatible surface for `#[constant]`. Decorates a `pub const`
 //! declaration to surface its `(name, type, value)` triple in the
-//! Anchor IDL emitter (see [`hopper_schema::AnchorIdlWithConstants`]).
+//! Anchor IDL emitter (see
+//! `hopper_schema::anchor_idl::AnchorIdlWithConstants`).
 //!
 //! The original constant is preserved verbatim so call sites continue
 //! to compile unchanged. Alongside it the macro emits a sibling
@@ -11,8 +12,8 @@
 //! collect those descriptors into a `&'static [ConstantDescriptor]`
 //! slice and hand it to the IDL emitter.
 //!
-//! No behavior, no runtime cost: the descriptor is a `&'static`
-//! string-tuple constant with the same evaluation profile as any
+//! The descriptor is a `&'static` string-tuple constant with the same
+//! evaluation profile as any
 //! other `pub const`.
 //!
 //! # Example

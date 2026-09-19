@@ -1,6 +1,7 @@
 //! Instruction introspection -- stack height and sibling instruction access.
 //!
-//! These syscalls are critical for security patterns that no framework wraps:
+//! These wrappers support security patterns based on transaction and call-stack
+//! introspection:
 //!
 //! - **CPI guard**: Detect if the current instruction is running inside a CPI
 //!   call (stack height > 1). Prevents unauthorized composition -- e.g., a
@@ -29,7 +30,7 @@ use crate::error::ProgramError;
 pub fn get_stack_height() -> u64 {
     #[cfg(target_os = "solana")]
     {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { crate::syscalls::sol_get_stack_height() }
     }
     #[cfg(not(target_os = "solana"))]
@@ -129,7 +130,7 @@ pub fn get_processed_instruction(index: u64) -> Option<ProcessedInstruction> {
         meta.data_len = data.len() as u64;
         meta.accounts_len = (accounts_buf.len() / 34) as u64;
 
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_get_processed_sibling_instruction(
                 index,
@@ -207,7 +208,7 @@ pub fn require_secp256k1_instruction(
 }
 
 /// Check that a previous sibling instruction was to the Secp256r1
-/// (P-256) precompile — the verification path for passkeys / WebAuthn.
+/// (P-256) precompile, the verification path for passkeys / WebAuthn.
 ///
 /// Returns the precompile instruction data, which the caller parses to
 /// bind the verified `(public_key, message, signature)` to the

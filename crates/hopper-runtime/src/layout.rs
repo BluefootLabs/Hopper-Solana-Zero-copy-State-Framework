@@ -13,14 +13,13 @@ use crate::field_map::{FieldInfo, FieldMap};
 use crate::ProgramResult;
 
 // ══════════════════════════════════════════════════════════════════════
-//  HopperHeader -- the 16-byte on-chain header present in every Hopper
-//  account.
+//  HopperHeader -- the 16-byte on-chain header used by headered Hopper
+//  accounts. Compact accounts use `[disc][body]` without this header.
 // ══════════════════════════════════════════════════════════════════════
 
-/// The canonical 16-byte header at the start of every Hopper account.
+/// The canonical 16-byte header at the start of a headered Hopper account.
 ///
-/// The Hopper Safety Audit's "header epoching" recommendation asked
-/// the reserved tail to carry a `schema_epoch: u32` so the runtime
+/// The reserved header tail carries a `schema_epoch: u32` so the runtime
 /// can distinguish schema-compatible minor versions from wire-
 /// incompatible revisions without bumping the single `version` byte.
 ///
@@ -35,9 +34,9 @@ use crate::ProgramResult;
 /// `schema_epoch` defaults to `1` at account initialisation via
 /// [`init_header`]. Programs that publish a migration bump this
 /// field to advertise the new shape while retaining the same
-/// `disc`/`version`; manifests and generated clients pin the
-/// `(disc, version, schema_epoch, layout_id)` tuple so readers can
-/// verify they are decoding the expected wire format.
+/// `disc`/`version`. Runtime header validation checks these values. Current
+/// generated headered clients compare the stored `layout_id` before decoding;
+/// compact clients use their separate size/discriminator path.
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HopperHeader {
@@ -70,7 +69,7 @@ impl HopperHeader {
         if data.len() < Self::SIZE {
             return None;
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Some(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 }
@@ -91,7 +90,7 @@ pub struct LayoutInfo {
     pub flags: u16,
     pub layout_id: [u8; 8],
     /// Schema-evolution epoch read from the header's bytes 12..16.
-    /// A value of `0` means "legacy" (pre-audit accounts) and is
+    /// A value of `0` means "legacy" (accounts created before epochs) and is
     /// treated as equivalent to `DEFAULT_SCHEMA_EPOCH` when comparing
     /// against `AccountLayout::SCHEMA_EPOCH`.
     pub schema_epoch: u32,
@@ -363,7 +362,7 @@ pub fn read_flags(data: &[u8]) -> Option<u16> {
 
 /// Default schema-evolution epoch written by `init_header`.
 ///
-/// Accounts initialised by pre-audit Hopper had the epoch region
+/// Accounts initialized before schema epochs had the epoch region
 /// zeroed, so `0` is treated as "legacy, equivalent to 1" by the
 /// runtime checks that compare against an `AccountLayout::SCHEMA_EPOCH`.
 /// Freshly-initialised accounts now carry `1` so migrations can bump
@@ -371,7 +370,7 @@ pub fn read_flags(data: &[u8]) -> Option<u16> {
 pub const DEFAULT_SCHEMA_EPOCH: u32 = 1;
 
 /// Convert a stored header epoch into the effective value used by
-/// runtime validation. Epoch 0 is legacy pre-audit Hopper data and is
+/// runtime validation. Epoch 0 is legacy pre-epoch Hopper data and is
 /// treated as epoch 1 only for default-epoch layouts.
 #[inline(always)]
 pub const fn effective_schema_epoch(stored: u32) -> u32 {

@@ -19,7 +19,7 @@ use syn::{
     Attribute, Expr, Fields, GenericParam, Ident, ItemStruct, Result, Token, Type, TypePath,
 };
 
-/// Parsed `#[account(...)]` attribute. the full Anchor-grade surface.
+/// Parsed `#[account(...)]` attributes supported by Hopper.
 ///
 /// The first three groups (`is_signer`, `is_mut`, `mut_segments`,
 /// `read_segments`) are the pre-Stage-2 Hopper baseline. The remainder
@@ -48,7 +48,7 @@ struct AccountAttr {
     /// adding an invocation-parametric narrowing rule.
     cell_groups: Vec<CellGroup>,
 
-    // ── Anchor-grade declarative constraints (audit ST2) ────────────
+    // Declarative account constraints.
     /// `init`. account must be created fresh this instruction.
     /// Requires `payer` and `space`; implies `mut`. PDA-init also
     /// requires `seeds` + `bump`.
@@ -128,11 +128,9 @@ struct AccountAttr {
     /// `Custom(0xC000 | idx)` error for that guard unchanged.
     constraint_errs: Vec<Option<Expr>>,
 
-    // ── Anchor SPL parity (audit ST2: "make Hopper the best of three") ──
+    // SPL Token account constraints.
     //
-    // These constraints bring Hopper's declarative account layer to
-    // strict parity with Anchor's `#[account(token::mint = X, ...)]`
-    // family. Each attribute is parsed in the nested-meta pass below
+    // Each attribute is parsed in the nested-meta pass below
     // and lowered into a call to the matching `require_*` helper in
     // `hopper_runtime::token`. Those helpers read exactly the bytes
     // that matter from an already-borrowed account buffer. no
@@ -274,7 +272,7 @@ struct AccountAttr {
     /// migration at bind: every instruction that touches this account
     /// becomes a migration crank. `(old_type, transform_path)`.
     ///
-    /// `bind()` first checks — on a scoped read borrow — whether the
+    /// `bind()` first checks, on a scoped read borrow, whether the
     /// slot still holds a **fully-valid** `OldLayout` header
     /// (`LayoutContract::validate_header`, the complete disc / version /
     /// layout_id / epoch identity, never a partial sniff). If it does,
@@ -286,16 +284,16 @@ struct AccountAttr {
     /// error, unchanged. `validate()` (the read-only standalone surface)
     /// accepts EITHER version without writing: the field's layout-header
     /// check becomes "valid New, or fully-valid Old that already fits
-    /// the New shape" — exactly the sets `bind()` accepts.
+    /// the New shape", exactly the sets `bind()` accepts.
     ///
     /// v1 restrictions (all compile errors): requires `mut` on the same
     /// field (a migration writes); not combinable with `init` /
     /// `init_if_needed` / `zero` / `close` / `realloc` / `sweep`, with
     /// `Option<..>` fields, or with `#[composite]` fields; `from` must
     /// name a different layout than the field's own. Because the
-    /// pre-step lives in this context's own `bind()` — an outer
+    /// pre-step lives in this context's own `bind()`, an outer
     /// `#[composite]` bind runs inner *validators*, never inner bind
-    /// pre-steps — a context carrying a migrate field is NOT embeddable:
+    /// pre-steps, a context carrying a migrate field is NOT embeddable:
     /// it advertises `__HOPPER_EMBEDDABLE = false`, and embedding it is
     /// refused at compile time rather than silently skipping the
     /// migration. Resizing is out of scope: the New shape must already
@@ -303,7 +301,7 @@ struct AccountAttr {
     migrate: Option<(Type, syn::Path)>,
     /// `migrate(..., resize = grow|fit, payer = <field>)`: the bind-time
     /// migration crank calls `migrate_layout_resizing` instead of the
-    /// in-place `migrate_layout` — growing the allocation to fit the New
+    /// in-place `migrate_layout`, growing the allocation to fit the New
     /// shape with a rent top-up debited from `payer`, and for `fit` also
     /// shrinking afterwards with the freed rent DELTA (never the surplus;
     /// deposits stay put) refunded to `payer`. `Some(false)` = grow,
@@ -343,7 +341,7 @@ struct AccountAttr {
     /// whose account slots flatten into this one in declaration order
     /// (Anchor's composite-accounts feature). The field is NOT a single
     /// account slot; it consumes `<Inner>::ACCOUNT_COUNT` slots. A
-    /// composite field carries no per-account constraints of its own — its
+    /// composite field carries no per-account constraints of its own, its
     /// validation is the inner context's, run at the flattened offset.
     ///
     /// Detection is an explicit marker (not Anchor's auto-detect-by-
@@ -388,8 +386,8 @@ enum BumpSpec {
     /// `bump = stored`. the golden path: read the bump byte from THIS
     /// account's own `#[bump]`-marked state field
     /// (`<T>::CANONICAL_BUMP_ABS_OFFSET`) and verify with one
-    /// `create_program_address` hash. Explicit twice over — the state
-    /// author marked the field, the context author asked for it — so
+    /// `create_program_address` hash. Explicit twice over, the state
+    /// author marked the field, the context author asked for it; so
     /// there is no name-based auto-detection anywhere.
     StoredField,
 }
@@ -398,9 +396,9 @@ enum BumpSpec {
 ///
 /// `#[hopper::context(event_cpi)]` appends the two Anchor-parity
 /// trailing accounts without the author declaring them. Synthetic
-/// fields are real account slots — they count toward `ACCOUNT_COUNT`,
+/// fields are real account slots; they count toward `ACCOUNT_COUNT`,
 /// get per-field validators, accessors, schema entries, and (for the
-/// authority) a `Bumps` slot — but they are NOT fields of the user's
+/// authority) a `Bumps` slot; but they are NOT fields of the user's
 /// struct, so the typed `accounts` facade must skip them.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SyntheticFieldRole {
@@ -479,47 +477,47 @@ struct ContextOptions {
     /// init/realloc/close helpers in field declaration order after built-in
     /// validation and before returning the bound context.
     auto_lifecycle: bool,
-    /// Innovation I12: compile the context's `mut` / `mut(seg, ...)` /
+    /// Write-policy generation: compile the context's `mut` / `mut(seg, ...)` /
     /// lifecycle declarations into a `static` [`WritePolicy`] installed on
     /// the raw context during `bind()`. Every Context-mediated write
     /// acquire outside the declared set then fails with
-    /// `Custom(0xD000 | account_index)` at acquisition time — Sealevel's
+    /// `Custom(0xD000 | account_index)` at acquisition time, Sealevel's
     /// account-level `writable` flag, enforced at byte-range granularity.
     strict_writes: bool,
-    /// BLD-MUT: the declared **lamport dimension** of the write set.
+    /// The declared lamport dimension of the write set.
     ///
     /// `Some(fields)` when the context carries `lamports(field, ...)`
-    /// (requires `strict_writes`): the named fields — plus the implied
+    /// (requires `strict_writes`): the named fields, plus the implied
     /// lifecycle set (whole-`mut` accounts, init account + payer, close
     /// account + destination, realloc account + payer, sweep account +
-    /// target) — are the ONLY accounts whose lamports the instruction
+    /// target), are the ONLY accounts whose lamports the instruction
     /// may mutate; the runtime refuses everything else at the lamport
     /// choke points, making the write set mutation-complete.
     /// `lamports()` (empty list) is valid: only the implied lifecycle
     /// set may move lamports.
     ///
     /// `None` (the default) leaves the dimension undeclared: lamport
-    /// mutation stays ungoverned exactly as before BLD-MUT, and the
+    /// mutation stays ungoverned as it does without a declared lamport dimension, and the
     /// context is NOT mutation-complete. The dimension is opt-in
     /// because retroactively refusing lamport writes on existing
     /// `strict_writes` programs would silently change deployed
     /// behavior on upgrade.
     lamports: Option<Vec<Ident>>,
-    /// Innovation I7: opt-in self-describing transactions. When `true`
+    /// Touch-map support: opt-in self-describing transactions. When `true`
     /// (the context carries `emit_touch_map`) the context advertises
     /// `EMIT_TOUCH_MAP = true` as a public associated const. The
     /// generated dispatcher reads that const on the handler's **Ok** path
     /// and, only then, calls `Context::finish_with_touch_map()`, which
     /// emits the instruction's cumulative touch map as a single
-    /// `sol_log_data` record — **only** when the downstream build also
+    /// `sol_log_data` record, **only** when the downstream build also
     /// enables hopper-runtime's `touch-map` feature; with the feature off
     /// the helper is a no-op, so the generated call emits nothing.
     ///
     /// The emit is routed through the dispatcher (not a `Drop`) precisely
     /// because only the dispatcher can see the handler's `Result`: a
-    /// `Drop` would run on every scope exit — including `?`/`Err` returns —
+    /// `Drop` would run on every scope exit, including `?`/`Err` returns,
     /// and would emit a misleading record advertising Write ranges for a
-    /// failed, rolled-back instruction (CONFIRMED P2). Routing on the Ok
+    /// failed, rolled-back instruction (failed-instruction emission regression). Routing on the Ok
     /// path makes the record fire exclusively on success.
     ///
     /// `false` (the default) sets `EMIT_TOUCH_MAP = false`, so the
@@ -529,11 +527,11 @@ struct ContextOptions {
     /// tax handlers that did not ask for it.
     emit_touch_map: bool,
     /// Self-CPI events with Anchor's `#[event_cpi]` ergonomics. When
-    /// `true` the macro auto-appends two trailing account slots — the
+    /// `true` the macro auto-appends two trailing account slots, the
     /// event-authority PDA (seeds `[b"__hopper_event_authority"]`,
     /// verified at bind via the runtime sha256 verify loop, bump
     /// captured on the `Bumps` struct) and the program's own account
-    /// (`address == ctx.program_id()`) — WITHOUT the author declaring
+    /// (`address == ctx.program_id()`), WITHOUT the author declaring
     /// them: `ACCOUNT_COUNT` grows by 2, both slots get validators,
     /// accessors, and schema entries, and the bound context gains
     /// `emit_event_cpi(&event)`, which encodes
@@ -789,7 +787,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let mut input: ItemStruct = parse2(item)?;
     let context_options = parse_context_options(attr, &mut input.attrs)?;
 
-    // ── Instruction-arg typing (audit Stage 2.6) ──────────────────────
+    // Instruction-argument typing.
     //
     // Parse the struct-level `#[instruction(name: Type, ...)]` attribute
     // before anything else touches `input.attrs`. we strip it in place
@@ -907,7 +905,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             if attr.epoch_migrate && attr.migrate.is_some() {
                 return Err(syn::Error::new_spanned(
                     &field.ty,
-                    "`epoch_migrate` cannot combine with `migrate(...)` on one field: the                      cross-version migration stamps the NEW layout's schema epoch directly,                      leaving no pending epoch edges to heal — pick one",
+                    "`epoch_migrate` cannot combine with `migrate(...)` on one field: the                      cross-version migration stamps the NEW layout's schema epoch directly,                      leaving no pending epoch edges to heal, pick one",
                 ));
             }
         }
@@ -953,19 +951,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // context's slots in place. Since composite v2 the CONTAINER's
     // options compose across the nesting boundary instead of being
     // rejected (the v1 gate): `strict_writes` / `lamports(...)` compose
-    // the authority write-set at const time — outer leaves at their
+    // the authority write-set at const time, outer leaves at their
     // flattened const-expr offsets, each inner context's declared ranges
     // spliced with rebased indices (see the write-ranges emission below);
     // `event_cpi`'s two synthetic slots trail the flattened total at
     // const-expr indices; `emit_touch_map` needs no rebasing at all (the
     // emission is dispatcher-side and the touch log already records
     // flattened instruction slots by construction); and `auto_lifecycle`
-    // drives the outer's own leaf helpers, whose slots — including every
+    // drives the outer's own leaf helpers, whose slots, including every
     // sibling-role lookup (payer, system_program, close/sweep targets,
-    // Metaplex roles) — are `__HOPPER_BASE + flattened-offset`
+    // Metaplex roles), are `__HOPPER_BASE + flattened-offset`
     // expressions. What stays restricted is the INNER side: an embedded
     // context must still be a plain validation context (no options, no
-    // args, no lifecycle — see `__HOPPER_EMBEDDABLE` below).
+    // args, no lifecycle; see `__HOPPER_EMBEDDABLE` below).
     let has_composite = ctx_fields.iter().any(|cf| cf.attr.composite);
 
     // ── event_cpi: auto-append the two Anchor-parity trailing slots ──
@@ -976,7 +974,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // `ACCOUNT_COUNT`, are validated at bind (authority: PDA verify via
     // the runtime sha256 loop + bump capture; program: address pin to
     // `ctx.program_id()`), gain `_account()` accessors and schema
-    // entries — but they are NOT struct fields, so the typed `accounts`
+    // entries; but they are NOT struct fields, so the typed `accounts`
     // facade skips them (see `accounts_binding_fragments`). Appended
     // last so every user-declared field keeps its index.
     if context_options.event_cpi {
@@ -1095,8 +1093,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // for every sibling account they reference by name, so those
     // expressions resolve against a borrowed `&AccountView` (supporting
     // `.address()`, `.load::<T>()`, `.is_signer()`, …). Bindings are shared
-    // `ctx.account(...)` borrows, so several referenced fields — or a field
-    // referencing itself in its own stored-bump expression — never
+    // `ctx.account(...)` borrows, so several referenced fields, or a field
+    // referencing itself in its own stored-bump expression, never
     // conflict. `ctx_access` is the base path (`ctx` inside a validator,
     // `self.ctx` inside a bind-time lifecycle block).
     let sibling_binds = |exprs: &[TokenStream], ctx_access: &TokenStream| -> TokenStream {
@@ -1114,12 +1112,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // Generate per-field validation functions and collect check descriptions.
     let mut validation_stmts = Vec::new();
     // `bind()`'s copy of the validation sequence. Identical per-field
-    // validator CALLS (no code duplication — the same fns `validate()`
+    // validator CALLS (no code duplication, the same fns `validate()`
     // composes), except the synthetic event-authority slot, whose call
     // is swapped for a direct `verify_event_authority` that BINDS the
     // bump into a local. `validate()` and `bind()` would otherwise each
-    // run the sha256 verify loop — ~200+ CU per attempt on-chain, paid
-    // twice per event-emitting instruction — and unlike user PDA fields
+    // run the sha256 verify loop, ~200+ CU per attempt on-chain, paid
+    // twice per event-emitting instruction, and unlike user PDA fields
     // there is no `bump = expr` spelling to store it, so the fuse is the
     // only way an `event_cpi` bind pays for exactly one derivation.
     // Only consulted when an event authority exists; every other
@@ -1129,7 +1127,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let mut check_descriptions: Vec<String> = Vec::new();
     // Lazy-migration pre-steps (`migrate(from = Old, with = path)`), one
     // per migrate field in declaration order. Spliced into `bind()` BEFORE
-    // its validation fragment — never into `validate()` (read-only) —
+    // its validation fragment, never into `validate()` (read-only),
     // so the account is upgraded in place before any validator sees it.
     let mut migration_stmts: Vec<TokenStream> = Vec::new();
 
@@ -1159,7 +1157,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // delegate to the inner context's own validators at the flattened
         // offset. `<Inner>::validate_at::<{offset}>(ctx)` runs the inner's
         // full validation with every slot rebased. A composite-container is
-        // always top-level (base 0 — nesting a container inside another is
+        // always top-level (base 0, nesting a container inside another is
         // rejected via `__HOPPER_EMBEDDABLE`), so the offset is a concrete
         // const expression and the turbofish needs no `generic_const_exprs`.
         if cf.attr.composite {
@@ -1198,7 +1196,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // yields its bump. Verification runs through the dedicated
         // runtime helper rather than the generic `seeds`+`bump` lowering
         // because (a) on-chain the helper uses the sha256-only verify
-        // loop (`find_and_verify_pda`, ~200 CU at bump 255 — the
+        // loop (`find_and_verify_pda`, ~200 CU at bump 255, the
         // cheapest verify path in the repo, no `create_program_address`
         // syscalls) and (b) the generic lowering's
         // `::hopper::pda::find_program_address` does not exist on host
@@ -1226,7 +1224,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             bump_entries.push((field_name.clone(), quote! { __hopper_event_authority_bump }));
         }
 
-        // ── Audit page 12: deterministic validation ordering ──────────
+        // Deterministic validation ordering.
         //
         // 1. presence (handled by `require_accounts` at top of validate())
         // 2. signer / mut / owner / executable / address
@@ -1238,7 +1236,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // We accumulate checks into `field_checks` in that order so the
         // emitted error always points at the most specific reason first.
 
-        // ── Audit Stage 2.3: wrapper-type auto-promotion ───────────────
+        // Wrapper-type auto-promotion.
         //
         // If the field type is a Hopper-owned wrapper
         // (`Signer<'info>`, `Account<'info, T>`,
@@ -1364,7 +1362,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // reads the four header flag bytes as a single u32, and with the
         // two literals below the whole check folds to `flags & MASK ==
         // MASK`. Precise errors are preserved by the helper's
-        // failure-path fallback. (Innovation I10 — the fused-validation
+        // failure-path fallback. (Fused validation, the fused-validation
         // shape competitor derives use, plus exact error codes.)
 
         let needs_signer = cf.attr.is_signer || wrapper_is_signer;
@@ -1560,7 +1558,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // emitted with the lifecycle preconditions below.
             //
             // `migrate(from = Old, ...)` fields widen the header check to
-            // EITHER version — "would bind accept this set?" semantics for
+            // EITHER version, "would bind accept this set?" semantics for
             // the read-only `validate()` surface. Each arm is the FULL
             // `validate_header` identity (disc / version / layout_id /
             // epoch), never a partial sniff, and the Old arm additionally
@@ -1607,7 +1605,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else if cf.attr.epoch_migrate {
                 // Widened header check, "would bind accept this set?"
                 // semantics: a stale-but-healable epoch (exact identity,
-                // lagging epoch — the SAME shared predicate bind's crank
+                // lagging epoch, the SAME shared predicate bind's crank
                 // uses) is accepted read-only; everything else surfaces
                 // the layout's own validation error, unchanged.
                 quote! {
@@ -1642,7 +1640,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 )
             } else if let Some((from_ty, _)) = &cf.attr.migrate {
                 format!(
-                    "accounts[{}] ({}) owner matches; header is a valid {} — or a fully-valid {} \
+                    "accounts[{}] ({}) owner matches; header is a valid {}, or a fully-valid {} \
                      lazy-migration source whose allocation already fits {} (bind migrates it in \
                      place before validation)",
                     idx,
@@ -1659,7 +1657,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 )
             } else if cf.attr.epoch_migrate {
                 format!(
-                    "accounts[{}] ({}) owner matches; header is a valid {} — or the same                      identity at a LAGGING schema epoch (bind heals it through the declared                      LayoutMigration chain before validation; leading epochs are refused)",
+                    "accounts[{}] ({}) owner matches; header is a valid {}, or the same                      identity at a LAGGING schema epoch (bind heals it through the declared                      LayoutMigration chain before validation; leading epochs are refused)",
                     idx,
                     field_name,
                     type_ident(field_ty)
@@ -1711,8 +1709,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // Emitted into `bind()`'s pre-validation prologue (see
         // `migration_stmts`), NOT into this field's validator: `validate()`
         // is the read-only surface and must never write. The pre-step
-        // checks — on a scoped read borrow, released before the migrate
-        // call takes its own exclusive borrow — whether the slot still
+        // checks, on a scoped read borrow, released before the migrate
+        // call takes its own exclusive borrow, whether the slot still
         // holds a fully-valid OLD-layout header, and only then runs the
         // typed in-place `migrate_layout` (which re-verifies the Old
         // identity under its own borrow, checks the New shape fits, and
@@ -1731,7 +1729,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // The migrate call is owner+writable-gated INSIDE the runtime
             // (`check_migratable`): the crank runs before the per-field
             // validators, so the runtime entry point is the first
-            // authority to look at the account — a foreign-owned or
+            // authority to look at the account, a foreign-owned or
             // read-only account is refused before the user transform
             // reads a byte.
             let migrate_call = if let Some(shrink) = cf.attr.migrate_resize_fit {
@@ -1792,7 +1790,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         //
         // Same crank slot and same security posture as Stage 3.5: the
         // probe uses the SHARED acceptance predicate
-        // (`validate_header_for_epoch_migration` — exact identity,
+        // (`validate_header_for_epoch_migration`, exact identity,
         // lagging epoch only), and `apply_pending_migrations` carries
         // the runtime owner+writable gate plus a no-op fast path when
         // the epoch is already current, so binding a healthy account
@@ -1923,7 +1921,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         let bump: u8 = #bump_expr;
                         // The seed slice is built INLINE as the argument (not
                         // a separate `let`), so the `&(expr)` temporaries live
-                        // until the end of this call — a separate binding would
+                        // until the end of this call, a separate binding would
                         // drop them first (E0716) whenever a seed evaluates to
                         // an owned value or a borrow like `&[u8; 32]`.
                         let expected = ::hopper::pda::create_program_address(
@@ -2090,10 +2088,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         }
         if cf.attr.zero {
-            // `zero` — the account must be allocated but not yet
+            // `zero`, the account must be allocated but not yet
             // initialized as any Hopper layout. Every `#[hopper::state]`
             // layout compile-asserts `DISC != 0`, so a zero first byte
-            // proves "no layout has been stamped here" — the same
+            // proves "no layout has been stamped here", the same
             // re-initialization-attack guard as Anchor's `zero`
             // (discriminator-is-zero) constraint. An empty account (no
             // data) is rejected too: `zero` means *pre-allocated* and
@@ -2122,7 +2120,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 idx, field_name
             ));
             // The close target receives the drained lamports, and the SVM
-            // rejects lamport changes on non-writable accounts — catch a
+            // rejects lamport changes on non-writable accounts, catch a
             // read-only destination at validate time instead of failing
             // the whole transaction at commit. The sibling resolves at
             // its flattened, base-parametric slot (composite-aware).
@@ -2139,7 +2137,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 }
             }
         }
-        // `sweep = target`: same lamport-flow reasoning as `close` — the
+        // `sweep = target`: same lamport-flow reasoning as `close`, the
         // target must be writable to receive the drained lamports. The
         // source's own writability is enforced through the `mut`
         // implication set at parse time. Flattened, base-parametric slot
@@ -2713,10 +2711,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         // ── Optional gate: absent ⇒ zero checks ────────────────────────
         //
-        // Wrap EVERY check accumulated for an `Option<W>` field —
+        // Wrap EVERY check accumulated for an `Option<W>` field,
         // wrapper-derived role checks, signer/mut flags, owner + layout
         // load, PDA derivation, has_one, token::*/mint::* shapes,
-        // custom constraints — in one presence test. Absence (slot
+        // custom constraints, in one presence test. Absence (slot
         // address == executing program id, Anchor's optional-account
         // convention) short-circuits before any of them runs; presence
         // runs the exact token-for-token checks the required form
@@ -2807,7 +2805,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             validation_stmts.push(quote! {
                 Self::#validate_fn::<#hopper_base>(ctx #arg_name_fragment)?;
             });
-            // `bind()`'s sequence: same call — EXCEPT the synthetic
+            // `bind()`'s sequence: same call, EXCEPT the synthetic
             // event authority, where the single fused verify replaces
             // the validator call and captures the bump for the `Bumps`
             // gather (same check, same helper, same error, same slot in
@@ -2902,7 +2900,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     // Distinct field indices can still alias one
                     // account at runtime (duplicate metas). Crediting
                     // an alias with its own pre-drain balance would
-                    // mint lamports, so refuse aliases outright — the
+                    // mint lamports, so refuse aliases outright, the
                     // same contract as `safe_close_unchecked`.
                     if src.address() == dst.address() {
                         return ::core::result::Result::Err(
@@ -2918,7 +2916,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         .checked_add(amount)
                         .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
                     // Both writes flow through the runtime lamport
-                    // funnel (`try_set_lamports`), so a BLD-MUT gate
+                    // funnel (`try_set_lamports`), so the mutation-completeness gate
                     // observes the sweep: source and target are both in
                     // the macro's implied lamport permission set.
                     dst.try_set_lamports(new_dst)?;
@@ -2998,6 +2996,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ::hopper::__runtime::Ref<'_, #field_ty>,
                     ::hopper::__runtime::ProgramError,
                 > {
+                    // SAFETY: `#field_ty: Pod` guarantees an alignment-one,
+                    // all-bit-pattern-valid overlay. `raw_ref` checks the
+                    // account length and holds its shared borrow for the
+                    // returned guard. This explicitly named accessor is the
+                    // caller's opt-in to bypass Hopper layout validation.
                     unsafe { self.ctx.account(#slot)?.raw_ref::<#field_ty>() }
                 }
             });
@@ -3026,12 +3029,17 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     #[inline(always)]
                     #vis fn #raw_mut_fn(
                         &self,
-                    ) -> ::core::result::Result<
-                        ::hopper::__runtime::RefMut<'_, #field_ty>,
-                        ::hopper::__runtime::ProgramError,
-                    > {
-                        unsafe { self.ctx.account(#slot)?.raw_mut::<#field_ty>() }
-                    }
+                ) -> ::core::result::Result<
+                    ::hopper::__runtime::RefMut<'_, #field_ty>,
+                    ::hopper::__runtime::ProgramError,
+                > {
+                    // SAFETY: `#field_ty: Pod` guarantees an alignment-one,
+                    // all-bit-pattern-valid overlay. `raw_mut` checks
+                    // writability and length and holds the exclusive account
+                    // borrow for the returned guard. This explicitly named
+                    // accessor is the caller's opt-in to bypass layout checks.
+                    unsafe { self.ctx.account(#slot)?.raw_mut::<#field_ty>() }
+                }
                 });
 
                 // General-purpose typed segment escape for full-mut fields.
@@ -3223,7 +3231,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             let payer_slot = slot_abs(payer_idx);
             let system_program_slot = slot_abs(system_program_idx);
 
-            // ── PDA-aware creation (Batch 4 audit fix) ────────────────
+            // PDA-aware account creation.
             //
             // The System Program requires the created (or allocated +
             // assigned) account to SIGN. A fresh keypair signs the
@@ -3252,7 +3260,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 // the `Seed` array. `let s = &(expr);` extends an owned seed's
                 // temporary to the block scope (a `&(expr)` buried in the
                 // `Seed::from(..)` call arg would not extend, so the array
-                // would dangle across the `hopper_init!` CPI — E0716).
+                // would dangle across the `hopper_init!` CPI, E0716).
                 let seed_locals: Vec<Ident> = (0..seed_exprs.len())
                     .map(|i| format_ident!("__hopper_seed_{}", i))
                     .collect();
@@ -3633,8 +3641,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         // (see the DeclaredRange classification note): the
                         // appended bytes did not exist when the policy was
                         // declared, so demanding a declared range over them
-                        // would refuse every narrow grant — `mut(seg)` +
-                        // `realloc`, or a `tail(seq)` growing its own tail —
+                        // would refuse every narrow grant, `mut(seg)` +
+                        // `realloc`, or a `tail(seq)` growing its own tail,
                         // while protecting nothing.
                         account.zero_appended(old_len)?;
                     }
@@ -3730,11 +3738,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let receipt_expected = !receipt_scope_fields.is_empty();
     let mutable_account_count = receipt_scope_fields.len();
 
-    // ── Stage 2.5 schema-metadata emission (audit ST2/D4 closure) ──
+    // Schema-metadata emission.
     //
     // For every `#[hopper::context]` struct, emit a `const
-    // SCHEMA_METADATA: ContextDescriptor` that captures every audit-
-    // grade constraint field so downstream tooling (IDL generators,
+    // SCHEMA_METADATA: ContextDescriptor` that captures each declared
+    // constraint field so downstream tooling (IDL generators,
     // Codama, client builders, `hopper compile --emit schema`) can
     // consume the full picture without re-parsing the source. The
     // same data is available at runtime via
@@ -3745,7 +3753,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // therefore not a literal descriptor but a SPLICE of the inner
     // context's own `SCHEMA_METADATA.accounts` (evaluated at compile
     // time below), so the published descriptor list stays exactly one
-    // entry per flattened slot — audit-grade coverage never drops to a
+    // entry per flattened slot; coverage never drops to a
     // single opaque row. Inner descriptors are spliced VERBATIM: their
     // `name`s are the inner context's field names (slot order, not
     // name, is the descriptor key; tooling that wants the grouping
@@ -3796,20 +3804,29 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // type-level `Signer<'info>` wrapper (the fused
             // `expect_signer_writable` check treats both identically).
             // Publishing only the attribute form under-reported every
-            // wrapper-declared signer in SCHEMA_METADATA — and through
+            // wrapper-declared signer in SCHEMA_METADATA, and through
             // it in every generated manifest row.
             let effective_ty: &Type = option_inner_type(&cf.ty).unwrap_or(&cf.ty);
             let signer = cf.attr.is_signer
                 || matches!(classify_wrapper(effective_ty), Some(WrapperKind::Signer));
             let optional = option_inner_type(&cf.ty).is_some();
-            let seeds_lits: Vec<String> = cf
-                .attr
-                .seeds
-                .as_deref()
-                .unwrap_or(&[])
-                .iter()
-                .map(|e| quote!(#e).to_string())
-                .collect();
+            // A `seeds::program = X` PDA is derived under a foreign program.
+            // The descriptor has no slot for that program, and generated
+            // clients and the Solana IDL projection derive every published
+            // seed list under the program being described. Publishing these
+            // seeds would make them derive the wrong address, so the account
+            // stays caller-provided. The on-chain check is unaffected.
+            let seeds_lits: Vec<String> = if cf.attr.seeds_program.is_some() {
+                Vec::new()
+            } else {
+                cf.attr
+                    .seeds
+                    .as_deref()
+                    .unwrap_or(&[])
+                    .iter()
+                    .map(|e| quote!(#e).to_string())
+                    .collect()
+            };
             let has_one_lits: Vec<String> = cf.attr.has_one.iter().map(|i| i.to_string()).collect();
             let lifecycle_path = if cf.attr.init {
                 quote! { ::hopper::hopper_schema::accounts::AccountLifecycle::Init }
@@ -3867,7 +3884,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
     }
 
-    // Composite-free contexts publish the inline literal slice —
+    // Composite-free contexts publish the inline literal slice,
     // byte-identical to the pre-composite emission. A context with a
     // composite field publishes a compile-time-COMPOSED array instead:
     // one descriptor per flattened slot, leaves as literals, each
@@ -3931,7 +3948,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             .collect();
         let module_item = quote! {
             /// Number of flattened account slots described by the
-            /// context's `SCHEMA_METADATA` — leaves count one,
+            /// context's `SCHEMA_METADATA`, leaves count one,
             /// `#[composite]` fields count the inner context's full
             /// descriptor set.
             #[doc(hidden)]
@@ -4012,8 +4029,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // that loop inside `validate()` AND again in the bump gather would
     // charge every event-emitting instruction twice (~200+ CU per
     // attempt on-chain). So an event-authority context's `bind()` runs
-    // the SAME per-field validators in the SAME order — no duplicated
-    // check bodies, no reordered error precedence — with the authority's
+    // the SAME per-field validators in the SAME order, no duplicated
+    // check bodies, no reordered error precedence, with the authority's
     // call swapped for one fused verify that binds the bump to a local
     // the gather then reads. `validate()` itself is untouched, so
     // standalone validate-only callers still get every check.
@@ -4103,7 +4120,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         bumps_registry_entries.push(quote! { #s });
     }
 
-    // ── Innovation I12: strict_writes → static WritePolicy ────────────
+    // Generate a static WritePolicy from strict_writes declarations.
     //
     // The context's own declarations already carve the write surface:
     // `mut` grants the whole account, `mut(seg, ...)` grants exact field
@@ -4115,12 +4132,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // generated segment accessors use, so a declared accessor can never
     // be refused by the policy compiled from its own declaration.
     //
-    // BLD-I24: the range set is emitted ONCE, as a module-level const,
+    // Emit the range set once as a module-level constant.
     // and every consumer reads that const: the runtime `WritePolicy`
     // installed by `bind()`, the `WRITE_RANGES` associated const, and
     // `SCHEMA_METADATA.write_ranges`. Routing all three through one
     // const makes the published (manifest/IDL) write-set byte-identical
-    // to the enforced one by construction — they cannot drift. The
+    // to the enforced one by construction; they cannot drift. The
     // const lives at module scope (not inside `bind()`, not on the
     // impl) so the function-local `static WritePolicy` can reference it
     // even when the context struct carries generic lifetimes.
@@ -4133,10 +4150,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let write_ranges_const_ident = format_ident!("__HOPPER_{}_WRITE_RANGES", name);
     let parametric_write_ranges_const_ident =
         format_ident!("__HOPPER_{}_PARAMETRIC_WRITE_RANGES", name);
-    // BLD-MUT: whether the context declared the lamport dimension.
+    // Track whether the context declared the lamport dimension.
     // `mutation_complete` is claimed ONLY for `strict_writes` +
-    // `lamports(...)` — a bare `strict_writes` context leaves lamports
-    // ungoverned (the pre-BLD-MUT passthrough) and stays incomplete, so
+    // `lamports(...)`, a bare `strict_writes` context leaves lamports
+    // ungoverned under the legacy passthrough and stays incomplete, so
     // adopting the framework can never retroactively refuse lamport
     // writes an already-deployed program performs.
     let lamports_declared = context_options.lamports.is_some();
@@ -4148,18 +4165,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // classified ONCE into position-keyed entries, then rendered into
     // whichever token shape each consumer needs:
     //
-    //   1. the hidden `__HOPPER_DECLARED_WRITE_RANGES` associated const —
+    //   1. the hidden `__HOPPER_DECLARED_WRITE_RANGES` associated const,
     //      emitted on every composite-FREE context regardless of
     //      `strict_writes`, because an embedding OUTER's `strict_writes`
     //      must be able to splice the inner's declared structure at const
     //      time even though an embeddable inner can never enable
     //      `strict_writes` itself (the const carries NO authority; only
     //      the outer's opt-in confers it);
-    //   2. the composite-free `strict_writes` authority const — the
+    //   2. the composite-free `strict_writes` authority const, the
     //      legacy `#idx_u8`-literal lowering, byte-identical to the
     //      pre-composite emission;
     //   3. the composite container's compile-time-COMPOSED authority
-    //      array — outer leaves at const-expr flattened offsets, each
+    //      array, outer leaves at const-expr flattened offsets, each
     //      inner context's declared const spliced with rebased indices.
     enum DeclaredRange {
         /// Whole-account grant (plain `mut` or an init / init_if_needed /
@@ -4230,15 +4247,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // `epoch_migrate` belongs here for the same reason the other
         // lifecycles do: bind's Stage-3.6 crank calls
         // `apply_pending_migrations`, which REWRITES the account body. The
-        // attribute already implies writability everywhere else — it is in
+        // attribute already implies writability everywhere else; it is in
         // the runtime `expect_signer_writable` check and in the published
-        // `writable` flag — so omitting it from the declared range left the
+        // `writable` flag; so omitting it from the declared range left the
         // write set claiming an account is never written while bind writes
         // it. That inconsistency is not cosmetic: `effective_writable`
         // demotes an account with no declared range under a
         // mutation-complete set, so generated clients sent an
         // `epoch_migrate` account read-only and every such instruction
-        // failed its own writability check. Data dimension only — the
+        // failed its own writability check. Data dimension only, the
         // epoch crank heals in place and moves no lamports.
         let whole_account = !realloc_scoped_by_segments
             && (cf.attr.is_mut
@@ -4476,7 +4493,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
     // Consumer 1: the always-on hidden declared-range const. Assoc-const
     // spellings only (`<Ty>::SEG_OFFSET` / `<Ty>::SEG_SIZE`) so the const
-    // resolves wherever the field type resolves — unlike the legacy
+    // resolves wherever the field type resolves, unlike the legacy
     // alias-typed spelling above, it must not impose a name-in-scope
     // requirement on contexts that never asked for `strict_writes`.
     // Values are identical (`{SEG}_SIZE` is `size_of` of the same field
@@ -4485,7 +4502,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let declared_write_ranges_item: TokenStream = if has_composite {
         // A composite CONTAINER cannot itself be embedded (nesting is
         // single-level, refused via `__HOPPER_EMBEDDABLE`), so nothing
-        // ever splices its declared set — skip the const instead of
+        // ever splices its declared set, skip the const instead of
         // emitting a second composed array nobody can reference.
         TokenStream::new()
     } else {
@@ -4535,7 +4552,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             });
         }
         quote! {
-            /// Raw declared write-range structure of this context — the
+            /// Raw declared write-range structure of this context, the
             /// ranges its `mut` / `mut(seg, ...)` / lifecycle
             /// declarations describe, at LOCAL (base-0) account indices,
             /// emitted regardless of `strict_writes` and carrying **no
@@ -4552,7 +4569,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
     };
 
-    // ── BLD-MUT: lamport permission set ────────────────────────────────
+    // Generate the lamport permission set.
     //
     // Explicit `lamports(field, ...)` names PLUS the implied lifecycle
     // set. The implication mirrors what the generated lifecycle helpers
@@ -4572,22 +4589,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     //   - Metaplex helper roles (`metadata::*` / `master_edition::*`):
     //     the generated `create_<field>()` methods CPI into Metaplex
     //     with **writable** metas on the created metadata/edition PDA
-    //     (this field), the payer, and — master edition only — the
+    //     (this field), the payer, and, master edition only, the
     //     mint. The payer is debited and the created PDA credited by
     //     the inner System CPI, so all of them move lamports.
     //
     // Additionally, every account the macro's own helpers hand
     // **writable** to a CPI callee (the `init` payer to the System
     // Program; the Metaplex roles above) is unbounded delegation of
-    // both dimensions — so each also receives a whole-account data
+    // both dimensions; so each also receives a whole-account data
     // range (published in WRITE_RANGES; the delegation is real, the
     // set states it; `check_lamport_delegation` demands both). These
     // extra ranges are emitted only under `lamports(...)`, keeping
-    // bare `strict_writes` output byte-identical to pre-BLD-MUT.
+    // bare `strict_writes` output byte-identical to the legacy contract.
     let lamport_accounts_const_ident = format_ident!("__HOPPER_{}_LAMPORT_ACCOUNTS", name);
     // Both sets are collected as FIELD POSITIONS (not `u8` indices) so
     // one scan serves both renderings: `u8` literals composite-free
-    // (byte-identical to the pre-composite lowering — positions ARE the
+    // (byte-identical to the pre-composite lowering, positions ARE the
     // indices there), const-expr flattened offsets in a container.
     let mut lamport_positions: Vec<usize> = Vec::new();
     // Writable-CPI-meta delegation extras (init payer, Metaplex roles):
@@ -4611,7 +4628,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                              dimension grants only the outer context's own account fields. An \
                              account inside an embedded context cannot be granted lamport \
                              permission from the outer (an embeddable inner carries no \
-                             lifecycle or `lamports(...)` of its own) — flatten the inner \
+                             lifecycle or `lamports(...)` of its own), flatten the inner \
                              context into this one if one of its accounts must move lamports."
                         ),
                     ));
@@ -4647,14 +4664,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 );
             }
             // Generated Metaplex CPI helpers: `create_<field>()` hands
-            // writable metas to Metaplex — CreateMetadataAccountV3
+            // writable metas to Metaplex, CreateMetadataAccountV3
             // marks the metadata PDA (this field) and the payer
             // writable; CreateMasterEditionV3 marks the edition PDA
             // (this field), the mint, and the payer writable (see the
             // account tables in `hopper-metaplex::instructions`).
             // Every writable meta is a both-dimension delegation, so
             // each of these accounts gets lamports + a whole-account
-            // range — otherwise the gate refuses the helper's own CPI
+            // range; otherwise the gate refuses the helper's own CPI
             // at runtime and the published helper is unusable.
             if metadata_cpi_helper_declared(&cf.attr) {
                 let payer_ident = cf.attr.metadata_payer.as_ref().unwrap();
@@ -4716,7 +4733,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         .map(|&pos| {
             if has_composite {
                 // Flattened local offset, a const expression. The `as u8`
-                // is bounded by the composed array's `<= 256` assert —
+                // is bounded by the composed array's `<= 256` assert,
                 // `mutation_complete` implies `strict_writes`, so the
                 // composed array (and its eagerly-evaluated assert)
                 // always exists alongside this list.
@@ -4740,7 +4757,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         ];
     };
     // Consumer 3: the composite container's authority set under
-    // `strict_writes` is a compile-time-COMPOSED module-level array —
+    // `strict_writes` is a compile-time-COMPOSED module-level array,
     // the same const-eval copy-loop pattern as `__HOPPER_SCHEMA_ACCOUNTS`
     // (outer leaves in declaration order, each `#[composite]` field
     // spliced from the inner context's `__HOPPER_DECLARED_WRITE_RANGES`
@@ -4769,7 +4786,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             // Inner context spliced with every account
                             // index rebased by the composite's flattened
                             // base offset. The inner's offsets/sizes are
-                            // copied VERBATIM — an inner `mut(seg)` lease
+                            // copied VERBATIM, an inner `mut(seg)` lease
                             // is enforceable from the outer gate exactly
                             // as it would be standalone.
                             let __inner = #inner_spec::__HOPPER_DECLARED_WRITE_RANGES;
@@ -4855,7 +4872,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 }
             }
             // Writable-CPI delegation extras, appended after the declared
-            // set in grant order — same shape as the composite-free path.
+            // set in grant order, same shape as the composite-free path.
             for pos in &delegable_extra_positions {
                 let local = &local_offsets[*pos];
                 len_terms.push(quote! { 1usize });
@@ -4934,8 +4951,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // emitted at function-statement level (no wrapping block) so the
     // guard binding stays in scope for the bound-struct constructor.
     // Collected (not a lazy Map): the parametric argument values are
-    // interpolated more than once — into `set_parametric_write_policy`
-    // AND into the ambient gate install below — so the sequence must be
+    // interpolated more than once, into `set_parametric_write_policy`
+    // AND into the ambient gate install below; so the sequence must be
     // re-iterable.
     let parametric_arg_values: Vec<TokenStream> = parametric_selectors
         .iter()
@@ -4985,7 +5002,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // Bare `strict_writes` (no `lamports(...)`), parametric cells. A
         // data-only ambient gate is installed just like the
         // mutation-complete case, so the raw `AccountView` surfaces are
-        // governed too — the lamport dimension stays passthrough (the
+        // governed too, the lamport dimension stays passthrough (the
         // documented backward-compat carve-out; see `mutation_complete`).
         // The install is emitted at statement level (no wrapping block) so
         // the guard escapes into the bound-struct constructor. Args are
@@ -5048,9 +5065,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         write_policy_install_stmt
     };
     // Bound-struct plumbing for the ambient gate guard. Present whenever
-    // the install statement above created a guard — i.e. for ANY bound
+    // the install statement above created a guard; i.e. for ANY bound
     // strict context (bare `strict_writes` installs a data-only gate;
-    // `mutation_complete` a full data+lamport gate) — so the guard lives
+    // `mutation_complete` a full data+lamport gate); so the guard lives
     // exactly as long as the bound instruction scope. The guard type is
     // the same regardless of the declared dimensions.
     let installs_ambient_gate = strict_writes_enabled || mutation_complete;
@@ -5068,7 +5085,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     } else {
         TokenStream::new()
     };
-    // BLD-MUT steering: a mutation-complete context exposes the GATED
+    // A mutation-complete context exposes the gated
     // lamport transfer as a first-class bound-context method, so the
     // discoverable spelling under `lamports(...)` is the one whose
     // mutation the gate can see. No new codegen surface style: it is a
@@ -5081,11 +5098,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // lifecycle helpers already route through that same funnel:
     // `sweep_*` calls `try_set_lamports` directly, `close_*` goes via
     // `safe_close_with_sentinel` -> `move_all_lamports`, and
-    // `realloc_*` via `safe_realloc` — all `try_set_lamports` inside.
+    // `realloc_*` via `safe_realloc`, all `try_set_lamports` inside.
     let gated_transfer_method: TokenStream = if mutation_complete {
         quote! {
             /// Gate-checked lamport transfer between two accounts of
-            /// this instruction (BLD-MUT). Delegates to
+            /// this instruction. Delegates to
             /// `hopper_runtime::transfer_lamports`: both sides are
             /// checked against this context's declared lamport set
             /// **before** any balance changes (refusal is
@@ -5167,12 +5184,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         TokenStream::new()
     };
 
-    // ── Innovation I7: opt-in self-describing transactions ────────────
+    // Generate opt-in touch-map support for self-describing transactions.
     //
     // Under `emit_touch_map` this context advertises `EMIT_TOUCH_MAP =
     // true` as a public associated const (emitted below on the spec
-    // type). The DISPATCHER — which alone can see the handler's `Result`
-    // — reads that const on the Ok path and, only then, calls
+    // type). The DISPATCHER; which alone can see the handler's `Result`,
+    // reads that const on the Ok path and, only then, calls
     // `Context::finish_with_touch_map()` to emit the instruction's
     // cumulative touch map as one `sol_log_data` record. That is what
     // makes the emit fire ONLY on success: a handler that returns `Err`
@@ -5182,9 +5199,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // state it did not keep.
     //
     // A `Drop` would be wrong here: Rust runs drop glue on EVERY scope
-    // exit — the Ok return AND every early `?`/`Err` return — and a Drop
+    // exit, the Ok return AND every early `?`/`Err` return, and a Drop
     // hook cannot observe the handler's `Result`, so it could not be
-    // Ok-only (adversarial review, CONFIRMED P2).
+    // Ok-only (adversarial review, failed-instruction emission regression).
     //
     // The dispatcher spells the call as a `const`-guarded `if`, so for
     // every context whose `EMIT_TOUCH_MAP` is `false` (the default) the
@@ -5199,18 +5216,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     //
     // Under `event_cpi`, the bound context gains the fixed-name
     // `emit_event_cpi(&event)` delegation (the same conditional
-    // fixed-name pattern as the BLD-MUT `transfer_lamports` method):
+    // same fixed-name pattern as the gated `transfer_lamports` method):
     // encode `[0xE0, 0x1E, tag, payload]` via the runtime's zero-alloc
     // encoder, then self-invoke through the checked `invoke_signed`
     // tier with the event-authority signer seeds. The bump comes from
-    // `self.bumps.event_authority` — gathered once at bind by the same
-    // verify call that validated the PDA — so the emit itself derives
+    // `self.bumps.event_authority`, gathered once at bind by the same
+    // verify call that validated the PDA; so the emit itself derives
     // nothing.
     let emit_event_cpi_method: TokenStream = if context_options.event_cpi {
         // The synthetic fields are the two trailing slots. The authority
-        // resolves at its FLATTENED local offset — the plain field index
+        // resolves at its FLATTENED local offset, the plain field index
         // composite-free (byte-identical to the pre-composite lowering),
-        // a const-expr sum past a `#[composite]` field — so the emit
+        // a const-expr sum past a `#[composite]` field; so the emit
         // reads the correct trailing slot in both worlds.
         let authority_idx = &local_offsets[account_count - 2];
         quote! {
@@ -5218,7 +5235,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             /// indexers read it from the transaction's inner-instruction
             /// metadata (which RPC nodes do not truncate, unlike logs).
             ///
-            /// Wire format: `[0xE0, 0x1E, tag, payload]` — 3 bytes of
+            /// Wire format: `[0xE0, 0x1E, tag, payload]`, 3 bytes of
             /// instruction-data overhead per event vs Anchor
             /// `emit_cpi!`'s 16 (8-byte instruction tag + 8-byte event
             /// discriminator). The self-CPI is signed by this context's
@@ -5265,15 +5282,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // `#[instruction(...)]` args (they can't be threaded through the
     // outer's bind), no `strict_writes` / `lamports(...)` /
     // `emit_touch_map` / `event_cpi` (an outer composite bind runs the
-    // inner's validators only — it would never install the inner's
+    // inner's validators only; it would never install the inner's
     // policy/gate, run its fused authority verify, or reach its
     // dispatcher consts, so an inner opt-in would be silently inert;
-    // note the OUTER may declare all of these since composite v2 — they
+    // note the OUTER may declare all of these since composite v2; they
     // compose across the boundary), no lifecycle / lazy-migration /
     // Metaplex-CPI helpers (bind-time writes and CPI surfaces live in
     // the inner's own `bind()`, which an outer composite bind never
     // invokes, so embedding one would silently stop e.g. the migrate
-    // crank), and — because nesting is single-level — no `#[composite]`
+    // crank), and, because nesting is single-level, no `#[composite]`
     // field of its own. Others assert this const before embedding, so a
     // non-embeddable inner is a clean compile error.
     let has_lifecycle = ctx_fields.iter().any(|cf| {
@@ -5298,7 +5315,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
     // Inner-access methods on the bound context: one per `#[composite]`
     // field, returning the inner context's bound view rebased to its
-    // flattened slot offset. The outer is always top-level (base 0 — a
+    // flattened slot offset. The outer is always top-level (base 0, a
     // container is not itself embeddable), so the offset is the concrete
     // `local_offsets[..]` and the turbofish is a concrete const expression.
     // The view is reconstructed WITHOUT re-validation (the outer bind
@@ -5337,7 +5354,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             .unwrap_or_else(|_| quote!(#inner_spec).to_string());
         let msg = format!(
             "composite field `{}`: the inner context `{}` is not embeddable in Hopper v1. A \
-             `#[composite]` inner context must be a plain validation context — no \
+             `#[composite]` inner context must be a plain validation context, no \
              `#[instruction(...)]` args, no `strict_writes` / `lamports(...)` / `emit_touch_map` \
              / `event_cpi` options, no `init` / `init_if_needed` / `zero` / `close` / `realloc` \
              / `sweep` / `migrate` (or Metaplex-CPI) lifecycle, and no nested `#[composite]` \
@@ -5356,7 +5373,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // `__hopper_gather_bumps_at` / `__hopper_view_at` hooks an outer uses to
     // embed them. A composite CONTAINER stays base-0 (a `const __HOPPER_BASE:
     // usize = 0` puts the base in scope for the per-field turbofishes and the
-    // inner delegations) and emits no `_at` surface — nesting a container
+    // inner delegations) and emits no `_at` surface, nesting a container
     // inside another is rejected via `__HOPPER_EMBEDDABLE`.
     // `bumps_gather_stmts` is interpolated twice in the embeddable arm
     // (`bind_at` and `__hopper_gather_bumps_at`); quote consumes a `Vec`
@@ -5365,8 +5382,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let bumps_gather_stmts_hook = bumps_gather_stmts.clone();
     let migration_stmts_at = migration_stmts.clone();
     // Only EMBEDDABLE contexts get the base-parametric `_at` surface and the
-    // embed hooks. A non-embeddable context — a composite container, or one
-    // that opted into args / strict_writes / event_cpi / lifecycle — stays
+    // embed hooks. A non-embeddable context, a composite container, or one
+    // that opted into args / strict_writes / event_cpi / lifecycle, stays
     // base-0: those features bind bind-local state (`__hopper_lamport_gate`,
     // the fused event-authority bump) that only the full `bind` establishes,
     // so a stripped-down `__hopper_view_at` / `__hopper_gather_bumps_at`
@@ -5551,7 +5568,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         #original_struct
 
         // Single source of truth for this context's declared byte-range
-        // write-set (BLD-I24). Referenced by the runtime `WritePolicy`
+        // write set. Referenced by the runtime `WritePolicy`
         // that `bind()` installs under `strict_writes`, by the
         // `WRITE_RANGES` associated const, and by
         // `SCHEMA_METADATA.write_ranges`, so the scheduler-legible
@@ -5563,7 +5580,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         #composed_write_ranges_items
         #schema_len_module_item
 
-        // BLD-MUT: single source of truth for the lamport permission
+        // Single source of truth for the lamport permission
         // set (explicit `lamports(...)` + implied lifecycle roles).
         // Backs the runtime `WritePolicy`'s lamport dimension,
         // `LAMPORT_ACCOUNTS`, and `SCHEMA_METADATA.lamport_accounts`.
@@ -5595,13 +5612,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         // The bound context is generic over `__HOPPER_BASE`, the flattened
         // slot offset of the fields this context owns within the whole
-        // instruction. It defaults to `0` — the top-level case — so every
+        // instruction. It defaults to `0`, the top-level case; so every
         // existing spelling `#bound_name<'ctx, 'a>` keeps working and every
         // accessor's `__HOPPER_BASE + idx` const-folds back to `idx` (the
         // pre-composite, zero-cost lowering). When this context is embedded
         // as a `#[composite]` field, the outer binds it at a concrete
         // offset and `__HOPPER_BASE + idx` folds to the correct absolute
-        // slot at monomorphization — no runtime add.
+        // slot at monomorphization, no runtime add.
         #vis struct #bound_name<'ctx, 'a, const __HOPPER_BASE: usize = 0> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
             #accounts_field_decl
@@ -5619,12 +5636,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             pub const RECEIPT_EXPECTED: bool = #receipt_expected;
             pub const MUTABLE_ACCOUNT_COUNT: usize = #mutable_account_count;
 
-            /// Innovation I7: whether this context opts into
+            /// Touch-map support: whether this context opts into
             /// self-describing transactions (`#[hopper::context(emit_touch_map)]`).
             ///
             /// `true` only when the author opted in. The generated
             /// dispatcher reads this const on the handler's **Ok** path
-            /// and, only then, calls `Context::finish_with_touch_map()` —
+            /// and, only then, calls `Context::finish_with_touch_map()`,
             /// so the touch-map `sol_log_data` record is emitted
             /// exclusively on success, never on an `Err`/rolled-back
             /// instruction. `false` (the default) makes the dispatcher's
@@ -5641,7 +5658,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             /// two of [`ACCOUNT_COUNT`](Self::ACCOUNT_COUNT)) and the
             /// bound context exposes `emit_event_cpi(&event)`. The
             /// generated `#[hopper::program]` dispatcher ORs this const
-            /// across its typed contexts to decide — at compile time —
+            /// across its typed contexts to decide, at compile time,
             /// whether the reserved `[0xE0, 0x1E]` event-sink arm is
             /// live; `false` everywhere makes that guard dead-code-
             /// eliminate, so programs without the feature pay nothing.
@@ -5660,11 +5677,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
             #schema_support_items
 
-            /// Full Anchor-grade schema metadata: lifecycle role, PDA
+            /// Schema metadata for lifecycle role, PDA
             /// seeds, `has_one` edges, `payer`/`space` for init,
-            /// `address`/`owner` pins. everything the audit's
-            /// Stage 2.5 closure asks client generators and IDL tools
-            /// to consume without re-parsing source. The `const`
+            /// `address`/`owner` pins. Client generators and IDL tools
+            /// consume it without re-parsing source. The `const`
             /// guarantees it's available at compile time too. For a
             /// context embedding `#[composite]` fields the descriptor
             /// list is compile-time-composed to one entry per FLATTENED
@@ -5704,7 +5720,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             /// runtime enforces. Wire it into a manifest
             /// `InstructionDescriptor` as
             /// `write_ranges: MyCtx::WRITE_RANGES` (with
-            /// `strict_writes: MyCtx::STRICT_WRITES`) — no hand-authored
+            /// `strict_writes: MyCtx::STRICT_WRITES`), no hand-authored
             /// offsets.
             pub const WRITE_RANGES:
                 &'static [::hopper::__runtime::write_policy::WriteRange] =
@@ -5719,8 +5735,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             #declared_write_ranges_item
 
             /// Whether this context's declared write set covers **both**
-            /// mutation dimensions — data byte ranges AND lamports
-            /// (BLD-MUT). `true` only for `strict_writes` +
+            /// mutation dimensions, data byte ranges AND lamports
+            /// `true` only for `strict_writes` plus
             /// `lamports(...)`: `bind()` then installs a lamport gate and
             /// the runtime refuses any lamport mutation or writable CPI
             /// hand-off outside [`LAMPORT_ACCOUNTS`](Self::LAMPORT_ACCOUNTS).
@@ -5816,7 +5832,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ///
             /// Account references returned through this value are tied to the
             /// borrow of the generated context, not to the raw instruction
-            /// lifetime. Use `raw_unchecked()` only when an audited escape
+            /// lifetime. Use `raw_unchecked()` only when a reviewed escape
             /// from that restriction is required.
             #[inline(always)]
             #vis fn raw(&mut self) -> ::hopper::prelude::ScopedContext<'_, 'a> {
@@ -5942,7 +5958,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
 /// Parse `#[account(...)]` attributes from a field.
 ///
-/// Recognizes the full Anchor-grade surface: `signer`, `mut`, `mut(seg,...)`,
+/// Recognizes Hopper's supported surface: `signer`, `mut`, `mut(seg,...)`,
 /// `read(seg,...)`, `init`, `zero`, `close = target`, `realloc = expr`,
 /// `realloc_payer = field`, `realloc_zero = bool`, `payer = field`,
 /// `space = expr`, `seeds = [...]`, `bump` or `bump = stored_byte`,
@@ -5960,7 +5976,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 /// `constraint = x == y @ MyError::Bad`, `address = k @ MyError::BadAddr`,
 /// etc. `@` (`Token![@]`) is never a valid continuation of an
 /// expression, so the preceding `Expr`/`Ident` parse always stops exactly
-/// before it — leaving `input` positioned on the `@` for this peek.
+/// before it, leaving `input` positioned on the `@` for this peek.
 /// Returns `None` when no `@` follows, so callers keep their existing
 /// generic error path byte-for-byte unchanged.
 fn parse_opt_at_error(input: ParseStream) -> Result<Option<Expr>> {
@@ -6376,7 +6392,7 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     Ok(())
                 }
                 "tail" => {
-                    // `tail(seq_field)` — declare a growable `Seq<T>` tail
+                    // `tail(seq_field)`, declare a growable `Seq<T>` tail
                     // as writable via an open-ended `tail_from` range. Marks
                     // the field writable (like `mut(seg)`); pair with
                     // `realloc` to grow it.
@@ -6573,7 +6589,7 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     }
                     result.sweep = Some(ident);
                     // `sweep` drains this account's lamports, which the SVM
-                    // only permits on writable accounts — the documented
+                    // only permits on writable accounts, the documented
                     // "implies `mut`" contract, enforced.
                     result.is_mut = true;
                     Ok(())
@@ -6644,7 +6660,7 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                                         return Err(syn::Error::new_spanned(
                                             mode,
                                             format!(
-                                                "unknown `resize` mode `{other}` — expected \
+                                                "unknown `resize` mode `{other}`, expected \
                                                  `grow` (grow-only) or `fit` (grow + \
                                                  shrink-to-fit; unsafe for dynamic-tail \
                                                  layouts): {MIGRATE_SHAPE}"
@@ -6770,9 +6786,8 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
 
 /// Post-parse consistency checks. Emits spanned errors for declarations
 /// that are syntactically valid but semantically incoherent (e.g. `init`
-/// without `payer`). The Hopper Safety Audit's compile-fail matrix
-/// (D2. page 4) enumerates these; each violation here corresponds to
-/// one entry in the trybuild suite.
+/// without `payer`). Each violation here corresponds to one entry in
+/// the trybuild suite.
 fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
     if attr.init && attr.init_if_needed {
         return Err(syn::Error::new_spanned(
@@ -6865,7 +6880,7 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
     // `bump = stored` reads the canonical bump byte from THIS account's
     // already-initialized data (Stage 4 runs before the init lifecycle
     // helpers execute). On a creation lifecycle the account is empty (or
-    // all-zero for `zero`) at verify time, so the bind can never succeed —
+    // all-zero for `zero`) at verify time, so the bind can never succeed,
     // the instruction that is supposed to create the account would brick
     // with AccountDataTooSmall / InvalidSeeds on every invocation. Refuse
     // at compile time; creation flows must pass the bump explicitly
@@ -6989,7 +7004,7 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
 /// makes `generate` emit the `create_<field>()` CreateMetadataAccountV3
 /// CPI helper. Must stay in lock-step with the emission tuple in
 /// `generate` and the completeness validation in `validate_account_attr`
-/// — the BLD-MUT implied lamport union keys off this predicate, and a
+/// The implied lamport union keys off this predicate, and a
 /// drift would republish an incomplete (dishonest) permission set.
 fn metadata_cpi_helper_declared(attr: &AccountAttr) -> bool {
     attr.metadata_name.is_some()
@@ -7019,14 +7034,14 @@ fn master_edition_cpi_helper_declared(attr: &AccountAttr) -> bool {
 }
 
 /// Grant the field at `pos` the permission pair a **writable CPI meta**
-/// requires under the BLD-MUT gate: lamport permission plus a
+/// requires under the mutation-completeness gate: lamport permission plus a
 /// whole-account data range. `check_lamport_delegation` demands both,
 /// because handing an account writable to a callee is unbounded
 /// delegation of both mutation dimensions. Dedupes against grants
 /// already implied by lifecycle roles or named explicitly in
 /// `lamports(...)`. Operates on FIELD POSITIONS (not `u8` indices) so
-/// the caller can render the resulting extra whole-account ranges —
-/// recorded in grant order in `delegable_extra_positions` — in either
+/// the caller can render the resulting extra whole-account ranges,
+/// recorded in grant order in `delegable_extra_positions`, in either
 /// token shape: `u8` literals composite-free, const-expr flattened
 /// offsets in a composite container.
 fn grant_cpi_delegable(
@@ -7182,8 +7197,8 @@ fn skips_layout_validation(ty: &Type) -> bool {
     }
 }
 
-/// Audit Stage 2.3: classify wrapper types so the context macro can
-/// auto-derive the appropriate checks from the type name alone.
+/// Classify wrapper types so the context macro can derive the
+/// appropriate checks from the type name alone.
 #[derive(Clone)]
 #[allow(dead_code)]
 enum WrapperKind {
@@ -7221,7 +7236,7 @@ enum WrapperKind {
     /// Duplicate-address note: only fields *declared* `Option<..>` take
     /// this branch. A required `Program<'info, Self>`-style field whose
     /// pinned address happens to equal the executing program id binds
-    /// exactly as before — the presence test never runs for required
+    /// exactly as before, the presence test never runs for required
     /// fields, so the program's own id in a required slot cannot be
     /// mistaken for absence.
     Optional { inner: Box<WrapperKind> },
@@ -7281,14 +7296,14 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
             }
         }
         "Option" => {
-            // `Option<W>` — Anchor-parity optional account. Classify
+            // `Option<W>`, Anchor-parity optional account. Classify
             // the inner wrapper form; the expansion entry point has
             // already rejected illegal shapes (nested Option, lifecycle
             // targets, non-wrapper inners) with targeted errors via
             // `validate_optional_field`, so consumers of this kind only
             // ever see a legal inner. `Option<AccountView>` returns
             // `None` here on purpose: raw views are not role wrappers
-            // and never participate in the typed `accounts` facade —
+            // and never participate in the typed `accounts` facade,
             // their attribute checks are still presence-gated through
             // `option_inner_type` in the main expansion loop.
             let inner_ty = option_inner_type(ty)?;
@@ -7387,7 +7402,7 @@ fn validate_optional_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) ->
     // Lifecycle attributes rewrite the slot (create / resize / drain /
     // zero-check), and the generated helpers assume the account is
     // unconditionally present. Reject the combination at expansion time
-    // rather than fail the CPI at runtime — Anchor 1.x restricts several
+    // rather than fail the CPI at runtime, Anchor 1.x restricts several
     // of these combos on optional accounts the same way.
     let lifecycle = [
         (attr.init, "init"),
@@ -7455,7 +7470,7 @@ fn validate_migrate_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) -> 
     }
     // Lifecycle combos: those attrs create/resize/drain/zero-check the
     // slot, while a migration rewrites an EXISTING account of the OLD
-    // layout — the two contracts are mutually exclusive on one field.
+    // layout, the two contracts are mutually exclusive on one field.
     let lifecycle = [
         (attr.init, "init"),
         (attr.init_if_needed, "init_if_needed"),
@@ -7535,7 +7550,7 @@ fn validate_migrate_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) -> 
             field_name,
             format!(
                 "`migrate(from = ...)` on `{field_name}`: migration source must be a different \
-                 layout version — `from` names the OLD layout, the field's type is the NEW one \
+                 layout version, `from` names the OLD layout, the field's type is the NEW one \
                  (e.g. `migrate(from = VaultV1, with = ...)` on `Account<'info, VaultV2>`)."
             ),
         ));
@@ -7549,7 +7564,7 @@ fn validate_migrate_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) -> 
 /// (`#[derive(Accounts)]` / `#[hopper::context]`), embedded so its account
 /// slots flatten in place. v1 rejects, with actionable messages:
 /// - `Option<Inner>` composites (an inner context is present-or-absent as a
-///   unit — out of v1 scope),
+///   unit, out of v1 scope),
 /// - `#[account(...)]` / `#[signer]` constraints on the composite field
 ///   itself (they belong on the inner context's fields),
 /// - wrapper types (`Account<..>`, `Signer`, `Program<..>`, …) and raw
@@ -7588,7 +7603,7 @@ fn validate_composite_field(field_name: &Ident, ty: &Type, has_slot_attrs: bool)
 /// Build the inner context's generated `Bumps` type path for a
 /// `#[composite]` field. `Foo<'info>` → `FooBumps`, `crate::m::Bar` →
 /// `crate::m::BarBumps` (module qualification preserved, generic args
-/// dropped — the `Bumps` struct is non-generic). The nested context type
+/// dropped, the `Bumps` struct is non-generic). The nested context type
 /// is already validated to be a plain path by `validate_composite_field`.
 fn composite_bumps_ty(ty: &Type) -> Result<TokenStream> {
     match ty {
@@ -7611,7 +7626,7 @@ fn composite_bumps_ty(ty: &Type) -> Result<TokenStream> {
 /// Build the inner context's spec-type PATH (generic args dropped) for a
 /// `#[composite]` field, e.g. `Foo<'info>` → `Foo`. Used to call the
 /// generated associated fns (`Foo::validate_at::<{..}>(ctx)`) in path form
-/// so the elided lifetime is inferred — the outer's `'info` is not in scope
+/// so the elided lifetime is inferred, the outer's `'info` is not in scope
 /// inside the generated `validate` / `bind`.
 fn composite_spec_ty(ty: &Type) -> Result<TokenStream> {
     match ty {
@@ -7633,7 +7648,7 @@ fn composite_spec_ty(ty: &Type) -> Result<TokenStream> {
 /// Build the inner context's generated bound-context type path for a
 /// `#[composite]` field. `Foo<'info>` → `FooCtx`, `crate::m::Bar` →
 /// `crate::m::BarCtx` (module qualification preserved, generic args
-/// dropped — the caller re-applies the `<'_, 'a, { OFFSET }>` arguments).
+/// dropped, the caller re-applies the `<'_, 'a, { OFFSET }>` arguments).
 fn composite_bound_ty(ty: &Type) -> Result<TokenStream> {
     match ty {
         Type::Path(TypePath { qself: None, path }) => {
@@ -7663,7 +7678,7 @@ fn accounts_binding_fragments(
         .all(|param| matches!(param, GenericParam::Lifetime(_)));
     // Synthetic (auto-appended) fields are account slots, not struct
     // fields: the facade constructs the USER's struct, so only
-    // author-declared fields participate — both in the all-wrappers
+    // author-declared fields participate, both in the all-wrappers
     // eligibility test and in the constructor. A context whose declared
     // fields are all wrappers keeps its facade when `event_cpi` appends
     // the two raw trailing slots.
@@ -7724,6 +7739,9 @@ fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
             ::hopper::prelude::Interface::<#spec>::try_new(ctx.account(__HOPPER_BASE + #idx)?)?
         },
         WrapperKind::UncheckedAccount => quote! {
+            // SAFETY: This wrapper intentionally promises no role, owner, or
+            // layout invariant. `validate()` established that the account slot
+            // exists, and the wrapper only retains the borrowed view.
             unsafe {
                 ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
@@ -7732,21 +7750,32 @@ fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
             ::hopper::prelude::SystemAccount::try_new(ctx.account(__HOPPER_BASE + #idx)?)?
         },
         WrapperKind::Account { .. } => quote! {
+            // SAFETY: `bind()` runs only after the generated validator has
+            // checked this account's owner and Hopper layout for the declared
+            // account type.
             unsafe {
                 ::hopper::prelude::Account::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::InitAccount { .. } => quote! {
+            // SAFETY: The generated validator established the declared init
+            // lifecycle constraints for this slot. `InitAccount` deliberately
+            // carries no initialized-layout promise until its helper runs.
             unsafe {
                 ::hopper::prelude::InitAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::InterfaceAccount { .. } => quote! {
+            // SAFETY: The generated validator checked interface-owner
+            // membership and layout identity before `bind()` constructs this
+            // wrapper.
             unsafe {
                 ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::ExternalAccount { .. } => quote! {
+            // SAFETY: The generated validator ran the declared external
+            // adapter's validation contract for this account before `bind()`.
             unsafe {
                 ::hopper::prelude::ExternalAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
@@ -7986,7 +8015,7 @@ mod instruction_arg_tests {
         );
     }
 
-    /// BLD-MUT: the lamport dimension lowers explicit `lamports(...)`
+    /// The lamport dimension lowers explicit `lamports(...)`
     /// names PLUS the implied lifecycle roles, and an init payer (handed
     /// writable to the System Program CPI) additionally receives a
     /// whole-account data range so the CPI delegation gate admits it.
@@ -8014,7 +8043,7 @@ mod instruction_arg_tests {
             "lamports(...) context must publish MUTATION_COMPLETE = true: {s}"
         );
         // Permission set: payer (0, implied by init), state (1, init),
-        // recipient (2, explicit) — sorted, deduped.
+        // recipient (2, explicit), sorted, deduped.
         assert!(
             s.contains("0u8 , 1u8 , 2u8"),
             "lamport set must be payer+state+recipient: {s}"
@@ -8052,7 +8081,7 @@ mod instruction_arg_tests {
     /// in the published `writable` flag, and Stage 3.6 calls
     /// `apply_pending_migrations`, which rewrites the account body. Leaving
     /// it out of the declared ranges made the write set claim the account
-    /// is never written — which under a mutation-complete set causes
+    /// is never written; which under a mutation-complete set causes
     /// `effective_writable` to DEMOTE it, so generated clients sent it
     /// read-only and the instruction failed its own writability check.
     #[test]
@@ -8090,7 +8119,7 @@ mod instruction_arg_tests {
         // Not mutation-complete: the lamport dimension was never declared.
         assert!(s.contains("MUTATION_COMPLETE : bool = false"), "got: {s}");
         // The ambient gate IS installed (data-only), so raw surfaces are
-        // governed — the whole point of closing the bypass.
+        // governed, the whole point of closing the bypass.
         assert!(
             s.contains("try_install_ambient_gate_with_args"),
             "bare strict_writes must install the data-only ambient gate: {s}"
@@ -8117,13 +8146,13 @@ mod instruction_arg_tests {
         assert!(err.to_string().contains("strict_writes"), "got: {err}");
     }
 
-    /// I7 opt-in: `emit_touch_map` advertises `EMIT_TOUCH_MAP = true` as
+    /// touch-map opt-in: `emit_touch_map` advertises `EMIT_TOUCH_MAP = true` as
     /// a public associated const on the spec type. The dispatcher reads
     /// that const on the handler's Ok path to decide whether to emit the
-    /// touch-map record — the const is the whole macro-side surface now.
+    /// touch-map record, the const is the whole macro-side surface now.
     /// Crucially, the CONTEXT macro must NOT generate a `Drop` (that
-    /// would emit on every scope exit, including `?`/`Err` returns — the
-    /// CONFIRMED P2) and must NOT itself call `finish_with_touch_map`;
+    /// would emit on every scope exit, including `?`/`Err` returns, the
+    /// failed-instruction emission regression) and must NOT itself call `finish_with_touch_map`;
     /// the finish call lives in the dispatcher (program.rs) on the Ok
     /// path only.
     #[test]
@@ -8155,8 +8184,8 @@ mod instruction_arg_tests {
         );
     }
 
-    /// I7 opt-in composes with `strict_writes` and, like every other
-    /// context option, is accepted in the same attribute list — still via
+    /// touch-map opt-in composes with `strict_writes` and, like every other
+    /// context option, is accepted in the same attribute list, still via
     /// the const, still no `Drop`.
     #[test]
     fn emit_touch_map_composes_with_strict_writes() {
@@ -8433,8 +8462,8 @@ mod instruction_arg_tests {
         );
     }
 
-    /// BLD-MUT completeness over the macro's own CPI surface: the
-    /// generated Metaplex helpers hand writable metas to the callee —
+    /// Mutation completeness over the macro's own CPI surface: the
+    /// generated Metaplex helpers hand writable metas to the callee,
     /// CreateMetadataAccountV3 marks the metadata PDA and the payer
     /// writable; CreateMasterEditionV3 marks the edition PDA, the mint,
     /// and the payer writable. A `lamports(...)` context must imply
@@ -8512,9 +8541,9 @@ mod instruction_arg_tests {
     }
 
     /// `sweep = target` lowers through the real fallible lamport API
-    /// (`try_set_lamports`, the runtime funnel the BLD-MUT gate hooks)
-    /// — the pre-fix emission called a nonexistent
-    /// `try_borrow_mut_lamports` and could never compile — and both
+    /// (`try_set_lamports`, the runtime funnel used by the mutation-completeness gate).
+    /// The earlier emission called a nonexistent
+    /// `try_borrow_mut_lamports` and could never compile, and both
     /// sweep roles land in the implied lamport permission set.
     #[test]
     fn sweep_helper_lowers_through_the_lamport_funnel() {
@@ -8550,7 +8579,7 @@ mod instruction_arg_tests {
 
     /// A sweep targeting its own field would credit the drained amount
     /// back into the slot being drained (minting lamports in the
-    /// two-step move) — rejected at expansion time.
+    /// two-step move), rejected at expansion time.
     #[test]
     fn sweep_targeting_its_own_field_is_rejected() {
         let item: TokenStream = quote! {
@@ -8902,7 +8931,7 @@ mod instruction_arg_tests {
 
     /// (d) A full, pre-existing context that uses none of the new syntax
     /// still expands successfully and keeps every generic error path
-    /// intact — the additive changes leave existing programs unchanged.
+    /// intact, the additive changes leave existing programs unchanged.
     #[test]
     fn existing_full_context_expands_unchanged() {
         let item: TokenStream = quote! {
@@ -9032,9 +9061,9 @@ mod instruction_arg_tests {
 
     /// The load-bearing guarantee: EVERY check attached to an optional
     /// field (mut, owner, layout load, PDA seeds, has_one, constraint)
-    /// lives INSIDE the presence gate — an absent optional performs one
+    /// lives INSIDE the presence gate, an absent optional performs one
     /// address compare and ZERO checks, a present one performs ALL of
-    /// them — while the required sibling's validator carries the same
+    /// them, while the required sibling's validator carries the same
     /// checks with no gate.
     #[test]
     fn absent_optional_skips_every_check_present_runs_all_inside_the_gate() {
@@ -9121,7 +9150,7 @@ mod instruction_arg_tests {
         );
     }
 
-    /// `Option<AccountView>` — the raw-view spelling — is supported on
+    /// `Option<AccountView>`, the raw-view spelling, is supported on
     /// the attribute/accessor path: its attribute checks are
     /// presence-gated and the presence-aware accessor is emitted. Raw
     /// views never participate in the typed `accounts` facade,
@@ -9174,7 +9203,7 @@ mod instruction_arg_tests {
     }
 
     /// Nested `Option<Option<..>>` is a compile error with a clear
-    /// message — a slot is either present or absent.
+    /// message, a slot is either present or absent.
     #[test]
     fn nested_option_option_is_rejected() {
         let item: TokenStream = quote! {
@@ -9349,7 +9378,7 @@ mod instruction_arg_tests {
 // ── Lazy migration at bind (`migrate(from = Old, with = path)`) ────────
 //
 // Expansion-level pins for the typed cross-version migration crank: the
-// parsed attribute emits the bind pre-step (and ONLY into bind — the
+// parsed attribute emits the bind pre-step (and ONLY into bind, the
 // read-only `validate()` never writes), `validate()`'s layout-header
 // check lowers to the either-version form, and every illegal spelling /
 // combination is a compile error with an actionable message.
@@ -9382,8 +9411,8 @@ mod migrate_attr_tests {
         }
     }
 
-    /// `bind()` gains the pre-step — old-header probe on a scoped read
-    /// borrow, then the typed in-place `migrate_layout` — spliced BEFORE
+    /// `bind()` gains the pre-step, old-header probe on a scoped read
+    /// borrow, then the typed in-place `migrate_layout`, spliced BEFORE
     /// the validation fragment, so validators see the upgraded account.
     /// `validate()` and the per-field validators never contain the
     /// migrate call: the read-only surface never writes.
@@ -9481,8 +9510,8 @@ mod migrate_attr_tests {
         );
     }
 
-    /// Both attribute forms — `#[hopper::context]` and
-    /// `#[derive(Accounts)]` — share the expansion path, so both emit the
+    /// Both attribute forms, `#[hopper::context]` and
+    /// `#[derive(Accounts)]`, share the expansion path, so both emit the
     /// pre-step and the either-version lowering.
     #[test]
     fn migrate_expands_in_both_attribute_forms() {
@@ -9643,7 +9672,7 @@ mod migrate_attr_tests {
 
     /// A `#[composite]` field is a nested context, not an account slot:
     /// it cannot carry `migrate(...)` (or any `#[account(...)]`
-    /// constraint) — the existing composite guard fires.
+    /// constraint), the existing composite guard fires.
     #[test]
     fn migrate_on_a_composite_field_is_rejected() {
         let item: TokenStream = quote! {
@@ -9764,8 +9793,8 @@ mod migrate_attr_tests {
 #[cfg(test)]
 mod composite_v2_tests {
     //! Composite v2: the container's options compose across the nesting
-    //! boundary. These tests pin the composed lowering — rebased write
-    //! ranges, const-expr synthetic slots, the spliced schema — and that
+    //! boundary. These tests pin the composed lowering, rebased write
+    //! ranges, const-expr synthetic slots, the spliced schema, and that
     //! the formerly-gated option combinations now expand.
 
     use super::*;
@@ -9783,8 +9812,8 @@ mod composite_v2_tests {
     }
 
     /// Every composite-free context now publishes the hidden
-    /// `__HOPPER_DECLARED_WRITE_RANGES` const — the splice source for an
-    /// embedding outer — with LOCAL indices and assoc-const spellings,
+    /// `__HOPPER_DECLARED_WRITE_RANGES` const, the splice source for an
+    /// embedding outer, with LOCAL indices and assoc-const spellings,
     /// independent of `strict_writes` (no authority implied: the
     /// authority const stays empty without the opt-in).
     #[test]
@@ -9825,7 +9854,7 @@ mod composite_v2_tests {
 
     /// The v1 gate is gone: `strict_writes` on a composite container
     /// expands, and the authority const is the compile-time-composed
-    /// array — outer leaves at flattened const-expr indices, the inner
+    /// array, outer leaves at flattened const-expr indices, the inner
     /// context spliced from its declared const with rebased indices.
     #[test]
     fn composite_strict_writes_composes_rebased_write_ranges() {
@@ -9939,7 +9968,7 @@ mod composite_v2_tests {
         );
     }
 
-    /// `lamports(...)` cannot name the composite field itself — the
+    /// `lamports(...)` cannot name the composite field itself, the
     /// dimension grants outer leaves only, and the refusal says what to
     /// do instead.
     #[test]
@@ -9960,7 +9989,7 @@ mod composite_v2_tests {
     }
 
     /// `event_cpi` on a container: the two synthetic slots trail the
-    /// FLATTENED set at const-expr indices — the fused bind verify, the
+    /// FLATTENED set at const-expr indices, the fused bind verify, the
     /// emit method, and `ACCOUNT_COUNT` all use the composed expressions.
     #[test]
     fn composite_event_cpi_places_synthetic_slots_at_const_expr_trailing_indices() {

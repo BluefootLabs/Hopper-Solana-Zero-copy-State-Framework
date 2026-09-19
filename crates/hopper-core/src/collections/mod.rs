@@ -48,13 +48,13 @@ pub use compact_tail::{CompactTail, TailBitSet, TailRing, TailSlab, TailVec};
 //   1. A `FixedLayout` impl whose `SIZE` disagrees with `size_of::<T>()`
 //      makes the bounds math (which trusts `SIZE`) disagree with the
 //      write width (`size_of`), so a last-slot write can run past what
-//      the capacity check proved in-bounds — an out-of-bounds write.
+//      the capacity check proved in-bounds, an out-of-bounds write.
 //   2. A zero-sized element (`SIZE == 0`) turns `capacity() = len / SIZE`
 //      into a divide-by-zero panic.
 //
 // This const asserts the invariant that closes both. Invoked as
 // `const { assert_zero_copy_element::<T>() }` in every constructor, it
-// is evaluated per monomorphization at compile time — a mismatched or
+// is evaluated per monomorphization at compile time, a mismatched or
 // zero-sized element is a build error, at zero runtime cost. For every
 // real wire type `SIZE == size_of` and `> 0`, so conforming code is
 // unaffected.
@@ -77,7 +77,7 @@ pub(crate) const fn assert_zero_copy_element<
     );
 }
 
-// ── I13: adversarial-metadata property harness ───────────────────────
+// Adversarial-metadata property harness.
 //
 // Every collection above is a zero-copy overlay on account bytes, and
 // account bytes are attacker-writable between instructions: lengths,
@@ -87,14 +87,13 @@ pub(crate) const fn assert_zero_copy_element<
 // or panic); this harness generalizes the fix into a standing property:
 //
 //   For ARBITRARY buffer contents and ANY sequence of API calls, every
-//   collection either succeeds within bounds or returns a clean `Err` —
+//   collection either succeeds within bounds or returns a clean `Err`,
 //   it never panics and never touches memory outside its slice.
 //
 // Panics surface directly as proptest failures; out-of-bounds via the
 // safe-index paths would panic too, and the `unsafe` paths are guarded
-// by the bounds established before them (that is exactly what the
-// audit fixes pinned). No competing framework ships hardened on-chain
-// collections at all, let alone corruption-fuzzed ones.
+// by the bounds established before them. Property and corruption tests
+// pin those preconditions.
 #[cfg(test)]
 mod hostile_metadata_proptests {
     use super::slot_map::SlotKey;
@@ -105,7 +104,7 @@ mod hostile_metadata_proptests {
 
     // Arbitrary small-ish buffers: large enough to exercise multi-slot
     // layouts, small enough to keep case counts high. Contents are
-    // fully arbitrary — headers, counts, and free lists included.
+    // fully arbitrary, headers, counts, and free lists included.
     fn buf_strategy() -> impl Strategy<Value = Vec<u8>> {
         proptest::collection::vec(any::<u8>(), 0..256)
     }

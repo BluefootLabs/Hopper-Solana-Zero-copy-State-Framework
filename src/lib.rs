@@ -7,22 +7,22 @@
 //!
 //! The goals, in priority order:
 //!
-//! 1. **Safety by default.** Every account byte you touch has been
-//!    owner-checked, signer-checked, layout-checked, and borrow-checked
-//!    before you see it. Unsafe is an opt-in escape hatch, never a
-//!    default.
+//! 1. **Safety by default.** Generated typed contexts validate their declared
+//!    owner, signer, layout, and borrow contracts before exposing typed state.
+//!    Raw and unchecked APIs remain explicit escape hatches with caller-held
+//!    safety contracts.
 //! 2. **Low-overhead performance.** Account data points directly at
 //!    the runtime input region. No deserialization pass, no heap
-//!    allocation, no hidden format machinery. If it costs compute, it
-//!    is because you asked for it.
+//!    allocation, and no mandatory serialization pass. Optional policies,
+//!    receipts, CPI checks, and metadata have explicit, measurable costs.
 //! 3. **Framework-grade ergonomics.** `#[hopper::account]`,
 //!    `#[hopper::accounts]`, `#[hopper::program]`, typed wrappers such as
 //!    `Account<'info, T>` and `Signer<'info>`, and the facade modules under
 //!    `hopper::{account, cpi, token, system}` keep the beginner surface small.
-//! 4. **Schema that travels.** Every layout, instruction, event, and
-//!    error is emitted as inspectable compile-time metadata. Off-chain
-//!    SDKs, IDLs, client generators, and diff tools consume it without
-//!    parsing source.
+//! 4. **Schema that travels.** Macro- and manifest-declared layouts,
+//!    instructions, events, and errors can be emitted as compile-time metadata.
+//!    Off-chain SDKs, IDLs, client generators, and diff tools consume that
+//!    declared surface without parsing source.
 //!
 //! ## Layers
 //!
@@ -32,7 +32,7 @@
 //!   everyday program modules.
 //! - `hopper::{layout, segment, receipt, migration, interface, schema, policy}`:
 //!   systems-mode modules for layout evolution, field leasing, manifests, and
-//!   audited escape hatches.
+//!   reviewed escape hatches.
 //! - `hopper::substrate`: raw Hopper Runtime and Hopper Native building blocks
 //!   for programs that want Pinocchio-class control with Hopper's account and
 //!   wire contracts still visible.
@@ -129,7 +129,7 @@ pub use hopper_system;
 pub use hopper_token;
 pub use hopper_token_2022;
 
-// Program-wide tuned memory intrinsics (opt-in, I18). The anonymous
+// Program-wide tuned memory intrinsics (opt-in, builtins). The anonymous
 // `as _` import forces the hopper-builtins rlib onto the linker command
 // line even though no item is named, so its `#[no_mangle]`
 // memcmp/bcmp/memcpy/memset definitions are pulled from our archive
@@ -231,7 +231,7 @@ pub mod return_data {
 }
 
 /// Sysvar access (Clock, Rent, EpochSchedule, SlotHashes, StakeHistory,
-/// LastRestartSlot, epoch stake) via direct syscalls — no account passing,
+/// LastRestartSlot, epoch stake) via direct syscalls, no account passing,
 /// no deserialization.
 ///
 /// Framework-mode programs that need on-chain time, rent-exempt minimums, or
@@ -299,8 +299,6 @@ pub mod memo {
 /// Event and log helpers.
 pub mod events {
     pub use crate::receipts::{emit_receipt, emit_tagged_receipt, emit_typed_receipt, Receipt};
-    #[cfg(feature = "cpi")]
-    pub use hopper_core::event::emit_event_cpi;
     pub use hopper_core::event::{emit_event, emit_event_tagged, emit_slices};
     pub use hopper_runtime::{hopper_emit_cpi, hopper_log, msg};
 }
@@ -541,7 +539,7 @@ pub use hopper_macros::{
     hopper_validate, hopper_verify_pda, hopper_virtual,
 };
 
-// Audit I4: schema-epoch migration chain composition. `#[macro_export]`
+// Schema-epoch migration: schema-epoch migration chain composition. `#[macro_export]`
 // macros are always anchored at the defining crate's root, so the
 // user-facing path `hopper::layout_migrations!` requires an explicit
 // re-export here.
@@ -888,7 +886,7 @@ macro_rules! interface_account_set {
 /// Generate the small runtime bridge for a `#[program(entrypoint = false)]`
 /// module.
 ///
-/// New programs do not need this macro: `#[program]` emits the same audited
+/// New programs do not need this macro: `#[program]` emits the same reviewed
 /// Hopper entrypoint bridge automatically. Keep `program_dispatch!` for
 /// compatibility and for unusual crates that intentionally disable the
 /// automatic bridge.
@@ -931,8 +929,8 @@ macro_rules! __hopper_manifest_default {
 
 /// Export the program-wide schema manifest with near-zero authoring.
 ///
-/// Expands to `pub static PROGRAM_MANIFEST: hopper_schema::ProgramManifest`
-/// — the export `hopper compile --emit manifest --package <name>` renders
+/// Expands to `pub static PROGRAM_MANIFEST: hopper_schema::ProgramManifest`,
+/// the export `hopper compile --emit manifest --package <name>` renders
 /// to `hopper.manifest.json`. Everything deep is pulled from macro-
 /// generated metadata, so the published schema is built from the SAME
 /// consts the runtime enforces and cannot drift from the code:
@@ -953,7 +951,7 @@ macro_rules! __hopper_manifest_default {
 ///
 /// The author writes one short block naming the program module and the
 /// layout/event types (Rust has no sound compile-time type registry, so
-/// the explicit lists are the honest v1). Invoke at crate root — the
+/// the explicit lists are the honest v1). Invoke at crate root, the
 /// manifest exporter resolves `<crate>::PROGRAM_MANIFEST`:
 ///
 /// ```ignore
@@ -977,8 +975,8 @@ macro_rules! program_manifest {
         /// Program-wide schema manifest (exported by
         /// [`hopper::program_manifest!`](macro@hopper::program_manifest)).
         ///
-        /// `hopper compile --emit manifest` renders this static — built
-        /// from the same macro-generated consts the runtime enforces —
+        /// `hopper compile --emit manifest` renders this static, built
+        /// from the same macro-generated consts the runtime enforces,
         /// to `hopper.manifest.json`.
         pub static PROGRAM_MANIFEST: $crate::hopper_schema::ProgramManifest =
             $crate::hopper_schema::ProgramManifest {
@@ -1081,7 +1079,7 @@ pub mod __runtime {
     // `mint::authority`, etc. constraints to a single inline check.
     pub use hopper_runtime::token;
 
-    // Innovation I12: `#[hopper::context(strict_writes)]` emits a
+    // Write-policy generation: `#[hopper::context(strict_writes)]` emits a
     // `static ::hopper::__runtime::write_policy::WritePolicy` compiled
     // from the context's `mut` / `mut(seg, ...)` declarations and
     // installs it on the raw context during `bind()`.

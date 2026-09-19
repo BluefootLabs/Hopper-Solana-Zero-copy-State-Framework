@@ -56,6 +56,7 @@ impl TailCodec for MarketTail {
 fn compact_dynamic_tail_sits_right_after_one_byte_disc_and_head() {
     // Fixed head = 32 + 8 = 40. Compact prefix = 1 (disc) + 40 = 41.
     assert!(CompactMarket::HAS_DYNAMIC_TAIL);
+    assert!(CompactMarket::LAYOUT_MANIFEST.has_dynamic_tail);
     assert_eq!(CompactMarket::BODY_SIZE, 40);
     assert_eq!(CompactMarket::COMPACT_LEN, 41);
     // The tail prefix is at 41, NOT at 16 + 40 = 56: 15 bytes saved vs headered.
@@ -126,6 +127,7 @@ pub struct CompactBlob {
 #[test]
 fn compact_raw_tail_exposes_payload_slice() {
     assert!(CompactBlob::HAS_DYNAMIC_TAIL);
+    assert!(CompactBlob::LAYOUT_MANIFEST.has_dynamic_tail);
     assert!(CompactBlob::HAS_RAW_DYNAMIC_TAIL);
     assert_eq!(CompactBlob::COMPACT_LEN, 33);
     assert_eq!(CompactBlob::TAIL_PREFIX_OFFSET, 33);
@@ -151,6 +153,7 @@ pub struct CompactFixed {
 #[test]
 fn fixed_compact_layout_reports_no_dynamic_tail() {
     assert!(!CompactFixed::HAS_DYNAMIC_TAIL);
+    assert!(!CompactFixed::LAYOUT_MANIFEST.has_dynamic_tail);
 }
 
 /// The dynamic tail is part of layout identity: the same fixed head with a

@@ -675,7 +675,7 @@ pub fn require_secp256k1_instruction(
 }
 
 /// Require that a sibling instruction targeted the Secp256r1 (P-256)
-/// precompile — the verification path for passkeys / WebAuthn. Returns
+/// precompile, the verification path for passkeys / WebAuthn. Returns
 /// the precompile instruction so the caller can bind the verified
 /// `(public_key, message, signature)` to its own authorization logic.
 #[inline]

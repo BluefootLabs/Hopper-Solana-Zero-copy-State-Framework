@@ -121,7 +121,7 @@ impl<'a> AccountReader<'a> {
         // MUST be checked: the raw `.add(offset)` below is out-of-bounds
         // pointer arithmetic (UB) if `offset` is huge, and an unchecked
         // `offset + 32 > len` would *wrap* for a near-`usize::MAX`
-        // offset — passing the bound, then dereferencing a wild address.
+        // offset, passing the bound, then dereferencing a wild address.
         // If `offset` is ever derived from instruction data, that is an
         // exploitable OOB read; the checked add closes it.
         match offset.checked_add(32) {

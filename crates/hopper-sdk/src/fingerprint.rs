@@ -108,6 +108,7 @@ mod tests {
             version: 1,
             layout_id: SAMPLE_ID,
             total_size: 80,
+            has_dynamic_tail: false,
             field_count: 0,
             fields: &[] as &[FieldDescriptor],
         }

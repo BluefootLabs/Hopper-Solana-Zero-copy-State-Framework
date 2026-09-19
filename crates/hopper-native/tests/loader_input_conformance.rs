@@ -12,7 +12,7 @@
 //!    parser reading garbage on-chain.
 //! 2. **SIMD-0449 equivalence.** The O(1) account-pointer-table path
 //!    (`deserialize_accounts_0449`) must resolve to EXACTLY the views
-//!    the O(n) stride walk produces — pinned by building the same frame
+//!    the O(n) stride walk produces, pinned by building the same frame
 //!    with a synthetic table appended and comparing view-for-view.
 //!    The table functions are compiled unconditionally (the `simd-0449`
 //!    feature only flips the entrypoint's const selector), so this
@@ -24,7 +24,7 @@ use hopper_native::raw_input::{
     deserialize_accounts, deserialize_accounts_0449, deserialize_accounts_0449_checked,
     DirectMappingError,
 };
-use hopper_native::{AccountView, RuntimeAccount, MAX_PERMITTED_DATA_INCREASE};
+use hopper_native::{AccountView, ProgramError, RuntimeAccount, MAX_PERMITTED_DATA_INCREASE};
 
 const ALIGN: usize = 8;
 
@@ -71,7 +71,10 @@ fn build_frame(slots: &[Slot], ix_data: &[u8], program_id: [u8; 32], with_0449: 
                 header[0] = 0xFF; // canonical marker / borrow_state
                 header[1] = 0; // is_signer
                 header[2] = 1; // is_writable
-                               // address: recognizable per-slot pattern
+
+                // bytes 4..8 are ABI padding. Hopper's entrypoint captures
+                // the invocation's original data length there while parsing.
+                // address: recognizable per-slot pattern
                 header[8..40].copy_from_slice(&[i as u8 + 1; 32]);
                 // owner
                 header[40..72].copy_from_slice(&[0x55; 32]);
@@ -125,7 +128,7 @@ fn build_frame(slots: &[Slot], ix_data: &[u8], program_id: [u8; 32], with_0449: 
     };
 
     // Patch the table with the REAL record addresses in the final
-    // allocation — exactly what the runtime would serialize.
+    // allocation, exactly what the runtime would serialize.
     if let Some(table_at) = table_offset {
         let base = frame.as_mut_ptr() as usize;
         for (i, rec_off) in frame.canonical_offsets.clone().iter().enumerate() {
@@ -178,7 +181,7 @@ fn locate_0449_tail(frame: &mut Frame, ix: &[u8], program_id: [u8; 32]) -> (*mut
 // `hopper_fast_entrypoint!` gates its account resolution on the
 // SIMD_0449_TABLE_ENABLED const. Expanding it here proves BOTH branches
 // type-check whenever the 0321 feature (which the macro requires) is
-// on — run this suite with `--features simd-0321` and with
+// on, run this suite with `--features simd-0321` and with
 // `--features simd-0449` to cover the const in both states.
 #[cfg(feature = "simd-0321")]
 mod fast_entrypoint_expands {
@@ -343,8 +346,152 @@ fn checked_0449_decoder_matches_the_stride_walk_for_every_alignment_residue() {
         let last = unsafe { out[2].assume_init_ref() };
         assert_eq!(first, duplicate, "residue {residue}: duplicate aliases");
         assert_eq!(first.data_len(), residue);
+        assert_eq!(first.original_data_len(), residue);
+        assert_eq!(duplicate.original_data_len(), residue);
         assert_eq!(last.data_len(), 33 + residue);
+        assert_eq!(last.original_data_len(), 33 + residue);
     }
+}
+
+#[test]
+fn resize_uses_entry_baseline_after_cpi_and_duplicate_aliases_share_it() {
+    let ix = [0x31];
+    let pid = [0x42; 32];
+    let mut frame = build_frame(
+        &[
+            Slot::Fresh {
+                data_len: 16,
+                lamports: 9,
+            },
+            Slot::Dup(0),
+        ],
+        &ix,
+        pid,
+        false,
+    );
+    let (views, _, _) = walk::<4>(&mut frame);
+    let canonical = &views[0];
+    let duplicate = &views[1];
+
+    assert_eq!(canonical.original_data_len(), 16);
+    assert_eq!(duplicate.original_data_len(), 16);
+
+    // Model a successful CPI reallocating the shared backing account before
+    // Hopper's own resize call. The invocation baseline must not move with the
+    // live data_len header.
+    let raw = canonical.account_ptr() as *mut RuntimeAccount;
+    unsafe {
+        (*raw).data_len = 128;
+    }
+    assert_eq!(canonical.data_len(), 128);
+    assert_eq!(duplicate.data_len(), 128);
+    assert_eq!(canonical.original_data_len(), 16);
+    assert_eq!(duplicate.original_data_len(), 16);
+
+    let rejected = 16 + MAX_PERMITTED_DATA_INCREASE + 1;
+    assert_eq!(
+        duplicate.resize_raw(rejected),
+        Err(ProgramError::InvalidRealloc)
+    );
+    assert_eq!(
+        canonical.data_len(),
+        128,
+        "rejection must not change data_len"
+    );
+    assert_eq!(canonical.original_data_len(), 16);
+
+    let maximum = 16 + MAX_PERMITTED_DATA_INCREASE;
+    duplicate.resize_raw(maximum).unwrap();
+    assert_eq!(canonical.data_len(), maximum);
+    assert_eq!(canonical.original_data_len(), 16);
+    assert_eq!(canonical.resize_delta(), MAX_PERMITTED_DATA_INCREASE as i32);
+}
+
+#[test]
+fn direct_pointer_table_initializes_resize_baselines_before_views_escape() {
+    let ix = [0x51, 0x52];
+    let pid = [0x63; 32];
+    let mut frame = build_frame(
+        &[
+            Slot::Fresh {
+                data_len: 24,
+                lamports: 3,
+            },
+            Slot::Dup(0),
+        ],
+        &ix,
+        pid,
+        true,
+    );
+    let canonical_offset = frame.canonical_offsets[0];
+    let (base, ix_offset, _) = locate_0449_tail(&mut frame, &ix, pid);
+    assert_eq!(
+        unsafe { (*(base.add(canonical_offset) as *const RuntimeAccount)).resize_delta },
+        0
+    );
+
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    let views = unsafe { deserialize_accounts_0449(base, ix_in_frame) };
+    assert_eq!(views[0].original_data_len(), 24);
+    assert_eq!(views[1].original_data_len(), 24);
+
+    let raw = views[0].account_ptr() as *mut RuntimeAccount;
+    unsafe {
+        (*raw).data_len = 96;
+    }
+    assert_eq!(
+        views[1].resize_raw(24 + MAX_PERMITTED_DATA_INCREASE + 1),
+        Err(ProgramError::InvalidRealloc)
+    );
+    assert_eq!(views[0].data_len(), 96);
+    assert_eq!(views[0].original_data_len(), 24);
+}
+
+#[test]
+fn safe_resize_preflights_borrows_and_writable_privilege_without_mutation() {
+    let ix = [0x71];
+    let pid = [0x82; 32];
+    let mut frame = build_frame(
+        &[Slot::Fresh {
+            data_len: 16,
+            lamports: 5,
+        }],
+        &ix,
+        pid,
+        false,
+    );
+    let (views, _, _) = walk::<2>(&mut frame);
+    let account = &views[0];
+    let reserve_byte = unsafe { account.data_ptr_unchecked().add(16) };
+    unsafe {
+        *reserve_byte = 0xA5;
+    }
+
+    let shared = account.try_borrow().unwrap();
+    assert_eq!(account.resize(20), Err(ProgramError::AccountBorrowFailed));
+    assert_eq!(account.data_len(), 16);
+    assert_eq!(
+        unsafe { *reserve_byte },
+        0xA5,
+        "rejected growth must not zero reserve"
+    );
+    drop(shared);
+
+    let exclusive = account.try_borrow_mut().unwrap();
+    assert_eq!(
+        account.resize_raw(8),
+        Err(ProgramError::AccountBorrowFailed)
+    );
+    assert_eq!(account.data_len(), 16);
+    drop(exclusive);
+
+    let raw = account.account_ptr() as *mut RuntimeAccount;
+    unsafe {
+        (*raw).is_writable = 0;
+    }
+    assert_eq!(account.resize(20), Err(ProgramError::Immutable));
+    assert_eq!(account.data_len(), 16);
+    assert_eq!(unsafe { *reserve_byte }, 0xA5);
 }
 
 #[test]

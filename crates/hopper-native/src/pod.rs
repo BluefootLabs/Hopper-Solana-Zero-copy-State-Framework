@@ -1,7 +1,6 @@
 //! Substrate-level `Pod` marker.
 //!
-//! The Hopper Safety Audit asked for every zero-copy access path -
-//! all the way down to the native substrate, to require a real Pod
+//! Every zero-copy access path, including the native substrate, requires a Pod
 //! bound rather than the loose `T: Copy`. This module is that marker.
 //!
 //! ## Hopper-owned safety
@@ -18,12 +17,10 @@
 //! - non-alignment-1 primitives when alignment-1 was claimed
 //! - enums with niches and non-zero variants
 //!
-//! This is the **Must-Fix #5** the audit flagged: "enforce field-level
-//! Pod proof at macro expansion time". Hopper's `#[hopper::pod]` derive
-//! and `#[hopper::state]` macro emit the proof so users never need to
-//! name an external crate in their own sources.
+//! Hopper's `#[hopper::pod]` derive and `#[hopper::state]` macro emit these
+//! field-level proofs, so layouts can use the Hopper-owned marker directly.
 //!
-//! See [`hopper_runtime::pod::Pod`] (downstream re-export) for the
+//! See `hopper_runtime::pod::Pod` (downstream re-export) for the
 //! runtime-side view.
 
 /// Marker for `Copy + Sized` values that are valid for every bit pattern.
@@ -34,8 +31,8 @@
 /// by copying `size_of::<T>()` arbitrary bytes (e.g. a zero fill, or an
 /// unaligned `read_unaligned`). It says **nothing** about alignment, so
 /// it holds for native multi-byte integers as well. To overlay a type as
-/// `&T` / `&mut T` directly on account bytes — which requires
-/// alignment 1 — use [`Pod`] (and, at the framework level,
+/// `&T` / `&mut T` directly on account bytes, which requires
+/// alignment 1, use [`Pod`] (and, at the framework level,
 /// `hopper_runtime::ZeroCopy`).
 pub unsafe trait Zeroable: Copy + Sized {}
 
@@ -47,7 +44,7 @@ pub unsafe trait Zeroable: Copy + Sized {}
 /// Implementing `Pod` for a type `T` asserts all of:
 ///
 /// 1. Every `[u8; size_of::<T>()]` bit pattern decodes to a valid `T`.
-/// 2. `align_of::<T>() == 1` — so a reference can be formed at any byte
+/// 2. `align_of::<T>() == 1`, so a reference can be formed at any byte
 ///    offset without an unaligned-reference (which is UB).
 /// 3. `T` contains no padding.
 /// 4. `T` contains no internal pointers or references.

@@ -9,7 +9,8 @@
 //!
 //! - One dataclass per account layout (`Vault`, `Config`, …) with a
 //!   `decode(bytes) -> Self` classmethod that verifies a headered layout ID or
-//!   compact exact size plus discriminator before reading raw field offsets.
+//!   fixed compact exact size (or dynamic compact minimum size) plus
+//!   discriminator before reading raw field offsets.
 //! - One dataclass per event with a `decode(bytes) -> Self` classmethod
 //!   keyed off the 1-byte event tag.
 //! - `build_<instruction>` helper functions that return the raw `bytes`
@@ -173,6 +174,15 @@ fn fmt_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Resul
     writeln!(f, "    DISC: ClassVar[int] = {}", layout.disc)?;
     writeln!(f, "    VERSION: ClassVar[int] = {}", layout.version)?;
     writeln!(f, "    TOTAL_SIZE: ClassVar[int] = {}", layout.total_size)?;
+    writeln!(
+        f,
+        "    HAS_DYNAMIC_TAIL: ClassVar[bool] = {}",
+        if layout.has_dynamic_tail {
+            "True"
+        } else {
+            "False"
+        }
+    )?;
     writeln!(f)?;
 
     // Typed fields (dataclass attributes)
@@ -195,8 +205,10 @@ fn fmt_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Resul
             f,
             "            raise ValueError(\"compact account missing discriminator\")"
         )?;
-        writeln!(f, "        if len(buf) != cls.TOTAL_SIZE:")?;
-        writeln!(f, "            raise ValueError(f\"compact account size mismatch: expected {{cls.TOTAL_SIZE}}, got {{len(buf)}}\")")?;
+        if !layout.has_dynamic_tail {
+            writeln!(f, "        if len(buf) != cls.TOTAL_SIZE:")?;
+            writeln!(f, "            raise ValueError(f\"compact account size mismatch: expected {{cls.TOTAL_SIZE}}, got {{len(buf)}}\")")?;
+        }
         writeln!(f, "        if buf[0] != cls.DISC:")?;
         writeln!(f, "            raise ValueError(f\"compact account discriminator mismatch: expected {{cls.DISC}}, got {{buf[0]}}\")")?;
     } else {
@@ -627,6 +639,7 @@ mod tests {
             version: 1,
             layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
             total_size: 64,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: &F,
         }
@@ -646,6 +659,7 @@ mod tests {
             version: 1,
             layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
             total_size: 9,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: &FIELDS,
         }];
@@ -664,6 +678,18 @@ mod tests {
         }
     }
 
+    fn dynamic_compact_manifest() -> ProgramManifest {
+        let fixed = compact_manifest();
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..fixed.layouts[0]
+        };
+        ProgramManifest {
+            layouts: alloc::boxed::Box::leak(alloc::boxed::Box::new([dynamic_layout])),
+            ..fixed
+        }
+    }
+
     #[test]
     fn accounts_mentions_layout_id_and_fields() {
         let m = sample_manifest();
@@ -679,9 +705,20 @@ mod tests {
     fn compact_accounts_validate_exact_size_and_discriminator() {
         let m = compact_manifest();
         let out = alloc::format!("{}", PyAccounts(&m));
+        assert!(out.contains("HAS_DYNAMIC_TAIL: ClassVar[bool] = False"));
+        assert!(out.contains("if len(buf) < cls.TOTAL_SIZE:"));
         assert!(out.contains("if len(buf) != cls.TOTAL_SIZE:"));
         assert!(out.contains("if buf[0] != cls.DISC:"));
         assert!(!out.contains("actual_id = bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + 8])"));
+    }
+
+    #[test]
+    fn compact_dynamic_accounts_accept_bytes_beyond_minimum_size() {
+        let out = alloc::format!("{}", PyAccounts(&dynamic_compact_manifest()));
+        assert!(out.contains("HAS_DYNAMIC_TAIL: ClassVar[bool] = True"));
+        assert!(out.contains("if len(buf) < cls.TOTAL_SIZE:"));
+        assert!(!out.contains("if len(buf) != cls.TOTAL_SIZE:"));
+        assert!(out.contains("if buf[0] != cls.DISC:"));
     }
 
     #[test]

@@ -14,10 +14,9 @@
 //! - **Tier 3** is off-chain generated metadata (JSON manifest, IDL,
 //!   SDKs) in `hopper-schema`.
 //!
-//! The registry is a sibling of the JSON manifest PDA that
-//! `hopper-schema` stores at `b"hopper:manifest"`; it lives at its own
-//! [`REGISTRY_SEED`] so the binary, hot-path-readable form never
-//! clobbers the JSON publication form.
+//! The registry data model uses a seed distinct from the legacy JSON-manifest
+//! account shape that `hopper-schema` can decode at `b"hopper:manifest"`.
+//! Applications must provision either account themselves.
 //!
 //! Every multi-byte field uses an alignment-1 wire integer, so both
 //! [`ProgramManifestHeader`] and [`AccountLayoutEntry`] are `Pod` and
@@ -30,8 +29,8 @@ use hopper_runtime::error::ProgramError;
 /// PDA seed for the on-chain binary registry account.
 ///
 /// Distinct from `hopper_schema::MANIFEST_SEED` (`b"hopper:manifest"`,
-/// the JSON manifest PDA) to avoid colliding with that account. The
-/// registry PDA is derived as
+/// the legacy JSON-manifest account shape) to avoid colliding with that
+/// account. Applications provision the registry themselves; its PDA is derived as
 /// `find_program_address(&[REGISTRY_SEED, program_id], program_id)`.
 pub const REGISTRY_SEED: &[u8] = b"hopper:registry";
 
@@ -43,8 +42,8 @@ pub const REGISTRY_VERSION: u16 = 1;
 
 // ── Header flags ─────────────────────────────────────────────────────
 
-/// Header flag: the program gates upgrades/migrations on this registry
-/// (the `governed` manifest profile).
+/// Header flag: the application intends to gate upgrades or migrations on this
+/// registry (the `governed` manifest profile). Callers must enforce the gate.
 pub const HEADER_FLAG_GOVERNED: u32 = 1 << 0;
 /// Header flag: `schema_hash` is populated and pins an off-chain schema.
 pub const HEADER_FLAG_HAS_SCHEMA_HASH: u32 = 1 << 1;
@@ -394,27 +393,32 @@ pub fn write_registry(
 
 /// How a program opts into the metadata tiers.
 ///
-/// Maps to `#[hopper::program(manifest = "...")]` (macro wiring is the
-/// documented next step; the semantics are usable today).
+/// Maps to `#[hopper::program(manifest = "...")]`. The macro emits the profile
+/// intent as a constant; it does not install a registry lifecycle or upgrade
+/// interceptor. Applications must provision, authenticate, call, and enforce
+/// the relevant registry operations themselves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ManifestProfile {
     /// Off-chain artifacts only (JSON / IDL / SDKs). No on-chain registry.
     Offchain,
-    /// Publishes and reads the on-chain registry PDA.
+    /// Intends application-managed publication and reads of a registry PDA.
     Onchain,
-    /// Like `Onchain`, and upgrades/migrations must match the on-chain
-    /// `registry_hash` before proceeding.
+    /// Intends application-managed publication plus upgrade/migration policy
+    /// based on an authenticated registry. This variant does not install the
+    /// gate itself.
     Governed,
 }
 
 impl ManifestProfile {
-    /// Whether this profile publishes/reads the on-chain registry PDA.
+    /// Whether this profile expresses intent to publish/read an
+    /// application-managed on-chain registry PDA.
     #[inline]
     pub const fn publishes_onchain(self) -> bool {
         matches!(self, Self::Onchain | Self::Governed)
     }
 
-    /// Whether this profile gates upgrades/migrations on the registry.
+    /// Whether this profile expresses intent to gate upgrades/migrations on
+    /// an authenticated registry. The application must invoke and enforce it.
     #[inline]
     pub const fn gates_upgrades(self) -> bool {
         matches!(self, Self::Governed)
@@ -442,7 +446,8 @@ impl ManifestProfile {
         }
     }
 
-    /// The header flags this profile implies.
+    /// The header flags this profile declares. An application that provisions
+    /// a registry is responsible for writing and enforcing them.
     #[inline]
     pub const fn header_flags(self) -> u32 {
         match self {
@@ -462,7 +467,8 @@ impl ManifestProfile {
         Self::from_str(s).ok_or(ProgramError::InvalidArgument)
     }
 
-    /// Whether an upgrade producing `compat` is permitted under this profile.
+    /// Whether an application enforcing this profile should permit an upgrade
+    /// producing `compat`. Calling this function does not intercept an upgrade.
     ///
     /// - `Offchain` / `Onchain` allow anything except a `Breaking` change.
     /// - `Governed` additionally blocks `MigrationRequired` unless an
@@ -583,13 +589,13 @@ pub fn diff_registries(
     verdict
 }
 
-/// Verify an on-chain registry view against expected off-chain hashes.
+/// Hash-consistency helper for an application-defined governed-upgrade gate.
 ///
-/// Returns `true` only if the stored `registry_hash` is internally
-/// consistent (matches the entry table) **and** both the schema hash and
-/// registry hash equal the values the off-chain build produced. This is
-/// the governed-upgrade gate: a deploy proceeds only when the binary the
-/// validator will run matches the artifacts the client/manager generated.
+/// Returns `true` only if the stored `registry_hash` matches the entry table
+/// and both stored hashes equal caller-supplied expected values. The caller
+/// must authenticate the registry, source those values from a trusted release
+/// artifact, and enforce the result. This function neither binds nor verifies
+/// the deployed binary and does not intercept a loader upgrade.
 pub fn registry_matches(
     view: &ProgramManifestView<'_>,
     expected_schema_hash: &[u8; 32],
@@ -604,16 +610,14 @@ pub fn registry_matches(
 //  AccountDescriptor / LayoutDescriptor -- the one-source-of-truth view
 // ══════════════════════════════════════════════════════════════════════
 
-/// A single, compile-time description of one account layout that every
-/// tier reads from: the hot-path loader (length + discriminator), the
-/// Tier-2 registry row, off-chain schema/client metadata, and field
-/// offsets.
+/// A compile-time metadata description of one account layout.
 ///
-/// Both compact (`[disc:u8][body]`) and headered (16-byte `HopperHeader`)
-/// layouts produce an `AccountDescriptor` through [`LayoutDescriptor`], so
-/// Hopper has *one* registry/identity model while keeping the 1-byte
-/// compact hot path. The descriptor is fully `const`: building it costs no
-/// CU and reads no on-chain registry.
+/// Hopper's macros derive this descriptor, the actual loader traits/helpers,
+/// field offsets, and schema metadata in parallel from the same declaration.
+/// The registry row delegates to this descriptor. Existing typed loaders do
+/// not consume it directly, and its [`Self::validate`] method is only a
+/// minimum-length-plus-discriminator helper, not full headered or fixed-compact
+/// validation. The value is fully `const` and reads no on-chain registry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AccountDescriptor {
     /// Account type name (matches the Rust struct identifier).
@@ -732,10 +736,11 @@ impl AccountDescriptor {
         )
     }
 
-    /// Hot-path validation: length + discriminator only, **no registry
-    /// read**. Inlined and branch-light so a compact loader pays nothing
-    /// for the unified model. The discriminator is at byte 0 for both
-    /// compact and headered layouts.
+    /// Minimum-length plus discriminator helper with **no registry read**.
+    ///
+    /// This is not the full typed loader: fixed compact loaders additionally
+    /// require exact size, and headered loaders also validate version and the
+    /// stored layout ID. The discriminator is at byte 0 for both shapes.
     #[inline(always)]
     pub fn validate(self, data: &[u8]) -> Result<(), ProgramError> {
         if data.len() < self.min_size as usize {
@@ -751,12 +756,13 @@ impl AccountDescriptor {
         }
     }
 
-    /// The deterministic [`LayoutFingerprint`] a generated client checks
-    /// before zero-copy-decoding a fetched account. `const`: a client can
-    /// embed it as a compile-time constant and compare without a registry
-    /// read. Folds in only wire-identity fields (name, disc, version,
-    /// sizes, body offset, shape flags, layout_id), never the `deprecated`
-    /// lifecycle bit -- so deprecating a layout never changes how it decodes.
+    /// A deterministic [`LayoutFingerprint`] available to off-chain tooling.
+    /// `const`: a caller can embed it and, after separately obtaining trusted
+    /// advertised metadata, compare the two without recomputing the descriptor.
+    /// The current main client-generator pipeline consumes [`LayoutManifest`]
+    /// rather than this value. This method does not fetch or authenticate a
+    /// registry. It folds in wire-identity fields but never the `deprecated`
+    /// lifecycle bit, so deprecating a layout does not change its identity.
     pub const fn fingerprint(self) -> LayoutFingerprint {
         // Canonical 32-byte wire-identity encoding (shape flags only).
         let mut buf = [0u8; 32];
@@ -800,8 +806,10 @@ impl AccountDescriptor {
         LayoutFingerprint(fp)
     }
 
-    /// Project this descriptor into a [`DescriptorIdlNode`] for IDL / Codama
-    /// generators -- sourced from the same descriptor the loader enforces.
+    /// Project this descriptor into a [`DescriptorIdlNode`] for optional
+    /// IDL/Codama-style tooling. The macro generates this descriptor and the
+    /// typed loader from the same declaration; the loader does not consume the
+    /// node directly.
     #[inline]
     pub const fn idl_node(self) -> DescriptorIdlNode {
         DescriptorIdlNode {
@@ -823,24 +831,32 @@ impl AccountDescriptor {
         }
     }
 
-    /// The direct-mapping account-data cost profile for this layout: how
-    /// many bytes a first write copies (copy-on-write), the size class, and
-    /// whether it can grow (the expensive realloc path).
+    /// A forward-looking direct-mapping account-data cost profile at an
+    /// observed current account length. The length is clamped up to
+    /// `min_size`, so an invalid short observation cannot understate cost.
+    ///
+    /// Dynamic-tail cost cannot be derived from the descriptor alone: a first
+    /// write may clone the account's full current data, not just its prefix.
     #[inline]
-    pub const fn cost_profile(self) -> CostProfile {
+    pub const fn cost_profile(self, current_data_len: u32) -> CostProfile {
+        let data_bytes = if current_data_len < self.min_size {
+            self.min_size
+        } else {
+            current_data_len
+        };
         CostProfile {
-            cow_copy_bytes: self.min_size,
-            class: SizeClass::of(self.min_size),
+            cow_copy_bytes: data_bytes,
+            class: SizeClass::of(data_bytes),
             growable: self.has_dynamic_tail(),
         }
     }
 
-    /// A descriptor-level advisory lint under the account-data cost model.
-    /// Large fixed layouts make first-write CoW copies expensive; growable
-    /// large layouts also pay the realloc growth cost.
+    /// An advisory lint at an observed current account length under the
+    /// direct-mapping account-data model. Large fixed layouts make first-write
+    /// CoW copies expensive; growable large layouts also carry realloc risk.
     #[inline]
-    pub const fn cost_lint(self) -> CostLint {
-        let class = SizeClass::of(self.min_size);
+    pub const fn cost_lint(self, current_data_len: u32) -> CostLint {
+        let class = self.cost_profile(current_data_len).class;
         if self.has_dynamic_tail() {
             match class {
                 SizeClass::Large | SizeClass::VeryLarge => return CostLint::ExpensiveGrowth,
@@ -854,13 +870,14 @@ impl AccountDescriptor {
     }
 }
 
-/// One layout, one descriptor. Implemented by every Hopper account type
-/// (compact or headered) so a program can enumerate, register, and
-/// validate all of its layouts through a single trait.
+/// Metadata descriptor implemented by Hopper account types, compact or
+/// headered, for enumeration and registry/tooling projections.
 ///
-/// The macros emit the impl; the provided methods route the Tier-2 row and
-/// the hot-path check through the single [`AccountDescriptor`] constant so
-/// the loader, the registry, and the off-chain metadata can never drift.
+/// The macros emit this impl alongside the actual typed loader impl and field
+/// offsets from the same declaration. [`Self::registry_entry`] delegates to the
+/// descriptor; [`Self::validate_hot`] is only the limited shape helper described
+/// on [`AccountDescriptor::validate`]. Persisted registries and separately
+/// supplied field maps still require validation by their consumers.
 pub trait LayoutDescriptor {
     /// The compile-time descriptor for this layout.
     const DESCRIPTOR: AccountDescriptor;
@@ -877,23 +894,25 @@ pub trait LayoutDescriptor {
         Self::DESCRIPTOR.validate(data)
     }
 
-    /// The client decode fingerprint a generated SDK checks before casting
-    /// fetched bytes. Derived from the same descriptor the loader uses.
+    /// Descriptor fingerprint available to off-chain tooling. The current
+    /// client generators use `LayoutManifest` metadata instead. Registry
+    /// retrieval and authentication remain the caller's responsibility.
     #[inline]
     fn fingerprint() -> LayoutFingerprint {
         Self::DESCRIPTOR.fingerprint()
     }
 
-    /// The IDL / Codama projection for this layout, for off-chain codegen.
+    /// An IDL/Codama-style projection available to off-chain codegen.
     #[inline]
     fn idl_node() -> DescriptorIdlNode {
         Self::DESCRIPTOR.idl_node()
     }
 
-    /// The direct-mapping account-data cost profile for this layout.
+    /// The forward-looking direct-mapping account-data cost profile at an
+    /// observed current account length.
     #[inline]
-    fn cost_profile() -> CostProfile {
-        Self::DESCRIPTOR.cost_profile()
+    fn cost_profile(current_data_len: u32) -> CostProfile {
+        Self::DESCRIPTOR.cost_profile(current_data_len)
     }
 }
 
@@ -942,13 +961,12 @@ pub fn diff_descriptors_vs_registry(
 //  Client decode fingerprint
 // ══════════════════════════════════════════════════════════════════════
 
-/// A 16-byte deterministic identity for one wire layout. A generated client
-/// embeds the fingerprint of the descriptor it was built against as a
-/// constant, then compares it to the fingerprint computed from the layout
-/// the program actually advertises (its on-chain registry row) **before**
-/// casting fetched bytes. A mismatch means the program was redeployed with a
-/// different layout at that discriminator: the client must fail closed
-/// rather than zero-copy-decode stale or mis-shaped bytes.
+/// A 16-byte deterministic identity for one wire layout. Off-chain tooling can
+/// embed it as external metadata. A transport-aware caller that separately
+/// obtains and authenticates an advertised layout can compare the two before
+/// decoding. This type neither retrieves nor authenticates an on-chain
+/// registry; byte-level generated guards remain responsible for rejecting
+/// malformed account data.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct LayoutFingerprint(pub [u8; 16]);
 
@@ -1020,20 +1038,19 @@ pub fn recommend_loaded_data_limit(
 //  Dynamic-tail-aware layout change classification
 // ══════════════════════════════════════════════════════════════════════
 
-/// A precise classification of how one layout row changed between two
-/// registry generations -- finer-grained than [`RegistryCompat`], and
-/// aware that a dynamic-tail layout's capacity is an off-chain concern.
+/// A precise, conservative classification of how one layout row changed
+/// between two registry generations -- finer-grained than [`RegistryCompat`].
+///
+/// Registry rows do not record a dynamic tail's capacity or policy, so a
+/// version bump cannot safely be classified as a capacity-only change.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LayoutChange {
     /// Byte-identical.
     Unchanged,
     /// Only the name hash changed (rename); wire layout identical.
     NameOnly,
-    /// A dynamic-tail layout kept its fixed prefix and identity but bumped
-    /// version: a tail capacity/policy change that lives off-chain and does
-    /// not invalidate existing accounts (the loader only checks the prefix).
-    TailCapacity,
-    /// Version bumped on a fixed-size layout, prefix unchanged.
+    /// Version bumped while the committed shape and sizes stayed unchanged.
+    /// The reason for the bump is not represented by the registry row.
     VersionBump,
     /// The fixed prefix grew: the loader's `min_size` check rejects
     /// stale-short accounts until they are migrated / realloced.
@@ -1048,13 +1065,13 @@ pub enum LayoutChange {
 }
 
 impl LayoutChange {
-    /// Map the precise change to the coarse upgrade verdict. A dynamic-tail
-    /// capacity bump is `Additive`, unlike a fixed-prefix grow.
+    /// Map the precise change to the coarse upgrade verdict. Only facts
+    /// represented by the registry row influence this mapping.
     #[inline]
     pub const fn compat(self) -> RegistryCompat {
         match self {
             LayoutChange::Unchanged => RegistryCompat::Unchanged,
-            LayoutChange::NameOnly | LayoutChange::TailCapacity => RegistryCompat::Additive,
+            LayoutChange::NameOnly => RegistryCompat::Additive,
             LayoutChange::VersionBump | LayoutChange::FixedPrefixGrew => {
                 RegistryCompat::MigrationRequired
             }
@@ -1065,8 +1082,9 @@ impl LayoutChange {
     }
 }
 
-/// Classify the change between two registry rows sharing a discriminator,
-/// distinguishing a dynamic-tail capacity change from a fixed-prefix change.
+/// Classify the change between two registry rows sharing a discriminator.
+/// This deliberately does not infer a dynamic-tail capacity-only change:
+/// capacity and policy are absent from [`AccountLayoutEntry`].
 pub fn classify_entry_change(old: &AccountLayoutEntry, new: &AccountLayoutEntry) -> LayoutChange {
     if old == new {
         return LayoutChange::Unchanged;
@@ -1084,21 +1102,19 @@ pub fn classify_entry_change(old: &AccountLayoutEntry, new: &AccountLayoutEntry)
         return LayoutChange::FixedPrefixGrew;
     }
     // Same identity, shape, and sizes: only version/name metadata differs.
+    // The registry does not encode why a version changed, so both fixed and
+    // dynamic layouts require migration review.
     if new.version.get() != old.version.get() {
-        // A dynamic-tail layout with an unchanged fixed prefix only moved
-        // its (off-chain) tail capacity/policy: additive, not a migration.
-        if new.flags.get() & ENTRY_FLAG_DYNAMIC_TAIL != 0 {
-            return LayoutChange::TailCapacity;
-        }
         return LayoutChange::VersionBump;
     }
     LayoutChange::NameOnly
 }
 
-/// Tail-aware variant of [`diff_descriptors_vs_registry`]: classifies each
-/// matched row with [`classify_entry_change`], so a dynamic-tail capacity
-/// bump reads as `Additive` rather than `MigrationRequired`. Removal and
-/// addition rules are identical; returns the worst verdict.
+/// Detailed variant of [`diff_descriptors_vs_registry`]: classifies each
+/// matched row with [`classify_entry_change`]. Removal and addition rules are
+/// identical; returns the worst verdict. A version bump remains
+/// `MigrationRequired`, including for dynamic-tail rows, because the registry
+/// does not commit the reason for the bump.
 pub fn diff_descriptors_vs_registry_detailed(
     descriptors: &[AccountDescriptor],
     onchain: &ProgramManifestView<'_>,
@@ -1174,16 +1190,19 @@ impl SizeClass {
     }
 }
 
-/// A descriptor-level cost profile under the direct-mapping account model.
+/// A cost profile at an observed account length under the direct-mapping
+/// account model. This models active test-cluster/upcoming runtime behavior;
+/// it is not a Mainnet CU quote.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct CostProfile {
-    /// Bytes copied on the first write to a fully-populated account
-    /// (copy-on-write). For fixed layouts this equals `min_size`.
+    /// Current account-data bytes that a first-write copy-on-write operation
+    /// may clone. The supplied observation is clamped to the layout's
+    /// `min_size`; for a valid fixed layout the two are equal.
     pub cow_copy_bytes: u32,
-    /// Size class of the fixed prefix.
+    /// Size class of the current, clamped account data.
     pub class: SizeClass,
-    /// Whether the layout can grow (dynamic tail), which triggers the
-    /// expensive realloc path rather than a fixed-size CoW copy.
+    /// Whether the layout can grow (dynamic tail), so future cost can exceed
+    /// this current-length snapshot and realloc may add further work.
     pub growable: bool,
 }
 
@@ -1214,10 +1233,10 @@ pub enum LayoutKind {
 }
 
 /// A minimal, stable, `no_std` projection of an [`AccountDescriptor`] for
-/// IDL / Codama-style generators. It carries exactly what a generator needs
-/// to emit an account node and a fail-closed decode guard, sourced from the
-/// same descriptor the on-chain loader enforces -- so the IDL can never
-/// describe a different layout than the program runs.
+/// IDL/Codama-style tooling. It is an available emitter building block; the
+/// current primary CLI and six-language client pipeline use `LayoutManifest`
+/// instead. The macro derives both forms from one declaration, but callers must
+/// still keep separately supplied field maps and persisted metadata coherent.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DescriptorIdlNode {
     /// Account type name.
@@ -1690,7 +1709,7 @@ mod tests {
     }
 
     #[test]
-    fn classify_entry_change_is_tail_aware() {
+    fn classify_entry_change_is_conservative_about_version_bumps() {
         let fixed = AccountLayoutEntry::new(1, 1, 41, 40, 0xAB, ENTRY_FLAG_COMPACT, [1; 8]);
         let fixed_v2 = AccountLayoutEntry::new(1, 2, 41, 40, 0xAB, ENTRY_FLAG_COMPACT, [1; 8]);
         // Version bump on a fixed layout -> migration.
@@ -1706,15 +1725,15 @@ mod tests {
         let tail_flags = ENTRY_FLAG_HEADERED | ENTRY_FLAG_DYNAMIC_TAIL;
         let tail = AccountLayoutEntry::new(2, 1, 56, 40, 0xCD, tail_flags, [2; 8]);
         let tail_v2 = AccountLayoutEntry::new(2, 2, 56, 40, 0xCD, tail_flags, [2; 8]);
-        // Version bump on a dynamic-tail layout with unchanged prefix is a
-        // tail capacity/policy change -> additive, not a migration.
+        // A dynamic-tail row does not commit capacity or policy. An unchanged
+        // prefix therefore cannot prove that a version bump is capacity-only.
         assert_eq!(
             classify_entry_change(&tail, &tail_v2),
-            LayoutChange::TailCapacity
+            LayoutChange::VersionBump
         );
         assert_eq!(
             classify_entry_change(&tail, &tail_v2).compat(),
-            RegistryCompat::Additive
+            RegistryCompat::MigrationRequired
         );
 
         // Grown prefix even on a tail layout -> migration.
@@ -1739,25 +1758,23 @@ mod tests {
     }
 
     #[test]
-    fn detailed_diff_treats_tail_capacity_as_additive() {
+    fn detailed_diff_keeps_dynamic_version_bumps_migration_required() {
         let tail = AccountDescriptor::headered("Log", 1, 1, 40, [0xCD; 8]).with_dynamic_tail();
         let mut buf = [0u8; registry_len(1)];
         let n = write_one(&mut buf, tail.registry_entry());
         let onchain = ProgramManifestView::parse(&buf[..n]).unwrap();
 
-        // Same prefix/identity, bumped version (tail capacity bump).
+        // Same prefix/identity, bumped version. The reason is not represented.
         let tail_v2 = AccountDescriptor::headered("Log", 1, 2, 40, [0xCD; 8]).with_dynamic_tail();
-        // The coarse diff calls this a migration...
         assert_eq!(
             diff_descriptors_vs_registry(&[tail_v2], &onchain),
             RegistryCompat::MigrationRequired
         );
-        // ...the tail-aware diff recognises it as additive.
         assert_eq!(
             diff_descriptors_vs_registry_detailed(&[tail_v2], &onchain),
-            RegistryCompat::Additive
+            RegistryCompat::MigrationRequired
         );
-        assert!(ManifestProfile::Governed
+        assert!(!ManifestProfile::Governed
             .permits_upgrade(diff_descriptors_vs_registry_detailed(&[tail_v2], &onchain)));
     }
 
@@ -1765,21 +1782,41 @@ mod tests {
     fn cost_profile_and_lint_track_size_and_growth() {
         // Small fixed layout: cheap CoW, Ok.
         let small = AccountDescriptor::compact("V", 1, 1, 40, [1; 8]);
-        let p = small.cost_profile();
+        let p = small.cost_profile(41);
         assert_eq!(p.cow_copy_bytes, 41);
         assert_eq!(p.class, SizeClass::Small);
         assert!(!p.growable);
-        assert_eq!(small.cost_lint(), CostLint::Ok);
+        assert_eq!(small.cost_lint(41), CostLint::Ok);
 
         // Large fixed layout: non-trivial first-write copy.
         let large = AccountDescriptor::headered("Book", 2, 1, 9000, [2; 8]);
-        assert_eq!(large.cost_profile().class, SizeClass::Large);
-        assert_eq!(large.cost_lint(), CostLint::LargeFixedCopy);
+        assert_eq!(large.cost_profile(large.min_size).class, SizeClass::Large);
+        assert_eq!(large.cost_lint(large.min_size), CostLint::LargeFixedCopy);
 
         // Large + growable: expensive realloc growth.
         let growable = AccountDescriptor::headered("Log", 3, 1, 9000, [3; 8]).with_dynamic_tail();
-        assert!(growable.cost_profile().growable);
-        assert_eq!(growable.cost_lint(), CostLint::ExpensiveGrowth);
+        assert!(growable.cost_profile(growable.min_size).growable);
+        assert_eq!(
+            growable.cost_lint(growable.min_size),
+            CostLint::ExpensiveGrowth
+        );
+
+        // A tiny dynamic prefix can back a very large live account. The
+        // observed full length, not `min_size`, controls the CoW class/lint.
+        let tiny_growable =
+            AccountDescriptor::headered("TinyLog", 4, 1, 40, [4; 8]).with_dynamic_tail();
+        let grown_len = SIZE_CLASS_LARGE_MAX + 1;
+        let grown = tiny_growable.cost_profile(grown_len);
+        assert_eq!(grown.cow_copy_bytes, grown_len);
+        assert_eq!(grown.class, SizeClass::VeryLarge);
+        assert_eq!(
+            tiny_growable.cost_lint(grown_len),
+            CostLint::ExpensiveGrowth
+        );
+
+        // Invalid short observations cannot make the advisory understate the
+        // descriptor's minimum valid bytes.
+        assert_eq!(small.cost_profile(0).cow_copy_bytes, small.min_size);
 
         // Very large boundary.
         assert_eq!(

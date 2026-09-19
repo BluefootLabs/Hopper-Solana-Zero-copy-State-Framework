@@ -2,12 +2,12 @@
 //! `PROGRAM_MANIFEST` with near-zero authoring.
 //!
 //! The author writes ONE short block naming the program module and the
-//! layout/event types; everything deep — instruction rows, const-eval
-//! account conversion, layout field tables, event descriptors — comes
+//! layout/event types; everything deep, instruction rows, const-eval
+//! account conversion, layout field tables, event descriptors, comes
 //! from the same macro-generated consts the runtime enforces. These
 //! tests bind a real `#[hopper::program]` + `#[derive(Accounts)]` +
 //! `#[account]` + `#[hopper::event]` set, then assert the aggregated
-//! manifest (and its `ManifestJson` rendering — the exact surface
+//! manifest (and its `ManifestJson` rendering, the exact surface
 //! `hopper compile --emit manifest` writes and `hopper tx explain`
 //! decodes against) carries the enforced truth.
 
@@ -43,7 +43,7 @@ pub struct Credited {
     pub total: WireU32,
 }
 
-// The handlers are aggregation fixtures — nothing dispatches them here
+// The handlers are aggregation fixtures; nothing dispatches them here
 // (the dispatch paths have their own integration suites).
 #[allow(dead_code)]
 #[hopper::program(entrypoint = false)]
@@ -178,7 +178,7 @@ fn account_rows_are_converted_verbatim_from_schema_metadata() {
     assert!(!ix.accounts[1].writable);
 }
 
-/// A TYPE-LEVEL `Signer<'info>` wrapper must publish `signer: true` —
+/// A TYPE-LEVEL `Signer<'info>` wrapper must publish `signer: true`,
 /// `validate()` enforces it (`expect_signer_writable`), so the manifest
 /// claiming otherwise would under-report the account requirements.
 /// (Regression: SCHEMA_METADATA previously only honored the attribute
@@ -229,7 +229,7 @@ fn layout_manifest_carries_real_types_offsets_and_declared_intents() {
     assert_eq!(balance.canonical_type, "WireU64");
     assert_eq!(balance.offset, 48);
     assert_eq!(balance.size, 8);
-    // Declared via `#[role = "balance"]` — the macro publishes what the
+    // Declared via `#[role = "balance"]`, the macro publishes what the
     // author declared, never a guess.
     assert_eq!(balance.intent, FieldIntent::Balance);
 }
@@ -312,7 +312,7 @@ fn checked_in_smoke_manifest_carries_tx_explain_decode_surfaces() {
         .expect("examples/hopper-smoke/hopper.manifest.json is checked in")
         .replace("\r\n", "\n");
 
-    // events[]: DepositReceipt rides tag 2 with balance/deposit_count —
+    // events[]: DepositReceipt rides tag 2 with balance/deposit_count,
     // the exact join key + spans the self-CPI event decoder slices.
     assert!(json.contains("\"name\": \"DepositReceipt\",\n      \"tag\": 2,"));
     assert!(json.contains(
@@ -321,11 +321,11 @@ fn checked_in_smoke_manifest_carries_tx_explain_decode_surfaces() {
     assert!(json.contains(
         "{ \"name\": \"deposit_count\", \"type\": \"WireU32\", \"size\": 4, \"offset\": 8, \"intent\": \"custom\" }"
     ));
-    // DepositEvent rides tag 1 — the same byte `emit_event_tagged(1, ..)`
+    // DepositEvent rides tag 1, the same byte `emit_event_tagged(1, ..)`
     // writes on the wire.
     assert!(json.contains("\"name\": \"DepositEvent\",\n      \"tag\": 1,"));
 
-    // layouts[]: Vault.balance at account-absolute offset 48, size 8 —
+    // layouts[]: Vault.balance at account-absolute offset 48, size 8,
     // the span touch-map write attribution resolves against. Pin it to
     // the Vault block (it must appear after Vault opens and before the
     // next layout begins).

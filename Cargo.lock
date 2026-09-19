@@ -2299,6 +2299,10 @@ version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "hopper-schema",
+ "hopper-test",
+ "serde",
+ "serde_json",
+ "solana-account 4.3.1",
  "solana-client",
  "solana-commitment-config",
  "solana-instruction",
@@ -2332,6 +2336,8 @@ name = "hopper-orderbook"
 version = "0.3.0"
 dependencies = [
  "hopper-lang",
+ "serde",
+ "serde_json",
  "solana-client",
  "solana-commitment-config",
  "solana-instruction",
@@ -2549,6 +2555,21 @@ name = "hopper-token-2022-vault"
 version = "0.3.0"
 dependencies = [
  "hopper-lang",
+ "hopper-test",
+ "mollusk-svm-programs-token",
+ "serde",
+ "serde_json",
+ "solana-account 4.3.1",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-instruction",
+ "solana-keypair",
+ "solana-pubkey 4.2.1",
+ "solana-signer",
+ "solana-system-interface 3.2.0",
+ "solana-transaction",
+ "spl-associated-token-account-interface",
+ "spl-token-2022-interface",
 ]
 
 [[package]]
@@ -3306,6 +3327,7 @@ dependencies = [
  "solana-program-pack",
  "solana-pubkey 4.2.1",
  "solana-rent",
+ "spl-associated-token-account-interface",
  "spl-token-interface 2.0.0",
 ]
 

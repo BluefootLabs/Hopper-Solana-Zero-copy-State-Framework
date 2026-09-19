@@ -384,7 +384,7 @@ pub fn read_transfer_fee_config(mint_data: &[u8]) -> Result<TransferFeeConfig, P
 ///
 /// References are borrowed from the mint buffer, so the caller
 /// typically clones `.to_bytes()` into an owned `Address` before
-/// further use. This is R6 audit closure; see
+/// further use. See
 /// [`examples/hopper-token-2022-transfer-hook`] for the end-to-end
 /// reference program.
 pub struct TransferHook<'a> {

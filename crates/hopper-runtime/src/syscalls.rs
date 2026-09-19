@@ -68,7 +68,7 @@ hopper_native::define_syscall!(
 #[inline(always)]
 pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_log_data(segments, segments_len);
     }
@@ -88,7 +88,7 @@ pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
 #[inline(always)]
 pub unsafe fn sol_sha256(vals: *const u8, vals_len: u64, result: *mut u8) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_sha256(vals, vals_len, result);
     }
@@ -108,7 +108,7 @@ pub unsafe fn sol_sha256(vals: *const u8, vals_len: u64, result: *mut u8) {
 #[inline(always)]
 pub unsafe fn sol_keccak256(vals: *const u8, vals_len: u64, result: *mut u8) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_keccak256(vals, vals_len, result);
     }
@@ -192,7 +192,7 @@ pub unsafe fn sol_curve_validate_point(
     result_point_addr: *mut u8,
 ) -> u64 {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         return hopper_native::syscalls::sol_curve_validate_point(
             curve_id,
@@ -412,7 +412,7 @@ pub unsafe fn sol_big_mod_exp(params: *const u8, result: *mut u8) -> u64 {
 #[inline(always)]
 pub fn sol_get_stack_height() -> u64 {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         return hopper_native::syscalls::sol_get_stack_height();
     }
@@ -438,7 +438,7 @@ pub unsafe fn sol_get_processed_sibling_instruction(
     accounts: *mut u8,
 ) -> u64 {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         return hopper_native::syscalls::sol_get_processed_sibling_instruction(
             index, meta, program_id, data, accounts,

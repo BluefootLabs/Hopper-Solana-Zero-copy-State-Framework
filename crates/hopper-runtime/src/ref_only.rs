@@ -1,7 +1,7 @@
 //! Compile-proven borrow-guard constraint.
 //!
-//! The Hopper Safety Audit's Finding 2 asks for *compile-time* proof
-//! that no raw `&T` / `&mut T` can escape an account access path.
+//! The type system proves that no raw `&T` / `&mut T` can escape an
+//! account access path.
 //! Every runtime surface already returns a [`Ref`], [`RefMut`],
 //! [`SegRef`], or [`SegRefMut`], but that guarantee is embedded in the
 //! function return types alone. [`HopperRefOnly`] is the nominal
@@ -11,15 +11,11 @@
 //! API authors can now write `fn f<G: HopperRefOnly>(g: G)` and rely
 //! on the compiler to reject a naked `&mut U` at the call site. The
 //! sealed trait pattern means no downstream crate can stamp the marker
-//! onto arbitrary types, which closes the audit's "prove no raw refs"
+//! onto arbitrary types, which enforces the no-raw-reference
 //! gate at compile time instead of by convention.
 //!
-//! # Grep receipt
-//!
-//! An auditor running `grep -r "HopperRefOnly"` sees exactly five
-//! lines: the trait declaration plus the four guard impls. There is
-//! no macro-generated expansion, no procedural indirection. Every
-//! impl is visible at the byte level.
+//! The implementations are explicit for Hopper's four guard types; macros do
+//! not generate additional implementations.
 //!
 //! [`Ref`]: crate::borrow::Ref
 //! [`RefMut`]: crate::borrow::RefMut

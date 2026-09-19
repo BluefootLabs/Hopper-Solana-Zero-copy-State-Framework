@@ -37,7 +37,7 @@ enum TailKind {
     /// Growable typed sequence: `Seq<'a, T>` (no capacity). Backed by the
     /// runtime `[count:u32][T; ..]` fixed-stride cursors. It is the SOLE,
     /// final tail of its account (one growable tail per account) and its
-    /// on-wire layout — hence the layout id — carries NO capacity, so
+    /// on-wire layout, hence the layout id, carries NO capacity, so
     /// growing the account never changes the account type.
     Seq {
         ty: Type,
@@ -108,7 +108,7 @@ impl Parse for TailSpec {
         }
 
         if keyword == "seq" {
-            // `seq<T>` — a growable typed sequence, NO capacity.
+            // `seq<T>`, a growable typed sequence, NO capacity.
             let ty: Type = input.parse()?;
             input.parse::<Token![>]>()?;
             return Ok(Self {
@@ -782,7 +782,7 @@ fn expand_seq_account(
             /// Absolute offset of the `Seq` tail region (== `TAIL_PREFIX_OFFSET`).
             #vis const #abs_offset_const: u32 = Self::TAIL_PREFIX_OFFSET as u32;
             /// Open-ended declared write size: the tail grows without
-            /// bound, so its range is `u32::MAX` (an open tail — never a
+            /// bound, so its range is `u32::MAX` (an open tail, never a
             /// whole-account grant, since it starts past the head).
             #vis const #size_const: u32 = u32::MAX;
 
@@ -960,7 +960,7 @@ fn parse_pretty_tail_type(ty: &Type) -> Result<Option<TailKind>> {
     }
 
     if ident == "Seq" {
-        // `Seq<'a, T>` or `Seq<T>` — a growable typed sequence, no capacity.
+        // `Seq<'a, T>` or `Seq<T>`, a growable typed sequence, no capacity.
         let args = angle_args(&segment.arguments, ty)?;
         let (_, ty_index) = leading_lifetime_index(args);
         let ty_arg = type_arg(
@@ -1143,7 +1143,7 @@ fn tail_struct_field(field: &TailField) -> TokenStream {
     match &field.kind {
         TailKind::String { cap } => quote! { #ident: string<#cap>, },
         TailKind::Vec { ty, cap, .. } => quote! { #ident: vec<#ty, #cap>, },
-        // `Seq` tails never reach the owned-decode tail struct — they are
+        // `Seq` tails never reach the owned-decode tail struct; they are
         // handled by `expand_seq_account`.
         TailKind::Seq { .. } | TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
     }
@@ -1199,7 +1199,7 @@ fn tail_schema(fields: &[TailField]) -> String {
                 out.push('>');
             }
             TailKind::Seq { ty } => {
-                // NO capacity in the schema — the layout id stays
+                // NO capacity in the schema, the layout id stays
                 // capacity-independent, so growing never changes the type.
                 out.push_str("seq<");
                 out.push_str(&ty.to_token_stream().to_string().replace(' ', ""));

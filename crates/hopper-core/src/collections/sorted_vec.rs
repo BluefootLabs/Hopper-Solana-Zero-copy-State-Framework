@@ -189,7 +189,7 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
                     let src_offset = Self::element_offset(insert_idx);
                     let dst_offset = Self::element_offset(insert_idx + 1);
                     let byte_count = (len - insert_idx) * T::SIZE;
-                    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                     unsafe {
                         core::ptr::copy(
                             self.data.as_ptr().add(src_offset),
@@ -218,7 +218,7 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
             let src_offset = Self::element_offset(index + 1);
             let dst_offset = Self::element_offset(index);
             let byte_count = (len - index - 1) * T::SIZE;
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe {
                 core::ptr::copy(
                     self.data.as_ptr().add(src_offset),

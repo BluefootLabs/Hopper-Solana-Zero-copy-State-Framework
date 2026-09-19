@@ -23,7 +23,8 @@
 //!   `decode_{name}(&[u8]) -> Result<{Name}>` that reads fields out
 //!   of raw bytes at their declared offsets, preceded by
 //!   `assert_{name}_layout(&[u8])` which compares a header's `LAYOUT_ID`, or
-//!   a compact account's discriminator and exact size, with the manifest.
+//!   a compact account's discriminator and fixed exact or dynamic minimum
+//!   size, with the manifest.
 //! - **Instructions**: `create_{ix}_ix(accounts, args) -> Instruction`
 //!   builders with the discriminator byte + LE-encoded args.
 //! - **Events**: `decode_{event}_data(&[u8]) -> Result<{Event}>`.
@@ -106,9 +107,9 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "pub const LAYOUT_ID_LENGTH: usize = 8;")?;
         writeln!(f)?;
 
-        // Compute-budget support (BLD-CU): emitted only when at least one
+        // Emit compute-budget support only when at least one
         // instruction publishes a measured CU estimate, so unmeasured
-        // programs get byte-identical pre-BLD-CU output.
+        // programs get byte-identical output when compute-budget metadata is absent.
         if prog.instructions.iter().any(|ix| ix.cu_estimate > 0) {
             writeln!(
                 f,
@@ -331,6 +332,11 @@ fn write_layout_const_and_decoder(
         "pub const {}_TOTAL_SIZE: usize = {};",
         upper, layout.total_size
     )?;
+    writeln!(
+        f,
+        "pub const {}_HAS_DYNAMIC_TAIL: bool = {};",
+        upper, layout.has_dynamic_tail
+    )?;
     writeln!(f)?;
     for field in layout.fields.iter() {
         writeln!(
@@ -367,10 +373,17 @@ fn write_layout_const_and_decoder(
 
     // Layout assertion.
     if layout_is_compact(layout) {
-        writeln!(
-            f,
-            "/// Refuse to decode unless this compact account has the exact manifest"
-        )?;
+        if layout.has_dynamic_tail {
+            writeln!(
+                f,
+                "/// Refuse to decode unless this compact account has at least the manifest"
+            )?;
+        } else {
+            writeln!(
+                f,
+                "/// Refuse to decode unless this compact account has the exact manifest"
+            )?;
+        }
         writeln!(
             f,
             "/// size and discriminator. Its `{}_LAYOUT_ID` remains metadata because",
@@ -405,13 +418,15 @@ fn write_layout_const_and_decoder(
             upper
         )?;
         writeln!(f, "    }}")?;
-        writeln!(f, "    if data.len() != {}_TOTAL_SIZE {{", upper)?;
-        writeln!(
-            f,
-            "        return Err(ClientError::AccountSizeMismatch {{ expected: {}_TOTAL_SIZE, actual: data.len() }});",
-            upper
-        )?;
-        writeln!(f, "    }}")?;
+        if !layout.has_dynamic_tail {
+            writeln!(f, "    if data.len() != {}_TOTAL_SIZE {{", upper)?;
+            writeln!(
+                f,
+                "        return Err(ClientError::AccountSizeMismatch {{ expected: {}_TOTAL_SIZE, actual: data.len() }});",
+                upper
+            )?;
+            writeln!(f, "    }}")?;
+        }
         writeln!(f, "    if data[0] != {}_DISC {{", upper)?;
         writeln!(
             f,
@@ -720,7 +735,7 @@ fn write_instruction_builder(
         } else {
             format!("accounts.{}", snake_case(acc.name))
         };
-        // `effective_writable` (BLD-MUT contract): passthrough unless the
+        // `effective_writable` passes through unless the
         // instruction is `mutation_complete` (strict_writes + declared
         // lamport dimension); when complete, an account with neither a
         // data range nor lamport permission is provably untouched and is
@@ -746,9 +761,9 @@ fn write_instruction_builder(
     writeln!(f, "}}")?;
     writeln!(f)?;
 
-    // Compute-budget companion (BLD-CU). Generated only when the descriptor
+    // Generate the compute-budget companion only when the descriptor
     // publishes a measured CU upper bound (cu_estimate > 0); unmeasured
-    // instructions keep the exact pre-BLD-CU output. The requested limit is
+    // instructions keep the exact output used without compute-budget metadata. The requested limit is
     // the published bound + 10% margin (clamped at the 1.4M runtime cap);
     // the margin only raises the limit, so an honest estimate stays safe.
     if let Some(budget) = ix.cu_budget_with_margin() {
@@ -1107,6 +1122,7 @@ mod tests {
             disc: 42,
             layout_id: [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
             total_size: 56,
+            has_dynamic_tail: false,
             field_count: 2,
             fields: VAULT_FIELDS,
         };
@@ -1195,6 +1211,7 @@ mod tests {
             disc: 11,
             layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
             total_size: 9,
+            has_dynamic_tail: false,
             field_count: 1,
             fields: FIELDS,
         }];
@@ -1210,6 +1227,18 @@ mod tests {
             compatibility_pairs: &[],
             tooling_hints: &[],
             contexts: &[],
+        }
+    }
+
+    fn dynamic_compact_manifest() -> ProgramManifest {
+        let fixed = compact_manifest();
+        let dynamic_layout = LayoutManifest {
+            has_dynamic_tail: true,
+            ..fixed.layouts[0]
+        };
+        ProgramManifest {
+            layouts: alloc::boxed::Box::leak(alloc::boxed::Box::new([dynamic_layout])),
+            ..fixed
         }
     }
 
@@ -1261,6 +1290,8 @@ mod tests {
     #[test]
     fn rs_compact_decoder_validates_exact_size_and_discriminator() {
         let out = RsClientGen(&compact_manifest()).to_string();
+        assert!(out.contains("pub const COMPACT_VAULT_HAS_DYNAMIC_TAIL: bool = false;"));
+        assert!(out.contains("data.len() < COMPACT_VAULT_TOTAL_SIZE"));
         assert!(out.contains("if data.len() != COMPACT_VAULT_TOTAL_SIZE"));
         assert!(out.contains("if data[0] != COMPACT_VAULT_DISC"));
         assert!(out.contains("ClientError::AccountSizeMismatch"));
@@ -1270,6 +1301,15 @@ mod tests {
         let end = body.find("pub fn decode_compact_vault").unwrap();
         assert!(!body[..end].contains("read_layout_id(data)?"));
         assert!(!out.contains("fn read_layout_id(data: &[u8])"));
+    }
+
+    #[test]
+    fn rs_compact_dynamic_decoder_uses_minimum_size() {
+        let out = RsClientGen(&dynamic_compact_manifest()).to_string();
+        assert!(out.contains("pub const COMPACT_VAULT_HAS_DYNAMIC_TAIL: bool = true;"));
+        assert!(out.contains("data.len() < COMPACT_VAULT_TOTAL_SIZE"));
+        assert!(!out.contains("if data.len() != COMPACT_VAULT_TOTAL_SIZE"));
+        assert!(out.contains("if data[0] != COMPACT_VAULT_DISC"));
     }
 
     #[test]
@@ -1371,7 +1411,7 @@ mod tests {
         assert!(out.contains("buf.copy_from_slice(&data[5..13]);"));
     }
 
-    // -- BLD-WR: strict_writes account demotion in the Rust builder --
+    // Apply strict_writes account demotion in the Rust builder.
 
     // Caller-provided (non-PDA) accounts so each emits `accounts.<name>`:
     // vault is written; config is Sealevel-writable with no declared range.
@@ -1460,7 +1500,7 @@ mod tests {
         assert!(out.contains("AccountMeta::new(accounts.config, false),"));
     }
 
-    // -- BLD-CU: compute-budget companion generation --
+    // Generate the compute-budget companion.
 
     fn cu_manifest(with_estimate: bool) -> ProgramManifest {
         static CU_IX_SET: &[InstructionDescriptor] = &[InstructionDescriptor {
@@ -1489,7 +1529,7 @@ mod tests {
             instructions: if with_estimate {
                 CU_IX_SET
             } else {
-                // Reuse the loose BLD-WR instruction: cu_estimate is 0 there.
+                // Reuse the loose instruction; its cu_estimate is 0.
                 &[]
             },
             events: &[],
@@ -1516,7 +1556,7 @@ mod tests {
 
     #[test]
     fn rs_unknown_cu_estimate_emits_no_budget_code() {
-        // 0 = unmeasured: output stays byte-identical to pre-BLD-CU behavior.
+        // 0 = unmeasured: output stays byte-identical to behavior without compute-budget metadata.
         let out = RsClientGen(&wr_manifest(false)).to_string();
         assert!(!out.contains("CU_ESTIMATE"));
         assert!(!out.contains("with_budget"));

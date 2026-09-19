@@ -1,9 +1,9 @@
 //! State Receipts -- structured mutation summaries.
 //!
-//! A `StateReceipt` captures a complete record of what happened during
-//! an instruction's execution: which fields changed, what the before/after
-//! fingerprints were, which invariants ran, which capabilities were active,
-//! and how many CPI calls or journal appends occurred.
+//! A `StateReceipt` captures a bounded, configured summary of an instruction:
+//! selected changed fields, before/after fingerprints, invariant and policy
+//! flags, and caller-recorded CPI or journal counters. It is not an
+//! authenticated or exhaustive transaction trace.
 //!
 //! ## Use Cases
 //!
@@ -54,7 +54,7 @@ fn fast_fingerprint(data: &[u8]) -> [u8; 8] {
     // NOTE (binary size): every read below goes through `get(..)` into a
     // fixed-size `[u8; 8]`, never `data[i + k]`. An index LLVM cannot
     // statically bound emits `core::panicking::panic_bounds_check`, which
-    // *formats* its arguments — linking `Formatter::pad_integral`,
+    // *formats* its arguments, linking `Formatter::pad_integral`,
     // `do_count_chars` and the integer `Display` impls, ~5 KiB of
     // `core::fmt`, into every Hopper program's `.text`. Indexing a
     // statically-sized array (`w[0]`, `tail[3]`) is provable and free.
@@ -78,7 +78,7 @@ fn fast_fingerprint(data: &[u8]) -> [u8; 8] {
     if i < data.len() {
         let mut tail = [0u8; 8];
         // `zip` stops at the shorter side, so the fewer-than-8 remaining
-        // bytes land at the front and the rest stay zero — byte-for-byte
+        // bytes land at the front and the rest stay zero, byte-for-byte
         // the same tail the indexed loop produced.
         for (dst, src) in tail.iter_mut().zip(data.get(i..).unwrap_or(&[])) {
             *dst = *src;
@@ -129,7 +129,7 @@ pub struct StateReceipt<const SNAP_SIZE: usize> {
     /// Whether the before-snapshot was truncated (account larger than
     /// the receipt's `SNAP_SIZE`). When `true`, the change set this
     /// receipt reports covers only the captured prefix and may
-    /// **under-report** mutations past the window — an off-chain
+    /// **under-report** mutations past the window, an off-chain
     /// auditor must treat this receipt as inconclusive on completeness.
     /// Set on `commit`. See the diff engine's `StateDiff::is_complete`.
     pub snapshot_truncated: bool,
@@ -358,7 +358,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         self.new_size = current_data.len();
         // Record whether the diff could see the whole account. A
         // truncated capture means the reported change set is a lower
-        // bound, not the truth — the receipt must say so.
+        // bound, not the truth, the receipt must say so.
         self.snapshot_truncated = diff.was_truncated();
 
         let regions = diff.changed_regions::<16>();

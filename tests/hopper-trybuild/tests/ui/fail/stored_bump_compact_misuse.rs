@@ -1,6 +1,6 @@
 //! `#[bump]` marker misuse on the COMPACT state tier: the marker's
 //! contract (at most one marked field, `u8` only) holds on every layout
-//! tier, not just the headered walk — a compact struct previously
+//! tier, not just the headered walk, a compact struct previously
 //! swallowed the marker silently.
 
 use hopper::prelude::*;

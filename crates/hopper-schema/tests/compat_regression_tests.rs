@@ -78,6 +78,7 @@ fn make_manifest(
         version,
         layout_id,
         total_size,
+        has_dynamic_tail: false,
         field_count: fields.len(),
         fields,
     }

@@ -1,16 +1,8 @@
-//! SVM-optimized memory operations.
+//! Memory operations backed by Solana SVM syscalls.
 //!
-//! The Solana BPF VM provides syscall-level memory operations that are
-//! faster than Rust's default libc implementations because they are
-//! JIT-compiled intrinsics in the VM. No framework exposes these at the
-//! substrate level.
-//!
-//! On BPF, these dispatch to `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`,
+//! On Solana SBF, these dispatch to `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`,
 //! and `sol_memset_`. Off-chain, they fall back to standard library
 //! implementations.
-//!
-//! Use these instead of `core::ptr::copy_nonoverlapping`, `ptr::write_bytes`,
-//! etc. for best performance on the SVM.
 
 use crate::error::ProgramError;
 
@@ -25,12 +17,12 @@ use crate::error::ProgramError;
 #[inline(always)]
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, n: usize) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_memcpy_(dst, src, n as u64);
     }
     #[cfg(not(target_os = "solana"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         core::ptr::copy_nonoverlapping(src, dst, n);
     }
@@ -46,12 +38,12 @@ pub unsafe fn memcpy(dst: *mut u8, src: *const u8, n: usize) {
 #[inline(always)]
 pub unsafe fn memmove(dst: *mut u8, src: *const u8, n: usize) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_memmove_(dst, src, n as u64);
     }
     #[cfg(not(target_os = "solana"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         core::ptr::copy(src, dst, n);
     }
@@ -59,7 +51,7 @@ pub unsafe fn memmove(dst: *mut u8, src: *const u8, n: usize) {
 
 /// Fill `n` bytes starting at `dst` with `byte`.
 ///
-/// The fastest way to zero-fill or pattern-fill a memory region on the SVM.
+/// Uses the SVM `sol_memset_` syscall on-chain.
 ///
 /// # Safety
 ///
@@ -67,12 +59,12 @@ pub unsafe fn memmove(dst: *mut u8, src: *const u8, n: usize) {
 #[inline(always)]
 pub unsafe fn memset(dst: *mut u8, byte: u8, n: usize) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_memset_(dst, byte, n as u64);
     }
     #[cfg(not(target_os = "solana"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         core::ptr::write_bytes(dst, byte, n);
     }
@@ -91,7 +83,7 @@ pub unsafe fn memcmp(a: *const u8, b: *const u8, n: usize) -> core::cmp::Orderin
     #[cfg(target_os = "solana")]
     {
         let mut result: i32 = 0;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             crate::syscalls::sol_memcmp_(a, b, n as u64, &mut result as *mut i32);
         }
@@ -103,7 +95,7 @@ pub unsafe fn memcmp(a: *const u8, b: *const u8, n: usize) -> core::cmp::Orderin
     }
     #[cfg(not(target_os = "solana"))]
     {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let a_slice = unsafe { core::slice::from_raw_parts(a, n) };
         let b_slice = unsafe { core::slice::from_raw_parts(b, n) };
         a_slice.cmp(b_slice)
@@ -118,7 +110,7 @@ pub fn zero_fill(buf: &mut [u8]) {
     if buf.is_empty() {
         return;
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         memset(buf.as_mut_ptr(), 0, buf.len());
     }
@@ -134,7 +126,7 @@ pub fn copy_bytes(dst: &mut [u8], src: &[u8]) -> Result<(), ProgramError> {
     if dst.len() < src.len() {
         return Err(ProgramError::InvalidArgument);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         memcpy(dst.as_mut_ptr(), src.as_ptr(), src.len());
     }
@@ -150,7 +142,7 @@ pub fn bytes_eq(a: &[u8], b: &[u8]) -> bool {
     if a.is_empty() {
         return true;
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { memcmp(a.as_ptr(), b.as_ptr(), a.len()) == core::cmp::Ordering::Equal }
 }
 

@@ -376,6 +376,9 @@ impl<'info> LazyContext<'info> {
                 // Non-duplicate: RuntimeAccount header starts here.
                 let raw = self.cursor as *mut RuntimeAccount;
                 let view = AccountView::new_unchecked(raw);
+                // Capture the invocation-wide resize baseline before this
+                // newly materialized view can escape or be passed to CPI.
+                view.initialize_original_data_len();
                 let data_len = (*raw).data_len as usize;
                 // Folded straight-line stride (see `non_dup_stride`), replacing
                 // the pre-fusion `align_offset` walk.
@@ -388,10 +391,10 @@ impl<'info> LazyContext<'info> {
                                                   // The loader guarantees duplicate markers refer to
                                                   // **previously parsed** slots. A marker that points at
                                                   // ourselves or forward is malformed loader input -
-                                                  // pre-audit we returned `self.resolved[0]` which is a
+                                                  // Previously this returned `self.resolved[0]`, which is a
                                                   // zeroed `AccountView` until a real account has been
                                                   // parsed, silently handing out a null-pointer view. The
-                                                  // Hopper Safety Audit flagged this; we now trap.
+                                                  // Parser input is malformed, so we trap.
                 if original_idx >= self.parsed_count {
                     crate::raw_input::malformed_duplicate_marker(dup_marker, self.parsed_count);
                 }

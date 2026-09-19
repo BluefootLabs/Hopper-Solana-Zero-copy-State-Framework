@@ -60,13 +60,13 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
     ///
     /// 1. `count > capacity` is inconsistent geometry.
     /// 2. `count` must equal the number of slots whose occupied flag is
-    ///    actually set — the flags are the ground truth every access is
+    ///    actually set, the flags are the ground truth every access is
     ///    gated on, so a disagreeing header is corruption, not state.
     ///
     /// The reconciliation scan is O(capacity), one flag byte per slot,
-    /// paid once at construction. (Access itself was already sound —
+    /// paid once at construction. (Access itself was already sound,
     /// every `SlotKey` index is bounds-checked against `capacity` and
-    /// the generation counter defeats ABA — so this adds consistency,
+    /// the generation counter defeats ABA; so this adds consistency,
     /// not a missing bound.)
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
@@ -190,7 +190,7 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let off = self.slot_offset(index) + SLOT_OVERHEAD;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(off) as *const T) })
     }
 
@@ -206,7 +206,7 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         }
         let off = self.slot_offset(index);
         let val_off = off + SLOT_OVERHEAD;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let value =
             unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(val_off) as *const T) };
         // Clear occupied flag
@@ -222,7 +222,7 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         // `count` that disagrees with the occupancy flags, so a consistent
         // map cannot reach `count == 0` here. Should the header still be
         // corrupted post-construction, an unchecked `count - 1` would
-        // underflow — debug-panic, or wrap to `usize::MAX` in release.
+        // underflow, debug-panic, or wrap to `usize::MAX` in release.
         // `count` is a reporting value only (slot access is flag-gated), so
         // saturating is both safe and correct.
         self.set_count(self.count().saturating_sub(1));
@@ -369,7 +369,7 @@ mod tests {
         /// with independently chosen `count` header and occupied-flag
         /// bytes, and assert `from_bytes` accepts it IFF the stored
         /// count equals the number of nonzero flags. (A fully random
-        /// byte strategy is vacuous here — a random header matches its
+        /// byte strategy is vacuous here, a random header matches its
         /// flag popcount with probability ~2^-32, so the accept branch
         /// would never execute and deleting the reconciliation loop
         /// would go unnoticed.)

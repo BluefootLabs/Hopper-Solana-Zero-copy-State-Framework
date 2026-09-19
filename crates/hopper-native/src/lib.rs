@@ -1,16 +1,14 @@
-//! Hopper Native -- sovereign raw backend for Solana.
+//! Hopper Native -- Hopper's raw backend for Solana.
 //!
 //! Direct syscall-native runtime layer purpose-built for zero-copy state
-//! frameworks. A sovereign substrate with genuinely novel features no other
-//! framework provides:
+//! frameworks. It provides the low-level primitives used by Hopper's runtime:
 //!
 //! - **Alignment-safe wire types**: `LeU64`, `LeU32`, `LeBool` etc. --
 //!   alignment-1 types with checked arithmetic by default, explicit
 //!   endianness, const constructors. The foundation for safe zero-copy
 //!   structs. (`wire`)
 //! - **Verified CPI**: `LamportSnapshot`, `DataFingerprint` -- snapshot
-//!   state before CPI, verify post-conditions after. First framework to
-//!   provide substrate-level CPI result verification. (`verify`)
+//!   state before CPI and verify post-conditions after. (`verify`)
 //! - **Cross-program lenses**: `read_address()`, `read_le_u64()` -- read
 //!   specific fields from foreign program accounts by byte offset without
 //!   importing their types at compile time. (`lens`)
@@ -47,8 +45,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 // `AccountView`/`Address` are `Copy` only under the `copy` feature. The
 // `.clone()` calls on them are mandatory in the default (non-`copy`) build, so
-// suppress `clone_on_copy` only in the feature lane where the type gains `Copy`
-// — keeping one source of truth instead of feature-splitting every call site.
+// suppress `clone_on_copy` only in the feature lane where the type gains `Copy`,
+// keeping one source of truth instead of feature-splitting every call site.
 #![cfg_attr(feature = "copy", allow(clippy::clone_on_copy))]
 
 // ── Core modules (always available) ──────────────────────────────────
@@ -66,7 +64,7 @@ pub mod raw_input;
 pub mod sha256;
 pub mod syscalls;
 
-// ── Innovation modules ───────────────────────────────────────────────
+// Additional modules.
 
 pub mod batch;
 pub mod budget;
@@ -78,7 +76,7 @@ pub mod lens;
 pub mod mem;
 /// Cross-program projection lens traits (`Projectable`, `SafeProjectable`).
 ///
-/// **Tier-C escape hatch** per the Hopper Safety Audit. The module
+/// **Tier-C escape hatch.** The module
 /// stays compiled because other low-level helpers (wire overlays,
 /// typed return-data, the `expert` tier) use `Projectable` internally,
 /// but its public re-export is gated behind the default-on
@@ -119,7 +117,7 @@ pub use error::ProgramError;
 pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use raw_account::RuntimeAccount;
 
-// Innovation re-exports.
+// Additional re-exports.
 pub use budget::CuBudget;
 pub use capability::{
     ExecutableView, MutableView, OwnedView, ReadonlyView, SignerView, WritableView,

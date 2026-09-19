@@ -14,7 +14,7 @@
 //! `encode_*` functions below to build their `data` buffer before handing
 //! it to `hopper_runtime::cpi::invoke_signed`. Because the builders route
 //! through these functions, the `#[cfg(kani)]` proofs verify the *actual*
-//! bytes the CPI path emits — not a parallel re-implementation.
+//! bytes the CPI path emits rather than a parallel reimplementation.
 //!
 //! Reference: `<spl-token>/src/instruction.rs` `TokenInstruction` tags
 //! (Transfer = 3, InitializeAccount = 1, Approve = 4, Revoke = 5,
@@ -38,7 +38,7 @@ pub const IX_CLOSE_ACCOUNT: u8 = 9;
 
 /// Encode `TokenInstruction::Transfer { amount }`.
 ///
-/// Layout: `[3][amount: u64 LE]` — 9 bytes.
+/// Layout: `[3][amount: u64 LE]`, 9 bytes.
 #[inline(always)]
 pub fn encode_transfer(amount: u64) -> [u8; 9] {
     let mut data = [0u8; 9];
@@ -49,7 +49,7 @@ pub fn encode_transfer(amount: u64) -> [u8; 9] {
 
 /// Encode `TokenInstruction::Approve { amount }`.
 ///
-/// Layout: `[4][amount: u64 LE]` — 9 bytes.
+/// Layout: `[4][amount: u64 LE]`, 9 bytes.
 #[inline(always)]
 pub fn encode_approve(amount: u64) -> [u8; 9] {
     let mut data = [0u8; 9];
@@ -60,7 +60,7 @@ pub fn encode_approve(amount: u64) -> [u8; 9] {
 
 /// Encode `TokenInstruction::MintTo { amount }`.
 ///
-/// Layout: `[7][amount: u64 LE]` — 9 bytes.
+/// Layout: `[7][amount: u64 LE]`, 9 bytes.
 #[inline(always)]
 pub fn encode_mint_to(amount: u64) -> [u8; 9] {
     let mut data = [0u8; 9];
@@ -71,7 +71,7 @@ pub fn encode_mint_to(amount: u64) -> [u8; 9] {
 
 /// Encode `TokenInstruction::Burn { amount }`.
 ///
-/// Layout: `[8][amount: u64 LE]` — 9 bytes.
+/// Layout: `[8][amount: u64 LE]`, 9 bytes.
 #[inline(always)]
 pub fn encode_burn(amount: u64) -> [u8; 9] {
     let mut data = [0u8; 9];
@@ -82,7 +82,7 @@ pub fn encode_burn(amount: u64) -> [u8; 9] {
 
 /// Encode `TokenInstruction::Revoke`.
 ///
-/// Layout: `[5]` — 1 byte.
+/// Layout: `[5]`, 1 byte.
 #[inline(always)]
 pub fn encode_revoke() -> [u8; 1] {
     [IX_REVOKE]
@@ -90,7 +90,7 @@ pub fn encode_revoke() -> [u8; 1] {
 
 /// Encode `TokenInstruction::CloseAccount`.
 ///
-/// Layout: `[9]` — 1 byte.
+/// Layout: `[9]`, 1 byte.
 #[inline(always)]
 pub fn encode_close_account() -> [u8; 1] {
     [IX_CLOSE_ACCOUNT]
@@ -98,7 +98,7 @@ pub fn encode_close_account() -> [u8; 1] {
 
 /// Encode `TokenInstruction::InitializeAccount`.
 ///
-/// Layout: `[1]` — 1 byte. The owner/mint/rent are carried in the
+/// Layout: `[1]`, 1 byte. The owner/mint/rent are carried in the
 /// account-meta list, not the instruction data.
 #[inline(always)]
 pub fn encode_initialize_account() -> [u8; 1] {
@@ -164,7 +164,7 @@ mod tests {
 // `amount`:
 //   (i)   the discriminator byte is exactly the SPL/Token-2022 tag,
 //   (ii)  the amount lands little-endian at byte offset 1 (compared as
-//         one u64 word — never a 32-byte slice `==`, per the raw_input
+//         one u64 word, never a 32-byte slice `==`, per the raw_input
 //         PID_WORD lesson: word/field-wise comparisons keep the harness
 //         free of memcmp loops that would blow up the SAT formula),
 //   (iii) the total encoded length is exact.

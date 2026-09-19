@@ -1,10 +1,11 @@
 [package]
 name = "hopper-native"
 version = "0.3.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
-description = "Hopper's sovereign raw backend for Solana. Zero-copy account access, direct syscall layer, CPI infrastructure, PDA helpers, and entrypoint glue. no_std, no_alloc, no external runtime dependencies."
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
+description = "Low-level Solana backend for Hopper with zero-copy account access, syscalls, checked CPI infrastructure, PDA helpers, and entrypoint glue. no_std and no_alloc."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/crate/hopper-native/0.3.0"
@@ -38,11 +39,11 @@ simd-0321 = []
 # Opt-in for the SIMD-0449 pre-computed account-pointer table: the
 # runtime appends a pre-deduplicated `[u64; n]` array of canonical
 # account-record pointers after the instruction tail, making account
-# resolution O(1) — no stride walk, no duplicate resolution. Requires
+# resolution O(1), with no stride walk or duplicate resolution. Requires
 # `simd-0321` (the table is located relative to the r2 instruction-data
 # pointer). Runtime gate: ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK
 # (rekeyed 2026-04-15, agave PR #11934; the original ptrXWLk… gate is
-# dead). Activated on testnet + devnet, pending mainnet-beta — enable
+# dead). Activated on testnet and devnet, pending mainnet-beta. Enable
 # only for clusters where `hopper feature-gate` reports it active;
 # elsewhere the table is absent and this path reads garbage. Off by
 # default, scanning stays the default path.
