@@ -999,6 +999,30 @@ macro_rules! program_manifest {
                 contexts: $program_mod::__HOPPER_CONTEXT_DESCRIPTORS,
             };
 
+        /// Manifest printer behind `hopper compile --emit manifest --package`.
+        ///
+        /// The CLI runs `cargo test --lib -- __hopper_print_manifest
+        /// --nocapture` on the program crate and reads the JSON printed
+        /// between two marker lines, the way Anchor builds its IDL. A test
+        /// binary compiles the crate source directly, so this works for a
+        /// program crate whose `crate-type` is `["cdylib"]` alone and needs
+        /// no scratch harness that links the crate as a library.
+        #[cfg(test)]
+        #[doc(hidden)]
+        mod __hopper_manifest_export {
+            extern crate std;
+
+            #[test]
+            fn __hopper_print_manifest() {
+                std::print!(
+                    "\n{}\n{}\n{}\n",
+                    $crate::hopper_schema::codama::MANIFEST_EXPORT_BEGIN,
+                    $crate::hopper_schema::codama::ManifestJson(&super::PROGRAM_MANIFEST),
+                    $crate::hopper_schema::codama::MANIFEST_EXPORT_END,
+                );
+            }
+        }
+
         /// SHA-256 commitment to the program's canonical executable
         /// interface declaration.
         #[allow(unexpected_cfgs)]

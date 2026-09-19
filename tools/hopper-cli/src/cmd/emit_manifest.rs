@@ -2,65 +2,37 @@
 //! `hopper.manifest.json` FROM SOURCE.
 //!
 //! Every other `--emit` target consumes an existing manifest JSON; this
-//! is the producer. It compiles a tiny generated harness that depends
-//! on the target package, prints
-//! `hopper_schema::codama::ManifestJson(&<pkg>::PROGRAM_MANIFEST)`, and
-//! writes the result next to the package as `hopper.manifest.json`,
-//! so the published schema is rendered from the SAME statics the
-//! runtime enforces (`SCHEMA_METADATA`, `STRICT_WRITES`,
-//! `WRITE_RANGES`, ...) and cannot drift from the code. This is the
-//! same build-a-harness trick `anchor idl build` uses, without the
-//! Node/JS leg.
+//! is the producer. It runs the manifest printer test that
+//! `hopper::program_manifest!` emits into the program crate
+//! (`cargo test --lib -- __hopper_print_manifest --nocapture`), reads the
+//! JSON printed between two marker lines, and writes it next to the
+//! package as `hopper.manifest.json`. The published schema is therefore
+//! rendered from the SAME statics the runtime enforces
+//! (`SCHEMA_METADATA`, `STRICT_WRITES`, `WRITE_RANGES`, ...) and cannot
+//! drift from the code. This is the trick `anchor idl build` uses. A test
+//! binary compiles the crate source directly, so it works for a program
+//! crate whose `crate-type` is `["cdylib"]` alone; an earlier scratch
+//! harness that linked the crate as a library could not.
 //!
-//! The target package must export a `pub static PROGRAM_MANIFEST:
-//! hopper_schema::ProgramManifest`. One `hopper::program_manifest! {
-//! program = <mod>, layouts = [...], events = [...] }` block at the
-//! crate root does it (see `examples/hopper-counter`): `#[program]` /
-//! `#[account]` / `#[hopper::event]` emit all the deep metadata, so
-//! the block only names the module and the layout/event types.
+//! The target package must invoke `hopper::program_manifest! { program =
+//! <mod>, layouts = [...], events = [...] }` once at the crate root (see
+//! `examples/hopper-counter`): `#[program]` / `#[account]` /
+//! `#[hopper::event]` emit all the deep metadata, so the block only names
+//! the module and the layout/event types.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// `my-program` → `my_program` (the crate ident Cargo exposes).
-fn crate_ident(package: &str) -> String {
-    package.replace('-', "_")
-}
+use hopper_schema::codama::{MANIFEST_EXPORT_BEGIN, MANIFEST_EXPORT_END};
 
-/// Render the scratch harness's Cargo.toml. The empty `[workspace]`
-/// table detaches it from any enclosing workspace; both path deps
-/// resolve to the caller's actual source trees, so the harness compiles
-/// against exactly the code being described.
-fn scratch_cargo_toml(package: &str, package_dir: &Path, hopper_lang_dir: &Path) -> String {
-    format!(
-        "[package]\n\
-         name = \"hopper-manifest-export\"\n\
-         version = \"0.0.0\"\n\
-         edition = \"2021\"\n\
-         publish = false\n\
-         \n\
-         [dependencies]\n\
-         {package} = {{ path = {pkg_path:?} }}\n\
-         hopper = {{ path = {hopper_path:?}, package = \"hopper-lang\", default-features = false }}\n\
-         \n\
-         [workspace]\n",
-        package = package,
-        pkg_path = package_dir.display().to_string(),
-        hopper_path = hopper_lang_dir.display().to_string(),
-    )
-}
+/// Test filter passed to the program crate's test binary. Substring
+/// matching keeps it correct whether the macro was invoked at the crate
+/// root or inside a module.
+const PRINTER_TEST_FILTER: &str = "__hopper_print_manifest";
 
-/// Render the scratch harness's main.rs.
-fn scratch_main_rs(package: &str) -> String {
-    format!(
-        "fn main() {{\n    print!(\"{{}}\", hopper::hopper_schema::codama::ManifestJson(&{ident}::PROGRAM_MANIFEST));\n}}\n",
-        ident = crate_ident(package)
-    )
-}
-
-/// Locate a package's directory and the hopper-lang framework root via
-/// `cargo metadata` (resolved, so path/rename indirection is handled).
-fn locate_dirs(package: &str, cwd: &Path) -> Result<(PathBuf, PathBuf), String> {
+/// Locate a package's directory via `cargo metadata` (resolved, so
+/// path/rename indirection is handled).
+fn locate_package_dir(package: &str, cwd: &Path) -> Result<PathBuf, String> {
     let output = Command::new("cargo")
         .args(["metadata", "--format-version", "1"])
         .current_dir(cwd)
@@ -78,9 +50,10 @@ fn locate_dirs(package: &str, cwd: &Path) -> Result<(PathBuf, PathBuf), String> 
         .get("packages")
         .and_then(serde_json::Value::as_array)
         .ok_or("cargo metadata: no packages array")?;
-    let dir_of = |name: &str| -> Option<PathBuf> {
-        packages.iter().find_map(|p| {
-            if p.get("name").and_then(serde_json::Value::as_str) == Some(name) {
+    packages
+        .iter()
+        .find_map(|p| {
+            if p.get("name").and_then(serde_json::Value::as_str) == Some(package) {
                 p.get("manifest_path")
                     .and_then(serde_json::Value::as_str)
                     .and_then(|m| PathBuf::from(m).parent().map(Path::to_path_buf))
@@ -88,66 +61,62 @@ fn locate_dirs(package: &str, cwd: &Path) -> Result<(PathBuf, PathBuf), String> 
                 None
             }
         })
-    };
-    let pkg_dir = dir_of(package).ok_or_else(|| {
-        format!("package `{package}` not found in this workspace (cargo metadata)")
-    })?;
-    let hopper_dir = dir_of("hopper-lang").ok_or(
-        "hopper-lang not found in the dependency graph; --emit manifest must run inside a \
-         workspace whose programs depend on the Hopper framework",
-    )?;
-    Ok((pkg_dir, hopper_dir))
+        .ok_or_else(|| format!("package `{package}` not found in this workspace (cargo metadata)"))
 }
 
-/// Generate `hopper.manifest.json` from the package's exported
-/// `PROGRAM_MANIFEST`. Returns the path written.
+/// Pull the manifest JSON out of the test binary's stdout. `None` when the
+/// markers are absent, which means the crate has no printer test (no
+/// `program_manifest!` invocation) or the filter matched nothing.
+fn extract_manifest_json(stdout: &str) -> Option<String> {
+    let begin = stdout.find(MANIFEST_EXPORT_BEGIN)? + MANIFEST_EXPORT_BEGIN.len();
+    let end = begin + stdout[begin..].find(MANIFEST_EXPORT_END)?;
+    Some(stdout[begin..end].trim().to_string())
+}
+
+/// Generate `hopper.manifest.json` from the package's `program_manifest!`
+/// block. Returns the path written.
 pub fn emit_manifest_from_source(
     package: &str,
     out: Option<&Path>,
     cwd: &Path,
 ) -> Result<PathBuf, String> {
-    let (pkg_dir, hopper_dir) = locate_dirs(package, cwd)?;
+    let pkg_dir = locate_package_dir(package, cwd)?;
 
-    let scratch = std::env::temp_dir().join(format!("hopper-manifest-export-{package}"));
-    let src = scratch.join("src");
-    std::fs::create_dir_all(&src).map_err(|e| format!("scratch dir: {e}"))?;
-    std::fs::write(
-        scratch.join("Cargo.toml"),
-        scratch_cargo_toml(package, &pkg_dir, &hopper_dir),
-    )
-    .map_err(|e| format!("scratch Cargo.toml: {e}"))?;
-    std::fs::write(src.join("main.rs"), scratch_main_rs(package))
-        .map_err(|e| format!("scratch main.rs: {e}"))?;
-
-    eprintln!("compiling manifest harness for `{package}` (first run builds the deps)...");
+    eprintln!(
+        "running the manifest printer for `{package}` (cargo test --lib; the first run builds \
+         the package)..."
+    );
     let output = Command::new("cargo")
-        .args(["run", "--quiet"])
-        .arg("--manifest-path")
-        .arg(scratch.join("Cargo.toml"))
+        .args(["test", "--quiet", "--lib", "--manifest-path"])
+        .arg(pkg_dir.join("Cargo.toml"))
+        .args(["--", PRINTER_TEST_FILTER, "--nocapture"])
         .output()
-        .map_err(|e| format!("could not run the manifest harness: {e}"))?;
+        .map_err(|e| format!("could not run cargo test for the manifest printer: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("PROGRAM_MANIFEST") {
-            return Err(format!(
-                "`{package}` does not export `pub static PROGRAM_MANIFEST: \
-                 hopper_schema::ProgramManifest`. Add one line at the crate root, \
-                 `hopper::program_manifest! {{ program = <your_program_mod>, \
-                 layouts = [...], events = [...] }}` (see \
-                 examples/hopper-counter/src/lib.rs), and re-run.\n\nharness build \
-                 output:\n{stderr}"
-            ));
-        }
-        return Err(format!("manifest harness failed to build/run:\n{stderr}"));
-    }
-    let json = String::from_utf8(output.stdout)
-        .map_err(|e| format!("harness printed non-UTF8 output: {e}"))?;
-    if !json.trim_start().starts_with('{') {
         return Err(format!(
-            "harness output does not look like a JSON manifest:\n{}",
+            "the manifest printer for `{package}` failed to build or run:\n{stderr}"
+        ));
+    }
+    let json = extract_manifest_json(&stdout).ok_or_else(|| {
+        format!(
+            "`{package}` printed no manifest. Add one block at the crate root, \
+             `hopper::program_manifest! {{ program = <your_program_mod>, layouts = [...], \
+             events = [...] }}` (see examples/hopper-counter/src/lib.rs), and re-run.\n\n\
+             cargo test output:\n{}\n{}",
+            stdout.trim(),
+            stderr.trim()
+        )
+    })?;
+    if !json.starts_with('{') || !json.ends_with('}') {
+        return Err(format!(
+            "the manifest printer output does not look like a JSON manifest:\n{}",
             &json[..json.len().min(400)]
         ));
     }
+    let mut json = json;
+    json.push('\n');
 
     let out_path = out
         .map(Path::to_path_buf)
@@ -165,27 +134,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ident_conversion_swaps_hyphens() {
-        assert_eq!(crate_ident("hopper-counter"), "hopper_counter");
-        assert_eq!(crate_ident("plain"), "plain");
-    }
-
-    #[test]
-    fn scratch_harness_files_reference_the_package_and_printer() {
-        let toml = scratch_cargo_toml(
-            "hopper-counter",
-            Path::new("D:/x/examples/hopper-counter"),
-            Path::new("D:/x"),
+    fn manifest_json_is_read_back_between_the_markers() {
+        let stdout = format!(
+            "\nrunning 1 test\n\n{MANIFEST_EXPORT_BEGIN}\n{{\n  \"name\": \"p\"\n}}\n\
+             {MANIFEST_EXPORT_END}\ntest __hopper_manifest_export::__hopper_print_manifest ... ok\n"
         );
-        assert!(toml.contains("hopper-counter = { path ="));
-        assert!(toml.contains("package = \"hopper-lang\""));
-        assert!(
-            toml.contains("[workspace]"),
-            "must detach from enclosing workspaces"
+        assert_eq!(
+            extract_manifest_json(&stdout).as_deref(),
+            Some("{\n  \"name\": \"p\"\n}")
         );
-
-        let main = scratch_main_rs("hopper-counter");
-        assert!(main.contains("hopper_counter::PROGRAM_MANIFEST"));
-        assert!(main.contains("ManifestJson"));
+        assert_eq!(extract_manifest_json("running 0 tests\n"), None);
+        assert_eq!(
+            extract_manifest_json(&format!("{MANIFEST_EXPORT_BEGIN}\n{{ truncated")),
+            None
+        );
     }
 }

@@ -81,6 +81,12 @@ fn run() -> Result<(), String> {
     let wrong_maker = Keypair::new();
     let mint_a = Pubkey::new_unique();
     let mint_b = Pubkey::new_unique();
+    // A system account must hold the rent-exempt minimum for its size after
+    // every transaction, so the wrong signer is funded at exactly that floor
+    // and drained by the same amount at cleanup.
+    let wrong_maker_lamports = client
+        .get_minimum_balance_for_rent_exemption(0)
+        .map_err(|error| format!("read rent-exempt minimum: {error}"))?;
     let fund_wrong_maker = submit_finalized(
         &client,
         &rpc_url,
@@ -89,7 +95,7 @@ fn run() -> Result<(), String> {
         &[system_instruction::transfer(
             &maker.pubkey(),
             &wrong_maker.pubkey(),
-            1,
+            wrong_maker_lamports,
         )],
         false,
         "fund-wrong-maker",
@@ -179,7 +185,7 @@ fn run() -> Result<(), String> {
         &[system_instruction::transfer(
             &wrong_maker.pubkey(),
             &maker.pubkey(),
-            1,
+            wrong_maker_lamports,
         )],
         false,
         "cleanup-wrong-maker",

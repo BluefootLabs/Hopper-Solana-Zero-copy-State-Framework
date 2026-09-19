@@ -74,6 +74,12 @@ fn run() -> Result<(), String> {
 
     let vault = Keypair::new();
     let wrong_authority = Keypair::new();
+    // A system account must hold the rent-exempt minimum for its size after
+    // every transaction, so the wrong signer is funded at exactly that floor
+    // and drained by the same amount at cleanup.
+    let wrong_authority_lamports = client
+        .get_minimum_balance_for_rent_exemption(0)
+        .map_err(|error| format!("read rent-exempt minimum: {error}"))?;
     let fund_wrong_authority = submit_finalized(
         &client,
         &rpc_url,
@@ -82,7 +88,7 @@ fn run() -> Result<(), String> {
         &[system_instruction::transfer(
             &payer.pubkey(),
             &wrong_authority.pubkey(),
-            1,
+            wrong_authority_lamports,
         )],
         false,
         "fund-wrong-authority",
@@ -176,7 +182,7 @@ fn run() -> Result<(), String> {
         &[system_instruction::transfer(
             &wrong_authority.pubkey(),
             &payer.pubkey(),
-            1,
+            wrong_authority_lamports,
         )],
         false,
         "cleanup-wrong-authority",

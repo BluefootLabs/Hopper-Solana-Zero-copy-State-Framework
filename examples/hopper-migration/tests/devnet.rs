@@ -59,6 +59,8 @@ struct DevnetReceipt {
     last_deposit: u64,
     vault_lamports_before_deposit: u64,
     vault_lamports_after_deposit: u64,
+    /// Every transaction the lane sent, as the evidence contract names it.
+    #[serde(rename = "transactions")]
     signatures: Vec<SignatureReceipt>,
 }
 

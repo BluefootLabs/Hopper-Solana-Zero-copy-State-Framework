@@ -518,6 +518,13 @@ impl<'a> fmt::Display for IdlJson<'a> {
 /// Wrapper for JSON formatting of `ProgramManifest`.
 pub struct ManifestJson<'a>(pub &'a ProgramManifest);
 
+/// Line printed before the manifest JSON by the `#[test]` that
+/// `hopper::program_manifest!` emits. `hopper compile --emit manifest
+/// --package` runs that test and reads the JSON back between the markers.
+pub const MANIFEST_EXPORT_BEGIN: &str = "<<<hopper-manifest-json-begin>>>";
+/// Line printed after the manifest JSON by the same test.
+pub const MANIFEST_EXPORT_END: &str = "<<<hopper-manifest-json-end>>>";
+
 impl<'a> fmt::Display for ManifestJson<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let p = self.0;

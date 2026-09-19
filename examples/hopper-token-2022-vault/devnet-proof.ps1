@@ -16,7 +16,8 @@ param(
 
     [string]$RpcUrl = 'https://api.devnet.solana.com',
     [string]$SolanaCli = 'solana',
-    [string]$CargoBuildSbf = 'cargo-build-sbf'
+    [string]$CargoBuildSbf = 'cargo-build-sbf',
+    [string]$ExpectedSolanaVersion = 'solana-cli 4.2.1'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -94,8 +95,8 @@ if ($status.Length -ne 0) {
 }
 
 $version = Invoke-NativeText -FilePath $SolanaCli -Arguments @('--version') -Label 'solana version'
-if (-not $version.StartsWith('solana-cli 4.2.1', [System.StringComparison]::Ordinal)) {
-    throw "expected solana-cli 4.2.1 but found $version"
+if (-not $version.StartsWith($ExpectedSolanaVersion, [System.StringComparison]::Ordinal)) {
+    throw "expected $ExpectedSolanaVersion but found $version"
 }
 $genesis = Invoke-NativeText -FilePath $SolanaCli -Arguments @('--url', $RpcUrl, '--keypair', $payer, 'genesis-hash') -Label 'solana genesis-hash'
 if ($genesis -ne $DEVNET_GENESIS) {

@@ -69,6 +69,8 @@ struct DevnetReceipt {
     vault_amount: u64,
     destination_amount: u64,
     mint_supply: u64,
+    /// Every transaction the lane sent, as the evidence contract names it.
+    #[serde(rename = "transactions")]
     signatures: Vec<SignatureReceipt>,
 }
 

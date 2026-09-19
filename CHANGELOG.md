@@ -67,6 +67,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   digests it records; under `--release` the baseline must match the interface
   commitment in its released ELF.
 
+### Changed
+
+- **`hopper compile --emit manifest --package` no longer needs an rlib.**
+  `hopper::program_manifest!` now also emits a `#[cfg(test)]` printer, and
+  the CLI runs `cargo test --lib -- __hopper_print_manifest --nocapture` on
+  the program crate and reads the JSON back between marker lines, the way
+  Anchor builds its IDL. The previous scratch harness linked the program
+  crate as a library and failed for a `crate-type = ["cdylib"]` program.
+  The checked-in counter manifest, which was an older snake_case snapshot,
+  is regenerated from source.
+- The devnet evidence capture script accepts `lastDeploySlot`, the key
+  solana-cli 2.x prints, alongside the 4.x `lastDeployedSlot`, and the
+  Token-2022 vault proof script takes `-ExpectedSolanaVersion` like the
+  capture script instead of hard-coding 4.2.1.
+- The profiling guide records sBPF v3 sizes measured on cargo-build-sbf
+  4.1.0 (counter 5,600 to 4,832 bytes, vault 13,288 to 12,400) as opt-in
+  guidance; v3 has been accepted on mainnet-beta since slot 428,976,000.
+
 ### Fixed
 
 - `SchemaExport::descriptor()` now carries the manifest's dynamic-tail flag,

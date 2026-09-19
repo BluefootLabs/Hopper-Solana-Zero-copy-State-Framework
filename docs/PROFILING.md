@@ -25,14 +25,27 @@ effect depends on the program: on one toolchain (cargo-build-sbf 4.1.0,
 platform-tools v1.54) the crate type alone took hopper-vault from 22,288 to
 15,264 bytes and hopper-sentinel from 71,168 to 63,688 bytes, while
 hopper-parity-vault (9,040 to 9,032) and hopper-counter (5,576 to 5,600) did
-not move. Unit tests under `#[cfg(test)]` in `src/lib.rs` need no rlib. An
-integration test in `tests/` that imports the crate does, which is why the
-example programs with such tests keep `"lib"`.
+not move. Unit tests under `#[cfg(test)]` in `src/lib.rs` need no rlib, and
+neither does `hopper compile --emit manifest --package`, which reads the
+manifest from a `cargo test` run. An integration test in `tests/` that
+imports the crate does need one, which is why the example programs with such
+tests keep `"lib"`.
 
 Sizes are also toolchain-dependent. The same hopper-counter source that CI
 builds to 3,736 bytes with the pinned cargo-build-sbf 2.3.13 builds to 5,576
 bytes with cargo-build-sbf 4.1.0 (platform-tools v1.54), at HEAD and after
 the 2026-09-19 changes alike. Compare sizes only within one pinned toolchain.
+
+## sBPF v3
+
+`cargo build-sbf --arch v3` emits sBPF v3 bytecode, which mainnet-beta has
+executed and accepted for deployment since slot 428,976,000; v0 remains
+accepted because SIMD-0500 has no feature account. On cargo-build-sbf 4.1.0
+(platform-tools v1.54) the switch alone took hopper-counter from 5,600 to
+4,832 bytes and hopper-vault from 13,288 to 12,400 bytes. Compute-unit
+figures for v3 have not been measured in this repository, so `hopper build`
+keeps the toolchain default (v0); pass `--arch v3` to `cargo build-sbf` to
+opt in, and treat published CU numbers as v0 until a v3 matrix exists.
 
 ## Size regression gate
 

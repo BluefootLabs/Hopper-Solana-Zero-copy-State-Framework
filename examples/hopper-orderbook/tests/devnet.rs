@@ -67,6 +67,8 @@ struct DevnetReceipt {
     bid_sequence: u64,
     unchanged_outside_bids: bool,
     unchanged_outside_record_and_count: bool,
+    /// Every transaction the lane sent, as the evidence contract names it.
+    #[serde(rename = "transactions")]
     signatures: Vec<SignatureReceipt>,
 }
 
