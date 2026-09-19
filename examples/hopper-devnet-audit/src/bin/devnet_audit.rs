@@ -228,7 +228,7 @@ fn run() -> Result<(), String> {
     require_failure(
         &remaining_count_outcome,
         "insufficient-remaining-signers",
-        InstructionError::MissingAccount,
+        InstructionError::NotEnoughAccountKeys,
     )?;
     let after_remaining =
         wait_for_exact_snapshot(&client, &rpc_url, &state.pubkey(), &initialized)?;
@@ -416,7 +416,7 @@ fn run() -> Result<(), String> {
             "insufficient-remaining-signers",
             &remaining_count_outcome,
             "rejected",
-            Some("MissingAccount"),
+            Some("NotEnoughAccountKeys"),
         ),
         transaction_json(
             "readonly-state-mutation",
