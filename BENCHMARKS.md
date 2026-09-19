@@ -110,8 +110,20 @@ on the missing-signature failure row, and every number is workload-specific.
 A benchmark-relevant framework source, dependency, toolchain, fixture, or
 runner change requires a new clean archive. The archive is benchmark evidence,
 not an independent audit,
-a Cicada SBF release attestation, crate publication, Mainnet readiness, or
-transaction-v1 activation.
+a Cicada SBF release attestation, crate publication, or Mainnet readiness.
+Transaction v1 activated on mainnet-beta on 2026-09-15; the archive predates
+it, and the Hopper CLI still builds legacy envelopes.
+
+Note added 2026-09-19 on the binary-bytes column: the Hopper program in this
+archive was built with `crate-type = ["cdylib", "lib"]`. With an rlib in the
+list cargo drops `-C lto` for the on-chain artifact, so the release profile's
+`lto = "fat"` was inert for that build. Program crates now use `["cdylib"]`
+alone. Measured on cargo-build-sbf 4.1.0 / platform-tools v1.54, the crate
+type alone took hopper-vault from 22,288 to 15,264 bytes and hopper-sentinel
+from 71,168 to 63,688 bytes, while hopper-parity-vault (9,040 to 9,032) and
+hopper-counter (5,576 to 5,600) did not move measurably. The archived Hopper
+row above is not restated; a fresh clean rerun is the only way to publish a
+new matrix number.
 
 ## Primitive CU Results (Mollusk, 2026-07-09)
 
@@ -687,6 +699,16 @@ Two isolated rebuilds matched the working target, three identical copies total,
 but the tree was dirty, so this is diagnostic evidence pending a clean
 committed attestation. Use `hopper deploy --dry-run`
 against the intended cluster immediately before deployment.
+
+Note added 2026-09-19: the rows above used the 6,333 lamports-per-byte
+coefficient live at slot 444,767,908. Rent has been 5,080 lamports per byte
+since the `set_lamports_per_byte_to_5080` gate activated at slot 446,256,000
+on 2026-09-11. Recomputed with R(n) = (128 + n) x 5,080 for the same
+165,944-byte ELF: Program 833,120 lamports, ProgramData 843,874,360 lamports,
+permanent total 0.844707480 SOL; adding Config (1,219,200) and one 20-slot
+Shard (46,776,640) gives 0.892703320 SOL. That is derived from the live
+coefficient, not a new deployment; the 2026-09-06 rows stand as the record of
+their slot.
 
 
 ## Devnet deployment evidence (this pass)

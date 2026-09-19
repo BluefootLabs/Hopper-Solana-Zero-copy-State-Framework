@@ -20,6 +20,38 @@ Unchanged at the same pass: SIMD-0449 direct account pointers, Account Data
 Direct Mapping, and Alpenglow had no mainnet feature account. Agave v4.3.0 was
 tagged 2026-09-18.
 
+A later sweep the same day (finalized feature accounts on all three clusters)
+added these facts:
+
+- SIMD-0449 (`ptr9umik...`) and Account Data Direct Mapping (`CR3dVN2Y...`)
+  are active on devnet (slots 474,768,000 and 463,968,000) and testnet, so
+  every devnet transaction in this repository's evidence lanes already runs
+  under both. SIMD-0460 virtual address space adjustments (`7VgiehxN...`) is
+  active on devnet and testnet and has a staged, inactive mainnet key. Under
+  0460 plus direct mapping each account's data is its own memory region; the
+  serialized layout and record stride are unchanged, so Hopper's input parser
+  arithmetic holds, but a read that straddles an account boundary faults
+  instead of silently succeeding.
+- sBPF v3 execution and deployment are active on mainnet (slot 428,976,000);
+  v0 remains accepted because SIMD-0500 has no feature account. `cargo-build-sbf`
+  4.3.0 (2026-09-03, platform-tools v1.57, Rust 1.95, LLVM 22) still emits v0
+  by default; Anchor switched to `--tools-version v1.57 --arch v3` on
+  2026-09-15. Loader v4 is abandoned. SIMD-0177 ABIv2 has not changed since
+  2026-05-19.
+- Mollusk 0.15.1 (2026-08-29) includes return data in fixture hashes and
+  0.15.0 added a payer to `process_transaction_instructions`; agave v4.3.0's
+  `solana-program-test` returns `UnsupportedSysvar` from `Rent::get()` for
+  native-mode processors. Hopper's lock still pins mollusk-svm 0.15.0.
+- Blueshift's `sbpf-linker` 0.2.1 and the new `cargo-build-sbpf` are a
+  parallel toolchain (upstream nightly rustc, `bpfel-unknown-none`,
+  `-Z build-std`, v3 by default), not an add-on to `cargo-build-sbf`. Quasar
+  and `abiv2` have no new commits.
+- pina published a like-for-like table on 2026-09-14 (hello world and a PDA
+  counter, Mollusk with a post-state assertion, `cargo build-sbf --lto`,
+  cdylib-only): Pina 4,680 / 13,024 bytes, hand-written Pinocchio 3,160 /
+  6,512, Quasar 2,520 / 7,808, Anchor v2 rc.1 1,880 / 8,696. Hopper has no row
+  yet; adding one is the cheapest public comparison available.
+
 ## 2. Competitor delta
 
 | Project | Change since 2026-09-06 | Consequence for Hopper |
@@ -94,8 +126,9 @@ each must carry its manifest's interface commitment before the diff runs.
   a stored count above capacity is now refused at load), and tail-slab
   minimum length (#4888, **Hopper shared the class**: `safe_realloc` could
   shrink below the layout minimum; fixed with a `required_len()` floor in
-  every generated realloc accessor). All five are pinned in the regression
-  suite.
+  every generated realloc accessor). Four are pinned in the regression
+  suite; the cfg-collision class has no runtime surface to pin because
+  Hopper never filters handlers by `cfg` when it checks discriminators.
 - **pina 0.19** items assessed: its Mollusk matrix state-verification rule
   and the dual absolute-plus-relative regression gate are worth adopting;
   its local hash-chained publication ledger is weaker than Hopper's on-chain

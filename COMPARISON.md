@@ -14,13 +14,17 @@ A note on target status: the original matrix was verified 2026-07-07 and the
 peer cells below were corrected against the pinned 2026-08-15 source audit.
 Quasar's default branch/crate was still v0.0.0, but its active
 `0.1.0-release` branch is substantially ahead, uses stable Rust, and remains
-self-described beta/unaudited. This Hopper tree is unpublished 0.3.0
+self-described beta/unaudited; no Quasar ref has a commit after `d981ac8`
+(2026-08-02), rechecked 2026-09-19. This Hopper tree is unpublished 0.3.0
 development source; registry availability remains a release-time check. Anchor v2 remains
-self-described Alpha/unaudited, but `anchor-lang` 2.0.0-rc.1 and tag
-`v2.0.0-rc.1` were published 2026-08-12; Anchor 1.2.0 is the stable line as of
-2026-09-06.
+self-described Alpha/unaudited: `anchor-lang` 2.0.0-rc.1 and tag
+`v2.0.0-rc.1` were published 2026-08-12 and are still the newest v2 release
+as of 2026-09-19, while the unreleased v2 branch (`abacd0e`, 2026-09-18) has
+landed about thirty correctness commits since 2026-09-05. Anchor 1.2.0 is the
+stable line. Pinocchio 0.11.2 remains its newest release.
 Use the pinned
-[2026-08-15 audit](docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md) rather than
+[2026-08-15 audit](docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md) and the
+[2026-09-19 refresh](docs/COMPETITIVE_REFRESH_2026-09-19.md) rather than
 repeating this dated matrix as a permanent ranking. In the tables, “Anchor
 1.x / v2” deliberately separates stable 1.x behavior from the v2 release
 candidate; an unqualified statement about “Anchor” is not evidence about both.
@@ -39,7 +43,7 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
 | `no_std`, no heap on hot path | Yes | Yes | 1.x: No; v2: Yes | Yes | `crates/hopper-runtime` default features = `[]`; verified by `cargo check -p hopper-runtime --no-default-features` |
-| No `solana-program` dependency in runtime hot path | Yes | Yes | 1.x: No; v2: Pinocchio-backed | Yes | `crates/hopper-runtime/Cargo.toml` (raw input parsing in `raw_input.rs`-equivalent native backend) |
+| No `solana-program` dependency in runtime hot path | Yes | Yes | 1.x: No; v2: Pinocchio-backed | Yes | `crates/hopper-runtime/Cargo.toml`; raw input parsing lives in `crates/hopper-native/src/raw_input.rs` |
 | Pointer-cast account access (no Borsh, no copies) | Yes | Yes | 1.x: opt-in `AccountLoader`; v2: default mapped accounts | Yes | `crates/hopper-runtime/src/account.rs::AccountView::load` |
 | Single-byte instruction discriminator | Yes (1 byte default, multi-byte opt-in) | Yes | Supported through Anchor's custom variable-length discriminators; default remains 8 bytes | Yes | `crates/hopper-macros-proc/src/program.rs` dispatch; `profile = "tiny"` enforces 1-byte |
 | Accounts up to 10 MB | Yes | Yes | Yes | Yes | zero-copy path is size-agnostic; no per-byte deserialize |
@@ -71,12 +75,28 @@ self-described Alpha/unaudited) now
 ships `Slab<H, T>`, a typed header plus length-prefixed Pod tail, and
 bounded `PodVec<T, MAX>`, with `#[kani::proof]` coverage over relevant
 capacity arithmetic. Two
-bug classes were found and fixed in that surface during May–June 2026
+bug classes were found and fixed in that surface during May to June 2026
 (anchor #4603 "Pad shrunken serialized account tails", 2026-05-27; #4616
 "Prevent Slab read aliases during mutable borrows", 2026-06-02); Hopper's
 competitor suites now pin both classes (`anchor_4616_*`, `anchor_4603_*`
 tests). Hopper ships a broader set of eight collection types, each with
 hostile-metadata fuzz coverage; breadth is the claim, not exclusivity.
+
+Update 2026-09-19: the unreleased v2 branch (`abacd0e`, 2026-09-18) landed
+about thirty correctness commits after 2026-09-05. Five were checked against
+Hopper's tree. Close to a non-writable destination (#4886), CPI-handle
+validation (#5043), and cfg-gated discriminator collisions (#5015) did not
+apply. Slab post-shrink length (#4906) led to a hardening:
+`Slab::from_bytes_mut` now refuses a stored count above capacity. The
+tail-slab minimum-length class (#4888) did apply: `safe_realloc` could shrink
+an account below the length its own layout needs to load, which bricks it
+with the rent locked. It was fixed with `safe_realloc_bounded`
+(`crates/hopper-core/src/account/lifecycle.rs`) and a `required_len()` floor
+in every generated `realloc_<field>()` accessor, and pinned in the regression
+suite on 2026-09-19 (`anchor_4886_*`, `anchor_5043_*`, `anchor_4906_*`,
+`anchor_4888_*` tests; #5015 was assessed as not applicable by construction
+and has no pinned test). Hopper versions before that commit shared the #4888
+class.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
@@ -126,7 +146,7 @@ hostile-metadata fuzz coverage; breadth is the claim, not exclusivity.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Full System program incl. `*WithSeed` + durable-nonce family | Yes | Partial | Via SDK | Yes | `crates/hopper-native/src/system.rs` (`CreateAccountWithSeed`, `TransferWithSeed`, `Advance/Withdraw/Initialize/Authorize/UpgradeNonceAccount`, typed `NonceState`) |
+| Full System program incl. `CreateAccountAllowPrefund`, `*WithSeed`, and the durable-nonce family | Yes | Partial | Via SDK; v1 master (#5057) and v2 (#4945) adopted `CreateAccountAllowPrefund` for account creation on 2026-09-17 | Yes | `crates/hopper-native/src/system.rs` (`CreateAccountAllowPrefund`, System instruction 13; `CreateAccountWithSeed`, `TransferWithSeed`, `Advance/Withdraw/Initialize/Authorize/UpgradeNonceAccount`, typed `NonceState`). Since 2026-09-19 `hopper_init!` (`init` and `init_if_needed`) creates every account with one `CreateAccountAllowPrefund` CPI, replacing the CreateAccount branch and the Transfer, Allocate, Assign fallback; account creation is no longer a difference from Anchor |
 | Generalized sysvar access (`sol_get_sysvar`, SlotHashes, StakeHistory) | Yes | Partial | Via SDK | Partial | `crates/hopper-native/src/sysvar.rs` (`get_sysvar_into`, `slot_hashes_latest`, `stake_history_latest`, `get_epoch_stake`) |
 | secp256r1 / passkey precompile introspection | Yes | No | No | No | `crates/hopper-native/src/introspect.rs::require_secp256r1_instruction`; `crates/hopper-runtime/src/crypto.rs` |
 | Token-2022 `ExtraAccountMetaList` resolver (transfer hooks), `no_std`/no-alloc | Yes | No | No | No | `crates/hopper-spl/hopper-token-2022/src/hook.rs::ExtraAccountMetaList::resolve_into` |
@@ -146,7 +166,9 @@ hostile-metadata fuzz coverage; breadth is the claim, not exclusivity.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| CLI scaffold / manifest gen / inspect / lint / profile | Yes | Yes: init/build/test/deploy/verify/lint/profile/IDL/client surface | Yes (`anchor` CLI) | No framework CLI | `tools/hopper-cli/src/cmd/*` |
+| CLI scaffold / manifest gen / inspect / lint / profile / verify | Yes | Yes: init/build/test/deploy/verify/lint/profile/IDL/client surface | Yes (`anchor` CLI) | No framework CLI | `tools/hopper-cli/src/cmd/*` |
+| ELF size regression gate with absolute and relative thresholds | Yes | CU/binary budget gates on the 0.1 release line | Not assessed here | No | `hopper profile elf --baseline <folded> --fail-on-growth <bytes> --fail-on-growth-pct <pct>` (`tools/hopper-cli/src/cmd/profile.rs`): exit 2 when `.text` grew by more than both thresholds |
+| Release-bound upgrade-authority diff (declared permissions that widen between two manifests fail the release) | Yes | Not found at the 2026-09-19 pin | Not found at the 2026-09-19 pin; the separate Ratchet 0.4.0 IDL tool answers client compatibility and scores a signer or writable flag relaxing to false as additive | No | `crates/grillo-manifest/src/authority.rs::AuthorityDiff`; `grillo authority-diff old new`; `hopper verify --authority-baseline old` with `--baseline-so` / `--baseline-program` and `--candidate-buffer` / `--candidate-program` (`tools/hopper-cli/src/cmd/verify.rs`); exit 2 on an unapproved widening, 3 on an unapproved review item. It compares declarations, not bytecode |
 | Client codegen | Six SDKs plus Hopper public IDL, Codama JSON, and conditional Solana IDL: 9 interop formats; full manifest/lowered Rust are separate | Stable Rust/Kit/Web3 plus preview Python/Go/C at the pin | Mature IDL/TS ecosystem; v2 evolving | No | `crates/hopper-schema/src/*client*.rs`, Codama and Solana-IDL emitters |
 | In-process SVM integration test harness | Yes | Yes: QuasarSVM Rust/Node/Python | Anchor test tooling; v2 runtime lanes | No framework harness | `crates/hopper-svm`; compiled-SBF lanes are separate evidence |
 
@@ -157,11 +179,11 @@ registries and upstream status before using them in release copy.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements / evidence |
 |---|---|---|---|---|---|
-| Release package | Public release 0.2.1; this checkout is unpublished 0.3.0 development source | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-09-06 | Stable 1.2.0 is published; v2 has `anchor-lang` 2.0.0-rc.1 | Published | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
+| Release package | Public release 0.2.1; this checkout is unpublished 0.3.0 development source | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-09-19 | Stable 1.2.0 is published; v2 has `anchor-lang` 2.0.0-rc.1 (still newest at 2026-09-19) | Published (0.11.2 newest at 2026-09-19; `main` unreleased) | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
 | Audit posture | Internal review and executable evidence trail; no completed independent framework audit | Self-described "Beta … not audited" | Ecosystem audits; scope varies by version/component | Published Neodyme and Zellic review records | `docs/UNSAFE_INVARIANTS.md` and `audit/readiness.json`; external-audit preparation is not an independent review |
 | Builds on stable Rust | Yes (pinned 1.96.0) | Yes on the 0.1 release line (Rust 1.89) | Yes | Yes | `rust-toolchain.toml` |
-| Soundness/correctness record | Hopper's internally found classes are regression-pinned | The July snapshot recorded #234, #238, #239, #240, and #242; consult the pinned current audit for disposition | v2 Slab classes #4603/#4616 were fixed May–June 2026; active remediation continued at the pinned snapshot | Consult the pinned upstream review records | Hopper pins named classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs`; this row is not a claim that any live tracker has zero issues |
-| Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
+| Soundness/correctness record | Hopper's internally found classes are regression-pinned; Anchor v2's #4888 realloc-below-minimum class applied to Hopper too and was fixed and pinned on 2026-09-19 | The July snapshot recorded #234, #238, #239, #240, and #242; consult the pinned current audit for disposition | v2 Slab classes #4603/#4616 were fixed May to June 2026; the unreleased v2 branch landed about thirty further correctness commits between 2026-09-05 and 2026-09-18 (#4886, #5043, #5015, #4906, #4888 among them) | Consult the pinned upstream review records | Hopper pins named classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (22 tests at 2026-09-19); this row is not a claim that any live tracker has zero issues |
+| Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite found and fixed Hopper's own `safe_close` aliased-destination bug, and extending it on 2026-09-19 found and fixed Hopper's own instance of the #4888 realloc-below-minimum class |
 | Reproducible cross-framework CU benchmark with pinned provenance | Yes: clean five-way same-behavior archive for Hopper `8696640` and benchmark source `af5bc95` | Included as the pinned 0.1 snapshot; no upstream comparative artifact was found at the audit pin | A pre-RC Anchor v2 snapshot is included; its own planned comparison was not published at the audit pin | Pinocchio 0.11.2 is included; no upstream framework comparison artifact was found at the audit pin | [`audit/framework-matrix-2026-08-16.json`](audit/framework-matrix-2026-08-16.json) + `BENCHMARKS.md`; fixture-specific evidence, not a universal ranking |
 
 ### Clean same-behavior benchmark snapshot
@@ -182,14 +204,18 @@ The archive SHA-256 is
 `c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747`.
 These numbers describe this vault fixture only. Quasar emits the smallest
 binary in the matrix, and the separate Hopper/Pinocchio missing-signature row
-is 67/48 CU. See `BENCHMARKS.md` for the complete method, two-way rows, source
-pins, and claim boundary.
+is 67/48 CU. The Hopper binary in this archive was built with
+`crate-type = ["cdylib", "lib"]`, which keeps LTO off for the on-chain
+artifact; program crates moved to `["cdylib"]` alone on 2026-09-19 (see the
+dated note in `BENCHMARKS.md`). The archived figures stand as archived
+evidence and are not restated here. See `BENCHMARKS.md` for the complete
+method, two-way rows, source pins, and claim boundary.
 
 ---
 
 ## Where Hopper is differentiated in the pinned comparison
 
-The following four first-class capabilities were not found in the pinned peer
+The following five first-class capabilities were not found in the pinned peer
 snapshots. This is a dated comparison, not a claim about every framework or a
 claim that the ideas cannot be copied:
 
@@ -205,6 +231,13 @@ claim that the ideas cannot be copied:
    proofs without complete supplied scope. (`receipt.rs::StateReceipt`.)
 4. **Policy graphs**: authority/capability rules evaluated at the verification
    step, not scattered through handlers. (`policy.rs`.)
+5. **Release-bound authority diff** (added 2026-09-19): a declared-permission
+   widening between two manifests fails `hopper verify --authority-baseline`,
+   and either side can be bound to a deployed ProgramData or Buffer ELF.
+   Searches of the repositories named in the 2026-09-19 refresh found no
+   public tool with that polarity; Ratchet scores relaxations as additive.
+   That is a scoped finding, not a proof that none exists.
+   (`crates/grillo-manifest/src/authority.rs`.)
 
 ## Where parity is the goal (table stakes)
 
@@ -242,8 +275,9 @@ The old SOL conversions for these binaries used a one-account
 locks `R(36) + R(45 + max_len)`, where `R` is the target cluster's live
 rent-exemption query. Its temporary Buffer has `37 + ELF_len` data bytes, but
 the stock CLI funds it at the ProgramData requirement and loader v3 recycles
-that balance during final deployment. See `BENCHMARKS.md` for the current,
-slot-pinned Cicada calculation. Compare historical artifacts by byte size unless
+that balance during final deployment. See `BENCHMARKS.md` for the
+slot-pinned Cicada calculation and its 2026-09-19 rent note (5,080 lamports
+per byte since 2026-09-11). Compare historical artifacts by byte size unless
 all loader, rent, headroom, and fee inputs are recorded.
 
 ## Honest gaps
@@ -251,6 +285,7 @@ all loader, rent, headroom, and fee inputs are recorded.
 - **Cross-framework CU rows** are release evidence only when tied to the
   benchmark repository's lockfile, raw logs, toolchain, clean source pins, and
   archived checksums. The most recent five-way archive is summarized above.
-  It covers Hopper `8696640`, not later source changes, so the final release
-  requires a fresh clean rerun before its numbers are called current. Older
+  It covers Hopper `8696640`, not later source changes, and its Hopper
+  binary was built with the dual crate type that kept LTO off, so the final
+  release requires a fresh clean rerun before its numbers are called current. Older
   vault and router runs remain historical in `BENCHMARKS.md`.

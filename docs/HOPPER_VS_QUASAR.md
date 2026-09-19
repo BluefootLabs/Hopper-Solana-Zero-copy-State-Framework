@@ -101,12 +101,14 @@ feature work and which require an account-access-layer retrofit.
 
 ## Project maturity and soundness track record
 
-Snapshot refreshed 2026-09-06 against public source and official docs. This is stated
+Snapshot refreshed 2026-09-06 against public source and official docs, and
+rechecked 2026-09-19. This is stated
 factually because readers weighing the two frameworks need it, not as a knock
 on Quasar's engineering, which is real.
 
 - **Release status.** Quasar's default pin is `b0de7db` (2026-07-13) and its
-  `0.1.0-release` pin is `0361701` (2026-07-26). No public tag/release was
+  `0.1.0-release` pin is `0361701` (2026-07-26); no Quasar ref has a commit
+  after `d981ac8` (2026-08-02), rechecked 2026-09-19. No public tag/release was
   found and its published framework crates remain 0.0.0. The release branch is
   substantially ahead: typed
   grow/shrink migrations, wire IDL/ABI hashing, expanded clients and CLI,
@@ -140,24 +142,32 @@ on Quasar's engineering, which is real.
   capacity is reported exactly, and `safe_close` rejects aliased
   destinations. The pins live in
   `crates/hopper-runtime/tests/competitor_bug_classes.rs` and
-  `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests, including
-  the Anchor v2 Slab classes #4603/#4616).
+  `crates/hopper-core/tests/competitor_bug_classes.rs` (22 tests at
+  2026-09-19, including the Anchor v2 classes #4603, #4616, #4886, #5043,
+  #4906, and #4888).
 - **The regression corpus bites both ways.** Authoring those tests found a real Hopper
   bug, `safe_close` previously accepted an aliased destination and silently
   burned the drained lamports, the exact #240 shape; which was fixed and
-  pinned in the same pass. The regression corpus is designed to catch our own
-  failures as well as peer-reported bug classes.
+  pinned in the same pass. It did so again on 2026-09-19: Anchor v2's #4888
+  realloc-below-minimum class applied to Hopper's `safe_realloc`, and was
+  fixed (`safe_realloc_bounded` plus a `required_len()` floor in every
+  generated realloc accessor) and pinned in the same commit. The regression
+  corpus is designed to catch our own failures as well as peer-reported bug
+  classes.
 - **Verification depth.** A local enumeration of the pinned Quasar release
   branch found 183 Miri tests, including Tree-Borrows/strict-provenance lanes,
   and 87 Kani proof functions exercised by CI. These are test-list counts, not
   an external audit, but they are materially deeper than Hopper's current lane.
 - **Benchmark culture.** Quasar's cross-framework benchmark work is currently
   an open draft ([#497](https://github.com/blueshift-gg/quasar/pull/497)), not
-  a released result. Hopper's clean 2026-08-16 five-way fixture pins Quasar's
+  a released result; unchanged at 2026-09-19, with no Quasar commits since
+  2026-08-02. Hopper's clean 2026-08-16 five-way fixture pins Quasar's
   `0361701` 0.1 snapshot and reports Hopper/Quasar deposit at 1,578/1,755 CU,
   withdraw at 424/593 CU, and binaries at 9,032/5,784 bytes. All 30 parity
   gates passed from clean commits. That is fixture-specific evidence: Hopper
-  is lower-CU on these two rows, while Quasar has the smaller binary. See
+  is lower-CU on these two rows, while Quasar has the smaller binary. The
+  Hopper binary in that archive was built with `crate-type = ["cdylib", "lib"]`,
+  which kept LTO off; see the 2026-09-19 note in `BENCHMARKS.md`. See
   `BENCHMARKS.md` and
   [`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json)
   for complete pins and provenance. The older four-way and router rows remain
@@ -165,6 +175,8 @@ on Quasar's engineering, which is real.
 
 For the current source pins, corrected budget chronology, peer matrix, QEDGen
 overlap, and Cicada/Grillo deployment facts, see the
-[2026-09-06 competitive refresh](COMPETITIVE_REFRESH_2026-09-02.md).
+[2026-09-06 competitive refresh](COMPETITIVE_REFRESH_2026-09-02.md) and the
+[2026-09-19 refresh](COMPETITIVE_REFRESH_2026-09-19.md) that supersedes its
+time-sensitive rows.
 
 Use Quasar mental models to read Hopper programs. Use Hopper contracts when account bytes, upgrades, and long-lived protocol state need to be auditable.

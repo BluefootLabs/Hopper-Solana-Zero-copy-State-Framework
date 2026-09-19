@@ -9,6 +9,7 @@
       "version": 1,
       "layoutId": "606267a6bbe318f7",
       "totalSize": 76,
+      "hasDynamicTail": false,
       "fieldCount": 5,
       "fields": [
         { "name": "authority", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
@@ -25,6 +26,7 @@
       "version": 1,
       "layoutId": "5c98bb09efe909ab",
       "totalSize": 32,
+      "hasDynamicTail": false,
       "fieldCount": 2,
       "fields": [
         { "name": "tag", "type": "WireU32", "size": 4, "offset": 16, "intent": "custom" },
@@ -38,6 +40,7 @@
       "version": 2,
       "layoutId": "2e10394d1eb62b3e",
       "totalSize": 32,
+      "hasDynamicTail": false,
       "fieldCount": 3,
       "fields": [
         { "name": "tag", "type": "WireU64", "size": 8, "offset": 16, "intent": "custom" },
@@ -51,6 +54,7 @@
     {
       "name": "initialize",
       "tag": 0,
+      "discriminatorBytes": [0],
       "args": [],
       "accounts": [
         { "name": "payer", "writable": true, "signer": true },
@@ -61,13 +65,15 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "deposit",
       "tag": 1,
+      "discriminatorBytes": [1],
       "args": [
-        { "name": "amount", "type": "u64", "size": 8 }
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "authority", "writable": true, "signer": true },
@@ -78,13 +84,15 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "withdraw",
       "tag": 2,
+      "discriminatorBytes": [2],
       "args": [
-        { "name": "amount", "type": "u64", "size": 8 }
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "authority", "writable": true, "signer": true },
@@ -97,11 +105,13 @@
       "writeRanges": [
         { "account": "authority", "accountIndex": 0, "offset": 0, "size": 4294967295 },
         { "account": "vault", "accountIndex": 1, "offset": 48, "size": 8 }
-      ]
+      ],
+      "parametricWriteRanges": []
     },
     {
       "name": "close",
       "tag": 3,
+      "discriminatorBytes": [3],
       "args": [],
       "accounts": [
         { "name": "authority", "writable": true, "signer": true },
@@ -111,27 +121,33 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "emit_receipt",
       "tag": 4,
+      "discriminatorBytes": [4],
       "args": [],
       "accounts": [
         { "name": "authority", "writable": false, "signer": true },
         { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" },
-        { "name": "event_authority", "writable": false, "signer": false },
+        { "name": "event_authority", "writable": false, "signer": false, "seeds": [
+          ":: hopper :: __runtime :: cpi_event :: EVENT_AUTHORITY_SEED"
+        ] },
         { "name": "event_program", "writable": false, "signer": false }
       ],
       "capabilities": [],
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "bump_whole_vault",
       "tag": 5,
+      "discriminatorBytes": [5],
       "args": [],
       "accounts": [
         { "name": "authority", "writable": false, "signer": true },
@@ -141,13 +157,15 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "init_note",
       "tag": 6,
+      "discriminatorBytes": [6],
       "args": [
-        { "name": "tag", "type": "u32", "size": 4 }
+        { "name": "tag", "type": "u32", "size": 4, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "payer", "writable": true, "signer": true },
@@ -158,11 +176,13 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "touch_note",
       "tag": 7,
+      "discriminatorBytes": [7],
       "args": [],
       "accounts": [
         { "name": "authority", "writable": false, "signer": true },
@@ -172,7 +192,8 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     }
   ],
   "events": [
@@ -196,6 +217,133 @@
     }
   ],
   "policies": [],
+  "layoutMetadata": [],
+  "contexts": [
+    {
+      "name": "Initialize",
+      "accounts": [
+        { "name": "payer", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Vault", "writable": true, "signer": false, "layoutRef": "Vault", "seeds": [], "optional": false, "lifecycle": "init", "payer": "payer", "initSpace": 76, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "Deposit",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Vault", "writable": true, "signer": false, "layoutRef": "Vault", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "authority"
+        ] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "Withdraw",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Vault", "writable": true, "signer": false, "layoutRef": "Vault", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "authority"
+        ] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "authority", "accountIndex": 0, "offset": 0, "size": 4294967295 },
+        { "account": "vault", "accountIndex": 1, "offset": 48, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "CloseVault",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Vault", "writable": true, "signer": false, "layoutRef": "Vault", "seeds": [], "optional": false, "lifecycle": "close", "hasOne": [
+          "authority"
+        ] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "EmitReceipt",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Vault", "writable": true, "signer": false, "layoutRef": "Vault", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "authority"
+        ] },
+        { "name": "event_authority", "kind": "AccountView", "writable": false, "signer": false, "seeds": [
+          ":: hopper :: __runtime :: cpi_event :: EVENT_AUTHORITY_SEED"
+        ], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "event_program", "kind": "AccountView", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [], "expectedAddress": "* ctx.program_id()" }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "BumpWholeVault",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Vault", "writable": true, "signer": false, "layoutRef": "Vault", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "authority"
+        ] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "InitNote",
+      "accounts": [
+        { "name": "payer", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "note", "kind": "NoteV1", "writable": true, "signer": false, "layoutRef": "NoteV1", "seeds": [], "optional": false, "lifecycle": "init", "payer": "payer", "initSpace": 32, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "TouchNote",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "note", "kind": "NoteV2", "writable": true, "signer": false, "layoutRef": "NoteV2", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    }
+  ],
   "compatRules": [],
   "receiptSchema": {
     "size": 72,

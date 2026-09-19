@@ -2,9 +2,11 @@
 
 This guide targets stable Anchor 1.x authoring, including its opt-in
 `AccountLoader` zero-copy path. Anchor v2 is a separate line, published as
-`anchor-lang` 2.0.0-rc.1 but still self-described Alpha/unaudited: it is
+`anchor-lang` 2.0.0-rc.1 (2026-08-12, still the newest v2 crate at
+2026-09-19) but still self-described Alpha/unaudited: it is
 Pinocchio-backed, `no_std`, zero-copy by default, and has `Slab`/`PodVec`
-plus evolving typed CPI and verification tooling. Do not use this 1.x porting
+plus evolving typed CPI and verification tooling; its unreleased branch
+(`abacd0e`, 2026-09-18) is ahead of that crate. Do not use this 1.x porting
 table as a comparison claim about v2.
 
 For the 1.x path, the macro spelling is deliberately familiar; the main
@@ -210,7 +212,8 @@ embedded context cannot be granted lamport permission from the outer
 
 ### Lazy migration at bind
 
-anchor-next's borsh `Migration<A, B>` design stops at a dedicated
+Anchor's `Migration<'info, From, To>` (added in Anchor 1.0; see
+`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`) runs inside a dedicated
 migration instruction. Hopper goes one step further: declare the
 previous layout version on the field, and EVERY instruction that binds
 the context becomes a migration crank, accounts upgrade as they are
@@ -406,8 +409,14 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
 ## What does not translate
 
 1. `init_if_needed` DOES translate, same spelling, same shape
-   (`#[account(init_if_needed, payer = ..., space = ...)]`): an empty
-   slot takes the full init lifecycle CPI; a nonempty slot skips the
+   (`#[account(init_if_needed, payer = ..., space = ...)]`): a slot with
+   no data takes the init lifecycle, which since 2026-09-19 is one System
+   `CreateAccountAllowPrefund` CPI (instruction 13) for both `init` and
+   `init_if_needed`; a slot that already holds lamports is topped up by
+   the shortfall, and the payer is omitted when the balance already
+   covers rent. Anchor v1 master (#5057) and v2 (#4945) adopted the same
+   instruction on 2026-09-17, so account creation is not a difference
+   between the frameworks. A slot with data skips the
    CPI and must already pass the owner + layout-header checks, so a
    foreign or half-written account is refused rather than adopted. The
    security posture carries over from Anchor's own feature-gate
@@ -416,6 +425,7 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
    genuinely required.
 2. Anchor's `#[derive(Accounts)]` struct-level `validate(&self)` hook is spelled `#[validate]` in Hopper with the same semantic. You opt in at the struct level; the bound context then calls your method after every built-in constraint passes.
 3. Anchor's Borsh-backed SPL `InterfaceAccount<T>` path splits in Hopper: use `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set, and use `TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint`, or direct TLV readers for SPL Token and Token-2022 bytes.
+4. `realloc` translates, with a floor: a generated `realloc_<field>()` accessor refuses a length below the layout's `required_len()` (`safe_realloc_bounded`, since 2026-09-19), so a handler cannot shrink an account below what its own layout needs to load. Anchor v2 closed the same class in #4888.
 
 ## Checklist for the port
 
