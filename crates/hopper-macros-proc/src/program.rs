@@ -804,14 +804,34 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             #(#instruction_rows),*
         ];
     });
+    // Each row is the spec's own `SCHEMA_METADATA` plus the names of the
+    // handlers bound to it, so a manifest consumer can join an instruction
+    // to its context by name rather than by account shape (two contexts
+    // with the same shape would otherwise be indistinguishable).
     let context_rows: Vec<TokenStream> = typed_specs
         .iter()
-        .map(|spec| quote! { #spec::SCHEMA_METADATA })
+        .map(|spec| {
+            let spec_key = quote!(#spec).to_string();
+            let names: Vec<String> = handlers
+                .iter()
+                .filter(|h| match &h.binding {
+                    ContextBinding::Typed { spec: bound } => quote!(#bound).to_string() == spec_key,
+                    ContextBinding::Raw => false,
+                })
+                .map(|h| h.fn_name.to_string())
+                .collect();
+            quote! {
+                ::hopper::hopper_schema::accounts::ContextDescriptor {
+                    instructions: &[ #(#names),* ],
+                    ..#spec::SCHEMA_METADATA
+                }
+            }
+        })
         .collect();
     items.push(syn::parse_quote! {
         /// Context descriptors for `hopper::program_manifest!`, each
-        /// distinct typed spec's `SCHEMA_METADATA`, verbatim, in first-
-        /// bound order.
+        /// distinct typed spec's `SCHEMA_METADATA` with the bound handler
+        /// names filled in, in first-bound order.
         #[doc(hidden)]
         #[allow(dead_code)]
         pub static __HOPPER_CONTEXT_DESCRIPTORS:
@@ -3226,9 +3246,10 @@ mod manifest_statics_tests {
             out.contains(
                 "pubstatic__HOPPER_CONTEXT_DESCRIPTORS:\
                  &[::hopper::hopper_schema::accounts::ContextDescriptor]=\
-                 &[Shared::SCHEMA_METADATA];"
+                 &[::hopper::hopper_schema::accounts::ContextDescriptor{\
+                 instructions:&[\"first\",\"second\"],..Shared::SCHEMA_METADATA}];"
             ),
-            "shared spec must appear exactly once in the context static: {out}",
+            "shared spec must appear exactly once in the context static, naming both handlers: {out}",
         );
     }
 

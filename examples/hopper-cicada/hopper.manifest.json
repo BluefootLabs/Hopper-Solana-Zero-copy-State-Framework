@@ -502,6 +502,9 @@
         { "name": "program_data", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
+      "instructions": [
+        "initialize_config"
+      ],
       "policies": [],
       "receiptsExpected": true,
       "mutationClasses": [],
@@ -520,6 +523,9 @@
         ] },
         { "name": "shard", "kind": "IntentShard", "writable": true, "signer": false, "layoutRef": "IntentShard", "seeds": [], "optional": false, "lifecycle": "init", "payer": "admin", "initSpace": 9080, "hasOne": [] },
         { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "initialize_shard"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -555,6 +561,9 @@
           "source_token.address().as_array()"
         ], "optional": false, "lifecycle": "init", "payer": "owner", "initSpace": 128, "hasOne": [] },
         { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "create_intent"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -603,6 +612,9 @@
           "config"
         ] }
       ],
+      "instructions": [
+        "claim_intent"
+      ],
       "policies": [],
       "receiptsExpected": true,
       "mutationClasses": [],
@@ -629,6 +641,9 @@
         { "name": "shard", "kind": "IntentShard", "writable": true, "signer": false, "layoutRef": "IntentShard", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
           "config"
         ] }
+      ],
+      "instructions": [
+        "release_claim"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -666,6 +681,9 @@
         { "name": "refund_token", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "input_mint", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "token_program", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "cancel_intent"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -709,6 +727,9 @@
         { "name": "output_mint", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "token_program", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "route_program", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "execute_intent"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -761,6 +782,9 @@
           "shard",
           "owner"
         ] }
+      ],
+      "instructions": [
+        "reclaim_intent"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -829,6 +853,10 @@
         ], "optional": false, "lifecycle": "existing", "hasOne": [
           "emergency_authority"
         ] }
+      ],
+      "instructions": [
+        "pause",
+        "unpause"
       ],
       "policies": [],
       "receiptsExpected": true,

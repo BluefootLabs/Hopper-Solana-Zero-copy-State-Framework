@@ -3911,6 +3911,9 @@ struct OwnedCompatibilityPair {
 
 struct OwnedContext {
     name: String,
+    /// Handler names bound to this context (manifest key `instructions`).
+    /// Absent in manifests written before the key existed.
+    instructions: Vec<String>,
     accounts: Vec<OwnedContextAccount>,
     policies: Vec<String>,
     receipts_expected: bool,
@@ -4396,6 +4399,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         }
         contexts.push(OwnedContext {
             name: required_string(context, &["name"])?,
+            instructions: strings(context, &["instructions"])?,
             accounts,
             policies: strings(context, &["policies"])?,
             receipts_expected: boolean(context, &["receiptsExpected", "receipts_expected"], false)?,
@@ -4640,8 +4644,11 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 })
                 .collect();
             let lamport_accounts = ctx.lamport_accounts.clone();
+            let instructions: Vec<&'static str> =
+                ctx.instructions.iter().map(|name| leak_str(name)).collect();
             ContextDescriptor {
                 name: leak_str(&ctx.name),
+                instructions: Box::leak(instructions.into_boxed_slice()),
                 accounts: Box::leak(accounts.into_boxed_slice()),
                 policies: Box::leak(policies.into_boxed_slice()),
                 receipts_expected: ctx.receipts_expected,
@@ -6340,6 +6347,7 @@ mod loader_write_set_tests {
             )];
         static CONTEXTS: &[ContextDescriptor] = &[ContextDescriptor {
             name: "Initialize",
+            instructions: &[],
             accounts: CONTEXT_ACCOUNTS,
             policies: &["StatePolicy"],
             receipts_expected: true,

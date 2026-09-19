@@ -5472,6 +5472,7 @@ mod tests {
         static CONTEXTS: &[crate::accounts::ContextDescriptor] =
             &[crate::accounts::ContextDescriptor {
                 name: "deposit",
+                instructions: &[],
                 accounts: CTX_ACCOUNTS,
                 policies: &["TREASURY_WRITE"],
                 receipts_expected: true,

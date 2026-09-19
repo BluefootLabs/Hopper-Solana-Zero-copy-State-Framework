@@ -1003,6 +1003,10 @@ fn write_context_array(
         write_context_accounts(f, context.accounts, 3)?;
         writeln!(f, ",")?;
         write_indent(f, 3)?;
+        write!(f, "\"instructions\": ")?;
+        write_str_array(f, context.instructions, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
         write!(f, "\"policies\": ")?;
         write_str_array(f, context.policies, 3)?;
         writeln!(f, ",")?;

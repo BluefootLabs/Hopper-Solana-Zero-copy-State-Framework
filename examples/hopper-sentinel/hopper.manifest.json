@@ -189,6 +189,9 @@
         { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "init", "payer": "payer", "initSpace": 144, "hasOne": [] },
         { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
+      "instructions": [
+        "initialize_config"
+      ],
       "policies": [],
       "receiptsExpected": true,
       "mutationClasses": [],
@@ -203,6 +206,10 @@
         { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
           "admin"
         ] }
+      ],
+      "instructions": [
+        "honest_pause",
+        "unpause"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -221,6 +228,9 @@
         { "name": "ledger", "kind": "Ledger", "writable": true, "signer": false, "layoutRef": "Ledger", "seeds": [], "optional": false, "lifecycle": "init", "payer": "payer", "initSpace": 9620, "hasOne": [] },
         { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
+      "instructions": [
+        "initialize_ledger"
+      ],
       "policies": [],
       "receiptsExpected": true,
       "mutationClasses": [],
@@ -235,6 +245,9 @@
         { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
           "admin"
         ] }
+      ],
+      "instructions": [
+        "begin_admin_transfer"
       ],
       "policies": [],
       "receiptsExpected": true,
@@ -254,6 +267,9 @@
           "pending_admin"
         ] }
       ],
+      "instructions": [
+        "accept_admin_transfer"
+      ],
       "policies": [],
       "receiptsExpected": true,
       "mutationClasses": [],
@@ -272,6 +288,9 @@
         { "name": "fee_sink", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "treasury", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "admin", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "collect_fees"
       ],
       "policies": [],
       "receiptsExpected": true,

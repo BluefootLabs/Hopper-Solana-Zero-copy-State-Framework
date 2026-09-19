@@ -1,6 +1,6 @@
 {
   "name": "hopper-sentinel",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "SENTINEL: a compromised privileged handler that writes outside its declared byte segment is refused by the framework, before any byte changes — proven on compiled SBF bytecode.",
   "layouts": [
     {
@@ -9,6 +9,7 @@
       "version": 1,
       "layoutId": "e4f62369402dfdc9",
       "totalSize": 144,
+      "hasDynamicTail": false,
       "fieldCount": 7,
       "fields": [
         { "name": "admin", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
@@ -27,6 +28,7 @@
       "version": 1,
       "layoutId": "1d387d0a863239a1",
       "totalSize": 9620,
+      "hasDynamicTail": false,
       "fieldCount": 2,
       "fields": [
         { "name": "count", "type": "WireU32", "size": 4, "offset": 16, "intent": "custom" },
@@ -39,8 +41,9 @@
     {
       "name": "initialize_config",
       "tag": 0,
+      "discriminatorBytes": [0],
       "args": [
-        { "name": "fee_bps", "type": "u16", "size": 2 }
+        { "name": "fee_bps", "type": "u16", "size": 2, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "payer", "writable": true, "signer": true },
@@ -51,11 +54,13 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "honest_pause",
       "tag": 1,
+      "discriminatorBytes": [1],
       "args": [],
       "accounts": [
         { "name": "admin", "writable": false, "signer": true },
@@ -68,11 +73,13 @@
       "writeRanges": [
         { "account": "config", "accountIndex": 1, "offset": 114, "size": 1 },
         { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
-      ]
+      ],
+      "parametricWriteRanges": []
     },
     {
       "name": "unpause",
       "tag": 3,
+      "discriminatorBytes": [3],
       "args": [],
       "accounts": [
         { "name": "admin", "writable": false, "signer": true },
@@ -85,11 +92,13 @@
       "writeRanges": [
         { "account": "config", "accountIndex": 1, "offset": 114, "size": 1 },
         { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
-      ]
+      ],
+      "parametricWriteRanges": []
     },
     {
       "name": "initialize_ledger",
       "tag": 4,
+      "discriminatorBytes": [4],
       "args": [],
       "accounts": [
         { "name": "payer", "writable": true, "signer": true },
@@ -100,13 +109,15 @@
       "policyPack": "",
       "receiptExpected": false,
       "strictWrites": false,
-      "writeRanges": []
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "begin_admin_transfer",
       "tag": 6,
+      "discriminatorBytes": [6],
       "args": [
-        { "name": "new_admin", "type": "Address", "size": 32 }
+        { "name": "new_admin", "type": "Address", "size": 32, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "admin", "writable": false, "signer": true },
@@ -119,11 +130,13 @@
       "writeRanges": [
         { "account": "config", "accountIndex": 1, "offset": 48, "size": 32 },
         { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
-      ]
+      ],
+      "parametricWriteRanges": []
     },
     {
       "name": "accept_admin_transfer",
       "tag": 7,
+      "discriminatorBytes": [7],
       "args": [],
       "accounts": [
         { "name": "pending_admin", "writable": false, "signer": true },
@@ -137,13 +150,15 @@
         { "account": "config", "accountIndex": 1, "offset": 16, "size": 32 },
         { "account": "config", "accountIndex": 1, "offset": 48, "size": 32 },
         { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
-      ]
+      ],
+      "parametricWriteRanges": []
     },
     {
       "name": "collect_fees",
       "tag": 8,
+      "discriminatorBytes": [8],
       "args": [
-        { "name": "_amount", "type": "u64", "size": 8 }
+        { "name": "_amount", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" },
@@ -159,11 +174,136 @@
       "lamportAccounts": [1],
       "writeRanges": [
         { "account": "config", "accountIndex": 0, "offset": 115, "size": 8 }
-      ]
+      ],
+      "parametricWriteRanges": []
     }
   ],
   "events": [],
   "policies": [],
+  "layoutMetadata": [],
+  "contexts": [
+    {
+      "name": "InitializeConfig",
+      "accounts": [
+        { "name": "payer", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "init", "payer": "payer", "initSpace": 144, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "initialize_config"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "Pause",
+      "accounts": [
+        { "name": "admin", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "admin"
+        ] }
+      ],
+      "instructions": [
+        "honest_pause",
+        "unpause"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 114, "size": 1 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "InitializeLedger",
+      "accounts": [
+        { "name": "payer", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "ledger", "kind": "Ledger", "writable": true, "signer": false, "layoutRef": "Ledger", "seeds": [], "optional": false, "lifecycle": "init", "payer": "payer", "initSpace": 9620, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "initialize_ledger"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "BeginAdminTransfer",
+      "accounts": [
+        { "name": "admin", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "admin"
+        ] }
+      ],
+      "instructions": [
+        "begin_admin_transfer"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 48, "size": 32 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "AcceptAdminTransfer",
+      "accounts": [
+        { "name": "pending_admin", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "pending_admin"
+        ] }
+      ],
+      "instructions": [
+        "accept_admin_transfer"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 16, "size": 32 },
+        { "account": "config", "accountIndex": 1, "offset": 48, "size": 32 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "CollectFees",
+      "accounts": [
+        { "name": "config", "kind": "Config", "writable": true, "signer": false, "layoutRef": "Config", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "fee_sink", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "treasury", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "admin", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "collect_fees"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [1],
+      "writeRanges": [
+        { "account": "config", "accountIndex": 0, "offset": 115, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    }
+  ],
   "compatRules": [],
   "receiptSchema": {
     "size": 72,

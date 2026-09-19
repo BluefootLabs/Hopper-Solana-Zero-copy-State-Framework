@@ -5709,6 +5709,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             pub const SCHEMA_METADATA: ::hopper::hopper_schema::accounts::ContextDescriptor =
                 ::hopper::hopper_schema::accounts::ContextDescriptor {
                     name: #ctx_name_lit,
+                    instructions: &[],
                     accounts: #schema_accounts_expr,
                     policies: &[],
                     receipts_expected: #receipt_expected,

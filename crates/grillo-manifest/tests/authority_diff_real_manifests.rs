@@ -111,3 +111,51 @@ fn cicada_exact_cell_rules_are_compared() {
         report.render()
     );
 }
+
+#[test]
+fn sentinel_shared_context_constraints_are_joined_by_instruction_name() {
+    // `Pause` serves both `honest_pause` and `unpause`, whose names do not
+    // match the context. The manifest names both handlers on the context,
+    // so dropping its `has_one` must surface on both instructions instead of
+    // being skipped as an ambiguous shape match.
+    let pause = {
+        let m: Value = serde_json::from_str(SENTINEL).unwrap();
+        m["contexts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "Pause")
+            .expect("fixture has the Pause context")
+            .clone()
+    };
+    assert_eq!(
+        pause["instructions"],
+        serde_json::json!(["honest_pause", "unpause"])
+    );
+
+    let upgraded = mutate(SENTINEL, |m| {
+        for context in m["contexts"].as_array_mut().unwrap() {
+            if context["name"] != "Pause" {
+                continue;
+            }
+            for account in context["accounts"].as_array_mut().unwrap() {
+                account["hasOne"] = serde_json::json!([]);
+            }
+        }
+    });
+    let report = AuthorityDiff::between_json(SENTINEL, &upgraded).unwrap();
+    let mut widened: Vec<(String, String)> = report
+        .with_impact(AuthorityImpact::Widened)
+        .map(|f| (f.instruction.clone(), f.code.clone()))
+        .collect();
+    widened.sort();
+    assert_eq!(
+        widened,
+        [
+            ("honest_pause".to_string(), "has_one_removed".to_string()),
+            ("unpause".to_string(), "has_one_removed".to_string()),
+        ],
+        "{}",
+        report.render()
+    );
+}

@@ -146,7 +146,8 @@ if (-not (Test-Path -LiteralPath $receiptParent -PathType Container)) {
     -KeypairPath $payer `
     -DeploymentReceiptPath $deployReceiptPath `
     -OutputDirectory $evidencePath `
-    -SolanaCli $SolanaCli
+    -SolanaCli $SolanaCli `
+    -ExpectedSolanaVersion $ExpectedSolanaVersion
 
 Write-Output "deployed hopper-token-2022-vault as $programId"
 Write-Output "local ELF SHA-256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $elf).Hash.ToLowerInvariant())"

@@ -95,7 +95,9 @@ fn run() -> Result<(), String> {
     )?;
     require_success(&fund_wrong_authority, "fund-wrong-authority")?;
     wait_for_snapshot(&client, &rpc_url, &wrong_authority.pubkey(), |snapshot| {
-        snapshot.lamports == 1 && snapshot.owner == Pubkey::default() && snapshot.data.is_empty()
+        snapshot.lamports == wrong_authority_lamports
+            && snapshot.owner == Pubkey::default()
+            && snapshot.data.is_empty()
     })?;
     let lamports = client
         .get_minimum_balance_for_rent_exemption(VAULT_LEN as usize)

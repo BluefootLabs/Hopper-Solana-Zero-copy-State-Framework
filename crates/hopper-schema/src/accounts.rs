@@ -159,6 +159,12 @@ impl fmt::Display for ContextAccountDescriptor {
 pub struct ContextDescriptor {
     /// Context struct name (e.g. "Deposit", "Withdraw").
     pub name: &'static str,
+    /// Handler (instruction) names bound to this context, in declaration
+    /// order. `#[program]` fills this in when it publishes the manifest, so
+    /// tooling can join an instruction to its context by name instead of
+    /// guessing from account shapes; a context declared outside a program
+    /// module, or built by hand, leaves it empty.
+    pub instructions: &'static [&'static str],
     /// Per-account field descriptors.
     pub accounts: &'static [ContextAccountDescriptor],
     /// Policy pack names used by this context.
@@ -366,6 +372,7 @@ mod tests {
 
     static TEST_CTX: ContextDescriptor = ContextDescriptor {
         name: "Deposit",
+        instructions: &[],
         accounts: TEST_ACCOUNTS,
         policies: &["TREASURY_WRITE"],
         receipts_expected: true,
@@ -419,6 +426,7 @@ mod tests {
     fn context_descriptor_without_strict_writes_omits_range_section() {
         static PLAIN: ContextDescriptor = ContextDescriptor {
             name: "Inspect",
+            instructions: &[],
             accounts: TEST_ACCOUNTS,
             policies: &[],
             receipts_expected: false,

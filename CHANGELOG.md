@@ -69,6 +69,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Changed
 
+- **Contexts name the instructions they serve.** `ContextDescriptor` gains
+  `instructions`, filled by `#[program]` with the handler names bound to
+  each context, and the manifest writes it as the `instructions` key of
+  every `contexts` entry. The authority diff and the fuzz planner join an
+  instruction to its context by that name first, and only fall back to
+  matching account shapes when it is absent. Before this, a context shared
+  by two handlers whose names differ from it (`Pause` behind `honest_pause`
+  and `unpause`) could be ambiguous against another context with the same
+  shape, and the diff silently skipped its constraint comparison, which
+  hid a removed `has_one` in the devnet authority-gate run.
 - **`hopper compile --emit manifest --package` no longer needs an rlib.**
   `hopper::program_manifest!` now also emits a `#[cfg(test)]` printer, and
   the CLI runs `cargo test --lib -- __hopper_print_manifest --nocapture` on

@@ -426,6 +426,9 @@ struct DocAccount {
 #[derive(Deserialize)]
 struct DocContext {
     name: String,
+    /// Handler names the program macro bound to this context.
+    #[serde(default)]
+    instructions: Vec<String>,
     #[serde(default)]
     accounts: Vec<DocContextAccount>,
 }
@@ -1230,9 +1233,17 @@ fn context_matches(ix: &DocInstruction, ctx: &DocContext) -> bool {
         })
 }
 
-/// Same rule as `hopper fuzz`: prefer the structurally matching context whose
-/// name equals the instruction's; otherwise accept a unique structural match.
+/// Same rule as `hopper fuzz`: a context that names the instruction among
+/// the handlers bound to it wins outright; otherwise prefer the structurally
+/// matching context whose name equals the instruction's, and last accept a
+/// unique structural match.
 fn matching_context<'a>(ix: &DocInstruction, contexts: &'a [DocContext]) -> Option<&'a DocContext> {
+    if let Some(declared) = contexts
+        .iter()
+        .find(|c| c.instructions.iter().any(|n| n == &ix.name))
+    {
+        return Some(declared);
+    }
     let wanted = canonical_identifier(&ix.name);
     if let Some(named) = contexts
         .iter()

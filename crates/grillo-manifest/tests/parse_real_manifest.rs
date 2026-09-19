@@ -25,7 +25,7 @@ fn manifest() -> MutationManifest {
 fn sentinel_manifest_parses() {
     let m = manifest();
     assert_eq!(m.program_name, "hopper-sentinel");
-    assert_eq!(m.program_version, "0.2.1");
+    assert_eq!(m.program_version, "0.3.0");
     // Typed `Ctx<Spec>` handlers only: tags 0,1,3,4,6,7,8. The raw
     // `&mut Context` handlers (malicious_pause=2, record_entry=5) publish no
     // instruction descriptor, so they are absent; see the raw-handler delta

@@ -1976,6 +1976,7 @@ mod tests {
     static MANIFEST_CONTEXTS: &[crate::accounts::ContextDescriptor] =
         &[crate::accounts::ContextDescriptor {
             name: "make_deposit",
+            instructions: &[],
             accounts: MANIFEST_CONTEXT_ACCOUNTS,
             policies: &[],
             receipts_expected: false,
@@ -2124,6 +2125,7 @@ mod tests {
         static CONTEXTS: &[crate::accounts::ContextDescriptor] =
             &[crate::accounts::ContextDescriptor {
                 name: "make_deposit",
+                instructions: &[],
                 accounts: CONTEXT_ACCOUNTS,
                 policies: &[],
                 receipts_expected: false,

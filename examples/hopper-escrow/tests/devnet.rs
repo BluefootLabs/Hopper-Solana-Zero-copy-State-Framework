@@ -102,7 +102,9 @@ fn run() -> Result<(), String> {
     )?;
     require_success(&fund_wrong_maker, "fund-wrong-maker")?;
     wait_for_snapshot(&client, &rpc_url, &wrong_maker.pubkey(), |snapshot| {
-        snapshot.lamports == 1 && snapshot.owner == Pubkey::default() && snapshot.data.is_empty()
+        snapshot.lamports == wrong_maker_lamports
+            && snapshot.owner == Pubkey::default()
+            && snapshot.data.is_empty()
     })?;
     let make = make_instruction(program, maker.pubkey(), escrow.pubkey(), mint_a, mint_b);
     let make_outcome = submit_finalized(

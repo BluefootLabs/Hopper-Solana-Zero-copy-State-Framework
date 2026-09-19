@@ -1323,6 +1323,12 @@ fn matching_context<'a>(
     instruction: &InstructionDescriptor,
     contexts: &'a [ContextDescriptor],
 ) -> Option<&'a ContextDescriptor> {
+    if let Some(declared) = contexts
+        .iter()
+        .find(|context| context.instructions.contains(&instruction.name))
+    {
+        return Some(declared);
+    }
     let instruction_name = canonical_identifier(instruction.name);
     if let Some(named) = contexts
         .iter()
@@ -1899,6 +1905,7 @@ mod tests {
     ];
     static CONTEXTS: &[ContextDescriptor] = &[ContextDescriptor {
         name: "Increment",
+        instructions: &[],
         accounts: CONTEXT_ACCOUNTS,
         policies: &["CounterPolicy"],
         receipts_expected: true,

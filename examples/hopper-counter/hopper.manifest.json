@@ -48,6 +48,9 @@
         ] },
         { "name": "authority", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
+      "instructions": [
+        "increment"
+      ],
       "policies": [],
       "receiptsExpected": true,
       "mutationClasses": [],
