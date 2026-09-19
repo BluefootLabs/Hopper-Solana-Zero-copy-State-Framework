@@ -803,3 +803,95 @@ fn anchor_4616_shared_read_alias_during_live_mutable_borrow_is_refused() {
     let data = account.try_borrow().unwrap();
     assert_eq!(&data[..8], &[0xA5; 8]);
 }
+
+// =====================================================================
+// Class: CPI metas not validated against the views behind them
+// (Anchor v2 PR #5043)
+// =====================================================================
+
+/// Bug class: a fixed-meta CPI path invoked the callee without checking the
+/// caller-built metas against the accounts actually held: no address
+/// equality, no writable-versus-readonly check, no signer check, no borrow
+/// state (anchor-next `620de47`, 2026-09-16). Hopper guard:
+/// `hopper-runtime/src/cpi.rs::invoke_signed` runs the default tier
+/// per-meta validation before every invoke; the unvalidated variants are
+/// `unsafe fn`s. This test pins each refusal on a non-System program id so
+/// the general validator, not a host emulator, is what answers.
+#[test]
+fn anchor_5043_cpi_metas_are_validated_against_the_views_that_back_them() {
+    use hopper_runtime::{invoke_signed, InstructionAccount, InstructionView};
+
+    let callee = Address::new_from_array([0xC0; 32]);
+    let (_w_backing, writable) = make_account([1; 32], DEFAULT_OWNER, false, true, 1, &[0; 8]);
+    let (_r_backing, readonly) = make_account([2; 32], DEFAULT_OWNER, false, false, 1, &[0; 8]);
+    let (_s_backing, signer) = make_account([3; 32], DEFAULT_OWNER, true, false, 1, &[0; 8]);
+    let data = [1u8, 2, 3];
+
+    // A writable meta over a read-only view.
+    let metas = [InstructionAccount::writable(readonly.address())];
+    let ix = InstructionView {
+        program_id: &callee,
+        data: &data,
+        accounts: &metas,
+    };
+    assert_eq!(
+        invoke_signed::<1>(&ix, &[&readonly], &[]),
+        Err(ProgramError::Immutable)
+    );
+
+    // A meta whose address is not the address of the view behind it.
+    let metas = [InstructionAccount::writable(readonly.address())];
+    let ix = InstructionView {
+        program_id: &callee,
+        data: &data,
+        accounts: &metas,
+    };
+    assert_eq!(
+        invoke_signed::<1>(&ix, &[&writable], &[]),
+        Err(ProgramError::InvalidAccountData)
+    );
+
+    // A signer meta over a view that did not sign, with no PDA seeds.
+    let metas = [InstructionAccount::readonly_signer(readonly.address())];
+    let ix = InstructionView {
+        program_id: &callee,
+        data: &data,
+        accounts: &metas,
+    };
+    assert_eq!(
+        invoke_signed::<1>(&ix, &[&readonly], &[]),
+        Err(ProgramError::MissingRequiredSignature)
+    );
+
+    // A writable meta while a shared data borrow is live on the view.
+    let metas = [InstructionAccount::writable(writable.address())];
+    let ix = InstructionView {
+        program_id: &callee,
+        data: &data,
+        accounts: &metas,
+    };
+    {
+        let _held = writable.try_borrow().unwrap();
+        assert_eq!(
+            invoke_signed::<1>(&ix, &[&writable], &[]),
+            Err(ProgramError::AccountBorrowFailed)
+        );
+    }
+
+    // Everything consistent: the validator lets the invoke through (the raw
+    // syscall is a no-op on the host).
+    let metas = [
+        InstructionAccount::writable(writable.address()),
+        InstructionAccount::readonly(readonly.address()),
+        InstructionAccount::readonly_signer(signer.address()),
+    ];
+    let ix = InstructionView {
+        program_id: &callee,
+        data: &data,
+        accounts: &metas,
+    };
+    assert_eq!(
+        invoke_signed::<3>(&ix, &[&writable, &readonly, &signer], &[]),
+        Ok(())
+    );
+}

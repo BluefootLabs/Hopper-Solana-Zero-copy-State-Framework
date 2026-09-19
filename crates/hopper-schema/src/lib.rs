@@ -4749,7 +4749,16 @@ pub trait SchemaExport: LayoutContract {
     fn descriptor() -> AccountDescriptor {
         let m = Self::layout_manifest();
         let body_size = (m.total_size as u32).saturating_sub(HEADER_LEN as u32);
-        AccountDescriptor::headered(m.name, m.disc, m.version as u16, body_size, m.layout_id)
+        let descriptor =
+            AccountDescriptor::headered(m.name, m.disc, m.version as u16, body_size, m.layout_id);
+        // A dynamic tail changes the cost profile (realloc growth risk) and
+        // the loaded-data-size recommendation (tail headroom); the manifest
+        // carries the flag, so the projection must too.
+        if m.has_dynamic_tail {
+            descriptor.with_dynamic_tail()
+        } else {
+            descriptor
+        }
     }
 
     /// Optional off-chain metadata for this layout: the descriptor projection,

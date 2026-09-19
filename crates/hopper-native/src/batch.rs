@@ -199,7 +199,11 @@ pub fn realloc_checked(
     payer: Option<&AccountView<'_>>,
 ) -> ProgramResult {
     // Check rent requirement BEFORE resizing to avoid leaving the account
-    // in an inconsistent state if the payer transfer fails.
+    // in an inconsistent state if the payer transfer fails, and check the
+    // resize preconditions BEFORE the transfer so a refused resize (not
+    // writable, live borrow, over the growth limit) cannot leave the
+    // top-up behind.
+    account.check_resize(new_len)?;
     let min = crate::sysvar::rent_exempt_minimum(new_len);
     let current = account.lamports();
 
@@ -244,7 +248,9 @@ pub fn realloc_checked_with(
 ) -> ProgramResult {
     // Top-up computed from the live sysvar, not the const snapshot.
     // Check rent BEFORE resizing so a failed payer transfer leaves the
-    // account's data length unchanged (same ordering as realloc_checked).
+    // account's data length unchanged, and the resize preconditions BEFORE
+    // the transfer (same ordering as realloc_checked).
+    account.check_resize(new_len)?;
     let min = rent.minimum_balance(new_len);
     let current = account.lamports();
 

@@ -147,6 +147,28 @@ pub fn safe_realloc(
     safe_realloc_unchecked(account, new_size, payer, true)
 }
 
+/// [`safe_realloc`] with a lower bound on the new length.
+///
+/// A resize below `min_size` (normally the layout's `required_len()`) is
+/// refused with `InvalidRealloc` before any preflight or mutation. Without
+/// this floor a handler can shrink an account under the length its own
+/// layout needs to load, which bricks the account: every later bind fails
+/// with `AccountDataTooSmall` while the rent stays locked. The generated
+/// `realloc_<field>()` accessors pass the field's layout minimum here.
+#[inline]
+pub fn safe_realloc_bounded(
+    account: &AccountView<'_>,
+    new_size: usize,
+    min_size: usize,
+    payer: &AccountView<'_>,
+    program_id: &Address,
+) -> ProgramResult {
+    if new_size < min_size {
+        return Err(ProgramError::InvalidRealloc);
+    }
+    safe_realloc(account, new_size, payer, program_id)
+}
+
 /// Explicitly unchecked variant of [`safe_realloc`].
 ///
 /// This does not verify the resized account's writability or ownership. When

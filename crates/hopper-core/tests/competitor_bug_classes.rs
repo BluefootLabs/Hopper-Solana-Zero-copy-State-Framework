@@ -520,3 +520,135 @@ fn anchor_4603_shrunken_tail_is_unreachable_and_zeroed_on_regrow() {
     // rent-covered by the account itself.
     assert_eq!(payer.lamports(), 1_000);
 }
+
+// =====================================================================
+// Class: close to a non-writable destination (Anchor v2 PR #4886)
+// =====================================================================
+
+/// Bug class: `close = dest` credited a destination the transaction never
+/// marked writable, so the credit either failed at the runtime or was
+/// silently lost (anchor-next `b7f9530`, 2026-09-14, fixed by a
+/// compile-time `mut` requirement plus a runtime guard). Hopper guard:
+/// `hopper-core/src/account/lifecycle.rs::safe_close` checks the
+/// destination is writable before any mutation, and the context macro
+/// refuses `close = ...` without `mut` at compile time. This test pins the
+/// runtime half: a read-only destination is refused, and neither balance
+/// nor any payload byte changes.
+#[test]
+fn anchor_4886_close_to_non_writable_destination_is_refused() {
+    let payload = [0xABu8; 24];
+    let (_a_backing, account) = make_program_account(1, 10_000, &payload);
+    let (_d_backing, destination) = make_account(2, [5; 32], false, false, 500, b"", 0);
+
+    assert_eq!(
+        safe_close(&account, &destination, &program_id()),
+        Err(ProgramError::InvalidAccountData)
+    );
+    assert_eq!(
+        safe_close_with_sentinel(&account, &destination, &program_id()),
+        Err(ProgramError::InvalidAccountData)
+    );
+    assert_eq!(account.lamports(), 10_000);
+    assert_eq!(destination.lamports(), 500);
+    let data = account.try_borrow().unwrap();
+    assert_eq!(&data[..], &payload[..]);
+}
+
+// =====================================================================
+// Class: a Slab whose stored count exceeds its capacity (Anchor v2 PR #4906)
+// =====================================================================
+
+/// Bug class: a slab stored a length larger than the capacity derived from
+/// the live account length, so `is_empty` / `is_full` lied and the next
+/// load failed (anchor-next `c560ba6`, 2026-09-14). Hopper guard:
+/// `hopper-core/src/collections/slab.rs::Slab::from_bytes_mut` refuses a
+/// buffer shorter than its declared capacity needs and a stored count above
+/// that capacity, so a shrunk or corrupted slab is unloadable rather than
+/// stale. This test pins both refusals and that a well-formed slab still
+/// loads with a truthful count.
+#[test]
+fn anchor_4906_shrunk_or_overcounted_slab_is_unloadable_not_stale() {
+    use hopper_core::account::{FixedLayout, Pod, Zeroable};
+    use hopper_core::collections::slab::Slab;
+
+    #[derive(Clone, Copy)]
+    #[repr(C)]
+    struct Entry([u8; 8]);
+    // SAFETY: `Entry` is a plain 8-byte array with no padding or invalid
+    // bit patterns.
+    unsafe impl Zeroable for Entry {}
+    // SAFETY: as above; every byte pattern is a valid `Entry`.
+    unsafe impl Pod for Entry {}
+    impl FixedLayout for Entry {
+        const SIZE: usize = 8;
+    }
+
+    let mut bytes = [0u8; 64];
+    Slab::<Entry>::init(&mut bytes, 4).unwrap();
+    {
+        let mut slab = Slab::<Entry>::from_bytes_mut(&mut bytes).unwrap();
+        for i in 0..3u8 {
+            slab.alloc(Entry([i; 8])).unwrap();
+        }
+        assert_eq!(slab.len(), 3);
+        assert_eq!(slab.remaining_capacity(), 1);
+    }
+
+    // An external shrink leaves fewer bytes than the capacity in the header
+    // needs: the slab refuses to load instead of reporting stale slots.
+    let mut shrunk = bytes[..20].to_vec();
+    assert_eq!(
+        Slab::<Entry>::from_bytes_mut(&mut shrunk).err(),
+        Some(ProgramError::AccountDataTooSmall)
+    );
+
+    // A count above the capacity cannot describe any occupancy bitmap.
+    let mut overcounted = bytes;
+    overcounted[0..4].copy_from_slice(&u32::MAX.to_le_bytes());
+    assert_eq!(
+        Slab::<Entry>::from_bytes_mut(&mut overcounted).err(),
+        Some(ProgramError::InvalidAccountData)
+    );
+
+    // The untouched slab still loads and its count is backed by the bitmap.
+    let slab = Slab::<Entry>::from_bytes_mut(&mut bytes).unwrap();
+    assert_eq!(slab.len(), 3);
+    assert!(!slab.is_full());
+}
+
+// =====================================================================
+// Class: realloc below the layout minimum bricks the account
+// (Anchor v2 PR #4888)
+// =====================================================================
+
+/// Bug class: a resize floor that ignored the header minimum let a program
+/// shrink an account to a size its layout could never load again,
+/// permanently locking the rent (anchor-next `38bb553`, 2026-09-05).
+/// Hopper guard: `hopper-core/src/account/lifecycle.rs::safe_realloc_bounded`
+/// refuses `new_size < min_size` with `InvalidRealloc` before any preflight
+/// or mutation, and the context macro passes the field layout's
+/// `required_len()` as that floor from every generated `realloc_<field>()`.
+/// This test pins the refusal, that nothing changes on refusal, and that a
+/// resize at the floor still succeeds.
+#[test]
+fn anchor_4888_realloc_cannot_shrink_below_the_layout_minimum() {
+    use hopper_core::account::safe_realloc_bounded;
+
+    const MIN: usize = 32;
+    let (_a_backing, account) = make_program_account(1, 5_000_000, &[7u8; 64]);
+    let (_p_backing, payer) = make_account(2, PROGRAM_BYTES, true, true, 5_000_000, b"", 0);
+
+    for below in [0usize, 1, MIN - 1] {
+        assert_eq!(
+            safe_realloc_bounded(&account, below, MIN, &payer, &program_id()),
+            Err(ProgramError::InvalidRealloc),
+            "shrink to {below} must be refused"
+        );
+        assert_eq!(account.data_len(), 64);
+        assert_eq!(account.lamports(), 5_000_000);
+        assert_eq!(payer.lamports(), 5_000_000);
+    }
+
+    safe_realloc_bounded(&account, MIN, MIN, &payer, &program_id()).unwrap();
+    assert_eq!(account.data_len(), MIN);
+}

@@ -77,6 +77,13 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         if data.len() < needed {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        // A stored count above the capacity cannot describe any occupancy
+        // bitmap; refuse it here so `len`, `is_empty`, and
+        // `remaining_capacity` never report slots the slab cannot back.
+        let count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if count > capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
         Ok(Self {
             data,
             capacity,

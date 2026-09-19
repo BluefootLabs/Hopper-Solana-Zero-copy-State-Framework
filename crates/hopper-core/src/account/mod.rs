@@ -35,7 +35,7 @@ pub use header::{
 };
 pub use lifecycle::{
     safe_close, safe_close_unchecked, safe_close_with_sentinel, safe_close_with_sentinel_unchecked,
-    safe_realloc, safe_realloc_unchecked, zero_init, CLOSE_SENTINEL,
+    safe_realloc, safe_realloc_bounded, safe_realloc_unchecked, zero_init, CLOSE_SENTINEL,
 };
 pub use overlay::{overlay, overlay_mut};
 pub use pod::{

@@ -486,6 +486,27 @@ impl<'info> AccountView<'info> {
 
     // ── Resize ───────────────────────────────────────────────────────
 
+    /// Check every precondition of [`resize`](Self::resize) without changing
+    /// the account: the account must be writable, no data borrow may be live,
+    /// and `new_len` may exceed the entry-time length by at most
+    /// [`MAX_PERMITTED_DATA_INCREASE`]. A no-op resize to the current length
+    /// always passes.
+    ///
+    /// Callers that move lamports before resizing (rent top-ups) run this
+    /// first so a refused resize cannot leave the transfer behind.
+    #[inline(always)]
+    pub fn check_resize(&self, new_len: usize) -> Result<(), ProgramError> {
+        if new_len == self.data_len() {
+            return Ok(());
+        }
+        self.require_writable()?;
+        self.check_borrow_mut()?;
+        if new_len.saturating_sub(self.original_data_len()) > MAX_PERMITTED_DATA_INCREASE {
+            return Err(ProgramError::InvalidRealloc);
+        }
+        Ok(())
+    }
+
     /// Resize the account data to `new_len` bytes, zeroing any newly
     /// exposed region.
     ///
@@ -506,12 +527,7 @@ impl<'info> AccountView<'info> {
             return Ok(());
         }
 
-        self.require_writable()?;
-        self.check_borrow_mut()?;
-
-        if new_len.saturating_sub(self.original_data_len()) > MAX_PERMITTED_DATA_INCREASE {
-            return Err(ProgramError::InvalidRealloc);
-        }
+        self.check_resize(new_len)?;
         // SAFETY: `data_ptr_unchecked()` is the account data base; the loader
         // guarantees `[old_len, new_len)` is within the realloc-reserve
         // capacity once the `InvalidRealloc` bound above has passed.
@@ -537,12 +553,7 @@ impl<'info> AccountView<'info> {
             return Ok(());
         }
 
-        self.require_writable()?;
-        self.check_borrow_mut()?;
-
-        if new_len.saturating_sub(self.original_data_len()) > MAX_PERMITTED_DATA_INCREASE {
-            return Err(ProgramError::InvalidRealloc);
-        }
+        self.check_resize(new_len)?;
         // SAFETY: bounds validated above; only header fields are written.
         unsafe {
             (*self.raw).data_len = new_len as u64;

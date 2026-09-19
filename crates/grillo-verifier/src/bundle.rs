@@ -20,8 +20,9 @@
 //! - `argumentPayload` is the post-discriminator instruction payload,
 //!   required when the instruction publishes parametric exact-cell rules
 //!   (the resolver decodes selectors from it; see `EFFECT_ABI_V0_1.md`).
-//! - `touchMap` is the program's emitted touch-map wire blob (`hopper tx
-//!   explain` prints it; test harnesses capture it from `Program data:`).
+//! - `touchMap` is the program's emitted touch-map wire blob: the base64
+//!   `Program data:` payload re-encoded as hex. Test harnesses capture it
+//!   from the log; `hopper tx explain` renders it decoded, not as hex.
 //! - `accounts` carries pre/post data snapshots by positional index.
 //!   Lamport balances are attached as a pair or not at all. An omitted
 //!   pair means "lamports unobserved", never "observed 0 -> 0".

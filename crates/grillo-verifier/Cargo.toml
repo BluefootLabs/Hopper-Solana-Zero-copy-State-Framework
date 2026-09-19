@@ -20,7 +20,8 @@ description = "Offline verifier for caller-supplied byte and lamport snapshots a
 # security desk) links it with zero extra deps.
 grillo-manifest = { path = "../grillo-manifest", version = "0.1.0" }
 # JSON evidence-bundle parsing lives ONLY behind the `cli` feature (the
-# `grillo` binary), so embedding the core never forces serde.
+# `grillo` binary). Embedding the core still pulls serde and serde_json in
+# transitively through `grillo-manifest`, which parses manifest JSON.
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 
@@ -30,7 +31,7 @@ default = []
 cli = ["dep:serde", "dep:serde_json"]
 
 # The separately runnable `grillo` verifier binary. `required-features` keeps the
-# pure-core `cargo build -p grillo-verifier` from pulling serde.
+# pure-core `cargo build -p grillo-verifier` from compiling the bundle CLI.
 [[bin]]
 name = "grillo"
 required-features = ["cli"]

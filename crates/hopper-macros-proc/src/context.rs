@@ -3307,7 +3307,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
             // Two emission shapes:
             //
-            //   init            - call hopper_init! to create or allocate+assign
+            //   init            - call hopper_init! to create the account
+            //                     (one CreateAccountAllowPrefund CPI, pre-funded or not)
             //                     a zero-data account, then write the header.
             //
             //   init_if_needed  - skip the lifecycle CPI entirely
@@ -3339,11 +3340,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             };
 
             let doc = if is_if_needed {
-                "Create or allocate+assign the account via System Program CPI if it doesn't exist yet (init_if_needed). \
+                "Create the account via one System Program CreateAccountAllowPrefund CPI if it doesn't exist yet (init_if_needed). \
                  If the account is already allocated (data_len > 0) the helper returns Ok(()) without \
                  touching lamports or data - caller is responsible for validating the existing layout."
             } else {
-                "Create or allocate+assign the account via System Program CPI, zero-init its data, and write the Hopper header. \
+                "Create the account via one System Program CreateAccountAllowPrefund CPI, zero-init its data, and write the Hopper header. \
                   Errors if the account already has data."
             };
 
@@ -3616,20 +3617,39 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 .transpose()?
                 .unwrap_or_else(|| quote! { None });
 
+            // The resize floor: a typed field may never shrink below the
+            // length its own layout needs to load, or the account bricks
+            // (every later bind fails `AccountDataTooSmall` with the rent
+            // still locked). Raw and unchecked fields carry no layout, so
+            // they keep the unbounded resize.
+            let realloc_effective_ty: &Type = option_inner_type(&cf.ty).unwrap_or(&cf.ty);
+            let realloc_floor = match classify_wrapper(realloc_effective_ty) {
+                Some(WrapperKind::Account { inner }) => quote! {
+                    <#inner as ::hopper::__runtime::LayoutContract>::required_len()
+                },
+                None if !skips_layout_validation(realloc_effective_ty) => quote! {
+                    <#realloc_effective_ty as ::hopper::__runtime::LayoutContract>::required_len()
+                },
+                _ => quote! { 0usize },
+            };
+
             accessors.push(quote! {
                 /// Resize `#field_name`'s data to the declared length,
                 /// topping up the rent-exempt lamport minimum from the
                 /// declared `realloc_payer` if needed, and zero-filling
                 /// any newly-appended bytes per `realloc_zero` policy.
+                /// A length below the layout's `required_len()` is refused
+                /// with `InvalidRealloc` before any mutation.
                 #[inline]
                 #vis fn #realloc_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     let account = self.ctx.account(#slot)?;
                     let new_len: usize = (#realloc_expr) as usize;
                     let old_len = account.data_len() as usize;
                     let payer = #payer_path.ok_or(::hopper::__runtime::ProgramError::InvalidArgument)?;
-                    ::hopper::hopper_core::account::safe_realloc(
+                    ::hopper::hopper_core::account::safe_realloc_bounded(
                         account,
                         new_len,
+                        #realloc_floor,
                         payer,
                         self.ctx.program_id(),
                     )?;
@@ -4580,7 +4600,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     //     full control of the account includes its balance (init
     //     credits it, realloc tops it up, close drains it);
     //   - `init` payer: debited by `CreateAccount` / the top-up
-    //     `Transfer` inside `hopper_init!`;
+    //     `CreateAccountAllowPrefund` inside `hopper_init!`;
     //   - `realloc` payer (`realloc_payer`): debited by
     //     `safe_realloc`'s rent top-up;
     //   - `close = target` destination and `sweep = target` target:
