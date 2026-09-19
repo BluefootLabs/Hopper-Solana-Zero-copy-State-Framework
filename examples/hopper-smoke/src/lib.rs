@@ -13,7 +13,7 @@
 //! - A typed, zero-alloc event emitted through `sol_log_data`
 //! - Checked arithmetic everywhere (no silent overflow)
 //! - `safe_close` semantics via the `close` constraint
-//! - Self-describing transactions (innovation I7): the `Withdraw`
+//! - Self-describing transactions (touch-map support): the `Withdraw`
 //!   context opts in via `emit_touch_map`, so every successful
 //!   withdraw emits its touch map as one `sol_log_data` record that
 //!   `hopper tx explain` decodes into field-level state effects
@@ -24,18 +24,18 @@
 //! - `2` = Withdraw    (authority pulls SOL out, checked, self-describing)
 //! - `3` = Close       (authority closes the vault, lamports refunded)
 //! - `4` = EmitReceipt (authority bumps the touch counter and emits a
-//!   state receipt as an authenticated self-CPI — the `event_cpi`
+//!   state receipt as an authenticated self-CPI, the `event_cpi`
 //!   demo: indexers read it from inner-instruction metadata, which RPC
 //!   nodes never truncate, unlike the log-based event on Deposit)
 //! - `5` = BumpWholeVault (authority bumps the counter through the
-//!   WRAPPER accessor `vault.get_mut()` — the whole-account borrow the
+//!   WRAPPER accessor `vault.get_mut()`, the whole-account borrow the
 //!   touch map used to be blind to; its emitted map carries one
 //!   full-account write record from the instruction-ambient touch log)
-//! - `6` = InitNote (creates a `NoteV1` — the OLD layout version, with
+//! - `6` = InitNote (creates a `NoteV1`, the OLD layout version, with
 //!   forward-compat reserved padding sized so V2 fits without realloc)
 //! - `7` = TouchNote (the lazy-migration demo: the context declares
 //!   `migrate(from = NoteV1, ...)`, so binding against a V1 note
-//!   upgrades it in place — typed transform, header re-stamped v1→v2 —
+//!   upgrades it in place, typed transform, header re-stamped v1→v2,
 //!   before the handler runs; an already-V2 note binds untouched, so
 //!   repeat touches just increment the counter)
 
@@ -72,7 +72,7 @@ pub struct Vault {
 }
 
 /// The OLD note layout (version 1): a narrow tag plus RESERVED
-/// forward-compat padding — the pattern that makes in-place layout
+/// forward-compat padding, the pattern that makes in-place layout
 /// upgrades possible: V2 (below) claims the reserved bytes, so the
 /// same allocation fits both versions and no realloc is ever needed.
 #[derive(Clone, Copy)]
@@ -114,7 +114,7 @@ fn note_v1_to_v2(old: &NoteV1, new: &mut NoteV2) -> core::result::Result<(), Pro
 /// zero-copy `Pod` payload for `emit_event`. The two attributes stack:
 /// `#[hopper::pod]` supplies the `Pod + FixedLayout` contract
 /// `emit_event_tagged` needs, and `#[hopper::event(tag = 1)]` publishes
-/// the schema row (`EVENT_DESCRIPTOR`, tag 1 — the same tag the
+/// the schema row (`EVENT_DESCRIPTOR`, tag 1, the same tag the
 /// `emit_event_tagged(1, ...)` call below writes on the wire).
 #[hopper::pod]
 #[hopper::event(tag = 1)]
@@ -129,8 +129,8 @@ pub struct DepositEvent {
 
 /// Emitted by `EmitReceipt` as an authenticated self-CPI
 /// (`#[accounts(event_cpi)]` + `ctx.emit_event_cpi`). Unlike
-/// [`DepositEvent`] above — which rides `sol_log_data` and can be
-/// truncated out of RPC logs — this lands in the transaction's
+/// [`DepositEvent`] above; which rides `sol_log_data` and can be
+/// truncated out of RPC logs; this lands in the transaction's
 /// inner-instruction metadata. Wire: `[0xE0, 0x1E, 0x02, payload]`,
 /// 3 bytes of overhead vs Anchor `emit_cpi!`'s 16.
 #[hopper::event(tag = 2)]
@@ -177,14 +177,14 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// The self-describing context (innovation I7). Two opt-ins compose:
+/// The self-describing context (touch-map support). Two opt-ins compose:
 ///
 /// - `strict_writes`: the `mut(balance)` declaration below is compiled
 ///   into a static write policy, so any Context-mediated write outside
 ///   `vault.balance` fails at acquisition time.
 /// - `emit_touch_map`: on the handler's **Ok** path (and only then) the
 ///   generated dispatcher emits the instruction's cumulative touch map
-///   as a single `sol_log_data` record — magic `0x7A`, version `0x01`,
+///   as a single `sol_log_data` record, magic `0x7A`, version `0x01`,
 ///   then `(slot, offset, size, R/W)` entries. `hopper tx explain`
 ///   decodes it from the transaction's log stream, so a successful
 ///   withdraw advertises exactly which bytes of which account it wrote.
@@ -214,7 +214,7 @@ pub struct CloseVault<'info> {
 }
 
 /// Self-describing through the WRAPPER path: this context opts into
-/// `emit_touch_map` but its handler writes via `vault.get_mut()` — a
+/// `emit_touch_map` but its handler writes via `vault.get_mut()`, a
 /// whole-account borrow with no segment lease and no `Context` at the
 /// borrow site. The instruction-AMBIENT touch log (same reserved-heap
 /// scheme as the lamport gate store) is what makes that borrow visible:
@@ -230,7 +230,7 @@ pub struct BumpWholeVault<'info> {
     pub vault: Account<'info, Vault>,
 }
 
-/// Creates a NoteV1 — deliberately the OLD version, so a later
+/// Creates a NoteV1, deliberately the OLD version, so a later
 /// `TouchNote` demonstrates the lazy migration live.
 #[derive(Accounts)]
 pub struct InitNote<'info> {
@@ -256,11 +256,11 @@ pub struct TouchNote<'info> {
 }
 
 /// The `event_cpi` context: the option auto-appends two TRAILING
-/// account slots the struct does not declare — the event-authority PDA
+/// account slots the struct does not declare, the event-authority PDA
 /// (seeds `[b"__hopper_event_authority"]`, verified at bind on-chain
 /// via the sha256 compare loop) and this program's own account (pinned
 /// to `ctx.program_id()`; a self-CPI target must be a transaction
-/// account) — so the instruction's account shape is
+/// account); so the instruction's account shape is
 /// `[authority, vault, event_authority, program]`, exactly the two
 /// extras Anchor's `#[event_cpi]` appends. The bound context gains
 /// `emit_event_cpi(&event)`.
@@ -297,7 +297,7 @@ mod smoke_program {
         // Balance update through the segment lease declared by
         // `mut(balance)`: the write registers in the instruction's
         // segment registry, which is exactly what the Ok-path touch-map
-        // emission snapshots — the on-chain record will carry one
+        // emission snapshots, the on-chain record will carry one
         // `W vault [balance..balance+8)` entry for this write.
         {
             let mut balance = ctx.vault_balance_mut()?;
@@ -339,7 +339,7 @@ mod smoke_program {
     }
 
     /// The wrapper-borrow demo: the SAME state change as a segment
-    /// path would make, but through `get_mut()` — and the Ok-path
+    /// path would make, but through `get_mut()`, and the Ok-path
     /// touch map still describes it (one whole-account write record).
     #[instruction(5)]
     pub fn bump_whole_vault(ctx: Ctx<BumpWholeVault>) -> ProgramResult {
@@ -348,7 +348,7 @@ mod smoke_program {
         Ok(())
     }
 
-    /// Create a NoteV1 with the given tag — the old shape, on purpose.
+    /// Create a NoteV1 with the given tag, the old shape, on purpose.
     #[instruction(6)]
     pub fn init_note(ctx: Ctx<InitNote>, tag: u32) -> ProgramResult {
         ctx.init_note()?;
@@ -358,7 +358,7 @@ mod smoke_program {
     }
 
     /// The migration crank: a V1 note is upgraded at bind (before this
-    /// body runs), so the handler only ever sees V2 — it just counts
+    /// body runs), so the handler only ever sees V2; it just counts
     /// the touch.
     #[instruction(7)]
     pub fn touch_note(ctx: Ctx<TouchNote>) -> ProgramResult {

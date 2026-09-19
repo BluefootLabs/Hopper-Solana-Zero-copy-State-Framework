@@ -1,179 +1,144 @@
 {
-  "name": "hopper_token_2022_vault",
-  "version": "0.2.1",
-  "description": "A Hopper-authored Token-2022 vault with local manifest-backed CLI preview.",
+  "name": "hopper-token-2022-vault",
+  "version": "0.3.0",
+  "description": "Hopper-authored Token-2022 vault example with package-local manifest tooling",
   "layouts": [
     {
       "name": "RewardVault",
       "disc": 41,
       "version": 1,
-      "layout_id": [84, 50, 86, 65, 85, 76, 84, 1],
-      "total_size": 129,
+      "layoutId": "f72b88298a12eabc",
+      "totalSize": 129,
+      "hasDynamicTail": false,
+      "fieldCount": 6,
       "fields": [
-        {"name": "authority", "type": "[u8;32]", "size": 32, "offset": 16},
-        {"name": "mint", "type": "[u8;32]", "size": 32, "offset": 48},
-        {"name": "vault_ata", "type": "[u8;32]", "size": 32, "offset": 80},
-        {"name": "minted_total", "type": "WireU64", "size": 8, "offset": 112},
-        {"name": "swept_total", "type": "WireU64", "size": 8, "offset": 120},
-        {"name": "bump", "type": "u8", "size": 1, "offset": 128}
-      ]
+        { "name": "authority", "type": "TypedAddress<Authority>", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "mint", "type": "TypedAddress<Mint>", "size": 32, "offset": 48, "intent": "custom" },
+        { "name": "vault_ata", "type": "TypedAddress<Token>", "size": 32, "offset": 80, "intent": "custom" },
+        { "name": "minted_total", "type": "WireU64", "size": 8, "offset": 112, "intent": "custom" },
+        { "name": "swept_total", "type": "WireU64", "size": 8, "offset": 120, "intent": "custom" },
+        { "name": "bump", "type": "u8", "size": 1, "offset": 128, "intent": "custom" }
+      ],
+      "semanticFingerprint": "7bdcb29745fdc9e8"
     }
   ],
   "instructions": [
     {
       "name": "init_vault",
       "tag": 0,
+      "discriminatorBytes": [0],
       "args": [],
       "accounts": [
-        {"name": "payer", "writable": true, "signer": true, "layout_ref": ""},
-        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
-        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
-        {"name": "system_program", "writable": false, "signer": false, "layout_ref": ""}
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "vault_state", "writable": true, "signer": true, "layoutRef": "RewardVault" },
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "system_program", "writable": false, "signer": false }
       ],
-      "capabilities": ["CreatesAccount", "MutatesState"],
-      "policy_pack": "TOKEN_2022_VAULT_WRITE",
-      "receipt_expected": true
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "prepare_vault_ata",
       "tag": 1,
+      "discriminatorBytes": [1],
       "args": [],
       "accounts": [
-        {"name": "payer", "writable": true, "signer": true, "layout_ref": ""},
-        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
-        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
-        {"name": "vault_ata", "writable": true, "signer": false, "layout_ref": ""},
-        {"name": "mint", "writable": false, "signer": false, "layout_ref": ""},
-        {"name": "system_program", "writable": false, "signer": false, "layout_ref": ""},
-        {"name": "token_program_2022", "writable": false, "signer": false, "layout_ref": ""}
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "vault_state", "writable": true, "signer": false, "layoutRef": "RewardVault" },
+        { "name": "vault_ata", "writable": true, "signer": false },
+        { "name": "mint", "writable": false, "signer": false },
+        { "name": "system_program", "writable": false, "signer": false },
+        { "name": "token_program_2022", "writable": false, "signer": false },
+        { "name": "associated_token_program", "writable": false, "signer": false }
       ],
-      "capabilities": ["CreatesAccount", "MutatesState"],
-      "policy_pack": "TOKEN_2022_VAULT_WRITE",
-      "receipt_expected": true
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "mint_rewards",
       "tag": 2,
+      "discriminatorBytes": [2],
       "args": [
-        {"name": "amount", "type": "WireU64", "size": 8}
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
-        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
-        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
-        {"name": "vault_ata", "writable": true, "signer": false, "layout_ref": ""},
-        {"name": "mint", "writable": true, "signer": false, "layout_ref": ""},
-        {"name": "token_program_2022", "writable": false, "signer": false, "layout_ref": ""}
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "vault_state", "writable": true, "signer": false, "layoutRef": "RewardVault" },
+        { "name": "vault_ata", "writable": true, "signer": false },
+        { "name": "mint", "writable": true, "signer": false },
+        { "name": "token_program_2022", "writable": false, "signer": false }
       ],
-      "capabilities": ["MutatesState", "MutatesTreasury"],
-      "policy_pack": "TOKEN_2022_MINT",
-      "receipt_expected": true
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "sweep_rewards",
       "tag": 3,
+      "discriminatorBytes": [3],
       "args": [
-        {"name": "amount", "type": "WireU64", "size": 8}
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
-        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
-        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
-        {"name": "vault_ata", "writable": true, "signer": false, "layout_ref": ""},
-        {"name": "destination_ata", "writable": true, "signer": false, "layout_ref": ""},
-        {"name": "token_program_2022", "writable": false, "signer": false, "layout_ref": ""}
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "vault_state", "writable": true, "signer": false, "layoutRef": "RewardVault" },
+        { "name": "vault_ata", "writable": true, "signer": false },
+        { "name": "destination_ata", "writable": true, "signer": false },
+        { "name": "mint", "writable": false, "signer": false },
+        { "name": "token_program_2022", "writable": false, "signer": false }
       ],
-      "capabilities": ["MutatesState", "MutatesTreasury"],
-      "policy_pack": "TOKEN_2022_SWEEP",
-      "receipt_expected": true
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     }
   ],
-  "contexts": [
-    {
-      "name": "InitVault",
-      "accounts": [
-        {"name": "payer", "kind": "Signer", "writable": true, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_VAULT_WRITE", "seeds": [], "optional": false},
-        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "system_program", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
-      ],
-      "policies": ["TOKEN_2022_VAULT_WRITE"],
-      "receipts_expected": true,
-      "mutation_classes": ["StateTransition"]
-    },
-    {
-      "name": "PrepareVaultAta",
-      "accounts": [
-        {"name": "payer", "kind": "Signer", "writable": true, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_VAULT_WRITE", "seeds": [], "optional": false},
-        {"name": "vault_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "mint", "kind": "MintAccount", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "system_program", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "token_program_2022", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
-      ],
-      "policies": ["TOKEN_2022_VAULT_WRITE"],
-      "receipts_expected": true,
-      "mutation_classes": ["StateTransition", "InPlace"]
-    },
-    {
-      "name": "MintRewards",
-      "accounts": [
-        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_MINT", "seeds": [], "optional": false},
-        {"name": "vault_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "mint", "kind": "MintAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "token_program_2022", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
-      ],
-      "policies": ["TOKEN_2022_MINT"],
-      "receipts_expected": true,
-      "mutation_classes": ["Financial", "InPlace"]
-    },
-    {
-      "name": "SweepRewards",
-      "accounts": [
-        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_SWEEP", "seeds": [], "optional": false},
-        {"name": "vault_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "destination_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
-        {"name": "token_program_2022", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
-      ],
-      "policies": ["TOKEN_2022_SWEEP"],
-      "receipts_expected": true,
-      "mutation_classes": ["Financial", "InPlace"]
-    }
-  ],
-  "events": [
-    {
-      "name": "RewardsMinted",
-      "tag": 1,
-      "fields": [
-        {"name": "amount", "type": "WireU64", "size": 8, "offset": 0},
-        {"name": "next_total", "type": "WireU64", "size": 8, "offset": 8}
-      ]
-    },
-    {
-      "name": "RewardsSwept",
-      "tag": 2,
-      "fields": [
-        {"name": "amount", "type": "WireU64", "size": 8, "offset": 0},
-        {"name": "next_total", "type": "WireU64", "size": 8, "offset": 8}
-      ]
-    }
-  ],
-  "policies": [
-    {
-      "name": "TOKEN_2022_VAULT_WRITE",
-      "capabilities": ["CreatesAccount", "MutatesState"],
-      "requirements": ["SignerAuthority", "SnapshotCommit"]
-    },
-    {
-      "name": "TOKEN_2022_MINT",
-      "capabilities": ["MutatesState", "MutatesTreasury"],
-      "requirements": ["SignerAuthority", "SnapshotCommit", "CpiGuard"]
-    },
-    {
-      "name": "TOKEN_2022_SWEEP",
-      "capabilities": ["MutatesState", "MutatesTreasury"],
-      "requirements": ["SignerAuthority", "SnapshotCommit", "LamportConservation"]
-    }
-  ]
+  "events": [],
+  "policies": [],
+  "layoutMetadata": [],
+  "contexts": [],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
 }

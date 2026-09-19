@@ -1,14 +1,14 @@
-//! # SENTINEL — the byte-segment authority a compromised handler cannot escape
+//! # SENTINEL, the byte-segment authority a compromised handler cannot escape
 //!
 //! The one thing SENTINEL proves, on real compiled bytecode:
 //!
 //! > A privileged handler can mutate ONLY the byte ranges it declared. A
 //! > COMPROMISED handler that tries to write outside its declared segment is
-//! > REFUSED BY THE FRAMEWORK at mutable-borrow acquisition — BEFORE any byte
-//! > changes — with `Custom(0xD000 | account_index)`.
+//! > REFUSED BY THE FRAMEWORK at mutable-borrow acquisition, BEFORE any byte
+//! > changes, with `Custom(0xD000 | account_index)`.
 //!
 //! This is the Drift-class rug shape: a `pause()` that has been tampered with
-//! to ALSO rotate the admin key. Hopper stops it *structurally* — the strict
+//! to ALSO rotate the admin key. Hopper stops it *structurally*, the strict
 //! write policy compiled from the context's `mut(paused, revision)`
 //! declaration is the SAME `&'static [WriteRange]` const the runtime enforces
 //! at every Context-mediated write acquire (published == enforced). Anchor,
@@ -24,33 +24,33 @@
 //!   records exactly the `paused` + `revision` ranges.
 //! - [`sentinel_program::malicious_pause`] runs the SAME honest body, then the
 //!   tampered tail attempts to ALSO rotate `admin` THROUGH THE CONTEXT
-//!   (`ctx.segment_mut` at the admin offset — a governed path, not an
+//!   (`ctx.segment_mut` at the admin offset, a governed path, not an
 //!   `AccountView::get_mut` bypass). The `admin` range is not in the declared
 //!   set, so the acquisition is REFUSED with `Custom(0xD000 | 1)` before a
 //!   single admin byte changes.
 //!
-//! There is no accessor for `admin` on the bound context at all — a
+//! There is no accessor for `admin` on the bound context at all, a
 //! `mut(seg)` field only generates its declared per-segment accessors. The
 //! only way to *reach* the admin bytes is the raw `Context`, and that path is
 //! policy-gated. `AccountView::get_mut` / `try_borrow_mut` would bypass the
-//! policy; SENTINEL never uses them (grep the source — the only writes are
+//! policy; SENTINEL never uses them (grep the source, the only writes are
 //! `ctx.config_*_mut()` / `ctx.segment_mut(...)`).
 //!
 //! ## The rest of the showcase
 //!
-//! - `initialize_config` / `initialize_ledger` — the real `#[account(init)]`
+//! - `initialize_config` / `initialize_ledger`, the real `#[account(init)]`
 //!   lifecycle (both accounts fit a single CreateAccount CPI).
-//! - `unpause` — the third handler sharing [`Pause`] (sets `paused = 0`).
-//! - `record_entry` — the COLUMNAR per-record pattern: the whole `entries`
+//! - `unpause`, the third handler sharing [`Pause`] (sets `paused = 0`).
+//! - `record_entry`, the COLUMNAR per-record pattern: the whole `entries`
 //!   array is ONE declared `mut(seg)` range; the cell offset is computed at
 //!   RUNTIME (`entries + i * size_of::<LedgerEntry>()`) and policy-checked
 //!   against that column, so a write to a different field is refused while
 //!   per-cell isolation comes from the segment registry.
-//! - `begin_admin_transfer` / `accept_admin_transfer` — the two-step admin
+//! - `begin_admin_transfer` / `accept_admin_transfer`, the two-step admin
 //!   rotation. `accept` DECLARES `mut(admin, ...)`, so writing `admin` here is
-//!   allowed — the exact contrast with the flagship, where `admin` is
+//!   allowed, the exact contrast with the flagship, where `admin` is
 //!   undeclared and therefore refused.
-//! - `collect_fees` — a `mutation_complete` context (`strict_writes` +
+//! - `collect_fees`, a `mutation_complete` context (`strict_writes` +
 //!   `lamports(fee_sink)`) with an over-declarable `treasury` account it
 //!   touches in NEITHER dimension, so `InstructionDescriptor::effective_writable`
 //!   demotes it writable -> read-only.
@@ -70,7 +70,7 @@ mod __hopper_sbf {
 //
 // Every field is an alignment-1 wire type (`Wire*` / `Address` / fixed
 // arrays / `u8`), so the `#[hopper::state]` fence proves `align_of == 1`
-// and `size_of == sum(field sizes)` — zero implicit padding.
+// and `size_of == sum(field sizes)`, zero implicit padding.
 
 /// The governance account. `admin` is the privileged key a rug would try to
 /// rotate; `paused` + `revision` are the ONLY fields a pause handler declares.
@@ -94,7 +94,7 @@ mod __hopper_sbf {
 #[hopper::state(disc = 1, version = 1)]
 pub struct Config {
     /// The privileged authority. Rotating this is the whole prize of the
-    /// Drift-class rug — and the byte range a tampered `pause()` is refused.
+    /// Drift-class rug, and the byte range a tampered `pause()` is refused.
     pub admin: Address,
     /// Two-step transfer target (written only by `begin_admin_transfer`).
     pub pending_admin: Address,
@@ -133,12 +133,12 @@ pub struct LedgerEntry {
 ///                                                    9,620 <= 10,240  ✓
 /// ```
 ///
-/// So a single `init` allocation suffices — no `#[account(zero)]`
+/// So a single `init` allocation suffices, no `#[account(zero)]`
 /// client-preallocation dance is needed.
 pub const LEDGER_CAPACITY: usize = 200;
 
 /// The columnar ledger: one `count` header field followed by the `entries`
-/// column. `record_entry` declares `mut(entries, count)` — the whole `entries`
+/// column. `record_entry` declares `mut(entries, count)`, the whole `entries`
 /// array is ONE range; individual cells are addressed at runtime.
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -152,8 +152,8 @@ pub struct Ledger {
 
 // ── Errors ──────────────────────────────────────────────────────────
 
-// `LedgerFull` — the columnar ledger is full (`count == LEDGER_CAPACITY`).
-// `ZeroAmount` — a zero-valued amount was supplied to `record_entry`.
+// `LedgerFull`, the columnar ledger is full (`count == LEDGER_CAPACITY`).
+// `ZeroAmount`, a zero-valued amount was supplied to `record_entry`.
 hopper::hopper_error! {
     base = 7000;
     LedgerFull,
@@ -234,7 +234,7 @@ pub struct RecordEntry<'info> {
 }
 
 /// Two-step admin rotation, step 1: the current admin nominates a successor.
-/// Declares `mut(pending_admin, revision)` — `admin` itself stays immutable.
+/// Declares `mut(pending_admin, revision)`, `admin` itself stays immutable.
 #[derive(Accounts)]
 #[accounts(strict_writes, emit_touch_map)]
 pub struct BeginAdminTransfer<'info> {
@@ -245,7 +245,7 @@ pub struct BeginAdminTransfer<'info> {
 }
 
 /// Two-step admin rotation, step 2: the nominated admin accepts. This context
-/// DECLARES `mut(admin, ...)`, so writing `admin` here is allowed — the exact
+/// DECLARES `mut(admin, ...)`, so writing `admin` here is allowed, the exact
 /// contrast with the flagship, where `admin` is undeclared and refused.
 #[derive(Accounts)]
 #[accounts(strict_writes, emit_touch_map)]
@@ -268,7 +268,7 @@ pub struct CollectFees<'info> {
     #[account(mut(revision))]
     pub config: Account<'info, Config>,
 
-    /// Lamport credit target — a lamport permission, no data range.
+    /// Lamport credit target, a lamport permission, no data range.
     pub fee_sink: UncheckedAccount<'info>,
 
     /// Touched in NEITHER dimension: the demotion target.
@@ -307,7 +307,7 @@ pub mod sentinel_program {
     }
 
     /// FLAGSHIP (malicious). The SAME strict-writes context and the SAME honest
-    /// body — then a tampered tail that ALSO tries to rotate the admin key
+    /// body, then a tampered tail that ALSO tries to rotate the admin key
     /// THROUGH THE CONTEXT.
     ///
     /// This is a RAW `&mut Context` handler so it can reach the raw
@@ -334,7 +334,7 @@ pub mod sentinel_program {
         }
 
         // 2) TAMPERED: rotate the admin key to the attacker. The `admin` range
-        //    is undeclared, so this acquisition is refused at the gate — the
+        //    is undeclared, so this acquisition is refused at the gate, the
         //    `?` returns `Custom(0xD000 | 1)` and the assignment below never
         //    runs. No admin byte is ever written.
         let attacker = Address::new_from_array([0xAAu8; 32]);
@@ -369,7 +369,7 @@ pub mod sentinel_program {
     /// the touch map records the EXACT cell touched.
     ///
     /// A RAW handler, because writing cell `i` needs a RUNTIME offset via
-    /// `ctx.segment_mut::<LedgerEntry>(ledger_idx, entries + i*size)` — a
+    /// `ctx.segment_mut::<LedgerEntry>(ledger_idx, entries + i*size)`, a
     /// `mut(seg)` field exposes no whole-account runtime-offset accessor, so
     /// the write goes through the raw `Context` (policy persists after bind).
     #[instruction(5)]
@@ -432,7 +432,7 @@ pub mod sentinel_program {
 
     /// Two-step admin rotation, step 2. The nominated admin (a signer) accepts:
     /// promote `pending_admin` into `admin`, clear `pending_admin`, bump
-    /// `revision`. `admin` IS declared writable here, so the promotion lands —
+    /// `revision`. `admin` IS declared writable here, so the promotion lands,
     /// the deliberate contrast with the flagship refusal.
     #[instruction(7)]
     pub fn accept_admin_transfer(mut ctx: Ctx<AcceptAdminTransfer>) -> ProgramResult {

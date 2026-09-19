@@ -1,6 +1,6 @@
 {
   "name": "hopper-sentinel",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "SENTINEL: a compromised privileged handler that writes outside its declared byte segment is refused by the framework, before any byte changes — proven on compiled SBF bytecode.",
   "layouts": [
     {

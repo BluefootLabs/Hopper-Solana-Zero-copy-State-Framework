@@ -1,4 +1,4 @@
-//! # Cicada — transport-neutral protected execution intents
+//! # Cicada, transport-neutral protected execution intents
 //!
 //! Cicada is Hopper's first production-shaped flagship program slice. It is
 //! not coupled to Jito, BAM, a particular RPC provider, or one swap

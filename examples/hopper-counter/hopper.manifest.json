@@ -1,6 +1,6 @@
 {
   "name": "hopper_counter",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Minimal macro-first Hopper counter example.",
   "layouts": [
     {

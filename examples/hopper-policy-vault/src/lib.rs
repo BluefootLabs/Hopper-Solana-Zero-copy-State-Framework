@@ -54,8 +54,8 @@ pub struct Vault {
     pub pending_rewards: WireU64,
 }
 
-// `strict_writes` (innovation I12): the `mut(balance)` declaration below
-// is not just accessor sugar — bind() compiles it into a static write
+// `strict_writes` (write-policy enforcement): the `mut(balance)` declaration below
+// is not just accessor sugar, bind() compiles it into a static write
 // policy, so *any* Context-mediated write outside `vault.balance`
 // (another segment, a whole-account `load_mut`, even the raw
 // `as_mut_ptr` escape hatch) fails with `Custom(0xD000 | account_index)`
@@ -215,7 +215,7 @@ pub mod raw_vault {
         Ok(())
     }
 
-    /// The "MIXED" pattern from the audit's Section 2: safe segment
+    /// Mixed-access pattern: safe segment
     /// write, drop to raw pointer for a fast-path memset, then back
     /// to safe code for an invariant check. All three regions live
     /// in the same handler without a policy change.

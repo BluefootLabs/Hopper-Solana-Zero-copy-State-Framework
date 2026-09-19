@@ -9,6 +9,7 @@
       "version": 1,
       "layoutId": "ff3ad975e746c159",
       "totalSize": 112,
+      "hasDynamicTail": false,
       "fieldCount": 7,
       "fields": [
         { "name": "admin", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
@@ -27,6 +28,7 @@
       "version": 1,
       "layoutId": "ebb203c495778eef",
       "totalSize": 128,
+      "hasDynamicTail": false,
       "fieldCount": 7,
       "fields": [
         { "name": "source_token", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
@@ -45,6 +47,7 @@
       "version": 1,
       "layoutId": "656adbfbf12ba453",
       "totalSize": 9080,
+      "hasDynamicTail": false,
       "fieldCount": 28,
       "fields": [
         { "name": "config", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },

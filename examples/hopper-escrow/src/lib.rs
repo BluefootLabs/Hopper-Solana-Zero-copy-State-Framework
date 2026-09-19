@@ -1,11 +1,15 @@
 //! # Hopper Escrow Example
 //!
-//! Macro-first token escrow sketch using Hopper's first-touch account API.
+//! Macro-first escrow-shaped state lifecycle using Hopper's account API.
+//!
+//! This example demonstrates state initialization, `has_one` checks, and
+//! close-account behavior. It does not perform SPL Token custody or transfer
+//! CPIs.
 //!
 //! Instructions:
 //! - `0` = Make (create escrow offer)
-//! - `1` = Take (accept escrow)
-//! - `2` = Cancel (reclaim escrowed tokens)
+//! - `1` = Take (authority-linked state close)
+//! - `2` = Cancel (maker-authorized state close)
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
@@ -65,11 +69,13 @@ pub struct Take<'info> {
     #[account(mut, has_one = maker)]
     pub escrow: Account<'info, Escrow>,
 
+    #[account(mut)]
     pub maker: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
 pub struct Cancel<'info> {
+    #[account(mut)]
     pub maker: Signer<'info>,
 
     #[account(mut, has_one = maker)]
@@ -143,5 +149,29 @@ impl<'info> Take<'info> {
 impl<'info> Cancel<'info> {
     pub fn cancel(&self) -> ProgramResult {
         hopper::hopper_close!(self.escrow.as_account(), self.maker.as_account())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn close_destinations_are_published_writable() {
+        let take_maker = Take::SCHEMA_METADATA
+            .accounts
+            .iter()
+            .find(|account| account.name == "maker")
+            .expect("Take maker descriptor");
+        assert!(take_maker.writable);
+        assert!(!take_maker.signer);
+
+        let cancel_maker = Cancel::SCHEMA_METADATA
+            .accounts
+            .iter()
+            .find(|account| account.name == "maker")
+            .expect("Cancel maker descriptor");
+        assert!(cancel_maker.writable);
+        assert!(cancel_maker.signer);
     }
 }

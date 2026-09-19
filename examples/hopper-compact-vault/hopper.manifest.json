@@ -1,6 +1,6 @@
 {
   "name": "hopper_compact_vault",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Devnet-ready proof for a 1-byte compact Hopper account with manifest-backed layout fingerprints.",
   "layouts": [
     {

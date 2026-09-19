@@ -1,7 +1,7 @@
 {
   "name": "hopper_escrow",
-  "version": "0.2.1",
-  "description": "Macro-first token escrow example: make, take, cancel.",
+  "version": "0.3.0",
+  "description": "Escrow-shaped state lifecycle example: initialize, has-one authority checks, and close. No token flow.",
   "layouts": [
     {
       "name": "Escrow",
@@ -46,7 +46,7 @@
       "accounts": [
         {"name": "taker", "writable": false, "signer": true, "layout_ref": ""},
         {"name": "escrow", "writable": true, "signer": false, "layout_ref": "Escrow"},
-        {"name": "maker", "writable": false, "signer": false, "layout_ref": ""}
+        {"name": "maker", "writable": true, "signer": false, "layout_ref": ""}
       ],
       "capabilities": ["MutatesState", "ClosesAccount"],
       "policy_pack": "ESCROW_TAKE",
@@ -57,7 +57,7 @@
       "tag": 2,
       "args": [],
       "accounts": [
-        {"name": "maker", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "maker", "writable": true, "signer": true, "layout_ref": ""},
         {"name": "escrow", "writable": true, "signer": false, "layout_ref": "Escrow"}
       ],
       "capabilities": ["MutatesState", "ClosesAccount"],

@@ -4,7 +4,7 @@ version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
-description = "R6 audit closure. Hopper-authored Token-2022 example that reads the TransferHook mint extension, asserts it binds a specific hook program, and rejects mints with unsafe extensions. Demonstrates the extension-aware validation pattern Hopper's hopper-token-2022 + hopper-solana token2022_ext surface enables."
+description = "Hopper Token-2022 example that validates the TransferHook mint extension, binds an expected hook program, and rejects unsupported extensions."
 
 [lib]
 crate-type = ["cdylib", "lib"]

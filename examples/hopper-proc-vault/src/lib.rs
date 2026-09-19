@@ -161,8 +161,8 @@ mod descriptor_tests {
 
 #[cfg(test)]
 mod schema_metadata_tests {
-    //! Stage 2.5 regression tests. `#[hopper::context]` must emit a
-    //! `SCHEMA_METADATA` const carrying every Anchor-grade constraint
+    //! Schema-metadata regression tests. `#[hopper::context]` must emit a
+    //! `SCHEMA_METADATA` const carrying every supported constraint
     //! field so downstream IDL/client tooling can consume it without
     //! re-parsing source.
     use super::{AdminSweep, Deposit};

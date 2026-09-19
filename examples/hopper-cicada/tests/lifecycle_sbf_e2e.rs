@@ -1822,7 +1822,7 @@ fn compiled_writable_or_conflicting_duplicate_route_meta_is_rejected() {
 /// `bump = stored` behavioral proof on compiled SBF: corrupting the
 /// `#[bump]`-marked byte in `CicadaConfig` makes every stored-bump context
 /// refuse to bind (the one-hash verify no longer derives the account's own
-/// address), and restoring the byte heals the same instruction — pinning
+/// address), and restoring the byte heals the same instruction, pinning
 /// the refusal to exactly the stored canonical bump.
 #[test]
 fn compiled_tampered_stored_bump_byte_refuses_the_bind() {

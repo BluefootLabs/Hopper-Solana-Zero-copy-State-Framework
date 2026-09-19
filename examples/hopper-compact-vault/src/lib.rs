@@ -1,4 +1,4 @@
-//! # Hopper Compact Vault — three-tier metadata example
+//! # Hopper Compact Vault, three-tier metadata example
 //!
 //! Demonstrates two of the three tiers from `docs/THREE_TIER_METADATA.md`
 //! using the **macro ergonomics** added on top of the foundation:
@@ -7,7 +7,7 @@
 //!   `#[hopper::state(compact, disc = 1)]`. The macro emits a
 //!   [`CompactLayout`](hopper::account::CompactLayout) impl, the
 //!   `[disc:u8][zero-copy body]` load helpers, and the compact field
-//!   offsets — no 16-byte universal header.
+//!   offsets, no 16-byte universal header.
 //! - **Tier 2 (on-chain registry):** [`program_registry`] builds a
 //!   compact binary registry from the macro-generated
 //!   [`Vault::registry_entry`], and [`read_registry`] reads it back and
@@ -58,7 +58,7 @@ pub struct Vault {
 
 /// Hot-path handler shape: load the compact vault and add to its balance.
 ///
-/// No header validation beyond the single discriminator byte — layout
+/// No header validation beyond the single discriminator byte, layout
 /// identity is the program's Tier-2 registry, not a per-account fact.
 pub fn deposit(vault: &AccountView, amount: u64) -> ProgramResult {
     let mut v = vault.load_compact_mut::<Vault>()?;
@@ -202,6 +202,7 @@ mod tests {
         version: 1,
         layout_id: Vault::LAYOUT_ID,
         total_size: Vault::COMPACT_LEN,
+        has_dynamic_tail: false,
         field_count: VAULT_FIELDS.len(),
         fields: &VAULT_FIELDS,
     }];
@@ -247,7 +248,7 @@ mod tests {
     fn manifest() -> ProgramManifest {
         ProgramManifest {
             name: "hopper_compact_vault",
-            version: "0.2.1",
+            version: "0.3.0",
             description: "Devnet-ready proof for a 1-byte compact Hopper account.",
             layouts: &VAULT_LAYOUTS,
             layout_metadata: &[],
@@ -379,7 +380,8 @@ mod tests {
         assert_eq!(fp, <Vault as LayoutDescriptor>::fingerprint());
         assert_eq!(fp.to_hex().len(), 32);
 
-        // Transaction builders size loaded account data from the descriptor.
+        // A transaction builder can use the descriptor as one input to its
+        // explicit loaded-account data budget.
         let descriptors = [<Vault as LayoutDescriptor>::DESCRIPTOR];
         assert_eq!(
             min_loaded_data_size(&descriptors),
@@ -391,12 +393,12 @@ mod tests {
             Vault::COMPACT_LEN as u64 + 256
         );
 
-        // Cost model: a 41-byte compact vault is cheap to copy-on-write.
-        let profile = <Vault as LayoutDescriptor>::cost_profile();
+        // Forward-looking direct-mapping model at the observed 41-byte length.
+        let profile = <Vault as LayoutDescriptor>::cost_profile(Vault::COMPACT_LEN as u32);
         assert_eq!(profile.class, SizeClass::Small);
         assert!(!profile.growable);
         assert_eq!(
-            <Vault as LayoutDescriptor>::DESCRIPTOR.cost_lint(),
+            <Vault as LayoutDescriptor>::DESCRIPTOR.cost_lint(Vault::COMPACT_LEN as u32),
             CostLint::Ok
         );
 

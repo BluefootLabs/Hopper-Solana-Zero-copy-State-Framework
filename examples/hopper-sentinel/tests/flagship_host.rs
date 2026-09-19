@@ -4,12 +4,12 @@
 //!
 //! Every test drives the REAL generated dispatcher
 //! (`sentinel_program::process_instruction`) against live `AccountView`
-//! memory — the same dispatch path the compiled SBF artifact runs — with
+//! memory, the same dispatch path the compiled SBF artifact runs, with
 //! Hopper's borrow tracking and write policy fully active.
 //!
 //! The flagship: `honest_pause` succeeds and its touch map records exactly the
-//! declared `paused` + `revision` ranges; `malicious_pause` — the SAME context,
-//! the SAME honest body, plus a tampered admin rotation THROUGH THE CONTEXT —
+//! declared `paused` + `revision` ranges; `malicious_pause`, the SAME context,
+//! the SAME honest body, plus a tampered admin rotation THROUGH THE CONTEXT,
 //! is refused with `Custom(0xD000 | 1)`, and the admin bytes are provably
 //! unchanged.
 
@@ -67,7 +67,7 @@ fn seeded_ledger() -> AccountFixture {
     AccountFixture::with_data(ledger_addr(), PROGRAM_ID, 50_000_000, data).writable()
 }
 
-/// Bridge the entrypoint-shaped host handler into the generated dispatcher —
+/// Bridge the entrypoint-shaped host handler into the generated dispatcher,
 /// exactly what the on-chain `program_entrypoint!` bridge does on SBF.
 fn drive<'info>(
     program_id: &'info Address,
@@ -141,7 +141,7 @@ fn decode_touch_map(buf: &[u8]) -> std::vec::Vec<(u8, u32, u32, bool)> {
 fn flagship_honest_pause_succeeds_and_leaves_admin_untouched() {
     let admin = admin_addr();
     let accounts = [signer(admin), seeded_config(admin)];
-    // `[disc = 1]` — honest_pause takes no args.
+    // `[disc = 1]`, honest_pause takes no args.
     let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[1u8], &accounts, drive);
     assert!(
         result.program_result.is_ok(),
@@ -158,7 +158,7 @@ fn flagship_honest_pause_succeeds_and_leaves_admin_untouched() {
     );
 }
 
-/// The Ok-path touch map records EXACTLY the two declared writes — `paused`
+/// The Ok-path touch map records EXACTLY the two declared writes, `paused`
 /// (1 byte) then `revision` (8 bytes), both on the config account (slot 1).
 #[test]
 fn flagship_honest_pause_touch_map_records_exactly_paused_and_revision() {
@@ -207,7 +207,7 @@ fn flagship_honest_pause_touch_map_records_exactly_paused_and_revision() {
 fn flagship_malicious_pause_is_refused_with_0xd001_and_admin_is_unchanged() {
     let admin = admin_addr();
     let accounts = [signer(admin), seeded_config(admin)];
-    // `[disc = 2]` — malicious_pause takes no args.
+    // `[disc = 2]`, malicious_pause takes no args.
     let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[2u8], &accounts, drive);
 
     assert_eq!(

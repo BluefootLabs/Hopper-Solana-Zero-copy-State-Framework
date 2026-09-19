@@ -18,7 +18,7 @@ hopper = { path = "../..", package = "hopper-lang", default-features = false }
 # strict-writes programs sharing this workspace.
 unguarded-raw-surfaces = ["hopper/unguarded-raw-surfaces"]
 default = []
-# Forwarded intrinsic overrides (I18). Off by default: the primary CU
+# Forwarded intrinsic overrides (builtins). Off by default: the primary CU
 # baseline is measured without them; a later phase builds the variant.
 builtins = ["hopper/builtins"]
 

@@ -24,7 +24,7 @@
 //!
 //! - `0` = InitV1: create a V1 vault
 //! - `1` = MigrateV1ToV2: upgrade a V1 account to V2 (append-only; include System Program for rent top-up)
-//! - `2` = DepositV2: deposit into a V2 vault (shows post-migration usage)
+//! - `2` = DepositV2: deposit into a V2 vault through the System Program
 //! - `3` = ReadEither: load either V1 or V2 vault (dual-version pattern)
 
 #![cfg_attr(target_os = "solana", no_std)]
@@ -257,11 +257,12 @@ fn process_deposit_v2(
     accounts: &[AccountView],
     data: &[u8],
 ) -> ProgramResult {
-    if accounts.len() < 2 || data.len() < 8 {
+    if accounts.len() < 3 || data.len() < 8 {
         return Err(ProgramError::InvalidInstructionData);
     }
     let depositor = &accounts[0];
     let vault_account = &accounts[1];
+    let system_program = &accounts[2];
 
     let amount = u64::from_le_bytes([
         data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
@@ -271,31 +272,33 @@ fn process_deposit_v2(
     require_payer(depositor)?;
     check_owner(vault_account, program_id)?;
     check_writable(vault_account)?;
+    if *system_program.address() != SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    system_program.check_executable()?;
 
-    // Load as V2 -- this fails if account hasn't been migrated yet
+    // Validate and preflight the state transition before CPI, then release the
+    // account borrow. The System Program, not this program, owns the authority
+    // to debit the external depositor on-chain.
+    let new_balance = {
+        let vault = VaultV2::load(vault_account, program_id)?;
+        vault
+            .get()
+            .balance
+            .get()
+            .checked_add(amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+    };
+
+    hopper::hopper_system::Transfer {
+        from: depositor,
+        to: vault_account,
+        lamports: amount,
+    }
+    .invoke()?;
+
     let mut vault = VaultV2::load_mut(vault_account, program_id)?;
     let v = vault.get_mut();
-
-    // Transfer SOL: depositor -> vault
-    let dep_lamports = depositor.lamports();
-    depositor.set_lamports(
-        dep_lamports
-            .checked_sub(amount)
-            .ok_or(ProgramError::InsufficientFunds)?,
-    )?;
-    let vault_lamports = vault_account.lamports();
-    vault_account.set_lamports(
-        vault_lamports
-            .checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?,
-    )?;
-
-    // Update balance and last_deposit
-    let new_balance = v
-        .balance
-        .get()
-        .checked_add(amount)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
     v.balance = WireU64::new(new_balance);
     v.last_deposit = WireU64::new(amount);
 
@@ -350,7 +353,43 @@ fn process_read_either(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hopper::hopper_runtime::__hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
     use hopper_schema::{MigrationAction, MigrationPlan, MigrationPolicy};
+
+    fn make_account(
+        address: [u8; 32],
+        owner: [u8; 32],
+        lamports: u64,
+        data_len: usize,
+        signer: bool,
+        writable: bool,
+        executable: bool,
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len).div_ceil(8)];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: the owned backing allocation is large enough for this raw
+        // account header and its declared body, and outlives the returned view.
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: u8::from(signer),
+                is_writable: u8::from(writable),
+                executable: u8::from(executable),
+                resize_delta: 0,
+                address: NativeAddress::new_from_array(address),
+                owner: NativeAddress::new_from_array(owner),
+                lamports,
+                data_len: data_len as u64,
+            });
+        }
+        // SAFETY: `raw` names the initialized RuntimeAccount above. Hopper's
+        // runtime AccountView is transparent over the active native backend.
+        let native = unsafe { NativeAccountView::new_unchecked(raw) };
+        let view = unsafe { core::mem::transmute::<NativeAccountView, AccountView>(native) };
+        (backing, view)
+    }
 
     #[test]
     fn v1_layout_constants() {
@@ -439,5 +478,49 @@ mod tests {
         let added = report.count_status(hopper_schema::FieldCompat::Added);
         assert_eq!(identical, 2);
         assert_eq!(added, 2);
+    }
+
+    #[test]
+    fn deposit_v2_uses_host_system_transfer_and_commits_state() {
+        const PROGRAM: [u8; 32] = [9; 32];
+        const DEPOSITOR: [u8; 32] = [7; 32];
+        let (_depositor_backing, depositor) =
+            make_account(DEPOSITOR, [0; 32], 5_000, 0, true, true, false);
+        let (_vault_backing, vault_account) =
+            make_account([8; 32], PROGRAM, 10_000, VaultV2::LEN, false, true, false);
+        let (_system_backing, system_program) =
+            make_account([0; 32], [0; 32], 0, 0, false, false, true);
+
+        {
+            let mut data = vault_account.try_borrow_mut().unwrap();
+            write_header(
+                &mut data,
+                VaultV2::DISC,
+                VaultV2::VERSION,
+                &VaultV2::LAYOUT_ID,
+            )
+            .unwrap();
+            data[HEADER_LEN..HEADER_LEN + 32].copy_from_slice(&DEPOSITOR);
+            data[HEADER_LEN + 32..HEADER_LEN + 40].copy_from_slice(&25u64.to_le_bytes());
+        }
+
+        process_deposit_v2(
+            &Address::new_from_array(PROGRAM),
+            &[depositor.clone(), vault_account.clone(), system_program],
+            &125u64.to_le_bytes(),
+        )
+        .unwrap();
+
+        assert_eq!(depositor.lamports(), 4_875);
+        assert_eq!(vault_account.lamports(), 10_125);
+        let data = vault_account.try_borrow().unwrap();
+        assert_eq!(
+            u64::from_le_bytes(data[HEADER_LEN + 32..HEADER_LEN + 40].try_into().unwrap()),
+            150
+        );
+        assert_eq!(
+            u64::from_le_bytes(data[HEADER_LEN + 41..HEADER_LEN + 49].try_into().unwrap()),
+            125
+        );
     }
 }

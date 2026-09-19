@@ -1,17 +1,17 @@
 //! Lazy migration at bind, proven on the compiled SBF artifact.
 //!
 //! `TouchNote` declares `migrate(from = NoteV1, with = note_v1_to_v2)`,
-//! so binding against a version-1 note upgrades it IN PLACE — typed
-//! transform, header re-stamped v1→v2 — before the handler runs. This
+//! so binding against a version-1 note upgrades it IN PLACE, typed
+//! transform, header re-stamped v1→v2, before the handler runs. This
 //! test drives the real `hopper_smoke.so` in Mollusk:
 //!
 //! - instruction 6 creates a NoteV1 (the old shape, on purpose);
 //! - the FIRST instruction-7 touch migrates it (post-state header says
-//!   version 2, the tag is widened, `touches` = 1) — the migration
+//!   version 2, the tag is widened, `touches` = 1), the migration
 //!   crank working on the compiled artifact, sha256 layout checks and
 //!   all;
 //! - the SECOND touch binds the now-V2 note without re-migrating
-//!   (`touches` = 2, tag unchanged) — idempotence;
+//!   (`touches` = 2, tag unchanged), idempotence;
 //! - both touches print their measured CU, so the one-time migration
 //!   premium is a number, not a guess.
 //!
@@ -172,7 +172,7 @@ fn v1_note_migrates_on_first_touch_and_stays_v2_after() {
 }
 
 /// A foreign account (the vault layout, disc 7) in the note slot must
-/// fail with the normal validation error — the migrate probe is a full
+/// fail with the normal validation error, the migrate probe is a full
 /// V1 identity check, never a sniff that could misfire on other kinds.
 #[test]
 fn foreign_layout_in_the_note_slot_fails_bind() {
@@ -183,7 +183,7 @@ fn foreign_layout_in_the_note_slot_fails_bind() {
     let payer = Pubkey::new_unique();
     let intruder = Pubkey::new_unique();
     // A program-owned account of the right SIZE but wrong identity
-    // (zeroed header: disc 0, version 0 — matches neither V1 nor V2).
+    // (zeroed header: disc 0, version 0, matches neither V1 nor V2).
     let blank = Account {
         lamports: 10_000_000,
         data: vec![0u8; NoteV2::LEN],

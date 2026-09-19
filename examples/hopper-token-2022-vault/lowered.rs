@@ -1,14 +1,24 @@
-// Hopper lowered Rust preview.
-// Generated from ProgramManifest metadata to make the runtime path explicit.
-// This is the code shape Hopper wants you to reason about: indexes, offsets, borrows, and accessors.
+// ───────────────────────────────────────────────────────────────
+//  Hopper lowered Rust preview
+// ───────────────────────────────────────────────────────────────
+// Generated from ProgramManifest metadata. NOT your source file.
+// This is what Hopper's one access model lowers to: indexed accounts,
+// const segment offsets, and typed projections. No hidden runtime,
+// no reflection, no string lookups in the hot path.
+//
+// Access model (all three paths share the same pointer arithmetic):
+//   Tier A  ctx.load::<T>(idx)?            // validate header + project
+//   Tier B  ctx.segment_mut::<T>(idx, off) // fine-grained segment borrow
+//   Tier C  unsafe ctx.raw_mut::<T>(idx)?  // caller owns all validation
+// ───────────────────────────────────────────────────────────────
 
 use hopper::prelude::*;
 use hopper::__runtime::{Ref, RefMut};
 
 pub mod hopper_token_2022_vault_generated {
-    pub const PROGRAM_NAME: &str = "hopper_token_2022_vault";
-    pub const PROGRAM_VERSION: &str = "0.2.1";
-    pub const PROGRAM_DESCRIPTION: &str = "A Hopper-authored Token-2022 vault with local manifest-backed CLI preview.";
+    pub const PROGRAM_NAME: &str = "hopper-token-2022-vault";
+    pub const PROGRAM_VERSION: &str = "0.3.0";
+    pub const PROGRAM_DESCRIPTION: &str = "Hopper-authored Token-2022 vault example with package-local manifest tooling";
     pub const HEADER_LEN: usize = 16;
 
     pub mod layouts {
@@ -17,21 +27,21 @@ pub mod hopper_token_2022_vault_generated {
             pub const DISC: u8 = 41;
             pub const VERSION: u8 = 1;
             pub const TOTAL_SIZE: usize = 129;
-            pub const LAYOUT_ID: [u8; 8] = [84, 50, 86, 65, 85, 76, 84, 1];
+            pub const LAYOUT_ID: [u8; 8] = [103, 250, 210, 132, 138, 136, 232, 6];
             pub const TYPE_OFFSET: usize = HEADER_LEN;
             
-            // authority: [u8;32] @ bytes 16..48
-            // pointer path: account.try_borrow()? -> base_ptr.add(16) as *const [u8;32]
+            // authority: TypedAddress<Authority> @ bytes 16..48
+            // pointer path: account.try_borrow()? -> base_ptr.add(16) as *const TypedAddress<Authority>
             pub const AUTHORITY_OFFSET: usize = 16;
             pub const AUTHORITY_SIZE: usize = 32;
             
-            // mint: [u8;32] @ bytes 48..80
-            // pointer path: account.try_borrow()? -> base_ptr.add(48) as *const [u8;32]
+            // mint: TypedAddress<Mint> @ bytes 48..80
+            // pointer path: account.try_borrow()? -> base_ptr.add(48) as *const TypedAddress<Mint>
             pub const MINT_OFFSET: usize = 48;
             pub const MINT_SIZE: usize = 32;
             
-            // vault_ata: [u8;32] @ bytes 80..112
-            // pointer path: account.try_borrow()? -> base_ptr.add(80) as *const [u8;32]
+            // vault_ata: TypedAddress<Token> @ bytes 80..112
+            // pointer path: account.try_borrow()? -> base_ptr.add(80) as *const TypedAddress<Token>
             pub const VAULT_ATA_OFFSET: usize = 80;
             pub const VAULT_ATA_SIZE: usize = 32;
             
@@ -60,9 +70,8 @@ pub mod hopper_token_2022_vault_generated {
             pub const TAG: u8 = 0;
             pub const READS: &[&str] = &["authority", "system_program"];
             pub const WRITES: &[&str] = &["payer", "vault_state"];
-            pub const SIGNERS: &[&str] = &["payer", "authority"];
-            pub const POLICY_PACK: &str = "TOKEN_2022_VAULT_WRITE";
-            pub const RECEIPT_EXPECTED: bool = true;
+            pub const SIGNERS: &[&str] = &["payer", "vault_state", "authority"];
+            pub const RECEIPT_EXPECTED: bool = false;
             
             // Generated from InstructionDescriptor account order.
             pub struct InitVaultAccounts;
@@ -79,7 +88,7 @@ pub mod hopper_token_2022_vault_generated {
                     ctx.account_mut(Self::PAYER_INDEX)
                 }
                 
-                // vault_state: AccountView [mut]
+                // vault_state: AccountView [mut] [signer]
                 // layout = RewardVault
                 pub fn vault_state_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
                     ctx.account_mut(Self::VAULT_STATE_INDEX)
@@ -114,16 +123,15 @@ pub mod hopper_token_2022_vault_generated {
         pub mod prepare_vault_ata {
             pub const NAME: &str = "prepare_vault_ata";
             pub const TAG: u8 = 1;
-            pub const READS: &[&str] = &["authority", "mint", "system_program", "token_program_2022"];
+            pub const READS: &[&str] = &["authority", "mint", "system_program", "token_program_2022", "associated_token_program"];
             pub const WRITES: &[&str] = &["payer", "vault_state", "vault_ata"];
             pub const SIGNERS: &[&str] = &["payer", "authority"];
-            pub const POLICY_PACK: &str = "TOKEN_2022_VAULT_WRITE";
-            pub const RECEIPT_EXPECTED: bool = true;
+            pub const RECEIPT_EXPECTED: bool = false;
             
             // Generated from InstructionDescriptor account order.
             pub struct PrepareVaultAtaAccounts;
             impl PrepareVaultAtaAccounts {
-                pub const ACCOUNT_LEN: usize = 7;
+                pub const ACCOUNT_LEN: usize = 8;
                 
                 pub const PAYER_INDEX: usize = 0;
                 pub const AUTHORITY_INDEX: usize = 1;
@@ -132,6 +140,7 @@ pub mod hopper_token_2022_vault_generated {
                 pub const MINT_INDEX: usize = 4;
                 pub const SYSTEM_PROGRAM_INDEX: usize = 5;
                 pub const TOKEN_PROGRAM_2022_INDEX: usize = 6;
+                pub const ASSOCIATED_TOKEN_PROGRAM_INDEX: usize = 7;
                 
                 // payer: AccountView [mut] [signer]
                 pub fn payer_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
@@ -182,6 +191,11 @@ pub mod hopper_token_2022_vault_generated {
                     ctx.account(Self::TOKEN_PROGRAM_2022_INDEX)
                 }
                 
+                // associated_token_program: AccountView
+                pub fn associated_token_program_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
+                    ctx.account(Self::ASSOCIATED_TOKEN_PROGRAM_INDEX)
+                }
+
             }
         }
 
@@ -191,11 +205,10 @@ pub mod hopper_token_2022_vault_generated {
             pub const READS: &[&str] = &["authority", "token_program_2022"];
             pub const WRITES: &[&str] = &["vault_state", "vault_ata", "mint"];
             pub const SIGNERS: &[&str] = &["authority"];
-            pub const POLICY_PACK: &str = "TOKEN_2022_MINT";
-            pub const RECEIPT_EXPECTED: bool = true;
+            pub const RECEIPT_EXPECTED: bool = false;
             
             // Instruction arguments:
-            //   amount: WireU64 (8 bytes)
+            //   amount: u64 (8 bytes)
             
             // Generated from InstructionDescriptor account order.
             pub struct MintRewardsAccounts;
@@ -253,25 +266,25 @@ pub mod hopper_token_2022_vault_generated {
         pub mod sweep_rewards {
             pub const NAME: &str = "sweep_rewards";
             pub const TAG: u8 = 3;
-            pub const READS: &[&str] = &["authority", "token_program_2022"];
+            pub const READS: &[&str] = &["authority", "mint", "token_program_2022"];
             pub const WRITES: &[&str] = &["vault_state", "vault_ata", "destination_ata"];
             pub const SIGNERS: &[&str] = &["authority"];
-            pub const POLICY_PACK: &str = "TOKEN_2022_SWEEP";
-            pub const RECEIPT_EXPECTED: bool = true;
+            pub const RECEIPT_EXPECTED: bool = false;
             
             // Instruction arguments:
-            //   amount: WireU64 (8 bytes)
+            //   amount: u64 (8 bytes)
             
             // Generated from InstructionDescriptor account order.
             pub struct SweepRewardsAccounts;
             impl SweepRewardsAccounts {
-                pub const ACCOUNT_LEN: usize = 5;
+                pub const ACCOUNT_LEN: usize = 6;
                 
                 pub const AUTHORITY_INDEX: usize = 0;
                 pub const VAULT_STATE_INDEX: usize = 1;
                 pub const VAULT_ATA_INDEX: usize = 2;
                 pub const DESTINATION_ATA_INDEX: usize = 3;
-                pub const TOKEN_PROGRAM_2022_INDEX: usize = 4;
+                pub const MINT_INDEX: usize = 4;
+                pub const TOKEN_PROGRAM_2022_INDEX: usize = 5;
                 
                 // authority: AccountView [signer]
                 pub fn authority_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
@@ -307,256 +320,12 @@ pub mod hopper_token_2022_vault_generated {
                     ctx.account_mut(Self::DESTINATION_ATA_INDEX)
                 }
                 
-                // token_program_2022: AccountView
-                pub fn token_program_2022_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::TOKEN_PROGRAM_2022_INDEX)
-                }
-                
-            }
-        }
-
-    }
-
-    pub mod contexts {
-        pub mod init_vault {
-            pub const NAME: &str = "InitVault";
-            pub const POLICIES: &[&str] = &["TOKEN_2022_VAULT_WRITE"];
-            pub const MUTATION_CLASSES: &[&str] = &["StateTransition"];
-            pub const RECEIPTS_EXPECTED: bool = true;
-            
-            // Generated from ContextDescriptor account order.
-            pub struct InitVaultContext;
-            impl InitVaultContext {
-                pub const ACCOUNT_LEN: usize = 4;
-                
-                pub const PAYER_INDEX: usize = 0;
-                pub const VAULT_STATE_INDEX: usize = 1;
-                pub const AUTHORITY_INDEX: usize = 2;
-                pub const SYSTEM_PROGRAM_INDEX: usize = 3;
-                
-                // payer: Signer [mut] [signer]
-                pub fn payer_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::PAYER_INDEX)
-                }
-                
-                // vault_state: HopperAccount [mut]
-                // layout = RewardVault
-                // policy = TOKEN_2022_VAULT_WRITE
-                pub fn vault_state_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_STATE_INDEX)
-                }
-                pub fn vault_state_load(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_ref(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_ref::<RewardVault>() }
-                }
-                // Whole-account mutable path. Use Context::segment_mut(...) when you only need a narrower region.
-                pub fn vault_state_load_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load_mut::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_mut::<RewardVault>() }
-                }
-                
-                // authority: Signer [signer]
-                pub fn authority_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::AUTHORITY_INDEX)
-                }
-                
-                // system_program: ProgramRef
-                pub fn system_program_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::SYSTEM_PROGRAM_INDEX)
-                }
-                
-            }
-        }
-
-        pub mod prepare_vault_ata {
-            pub const NAME: &str = "PrepareVaultAta";
-            pub const POLICIES: &[&str] = &["TOKEN_2022_VAULT_WRITE"];
-            pub const MUTATION_CLASSES: &[&str] = &["StateTransition", "InPlace"];
-            pub const RECEIPTS_EXPECTED: bool = true;
-            
-            // Generated from ContextDescriptor account order.
-            pub struct PrepareVaultAtaContext;
-            impl PrepareVaultAtaContext {
-                pub const ACCOUNT_LEN: usize = 7;
-                
-                pub const PAYER_INDEX: usize = 0;
-                pub const AUTHORITY_INDEX: usize = 1;
-                pub const VAULT_STATE_INDEX: usize = 2;
-                pub const VAULT_ATA_INDEX: usize = 3;
-                pub const MINT_INDEX: usize = 4;
-                pub const SYSTEM_PROGRAM_INDEX: usize = 5;
-                pub const TOKEN_PROGRAM_2022_INDEX: usize = 6;
-                
-                // payer: Signer [mut] [signer]
-                pub fn payer_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::PAYER_INDEX)
-                }
-                
-                // authority: Signer [signer]
-                pub fn authority_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::AUTHORITY_INDEX)
-                }
-                
-                // vault_state: HopperAccount [mut]
-                // layout = RewardVault
-                // policy = TOKEN_2022_VAULT_WRITE
-                pub fn vault_state_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_STATE_INDEX)
-                }
-                pub fn vault_state_load(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_ref(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_ref::<RewardVault>() }
-                }
-                // Whole-account mutable path. Use Context::segment_mut(...) when you only need a narrower region.
-                pub fn vault_state_load_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load_mut::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_mut::<RewardVault>() }
-                }
-                
-                // vault_ata: TokenAccount [mut]
-                pub fn vault_ata_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_ATA_INDEX)
-                }
-                
-                // mint: MintAccount
+                // mint: AccountView
                 pub fn mint_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
                     ctx.account(Self::MINT_INDEX)
                 }
                 
-                // system_program: ProgramRef
-                pub fn system_program_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::SYSTEM_PROGRAM_INDEX)
-                }
-                
-                // token_program_2022: ProgramRef
-                pub fn token_program_2022_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::TOKEN_PROGRAM_2022_INDEX)
-                }
-                
-            }
-        }
-
-        pub mod mint_rewards {
-            pub const NAME: &str = "MintRewards";
-            pub const POLICIES: &[&str] = &["TOKEN_2022_MINT"];
-            pub const MUTATION_CLASSES: &[&str] = &["Financial", "InPlace"];
-            pub const RECEIPTS_EXPECTED: bool = true;
-            
-            // Generated from ContextDescriptor account order.
-            pub struct MintRewardsContext;
-            impl MintRewardsContext {
-                pub const ACCOUNT_LEN: usize = 5;
-                
-                pub const AUTHORITY_INDEX: usize = 0;
-                pub const VAULT_STATE_INDEX: usize = 1;
-                pub const VAULT_ATA_INDEX: usize = 2;
-                pub const MINT_INDEX: usize = 3;
-                pub const TOKEN_PROGRAM_2022_INDEX: usize = 4;
-                
-                // authority: Signer [signer]
-                pub fn authority_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::AUTHORITY_INDEX)
-                }
-                
-                // vault_state: HopperAccount [mut]
-                // layout = RewardVault
-                // policy = TOKEN_2022_MINT
-                pub fn vault_state_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_STATE_INDEX)
-                }
-                pub fn vault_state_load(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_ref(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_ref::<RewardVault>() }
-                }
-                // Whole-account mutable path. Use Context::segment_mut(...) when you only need a narrower region.
-                pub fn vault_state_load_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load_mut::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_mut::<RewardVault>() }
-                }
-                
-                // vault_ata: TokenAccount [mut]
-                pub fn vault_ata_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_ATA_INDEX)
-                }
-                
-                // mint: MintAccount [mut]
-                pub fn mint_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::MINT_INDEX)
-                }
-                
-                // token_program_2022: ProgramRef
-                pub fn token_program_2022_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::TOKEN_PROGRAM_2022_INDEX)
-                }
-                
-            }
-        }
-
-        pub mod sweep_rewards {
-            pub const NAME: &str = "SweepRewards";
-            pub const POLICIES: &[&str] = &["TOKEN_2022_SWEEP"];
-            pub const MUTATION_CLASSES: &[&str] = &["Financial", "InPlace"];
-            pub const RECEIPTS_EXPECTED: bool = true;
-            
-            // Generated from ContextDescriptor account order.
-            pub struct SweepRewardsContext;
-            impl SweepRewardsContext {
-                pub const ACCOUNT_LEN: usize = 5;
-                
-                pub const AUTHORITY_INDEX: usize = 0;
-                pub const VAULT_STATE_INDEX: usize = 1;
-                pub const VAULT_ATA_INDEX: usize = 2;
-                pub const DESTINATION_ATA_INDEX: usize = 3;
-                pub const TOKEN_PROGRAM_2022_INDEX: usize = 4;
-                
-                // authority: Signer [signer]
-                pub fn authority_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account(Self::AUTHORITY_INDEX)
-                }
-                
-                // vault_state: HopperAccount [mut]
-                // layout = RewardVault
-                // policy = TOKEN_2022_SWEEP
-                pub fn vault_state_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_STATE_INDEX)
-                }
-                pub fn vault_state_load(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_ref(ctx: &Context<'_>) -> Result<Ref<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_ref::<RewardVault>() }
-                }
-                // Whole-account mutable path. Use Context::segment_mut(...) when you only need a narrower region.
-                pub fn vault_state_load_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    Self::vault_state_account(ctx)?.load_mut::<RewardVault>()
-                }
-                pub unsafe fn vault_state_raw_mut(ctx: &Context<'_>) -> Result<RefMut<'_, RewardVault>, ProgramError> {
-                    unsafe { Self::vault_state_account(ctx)?.raw_mut::<RewardVault>() }
-                }
-                
-                // vault_ata: TokenAccount [mut]
-                pub fn vault_ata_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::VAULT_ATA_INDEX)
-                }
-                
-                // destination_ata: TokenAccount [mut]
-                pub fn destination_ata_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
-                    ctx.account_mut(Self::DESTINATION_ATA_INDEX)
-                }
-                
-                // token_program_2022: ProgramRef
+                // token_program_2022: AccountView
                 pub fn token_program_2022_account(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {
                     ctx.account(Self::TOKEN_PROGRAM_2022_INDEX)
                 }

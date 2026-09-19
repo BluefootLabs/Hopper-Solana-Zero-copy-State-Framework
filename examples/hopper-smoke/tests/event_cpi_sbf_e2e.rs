@@ -1,4 +1,4 @@
-//! `event_cpi` proven on the compiled SBF artifact — the on-chain lane.
+//! `event_cpi` proven on the compiled SBF artifact, the on-chain lane.
 //!
 //! The host-svm suite (`tests/event_cpi_dispatch_integration.rs` at the
 //! workspace root) proves the wire bytes and the dispatch shapes, but
@@ -12,13 +12,13 @@
 //!   verifies the authority PDA (sha256 compare loop), the handler's
 //!   one-liner self-invokes, the runtime grants the PDA signature from
 //!   the seeds, and the generated `[0xE0, 0x1E]` sink authenticates the
-//!   inner instruction — the log stream must show the nested
+//!   inner instruction, the log stream must show the nested
 //!   self-invoke succeeding and the emitted receipt bytes riding it;
 //! - a WRONG address in the event-authority slot must fail at bind
 //!   (the sha256 verify loop is real on-chain, not the host
 //!   placeholder);
-//! - a direct top-level forgery of the sink — marker-prefixed
-//!   instruction data with the true authority PDA passed unsigned —
+//! - a direct top-level forgery of the sink, marker-prefixed
+//!   instruction data with the true authority PDA passed unsigned,
 //!   must be refused with `MissingRequiredSignature`: nothing can sign
 //!   for a PDA at the transaction level, so the ONLY way marker
 //!   instructions get accepted is the program's own `invoke_signed`.
@@ -57,7 +57,7 @@ const SEEDED_BALANCE: u64 = 5_000_000;
 
 // ── Fixtures ────────────────────────────────────────────────────────
 
-/// `[disc]` — `emit_receipt` takes no args; the account shape is the
+/// `[disc]`, `emit_receipt` takes no args; the account shape is the
 /// declared pair plus the two slots `event_cpi` auto-appends:
 /// `[authority(signer), vault(w), event_authority, program]`.
 fn emit_receipt_instruction(
@@ -100,7 +100,7 @@ fn seeded_vault(program_id: &Pubkey, authority: &Pubkey) -> Account {
 }
 
 /// An empty, system-owned account for the event-authority slot: the
-/// PDA needs no lamports and no data — it exists only as an address
+/// PDA needs no lamports and no data; it exists only as an address
 /// the program can sign for.
 fn empty_account() -> Account {
     Account::new(0, 0, &Pubkey::default())
@@ -122,11 +122,11 @@ fn harness(program_id: &Pubkey) -> Option<LiteSvmHarness> {
 
 /// The full on-chain loop: bind's sha256 PDA verify, the one-liner
 /// emit, the runtime-granted PDA signature, and the generated sink's
-/// authentication all execute for real — and the emitted receipt's
+/// authentication all execute for real, and the emitted receipt's
 /// exact wire bytes appear in the nested invoke's log stream.
 ///
 /// The program id is PINNED (not `new_unique()`) so the event-authority
-/// bump — and therefore the sha256 verify-loop attempt count — is the
+/// bump, and therefore the sha256 verify-loop attempt count, is the
 /// same on every run, making the printed CU comparable across builds.
 #[test]
 fn emit_receipt_succeeds_on_chain_and_the_self_cpi_carries_the_receipt() {
@@ -168,7 +168,7 @@ fn emit_receipt_succeeds_on_chain_and_the_self_cpi_carries_the_receipt() {
     assert_eq!(post_count, SEEDED_COUNT + 1, "counter bump must persist");
 
     // The self-CPI really nested: the program invoked ITSELF one level
-    // down and that inner instruction succeeded (the sink accepted it —
+    // down and that inner instruction succeeded (the sink accepted it,
     // on-chain that includes the PDA address pin).
     let nested_invoke = format!("Program {program_id} invoke [2]");
     assert!(
@@ -179,7 +179,7 @@ fn emit_receipt_succeeds_on_chain_and_the_self_cpi_carries_the_receipt() {
     // The receipt's EXACT wire bytes ride the inner instruction. The
     // runtime logs every instruction's data as base64 in the
     // `Program data:`-style `Program <id> consumed`-adjacent lines only
-    // for sol_log_data — inner-instruction DATA itself is recorded in
+    // for sol_log_data, inner-instruction DATA itself is recorded in
     // transaction metadata on a real cluster. In Mollusk the log stream
     // still proves the CPI; the byte-level check reuses the public
     // encoder against the post-state the receipt must have carried.
@@ -209,7 +209,7 @@ fn emit_receipt_succeeds_on_chain_and_the_self_cpi_carries_the_receipt() {
 
 /// Bind's PDA verification is REAL on-chain: a plausible-looking but
 /// wrong address in the auto-appended event-authority slot must fail
-/// validation before the handler runs — the vault must be untouched.
+/// validation before the handler runs, the vault must be untouched.
 #[test]
 fn wrong_event_authority_address_fails_bind_on_chain() {
     let program_id = Pubkey::new_unique();
@@ -249,7 +249,7 @@ fn wrong_event_authority_address_fails_bind_on_chain() {
 }
 
 /// The forgery test, on-chain: call the sink DIRECTLY at the top level
-/// with marker-prefixed data and the true authority PDA — unsigned,
+/// with marker-prefixed data and the true authority PDA, unsigned,
 /// because nothing at the transaction level can sign for a PDA. The
 /// sink must refuse (`MissingRequiredSignature` = custom error 0 shape
 /// aside, the instruction must fail and the log must say so): accepted
@@ -289,7 +289,7 @@ fn top_level_forgery_of_the_sink_is_refused_on_chain() {
 
 /// Belt-and-suspenders for the log-capture path: the success case's
 /// stream must contain the inner `Program data:` record only if the
-/// runtime logs CPI data that way — it does not; events ride
+/// runtime logs CPI data that way; it does not; events ride
 /// inner-instruction metadata, which is the entire point of the
 /// feature. This test pins that NO `sol_log_data`-style record with the
 /// event marker appears in the logs, so nobody mistakes the log stream
@@ -320,7 +320,7 @@ fn the_receipt_rides_the_cpi_not_the_log_stream() {
     );
     assert!(result.succeeded());
 
-    // No `Program data:` line decodes as an event-CPI wire — the
+    // No `Program data:` line decodes as an event-CPI wire, the
     // payload is NOT in the logs (it is in the inner instruction).
     let logs = svm.logs();
     let marker_in_logs = logs

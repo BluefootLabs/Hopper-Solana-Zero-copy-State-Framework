@@ -15,7 +15,7 @@
 //!
 //! The point Hopper makes here that Anchor and Quasar cannot: posting a
 //! bid touches **only** the `bids` segment, matching touches `asks` and
-//! `events`, and the crank drains `events` — each instruction borrows a
+//! `events`, and the crank drains `events`, each instruction borrows a
 //! disjoint byte range of the same account, and the runtime
 //! [`SegmentBorrowRegistry`] rejects any accidental overlap at runtime.
 //! There is no second deserialize pass and no full-account copy: a fill

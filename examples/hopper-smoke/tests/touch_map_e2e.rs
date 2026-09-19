@@ -1,11 +1,11 @@
-//! Self-describing transactions (innovation I7), proven end-to-end on
+//! Self-describing transactions (touch-map support), proven end-to-end on
 //! the compiled SBF artifact.
 //!
 //! The `Withdraw` context in this example opts in via
 //! `#[accounts(strict_writes, emit_touch_map)]`. This test executes the
 //! real `hopper_smoke.so` inside an in-process SVM (Mollusk, via
-//! `hopper-test`), captures the execution's log stream — the same
-//! `logMessages` lines an RPC `getTransaction` would return — and feeds
+//! `hopper-test`), captures the execution's log stream, the same
+//! `logMessages` lines an RPC `getTransaction` would return, and feeds
 //! it through the touch-map decode that `hopper tx explain` applies to
 //! on-chain transactions:
 //!
@@ -14,7 +14,7 @@
 //!   version `0x01`, exact-length `4 + 9 * count`), whose entries match
 //!   what the handler actually touched: one Write of the vault's
 //!   `balance` field bytes;
-//! - a **failed** withdraw (insufficient balance — the handler touches
+//! - a **failed** withdraw (insufficient balance, the handler touches
 //!   the balance segment FIRST, then errors) must yield ZERO touch-map
 //!   records, because the generated dispatcher only emits on the
 //!   handler's Ok path (the CONFIRMED-P2 fix).
@@ -25,8 +25,8 @@
 //! `extract_touch_maps` below replicate that decode 1:1 against the
 //! PUBLIC wire-format constants in `hopper_runtime::segment_borrow`,
 //! and the expected payload is additionally byte-compared against the
-//! public `encode_touch_map` encoder — the same function the on-chain
-//! emission uses — so producer and consumer are pinned to each other.
+//! public `encode_touch_map` encoder, the same function the on-chain
+//! emission uses; so producer and consumer are pinned to each other.
 //!
 //! Run `cargo build-sbf` in this example's directory first; the test
 //! skips (with a notice) when the SBF artifact has not been built.
@@ -54,7 +54,7 @@ const WITHDRAW_DISC: u8 = 2;
 const VAULT_LAMPORTS: u64 = 10_000_000;
 /// The `balance` field value seeded into vault state.
 const VAULT_STATE_BALANCE: u64 = 5_000_000;
-/// `WireU64` — the touched `balance` field is 8 bytes on the wire.
+/// `WireU64`, the touched `balance` field is 8 bytes on the wire.
 const BALANCE_FIELD_SIZE: u32 = 8;
 
 // ── Fixtures ────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ fn withdraw_instruction(
     vault: Pubkey,
     amount: u64,
 ) -> Instruction {
-    // `[disc][u64 LE amount]` — the generated decoder enforces the exact
+    // `[disc][u64 LE amount]`, the generated decoder enforces the exact
     // length, mirroring the devnet client's encoding.
     let mut data = Vec::with_capacity(9);
     data.push(WITHDRAW_DISC);
@@ -173,7 +173,7 @@ fn extract_touch_maps(log_lines: &[String]) -> Vec<(Vec<u8>, u8, Vec<TouchMapRec
 
 /// Ok path: the withdraw succeeds, and the log stream carries exactly
 /// one decodable touch-map record describing the handler's actual
-/// state effect — one Write covering the vault's `balance` bytes.
+/// state effect, one Write covering the vault's `balance` bytes.
 #[test]
 fn ok_withdraw_emits_exactly_one_touch_map_matching_the_balance_write() {
     let program_id = Pubkey::new_unique();
@@ -216,7 +216,7 @@ fn ok_withdraw_emits_exactly_one_touch_map_matching_the_balance_write() {
     assert_eq!(*flags, 0, "map must be complete (no overflow/skip flags)");
 
     // The decoded entries are exactly what the handler touched: one
-    // Write of the vault's `balance` field — account slot 1 (the
+    // Write of the vault's `balance` field, account slot 1 (the
     // instruction's second account), byte range [48..56) inside the
     // account data (16-byte Hopper header + 32-byte `authority` field).
     let expected = vec![TouchMapRecord {
@@ -231,8 +231,8 @@ fn ok_withdraw_emits_exactly_one_touch_map_matching_the_balance_write() {
     );
     assert_eq!(Vault::BALANCE_ABS_OFFSET, 48, "layout drift guard");
 
-    // Byte-for-byte round trip through the PUBLIC wire-format encoder —
-    // the same `encode_touch_map` the on-chain emission uses — so the
+    // Byte-for-byte round trip through the PUBLIC wire-format encoder,
+    // the same `encode_touch_map` the on-chain emission uses; so the
     // decode above is provably reading the producer's format.
     let (expected_buf, expected_len) = encode_touch_map(&expected, false, false);
     assert_eq!(
@@ -260,8 +260,8 @@ fn ok_withdraw_emits_exactly_one_touch_map_matching_the_balance_write() {
 }
 
 /// The wrapper path, on-chain: `bump_whole_vault` (instruction 5)
-/// writes through `vault.get_mut()` — a whole-account borrow with no
-/// segment lease — under `#[accounts(emit_touch_map)]`. Before the
+/// writes through `vault.get_mut()`, a whole-account borrow with no
+/// segment lease, under `#[accounts(emit_touch_map)]`. Before the
 /// instruction-ambient touch log, this exact shape was the touch map's
 /// disclosed blind spot (wrapper borrows never reached the
 /// Context-owned registry). Now the emitted map must carry exactly one
@@ -280,7 +280,7 @@ fn wrapper_get_mut_write_lands_in_the_on_chain_touch_map() {
 
     svm.capture_logs();
     let result = svm.process(
-        // `[disc = 5]` — bump_whole_vault takes no args.
+        // `[disc = 5]`, bump_whole_vault takes no args.
         &Instruction::new_with_bytes(
             program_id,
             &[5u8],
@@ -336,7 +336,7 @@ fn wrapper_get_mut_write_lands_in_the_on_chain_touch_map() {
 
 /// Err path: the SAME handler touches the balance segment first and
 /// THEN fails (insufficient balance), so a `Drop`-based emit would have
-/// fired here — the dispatcher's Ok-only routing must emit nothing for
+/// fired here, the dispatcher's Ok-only routing must emit nothing for
 /// the failed, rolled-back instruction.
 #[test]
 fn err_withdraw_emits_no_touch_map() {

@@ -1,125 +1,152 @@
 param(
-    [string]$RpcUrl = "https://api.devnet.solana.com",
-    [switch]$SkipDeploy,
-    [string]$DeployReceipt = "examples/hopper-token-2022-vault/devnet-deploy.json",
-    [string]$KeypairPath
+    [Parameter(Mandatory = $true)]
+    [string]$KeypairPath,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ProgramKeypairPath,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SbfOutDirectory,
+
+    [Parameter(Mandatory = $true)]
+    [string]$DeployReceipt,
+
+    [Parameter(Mandatory = $true)]
+    [string]$EvidenceDirectory,
+
+    [string]$RpcUrl = 'https://api.devnet.solana.com',
+    [string]$SolanaCli = 'solana',
+    [string]$CargoBuildSbf = 'cargo-build-sbf'
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\.." )).Path
-$manifestPath = "@examples/hopper-token-2022-vault/hopper.manifest.json"
-$loweredPath = "examples/hopper-token-2022-vault/lowered.rs"
+$DEVNET_GENESIS = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG'
 
-function Invoke-HopperCli {
+function Invoke-NativeText {
     param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
+        [Parameter(Mandatory = $true)] [string]$FilePath,
+        [Parameter(Mandatory = $true)] [string[]]$Arguments,
+        [Parameter(Mandatory = $true)] [string]$Label
     )
 
-    $stdoutPath = [System.IO.Path]::GetTempFileName()
-    $stderrPath = [System.IO.Path]::GetTempFileName()
-
-    try {
-        $process = Start-Process -FilePath "cargo" `
-            -ArgumentList (@("run", "-q", "-p", "hopper-cli", "--") + $Arguments) `
-            -WorkingDirectory $repoRoot `
-            -NoNewWindow `
-            -Wait `
-            -PassThru `
-            -RedirectStandardOutput $stdoutPath `
-            -RedirectStandardError $stderrPath
-
-        $stdout = if ((Get-Item -LiteralPath $stdoutPath).Length -gt 0) {
-            Get-Content -LiteralPath $stdoutPath -Raw
-        } else {
-            ""
-        }
-        $stderr = if ((Get-Item -LiteralPath $stderrPath).Length -gt 0) {
-            Get-Content -LiteralPath $stderrPath -Raw
-        } else {
-            ""
-        }
-
-        if ($process.ExitCode -ne 0) {
-            $message = ($stdout + $stderr).Trim()
-            if ([string]::IsNullOrWhiteSpace($message)) {
-                $message = "hopper-cli exited with code $($process.ExitCode)"
-            }
-            throw $message
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($stderr)) {
-            Write-Host $stderr.TrimEnd()
-        }
-
-        return $stdout.TrimEnd()
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in $Arguments) {
+        $startInfo.ArgumentList.Add($argument)
     }
-    finally {
-        Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw "$Label could not be started"
+    }
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $null = $stderrTask.GetAwaiter().GetResult()
+    if ($process.ExitCode -ne 0) {
+        throw "$Label failed; output omitted because it may contain local paths"
+    }
+    return $stdout.Trim()
+}
+
+if ($RpcUrl -ne 'https://api.devnet.solana.com') {
+    throw 'the release helper only permits the public Solana devnet endpoint'
+}
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$payer = (Resolve-Path -LiteralPath $KeypairPath).Path
+$programKeypair = (Resolve-Path -LiteralPath $ProgramKeypairPath).Path
+$sbfOut = [System.IO.Path]::GetFullPath($SbfOutDirectory)
+$deployReceiptPath = [System.IO.Path]::GetFullPath($DeployReceipt)
+$evidencePath = [System.IO.Path]::GetFullPath($EvidenceDirectory)
+$targetRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'target'))
+$targetPrefix = $targetRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+foreach ($path in @($programKeypair, $sbfOut, $deployReceiptPath, $evidencePath)) {
+    if (-not $path.StartsWith($targetPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'program keypair and all generated output must stay below the repository target directory'
     }
 }
 
-function Invoke-Step {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Description,
-
-        [Parameter(Mandatory = $true)]
-        [scriptblock]$Action
-    )
-
-    Write-Host "==> $Description" -ForegroundColor Cyan
-    & $Action
+if (Test-Path -LiteralPath $sbfOut) {
+    throw 'SbfOutDirectory must not exist before the release build'
+}
+if (Test-Path -LiteralPath $deployReceiptPath) {
+    throw 'DeployReceipt must not exist before deployment'
+}
+if (Test-Path -LiteralPath $evidencePath) {
+    throw 'EvidenceDirectory must not exist before evidence capture'
 }
 
-Push-Location $repoRoot
+$sourceCommit = Invoke-NativeText -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -Label 'git rev-parse'
+if ($sourceCommit -notmatch '^[0-9a-f]{40}$') {
+    throw 'source HEAD is not a full commit hash'
+}
+$status = Invoke-NativeText -FilePath 'git' -Arguments @('-C', $repoRoot, 'status', '--porcelain=v1', '--untracked-files=all') -Label 'git status'
+if ($status.Length -ne 0) {
+    throw 'the release helper requires a clean source tree'
+}
+
+$version = Invoke-NativeText -FilePath $SolanaCli -Arguments @('--version') -Label 'solana version'
+if (-not $version.StartsWith('solana-cli 4.2.1', [System.StringComparison]::Ordinal)) {
+    throw "expected solana-cli 4.2.1 but found $version"
+}
+$genesis = Invoke-NativeText -FilePath $SolanaCli -Arguments @('--url', $RpcUrl, '--keypair', $payer, 'genesis-hash') -Label 'solana genesis-hash'
+if ($genesis -ne $DEVNET_GENESIS) {
+    throw 'refusing to deploy to a cluster other than public devnet'
+}
+
+$manifestPath = Join-Path $PSScriptRoot 'Cargo.toml'
+$null = Invoke-NativeText -FilePath $CargoBuildSbf -Arguments @(
+    '--manifest-path', $manifestPath,
+    '--sbf-out-dir', $sbfOut,
+    '--', '--locked'
+) -Label 'locked Token-2022 vault SBF build'
+$elf = Join-Path $sbfOut 'hopper_token_2022_vault.so'
+if (-not (Test-Path -LiteralPath $elf -PathType Leaf)) {
+    throw 'the isolated SBF build did not produce hopper_token_2022_vault.so'
+}
+
+$programId = Invoke-NativeText -FilePath $SolanaCli -Arguments @('--keypair', $programKeypair, 'address') -Label 'program keypair address'
+$deployJson = Invoke-NativeText -FilePath $SolanaCli -Arguments @(
+    '--url', $RpcUrl,
+    '--keypair', $payer,
+    '--commitment', 'finalized',
+    'program', 'deploy', $elf,
+    '--program-id', $programKeypair,
+    '--output', 'json'
+) -Label 'Token-2022 vault deployment'
 try {
-    Invoke-Step -Description "Emit lowered Rust preview for hopper-token-2022-vault" -Action {
-        Invoke-HopperCli -Arguments @("compile", "--emit", "rust", "--package", "hopper-token-2022-vault", "--out", $loweredPath, "--force")
-    }
-
-    Invoke-Step -Description "Explain the typed context surface from the local manifest" -Action {
-        Invoke-HopperCli -Arguments @("explain", "context", $manifestPath)
-    }
-
-    Invoke-Step -Description "Build the SBF artifact through hopper-cli" -Action {
-        Invoke-HopperCli -Arguments @("build", "-p", "hopper-token-2022-vault")
-    }
-
-    if ($SkipDeploy) {
-        Write-Host "Skipping deploy. Local proof flow completed." -ForegroundColor Yellow
-        return
-    }
-
-    if (-not (Get-Command solana -ErrorAction SilentlyContinue)) {
-        throw "solana CLI was not found on PATH. Install the Solana CLI or rerun with -SkipDeploy."
-    }
-
-    Invoke-Step -Description "Deploy hopper-token-2022-vault to devnet through hopper-cli" -Action {
-        $deployArgs = @("deploy", "--no-build", "-p", "hopper-token-2022-vault", "--url", $RpcUrl, "--output", "json")
-        if (-not [string]::IsNullOrWhiteSpace($KeypairPath)) {
-            $deployArgs += @("--keypair", $KeypairPath)
-        }
-
-        $deployOutput = Invoke-HopperCli -Arguments $deployArgs
-        $deployText = ($deployOutput | Out-String).Trim()
-
-        $receiptPath = if ([System.IO.Path]::IsPathRooted($DeployReceipt)) {
-            $DeployReceipt
-        } else {
-            Join-Path $repoRoot $DeployReceipt
-        }
-        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $receiptPath) | Out-Null
-        Set-Content -LiteralPath $receiptPath -Value $deployText
-
-        $receipt = $deployText | ConvertFrom-Json
-        if ($null -ne $receipt.programId) {
-            Write-Host "Program ID: $($receipt.programId)" -ForegroundColor Green
-            & solana program show $receipt.programId --url $RpcUrl
-        }
-    }
+    $deploy = $deployJson | ConvertFrom-Json
 }
-finally {
-    Pop-Location
+catch {
+    throw 'solana program deploy did not return valid JSON'
 }
+if ([string]$deploy.programId -ne $programId -or [string]::IsNullOrWhiteSpace([string]$deploy.signature)) {
+    throw 'deployment output does not contain the expected program id and signature'
+}
+$receiptParent = Split-Path -Parent $deployReceiptPath
+if (-not (Test-Path -LiteralPath $receiptParent -PathType Container)) {
+    $null = New-Item -ItemType Directory -Path $receiptParent
+}
+[System.IO.File]::WriteAllText($deployReceiptPath, "$deployJson`n", [System.Text.UTF8Encoding]::new($false))
+
+& (Join-Path $repoRoot 'scripts\capture-devnet-program-evidence.ps1') `
+    -Phase Before `
+    -Example 'hopper-token-2022-vault' `
+    -ProgramId $programId `
+    -LocalElf $elf `
+    -KeypairPath $payer `
+    -DeploymentReceiptPath $deployReceiptPath `
+    -OutputDirectory $evidencePath `
+    -SolanaCli $SolanaCli
+
+Write-Output "deployed hopper-token-2022-vault as $programId"
+Write-Output "local ELF SHA-256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $elf).Hash.ToLowerInvariant())"
+Write-Output 'Run the finalized devnet test, then run capture-devnet-program-evidence.ps1 -Phase After.'

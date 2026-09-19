@@ -1,5 +1,5 @@
 #![no_main]
-//! Fuzz target for `hopper_runtime::account::AccountView::load` —
+//! Fuzz target for `hopper_runtime::account::AccountView::load`,
 //! the primary unsafe casting boundary in the Hopper runtime.
 //!
 //! # Contract
@@ -42,7 +42,7 @@ use libfuzzer_sys::fuzz_target;
 
 /// Minimum valid Hopper account header size (bytes).
 /// Layout: [discriminator: 1][version: 1][layout_id: 8][schema_epoch: 2]
-///         [flags: 2][reserved: 2][authority: 32 — optional tail]
+///         [flags: 2][reserved: 2][authority: 32, optional tail]
 /// The loader requires at least the 16-byte fixed prefix.
 const HEADER_MIN: usize = 16;
 
@@ -126,7 +126,7 @@ fuzz_target!(|data: &[u8]| {
             );
         }
         Err(_) => {
-            // Err is always acceptable — this is the common path for
+            // Err is always acceptable; this is the common path for
             // adversarial inputs.  We just ensure the call returned
             // rather than panicking.
         }

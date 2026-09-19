@@ -1,21 +1,21 @@
-//! THE NEW EVIDENCE — the strict-writes REFUSAL proven on the COMPILED SBF
+//! THE NEW EVIDENCE, the strict-writes REFUSAL proven on the COMPILED SBF
 //! artifact.
 //!
 //! The host suite (`tests/flagship_host.rs`) proves the refusal with borrow
 //! tracking on the host. This test runs the REAL `hopper_sentinel.so` in an
-//! in-process SVM (Mollusk, via `hopper-test`) — real bytecode, real compute
-//! metering, real transaction result — and proves both flagship paths:
+//! in-process SVM (Mollusk, via `hopper-test`), real bytecode, real compute
+//! metering, real transaction result, and proves both flagship paths:
 //!
 //! - `honest_pause` (instruction 1) SUCCEEDS: `paused = 1`, `revision = 1`,
 //!   `admin` untouched, and the emitted touch map (decoded from the log
 //!   stream, exactly as `hopper tx explain` would) carries exactly the two
-//!   declared writes — `paused` then `revision`.
-//! - `malicious_pause` (instruction 2) — the SAME context, the SAME honest
-//!   body, then a tampered admin rotation THROUGH THE CONTEXT — FAILS with the
+//!   declared writes, `paused` then `revision`.
+//! - `malicious_pause` (instruction 2), the SAME context, the SAME honest
+//!   body, then a tampered admin rotation THROUGH THE CONTEXT, FAILS with the
 //!   custom error `0xd001` (`Custom(0xD000 | 1)`) decoded from the transaction
 //!   result, and the admin bytes are byte-for-byte unchanged.
 //!
-//! Both paths print their measured CU, so the guarantee — and its cost — are
+//! Both paths print their measured CU, so the guarantee, and its cost, are
 //! numbers, not claims.
 //!
 //! Run `cargo build-sbf` in this example's directory first; each test skips

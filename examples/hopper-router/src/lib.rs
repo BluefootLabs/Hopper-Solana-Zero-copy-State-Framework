@@ -8,8 +8,8 @@
 //!
 //! One instruction, `EXECUTE_ROUTE {disc=1}`, walks 1..=3 swap hops
 //! against the shared `mock-amm` CPI target. Each hop's output is
-//! *measured* from the user's lamport delta around the CPI — never
-//! trusted from the venue — and forwarded as the next hop's input.
+//! *measured* from the user's lamport delta around the CPI, never
+//! trusted from the venue, and forwarded as the next hop's input.
 //! After the final hop the measured total must clear the caller's
 //! `min_out` gate or the route aborts with `Custom(MIN_OUT_NOT_MET)`,
 //! rolling back every hop. That abort is the bench's safety-gate row.
@@ -22,10 +22,10 @@
 //!   const-generic path at the borrow-check-only validation tier. The
 //!   SWAP shape is exactly two accounts, so the fixed array beats the
 //!   dynamic-count bounds path, and the router validates addresses and
-//!   writability itself at parse — re-validating per hop would only pay
+//!   writability itself at parse, re-validating per hop would only pay
 //!   the full tier's extra instructions for checks already done.
 //! - Checked math everywhere; no allocator; the router itself mutates
-//!   nothing — all lamport movement happens inside mock-amm.
+//!   nothing, all lamport movement happens inside mock-amm.
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code)]
@@ -151,7 +151,7 @@ pub fn parse_route(data: &[u8]) -> Result<Route<'_>, ProgramError> {
 ///
 /// Accounts: `[user (writable)]` then per hop
 /// `[mock_amm_program, pool_i (writable)]`. The user is not required
-/// to sign — the router CPIs on the user's behalf and all lamport
+/// to sign, the router CPIs on the user's behalf and all lamport
 /// movement is mock-amm's direct arithmetic.
 fn process_execute_route(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let route = parse_route(data)?;
@@ -194,7 +194,7 @@ fn process_execute_route(accounts: &[AccountView], data: &[u8]) -> ProgramResult
             accounts: &metas,
         };
         // Validation level matches the hand-written Pinocchio comparator
-        // (borrow checks only); writability was validated at parse — the
+        // (borrow checks only); writability was validated at parse, the
         // user and every pool were checked writable above. This is the
         // apples-to-apples tier per the bench contract: Pinocchio's
         // `invoke` performs exactly these per-account borrow checks.

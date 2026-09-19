@@ -44,7 +44,7 @@ mod counter_program {
 //
 // `hopper compile --emit manifest --package hopper-counter` runs a tiny
 // generated harness that prints `ManifestJson(&PROGRAM_MANIFEST)` and
-// writes `hopper.manifest.json` — so the published schema is rendered
+// writes `hopper.manifest.json`; so the published schema is rendered
 // from the SAME consts the runtime enforces (`Increment::SCHEMA_METADATA`,
 // `STRICT_WRITES`, `WRITE_RANGES`, ...) and cannot drift from the code.
 // Everything deep (instruction rows, account lists, layout fields) is

@@ -8,8 +8,8 @@
 //! 1. `honest_pause` runs through its generated `Pause` context (borrow
 //!    tracking + strict-write policy live), and the verifier returns PASS
 //!    with exactly the `paused` + `revision` bytes acquired-and-changed.
-//! 2. Corrupting an admin byte in the POST snapshot — a change the handler
-//!    never made — is caught as `UntrackedWrite` at exactly the admin
+//! 2. Corrupting an admin byte in the POST snapshot, a change the handler
+//!    never made, is caught as `UntrackedWrite` at exactly the admin
 //!    offset (`changed ⊄ acquired`).
 //! 3. A forged touch-map record claiming an admin write is caught as
 //!    `UnauthorizedAcquisition` (`acquired ⊄ authorized`).
@@ -62,7 +62,7 @@ fn signer(addr: Address) -> AccountFixture {
 }
 
 /// A program-owned config with a valid Hopper header and `admin` +
-/// `withdraw_authority` seeded to `admin` — what `initialize_config` leaves.
+/// `withdraw_authority` seeded to `admin`, what `initialize_config` leaves.
 fn seeded_config_data(admin: Address) -> Vec<u8> {
     let mut data = vec![0u8; Config::LEN];
     write_header(&mut data, Config::DISC, Config::VERSION, &Config::LAYOUT_ID).unwrap();
@@ -162,7 +162,7 @@ fn honest_pause_verifies_as_pass_with_paused_and_revision_acquired_and_changed()
     match &verdict {
         Verdict::Pass(ev) => {
             // Only two bytes actually flipped: paused (114) and revision's
-            // low byte (115). They coalesce to one (114, 2) changed range —
+            // low byte (115). They coalesce to one (114, 2) changed range,
             // acquired ⊇ changed (the revision lease is 8 bytes; 7 of them
             // were acquired-but-unchanged, which is legal).
             assert_eq!(ev.changed_bytes, 2, "exactly two bytes changed");
@@ -186,7 +186,7 @@ fn honest_pause_verifies_as_pass_with_paused_and_revision_acquired_and_changed()
 fn corrupting_an_admin_byte_in_post_is_an_untracked_write() {
     let (pre, post, map) = run_honest_pause();
 
-    // Flip a byte in `admin` — a change the handler never made and the touch
+    // Flip a byte in `admin`, a change the handler never made and the touch
     // map never advertised.
     let mut tampered = post.clone();
     let admin_off = Config::ADMIN_ABS_OFFSET as usize;

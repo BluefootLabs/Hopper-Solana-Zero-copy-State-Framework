@@ -1,6 +1,6 @@
 //! # Hopper Token-2022 + ATA Example
 //!
-//! Demonstrates Hopper-authored usage of Hopper-owned companion crates:
+//! Demonstrates framework-level use of Hopper companion crates:
 //!
 //! - `hopper_associated_token::CreateIdempotent`
 //! - `hopper_token_2022::MintTo`

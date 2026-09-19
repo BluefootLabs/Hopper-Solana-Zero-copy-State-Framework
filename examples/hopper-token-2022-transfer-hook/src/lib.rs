@@ -1,11 +1,11 @@
 //! # Hopper Token-2022 Transfer Hook Example
 //!
-//! R6 audit closure. The Token-2022 transfer-hook extension lets a
+//! The Token-2022 transfer-hook extension lets a
 //! mint register an arbitrary program that is invoked on every
 //! transfer. It is both a powerful composability primitive and a
 //! significant attack surface: protocols that accept Token-2022
 //! mints without inspecting the hook binding are trusting code they
-//! have not audited.
+//! have not reviewed.
 //!
 //! This example demonstrates the **extension-aware validation
 //! pattern** that `hopper-token-2022` + `hopper-solana` enable. The
@@ -35,7 +35,7 @@
 //! requires the caller to supply the hook's `ExtraAccountMetaList`
 //! accounts in the transaction, which is a client-side concern
 //! orthogonal to Hopper's framework layer. See
-//! [`hopper-token-2022-vault`](../hopper-token-2022-vault/src/lib.rs)
+//! [`hopper-token-2022-vault`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-token-2022-vault)
 //! for the vanilla transfer flow; combining the two is a
 //! straightforward composition the client does, not the program.
 //!
