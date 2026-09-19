@@ -270,41 +270,74 @@ fn run_authority_gate(opts: &VerifyOptions, baseline_path: &str, manifest_json: 
         process::exit(1);
     });
 
-    match &opts.baseline_so {
-        Some(so) => {
-            let owned = crate::parse_program_manifest_json(&baseline_json).unwrap_or_else(|err| {
-                eprintln!("hopper verify: cannot parse baseline manifest: {err}");
-                process::exit(1);
-            });
-            let expected = interface_commitment(&crate::to_program_manifest(&owned));
-            let binary = fs::read(so).unwrap_or_else(|err| {
-                eprintln!("hopper verify: failed to read baseline binary: {err}");
-                process::exit(1);
-            });
-            if !has_elf_magic(&binary) {
-                eprintln!("hopper verify: baseline {so} is not an ELF binary");
-                process::exit(1);
-            }
-            match verify_release_binding(&binary, expected) {
-                Ok(binding) => println!(
-                    "  baseline bound: {} matches the commitment at 0x{:06x} in {so}",
-                    hex_bytes(&expected),
-                    binding.offset
-                ),
-                Err(err) => {
-                    eprintln!("  FAIL: baseline manifest is not the one released in {so}: {err}");
-                    process::exit(1);
-                }
-            }
+    let baseline_commitment = {
+        let owned = crate::parse_program_manifest_json(&baseline_json).unwrap_or_else(|err| {
+            eprintln!("hopper verify: cannot parse baseline manifest: {err}");
+            process::exit(1);
+        });
+        interface_commitment(&crate::to_program_manifest(&owned))
+    };
+    let mut baseline_bound = false;
+    if let Some(so) = &opts.baseline_so {
+        let binary = fs::read(so).unwrap_or_else(|err| {
+            eprintln!("hopper verify: failed to read baseline binary: {err}");
+            process::exit(1);
+        });
+        if !has_elf_magic(&binary) {
+            eprintln!("hopper verify: baseline {so} is not an ELF binary");
+            process::exit(1);
         }
-        None if opts.release => {
+        bind_or_exit("baseline", so, &binary, baseline_commitment);
+        baseline_bound = true;
+    }
+    if let Some(program) = &opts.baseline_program {
+        let (rpc_url, cluster) = authority_rpc(opts);
+        let onchain = fetch_program_elf(&rpc_url, program).unwrap_or_else(|err| {
+            eprintln!("hopper verify: baseline program on {cluster}: {err}");
+            process::exit(1);
+        });
+        println!("  baseline on {cluster}: {}", onchain.label);
+        bind_or_exit("baseline", program, &onchain.elf, baseline_commitment);
+        baseline_bound = true;
+    }
+    if !baseline_bound {
+        if opts.release {
             eprintln!(
-                "  FAIL: --release with --authority-baseline also requires --baseline-so, so the \
-                 baseline is the manifest actually committed in the released ELF"
+                "  FAIL: --release with --authority-baseline also requires --baseline-so or \
+                 --baseline-program, so the baseline is the manifest actually committed in \
+                 the released ELF"
             );
             process::exit(1);
         }
-        None => println!("  baseline bound: no (pass --baseline-so to bind it to its ELF)"),
+        println!(
+            "  baseline bound: no (pass --baseline-so or --baseline-program to bind it to \
+             its ELF)"
+        );
+    }
+
+    if opts.candidate_buffer.is_some() || opts.candidate_program.is_some() {
+        let owned = crate::parse_program_manifest_json(manifest_json).unwrap_or_else(|err| {
+            eprintln!("hopper verify: cannot parse manifest: {err}");
+            process::exit(1);
+        });
+        let candidate_commitment = interface_commitment(&crate::to_program_manifest(&owned));
+        let (rpc_url, cluster) = authority_rpc(opts);
+        if let Some(buffer) = &opts.candidate_buffer {
+            let onchain = fetch_buffer_elf(&rpc_url, buffer).unwrap_or_else(|err| {
+                eprintln!("hopper verify: candidate buffer on {cluster}: {err}");
+                process::exit(1);
+            });
+            println!("  candidate on {cluster}: {}", onchain.label);
+            bind_or_exit("candidate", buffer, &onchain.elf, candidate_commitment);
+        }
+        if let Some(program) = &opts.candidate_program {
+            let onchain = fetch_program_elf(&rpc_url, program).unwrap_or_else(|err| {
+                eprintln!("hopper verify: candidate program on {cluster}: {err}");
+                process::exit(1);
+            });
+            println!("  candidate on {cluster}: {}", onchain.label);
+            bind_or_exit("candidate", program, &onchain.elf, candidate_commitment);
+        }
     }
 
     let report = AuthorityDiff::between_json(&baseline_json, manifest_json).unwrap_or_else(|err| {
@@ -370,6 +403,178 @@ fn run_authority_gate(opts: &VerifyOptions, baseline_path: &str, manifest_json: 
             process::exit(exit_code);
         }
     }
+}
+
+/// Require `binary` to carry exactly `expected`, or exit with a message that
+/// names which side of the diff failed to bind.
+fn bind_or_exit(side: &str, source: &str, binary: &[u8], expected: [u8; 32]) {
+    match verify_release_binding(binary, expected) {
+        Ok(binding) => println!(
+            "  {side} bound: {} matches the commitment at 0x{:06x} in {source}",
+            hex_bytes(&expected),
+            binding.offset
+        ),
+        Err(err) => {
+            eprintln!("  FAIL: {side} manifest is not the one committed in {source}: {err}");
+            process::exit(1);
+        }
+    }
+}
+
+/// Resolve the cluster for on-chain authority checks: devnet unless named.
+fn authority_rpc(opts: &VerifyOptions) -> (String, String) {
+    let moniker = opts.cluster.as_deref().unwrap_or("devnet");
+    match crate::cmd::cluster::cluster_url(moniker) {
+        Some((url, label, _)) => (url, label),
+        None => {
+            eprintln!("hopper verify: unknown cluster `{moniker}`");
+            process::exit(1);
+        }
+    }
+}
+
+/// The upgradeable BPF loader that owns Program, ProgramData, and Buffer
+/// accounts.
+const UPGRADEABLE_LOADER: &str = "BPFLoaderUpgradeab1e11111111111111111111111";
+/// `UpgradeableLoaderState` enum tags (bincode `u32`).
+const LOADER_STATE_BUFFER: u32 = 1;
+const LOADER_STATE_PROGRAM: u32 = 2;
+const LOADER_STATE_PROGRAMDATA: u32 = 3;
+
+/// An ELF read from a loader account, with the loader metadata that
+/// identifies it.
+struct OnChainElf {
+    label: String,
+    elf: Vec<u8>,
+}
+
+fn fetch_loader_account(rpc_url: &str, address: &str) -> Result<crate::rpc::AccountInfo, String> {
+    let info = crate::rpc::get_account_info(rpc_url, address)?
+        .ok_or_else(|| format!("account {address} does not exist"))?;
+    if info.owner != UPGRADEABLE_LOADER {
+        return Err(format!(
+            "{address} is owned by {}, not the upgradeable BPF loader",
+            info.owner
+        ));
+    }
+    Ok(info)
+}
+
+/// Fetch a deployed program's ELF through its ProgramData account.
+fn fetch_program_elf(rpc_url: &str, program_id: &str) -> Result<OnChainElf, String> {
+    let program = fetch_loader_account(rpc_url, program_id)?;
+    let programdata = crate::rpc::encode_pubkey(&program_programdata_address(&program.data)?);
+    let account = fetch_loader_account(rpc_url, &programdata)?;
+    let (slot, authority, elf) = programdata_elf(&account.data)?;
+    Ok(OnChainElf {
+        label: format!(
+            "program {program_id}, ProgramData {programdata}, deployed slot {slot}, upgrade \
+             authority {}, {} bytes",
+            authority
+                .map(|a| crate::rpc::encode_pubkey(&a))
+                .unwrap_or_else(|| "none (immutable)".to_string()),
+            elf.len()
+        ),
+        elf: elf.to_vec(),
+    })
+}
+
+/// Fetch the ELF held by a loader Buffer account.
+fn fetch_buffer_elf(rpc_url: &str, buffer: &str) -> Result<OnChainElf, String> {
+    let account = fetch_loader_account(rpc_url, buffer)?;
+    let (authority, elf) = buffer_elf(&account.data)?;
+    Ok(OnChainElf {
+        label: format!(
+            "buffer {buffer}, authority {}, {} bytes",
+            authority
+                .map(|a| crate::rpc::encode_pubkey(&a))
+                .unwrap_or_else(|| "none".to_string()),
+            elf.len()
+        ),
+        elf: elf.to_vec(),
+    })
+}
+
+fn loader_tag(data: &[u8]) -> Result<u32, String> {
+    let tag = data
+        .get(..4)
+        .ok_or_else(|| "loader account is shorter than its state tag".to_string())?;
+    Ok(u32::from_le_bytes([tag[0], tag[1], tag[2], tag[3]]))
+}
+
+fn option_pubkey(data: &[u8], offset: usize) -> Result<Option<[u8; 32]>, String> {
+    match data.get(offset) {
+        Some(0) => Ok(None),
+        Some(1) => {
+            let bytes = data
+                .get(offset + 1..offset + 33)
+                .ok_or_else(|| "loader account truncates its authority".to_string())?;
+            let mut out = [0u8; 32];
+            out.copy_from_slice(bytes);
+            Ok(Some(out))
+        }
+        Some(other) => Err(format!("invalid loader Option tag {other}")),
+        None => Err("loader account truncates its authority tag".to_string()),
+    }
+}
+
+/// `UpgradeableLoaderState::Program { programdata_address }`: tag 2 then a
+/// 32-byte address.
+fn program_programdata_address(data: &[u8]) -> Result<[u8; 32], String> {
+    let tag = loader_tag(data)?;
+    if tag != LOADER_STATE_PROGRAM {
+        return Err(format!(
+            "expected a Program account (state tag 2), found tag {tag}"
+        ));
+    }
+    let bytes = data
+        .get(4..36)
+        .ok_or_else(|| "Program account is shorter than 36 bytes".to_string())?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(bytes);
+    Ok(out)
+}
+
+/// `UpgradeableLoaderState::ProgramData { slot, upgrade_authority_address }`:
+/// tag 3, `u64` slot, `Option<Pubkey>`, then the ELF (zero-padded to the
+/// reserved length).
+/// Decoded `ProgramData` header: deployment slot, upgrade authority, and
+/// the ELF payload that follows the 45-byte header.
+type ProgramDataParts<'a> = (u64, Option<[u8; 32]>, &'a [u8]);
+
+fn programdata_elf(data: &[u8]) -> Result<ProgramDataParts<'_>, String> {
+    let tag = loader_tag(data)?;
+    if tag != LOADER_STATE_PROGRAMDATA {
+        return Err(format!(
+            "expected a ProgramData account (state tag 3), found tag {tag}"
+        ));
+    }
+    let slot_bytes = data
+        .get(4..12)
+        .ok_or_else(|| "ProgramData account truncates its slot".to_string())?;
+    let mut slot = [0u8; 8];
+    slot.copy_from_slice(slot_bytes);
+    let authority = option_pubkey(data, 12)?;
+    let elf = data
+        .get(45..)
+        .ok_or_else(|| "ProgramData account has no ELF payload".to_string())?;
+    Ok((u64::from_le_bytes(slot), authority, elf))
+}
+
+/// `UpgradeableLoaderState::Buffer { authority_address }`: tag 1,
+/// `Option<Pubkey>`, then the ELF.
+fn buffer_elf(data: &[u8]) -> Result<(Option<[u8; 32]>, &[u8]), String> {
+    let tag = loader_tag(data)?;
+    if tag != LOADER_STATE_BUFFER {
+        return Err(format!(
+            "expected a Buffer account (state tag 1), found tag {tag}"
+        ));
+    }
+    let authority = option_pubkey(data, 4)?;
+    let elf = data
+        .get(37..)
+        .ok_or_else(|| "Buffer account has no ELF payload".to_string())?;
+    Ok((authority, elf))
 }
 
 fn run_manifest_integrity(layouts: &[ManifestLayout]) -> u32 {
@@ -442,6 +647,17 @@ struct VerifyOptions {
     authority_approval: Option<String>,
     /// Write the authority report JSON here.
     authority_report: Option<String>,
+    /// On-chain baseline: a deployed program id whose ProgramData ELF must
+    /// carry the baseline manifest's interface commitment.
+    baseline_program: Option<String>,
+    /// On-chain candidate: a loader Buffer (the upgrade under review) whose
+    /// ELF must carry the current manifest's interface commitment.
+    candidate_buffer: Option<String>,
+    /// On-chain candidate: a deployed program id, for post-upgrade review.
+    candidate_program: Option<String>,
+    /// Cluster moniker or RPC URL for the on-chain checks. Defaults to
+    /// devnet; mainnet must be named explicitly.
+    cluster: Option<String>,
 }
 
 impl VerifyOptions {
@@ -473,6 +689,10 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
     let mut baseline_so = None;
     let mut authority_approval = None;
     let mut authority_report = None;
+    let mut baseline_program = None;
+    let mut candidate_buffer = None;
+    let mut candidate_program = None;
+    let mut cluster = None;
     let mut positional_taken = false;
     let mut i = 0;
     while i < args.len() {
@@ -517,7 +737,12 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
             "--authority-baseline"
             | "--baseline-so"
             | "--authority-approval"
-            | "--authority-report" => {
+            | "--authority-report"
+            | "--baseline-program"
+            | "--candidate-buffer"
+            | "--candidate-program"
+            | "--cluster"
+            | "--url" => {
                 let flag = arg.clone();
                 i += 1;
                 if i >= args.len() {
@@ -528,7 +753,11 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
                     "--authority-baseline" => authority_baseline = value,
                     "--baseline-so" => baseline_so = value,
                     "--authority-approval" => authority_approval = value,
-                    _ => authority_report = value,
+                    "--authority-report" => authority_report = value,
+                    "--baseline-program" => baseline_program = value,
+                    "--candidate-buffer" => candidate_buffer = value,
+                    "--candidate-program" => candidate_program = value,
+                    _ => cluster = value,
                 }
                 i += 1;
             }
@@ -572,6 +801,10 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
         baseline_so,
         authority_approval,
         authority_report,
+        baseline_program,
+        candidate_buffer,
+        candidate_program,
+        cluster,
     })
 }
 
@@ -797,7 +1030,16 @@ fn print_verify_usage() {
     eprintln!("                      one. Exit 2 when an instruction gains authority, 3 when");
     eprintln!("                      a change needs review (seed swap, new CPI program)");
     eprintln!("  --baseline-so <path> Bind the baseline to its released ELF commitment");
-    eprintln!("                      (required with --release)");
+    eprintln!("  --baseline-program <pubkey>");
+    eprintln!("                      Bind the baseline to the ELF deployed under this program");
+    eprintln!("                      id (ProgramData is read from the cluster). --release");
+    eprintln!("                      requires one of the two baseline bindings");
+    eprintln!("  --candidate-buffer <pubkey>");
+    eprintln!("                      Bind this manifest to the ELF in a loader Buffer: the");
+    eprintln!("                      upgrade under review, before it is applied");
+    eprintln!("  --candidate-program <pubkey>");
+    eprintln!("                      Bind this manifest to a deployed program (post-upgrade)");
+    eprintln!("  --cluster <name|url> Cluster for the on-chain bindings (default devnet)");
     eprintln!("  --authority-report <path>    Write the authority report JSON");
     eprintln!("  --authority-approval <path>  A reviewed report that approves its listed");
     eprintln!("                      changes for exactly this manifest pair");
@@ -811,6 +1053,9 @@ fn print_verify_usage() {
     eprintln!("  hopper verify --release hopper.manifest.json target/deploy/program.so \\");
     eprintln!("                --authority-baseline release/v1/hopper.manifest.json \\");
     eprintln!("                --baseline-so release/v1/program.so");
+    eprintln!("  hopper verify hopper.manifest.json --cluster devnet \\");
+    eprintln!("                --authority-baseline release/v1/hopper.manifest.json \\");
+    eprintln!("                --baseline-program <PROGRAM_ID> --candidate-buffer <BUFFER>");
 }
 
 struct ManifestLayout {
@@ -1181,6 +1426,41 @@ mod tests {
 
         let missing = vec!["--authority-baseline".to_string()];
         assert!(parse_verify_options(&missing).is_err());
+    }
+
+    #[test]
+    fn loader_state_parsers_follow_the_upgradeable_loader_layout() {
+        let mut program = vec![2, 0, 0, 0];
+        program.extend_from_slice(&[7u8; 32]);
+        assert_eq!(program_programdata_address(&program).unwrap(), [7u8; 32]);
+        assert!(program_programdata_address(&[3, 0, 0, 0]).is_err());
+
+        let mut programdata = vec![3, 0, 0, 0];
+        programdata.extend_from_slice(&123_456u64.to_le_bytes());
+        programdata.push(1);
+        programdata.extend_from_slice(&[9u8; 32]);
+        programdata.extend_from_slice(b"\x7fELF-payload");
+        let (slot, authority, elf) = programdata_elf(&programdata).unwrap();
+        assert_eq!(slot, 123_456);
+        assert_eq!(authority, Some([9u8; 32]));
+        assert_eq!(elf, b"\x7fELF-payload");
+
+        let mut immutable = vec![3, 0, 0, 0];
+        immutable.extend_from_slice(&1u64.to_le_bytes());
+        immutable.push(0);
+        immutable.extend_from_slice(&[0u8; 32]);
+        immutable.extend_from_slice(b"\x7fELF");
+        assert_eq!(programdata_elf(&immutable).unwrap().1, None);
+
+        let mut buffer = vec![1, 0, 0, 0, 1];
+        buffer.extend_from_slice(&[4u8; 32]);
+        buffer.extend_from_slice(b"\x7fELF-buffer");
+        let (authority, elf) = buffer_elf(&buffer).unwrap();
+        assert_eq!(authority, Some([4u8; 32]));
+        assert_eq!(elf, b"\x7fELF-buffer");
+
+        assert!(buffer_elf(&[1, 0, 0, 0, 2]).is_err());
+        assert!(programdata_elf(&[3, 0, 0, 0, 1]).is_err());
     }
 
     fn test_binding_record(commitment: [u8; 32]) -> [u8; RELEASE_BINDING_RECORD_LEN] {

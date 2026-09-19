@@ -67,7 +67,7 @@ The per-layout `LAYOUT_ID` search is a supplemental diagnostic. It is
 informational by default and fatal only when `--strict` is explicitly present;
 raw eight-byte occurrences are not accepted as release-interface proof.
 
-#### Authority gate: `--authority-baseline <old-manifest> [--baseline-so <old.so>] [--authority-report <out.json>] [--authority-approval <reviewed.json>]`
+#### Authority gate: `--authority-baseline <old-manifest> [--baseline-so <old.so> | --baseline-program <id>] [--candidate-buffer <addr> | --candidate-program <id>] [--cluster <name|url>] [--authority-report <out.json>] [--authority-approval <reviewed.json>]`
 
 Diff the previously released manifest against this one and fail when any
 instruction gains authority. Instructions match by exact discriminator bytes
@@ -84,9 +84,15 @@ Exit status is `2` for an unapproved widening and `3` for an unapproved review
 item. `--authority-report` writes the report JSON; after review, pass that file
 back as `--authority-approval`. It covers only the exact manifest pair whose
 digests it records. `--baseline-so` requires the baseline manifest to match the
-interface commitment embedded in the released ELF, and `--release` requires it,
-so both sides of the diff are bound to their binaries. Compatibility tools that
-score relaxations as additive changes answer a different question; run both.
+interface commitment embedded in the released ELF; `--baseline-program <id>`
+does the same against the ELF deployed under that program id, read from its
+ProgramData account on `--cluster` (devnet unless named; mainnet must be
+explicit). `--candidate-buffer <addr>` requires the current manifest to match
+the ELF in a loader Buffer, which is how a pending upgrade is reviewed before
+it is applied, and `--candidate-program <id>` reviews one after the fact.
+`--release` requires a bound baseline, so both sides of the diff are tied to
+their binaries. Compatibility tools that score relaxations as additive changes
+answer a different question; run both.
 
 ### `hopper publish-check [--package <name> | --manifest <path> --so <program.so>] [--full]`
 
