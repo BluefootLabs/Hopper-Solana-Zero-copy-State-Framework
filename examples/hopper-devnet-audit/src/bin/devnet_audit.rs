@@ -117,15 +117,21 @@ fn run() -> Result<(), String> {
     let remaining_b = Keypair::new();
     let authority = payer.pubkey();
 
+    // Every account must hold the rent-exempt minimum for its size after a
+    // transaction, so the auxiliary signers are funded at exactly that floor
+    // and drained by the same amount at cleanup.
+    let auxiliary_lamports = client
+        .get_minimum_balance_for_rent_exemption(0)
+        .map_err(|error| format!("read rent-exempt minimum: {error}"))?;
     let fund_auxiliary_signers = submit_finalized(
         &client,
         &rpc_url,
         &payer,
         &[],
         &[
-            system_transfer_instruction(authority, wrong_authority.pubkey(), 1),
-            system_transfer_instruction(authority, remaining_a.pubkey(), 1),
-            system_transfer_instruction(authority, remaining_b.pubkey(), 1),
+            system_transfer_instruction(authority, wrong_authority.pubkey(), auxiliary_lamports),
+            system_transfer_instruction(authority, remaining_a.pubkey(), auxiliary_lamports),
+            system_transfer_instruction(authority, remaining_b.pubkey(), auxiliary_lamports),
         ],
         false,
         "fund-auxiliary-signers",
@@ -137,7 +143,7 @@ fn run() -> Result<(), String> {
         remaining_b.pubkey(),
     ] {
         wait_for_snapshot(&client, &rpc_url, &auxiliary, |snapshot| {
-            snapshot.lamports == 1
+            snapshot.lamports == auxiliary_lamports
                 && snapshot.owner == Pubkey::default()
                 && snapshot.data.is_empty()
         })?;
@@ -376,9 +382,9 @@ fn run() -> Result<(), String> {
         &payer,
         &[&wrong_authority, &remaining_a, &remaining_b],
         &[
-            system_transfer_instruction(wrong_authority.pubkey(), authority, 1),
-            system_transfer_instruction(remaining_a.pubkey(), authority, 1),
-            system_transfer_instruction(remaining_b.pubkey(), authority, 1),
+            system_transfer_instruction(wrong_authority.pubkey(), authority, auxiliary_lamports),
+            system_transfer_instruction(remaining_a.pubkey(), authority, auxiliary_lamports),
+            system_transfer_instruction(remaining_b.pubkey(), authority, auxiliary_lamports),
         ],
         false,
         "cleanup-auxiliary-signers",
