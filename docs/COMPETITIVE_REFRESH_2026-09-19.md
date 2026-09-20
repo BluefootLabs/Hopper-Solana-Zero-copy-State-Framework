@@ -38,6 +38,12 @@ added these facts:
   by default; Anchor switched to `--tools-version v1.57 --arch v3` on
   2026-09-15. Loader v4 is abandoned. SIMD-0177 ABIv2 has not changed since
   2026-05-19.
+- `sol_remaining_compute_units` (SIMD-0049) is Withdrawn and its gate
+  (`5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP`) has no feature account on
+  any public cluster, so the loader rejects an ELF that references it while
+  every local validator accepts it. Hopper's compute-budget helpers assumed
+  the syscall was live; the devnet audit lane exposed that, and they are now
+  opt-in for on-chain builds. No replacement syscall exists.
 - Mollusk 0.15.1 (2026-08-29) includes return data in fixture hashes and
   0.15.0 added a payer to `process_transaction_instructions`; agave v4.3.0's
   `solana-program-test` returns `UnsupportedSysvar` from `Rent::get()` for

@@ -69,9 +69,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
-- **Finalized devnet evidence for six lanes.** Fresh deployments of the
-  migration, escrow, orderbook, compact-vault, Token-2022 vault, and
-  cross-program-read examples ran their finalized harnesses on public devnet
+- **Finalized devnet evidence for seven lanes.** Fresh deployments of the
+  migration, escrow, orderbook, compact-vault, Token-2022 vault, devnet
+  audit, and cross-program-read examples ran their finalized harnesses on public devnet
   (Agave 4.3.0-rc.0, SIMD-0449, direct mapping, and SIMD-0460 active) with
   before-and-after artifact captures, and the ledger-bound authority review
   ran against a deployed sentinel program and a widened Buffer. Receipts,

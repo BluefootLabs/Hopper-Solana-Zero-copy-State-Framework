@@ -110,7 +110,7 @@ transactions also executed Hopper's input parser under that configuration.
 | hopper-token-2022-vault | `FJn8z851vZkpyiZnoAvfSEYYXG1mm4AG7txJEpr4bg8u` | 501,095,212 | initialize, prepare, mint, sweep (TransferChecked) | pass |
 | cross-program-read | A `2h5zat7pKjUHH3jkgsuPGqQ2N2hyVb1cCmvZ5FGCnn8J`, B `EyMprn3Ur5ix47hei5iTztPx48FjJJ7EzH4AkMw6Fqei` | see receipt | program_a:init, program_a:deposit, program_b:read, program_b:min | pass, both dumps match local ELFs |
 | sentinel authority gate | program `7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx`, buffer `7faSVbUUco4dba21xBZgssCeV1TtN11owVWgXPcPmTQa` | 501,068,155 | none (read-only review) | WIDENED, exit 2 |
-| hopper-devnet-audit | `EB6SZ7qTGerTuptmHjt6aGpZc1tpZDUPwiTBYpsbhs8M` (keypair reserved) | not deployed | none | blocked, see below |
+| hopper-devnet-audit | `EB6SZ7qTGerTuptmHjt6aGpZc1tpZDUPwiTBYpsbhs8M` | 501,098,319 | 15: initialize, three rejected negative cases with unchanged snapshots (wrong authority, too few remaining signers, read-only state mutation), rename, add-member, increment-segment, substrate, proof, token-policy, field-capability, and remaining-signer probes, read-audit, funding and cleanup | pass |
 
 The sentinel row is the ledger-bound upgrade review: v1 was built from the
 committed source and deployed; v2 was built from the same source with one
@@ -125,13 +125,20 @@ re-run. The removed `has_one` was not reported in this run because the
 manifests predate the `instructions` key on contexts; the shared-context
 case is pinned in `grillo-manifest` tests since commit `1d3d136`.
 
-The devnet-audit lane did not deploy: both the CLI and the devnet loader
-reject the artifact with `Unresolved symbol (sol_remaining_compute_units)`.
-That syscall backs `hopper_native::budget` and `hopper_runtime::compute`
-and is used by the audit example's substrate probes; its status on current
-Agave is recorded in the changelog once confirmed.
+The devnet-audit lane first failed to deploy: both the CLI and the devnet
+loader rejected the artifact with `Unresolved symbol
+(sol_remaining_compute_units)`. That syscall is SIMD-0049, which is
+Withdrawn; its feature gate has never been activated on mainnet-beta,
+devnet, or testnet, while every local validator enables it. The
+compute-budget helpers that read it are now compiled for on-chain targets
+only under the `remaining-compute-units-syscall` feature, the audit probe no
+longer uses it, and the lane passed on the rebuilt artifact. The audit
+receipt records the program's final state (counter 1, one substrate pass,
+two remaining-signer checks, one proof, token-policy, and field-capability
+check each, label `hopper-live`, one member).
 
-Lanes found and fixed three harness defects on the way, all recorded in the
+Lanes found and fixed five harness defects on the way, all recorded in the
 changelog: receipts that named their transaction list `signatures`, wrong
-signers funded below the rent-exempt floor, and a `1`-lamport state
-expectation.
+signers funded below the rent-exempt floor in three runners, a `1`-lamport
+state expectation, a stale `MissingAccount` expectation where the program
+returns `NotEnoughAccountKeys`, and the undeployable syscall reference.
