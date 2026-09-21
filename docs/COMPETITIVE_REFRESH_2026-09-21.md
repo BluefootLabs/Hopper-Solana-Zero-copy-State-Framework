@@ -61,21 +61,43 @@ Mollusk 0.15.1, so the toolchain delta against pina's Agave 4.2.2 / Mollusk
 | --- | --- | ---: | --- | --- |
 | hello | Hopper (substrate) | 1,656 | 116 | smallest binary in the table; pinocchio 3,160 / 111, Anchor v2 1,880 / 127, Quasar 2,520 / 115, Pina 4,680 / 145 |
 | hello | Hopper (macro) | 2,376 | 186 | `#[program]` + `Signer` context; the highest CU in the table, 70 over the substrate |
-| counter | Hopper (substrate) | 8,616 | 1,681 / 1,786 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
-| counter | Hopper (macro) | 11,488 | 3,231 / 1,772 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 while reading the live rent sysvar; `increment` beats Anchor 2,117, within 19 CU of Pina |
+| counter | Hopper (substrate) | 8,448 | 1,681 / 1,762 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
+| counter | Hopper (macro) | 11,408 | 3,207 / 1,748 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 while reading the live rent sysvar; `increment` beats Pina 1,753 and Anchor 2,117 |
 
-Where Hopper does not win, in the table's own terms:
+The table also paid for itself a second time. Instrumenting the substrate
+`increment` with `sol_log_compute_units` put the PDA re-derivation at 1,573
+CU against a 1,500 CU syscall: the `create_program_address` wrapper was
+zero-filling a 256-byte staging buffer and repacking the seeds before every
+call, although a `&[&[u8]]` already is the `(ptr, len)` array the syscall
+reads. The wrapper now passes the slice through (the hash wrappers had the
+same pattern and got the same fix): 24 CU per derivation on every PDA check
+in every Hopper program, which is what moved both counter rows above.
 
-- The macro hello path spends 70 CU more than the substrate on `Context`
-  setup, table dispatch, and the signer bind. Anchor v2 does the same job in
-  127 CU. This is the next optimization target for `profile = "tiny"`.
-- The macro counter binary (11,488 bytes) is larger than Anchor v2 (8,696)
+Where Hopper does not win, in the table's own terms, with the measured
+split behind each gap:
+
+- The macro hello path spends 70 CU more than the substrate. Measured with
+  compute-unit checkpoints: a hand-written `Context::new` plus `Hello::bind`
+  costs nothing over the substrate (115 vs 116 CU); the `#[program]` table
+  dispatch costs about 18 CU; the typed handler wrapper, which is where the
+  `Context` is actually materialized and the bound struct built and moved,
+  costs about 43 CU before the handler body runs. `max_accounts = 1` saves
+  another 8 CU and 128 bytes, and the `Signer` check itself is 5 CU. None
+  of that is a single hot spot; closing it means slimmer scaffolding on the
+  typed dispatch path, which is the next `profile = "tiny"` target. Anchor
+  v2 does the same job in 127 CU.
+- The macro counter binary (11,408 bytes) is larger than Anchor v2 (8,696)
   and Quasar (7,808). The substrate row shows the framework's floor is not
   the cause; the macro-generated lifecycle helpers, header writes, and
-  layout checks are. Size profiling of that path is the follow-up.
-- The substrate `increment` is 65 CU over pinocchio for the same work; the
-  difference is Hopper's borrow bookkeeping on the typed load, which
-  pinocchio's raw slice access does not do.
+  layout checks are. Every Hopper program also links about 1.7 KB for the
+  full body of the ambient write gate (`strict_writes`), whose no-gate fast
+  path is three loads and branches per mutable borrow; the code is only
+  executed under an installed policy but LTO cannot drop it.
+- The substrate `increment` is now 41 CU over pinocchio for the same work:
+  entry and dispatch 58, signer and owner checks 20, the gated typed load
+  27, add and release 6, the rest the log and the PDA syscall. The typed
+  load is the gate fast path plus exact-length and discriminator
+  validation, which pinocchio's raw slice access does not do.
 
 The full tables, the driver, and the upstream recipe are in
 `bench/framework-comparison/`. The Hopper fixtures are written so they drop

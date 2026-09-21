@@ -222,7 +222,7 @@ published numbers exactly (3,160 B / 111 CU; 6,512 B / 1,490 / 1,721 CU).
 | Fixture | Hopper (substrate) | Hopper (macro) | Pinocchio | Pina | Quasar | Anchor v2 |
 |---|---:|---:|---:|---:|---:|---:|
 | hello, bytes / CU | 1,656 / 116 | 2,376 / 186 | 3,160 / 111 | 4,680 / 145 | 2,520 / 115 | 1,880 / 127 |
-| counter, bytes / init / increment | 8,616 / 1,681 / 1,786 | 11,488 / 3,231 / 1,772 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
+| counter, bytes / init / increment | 8,448 / 1,681 / 1,762 | 11,408 / 3,207 / 1,748 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
 
 The substrate counter is the like-for-like row (10-byte compact account,
 plain `CreateAccount`, PDA re-derived on `increment`). The macro counter

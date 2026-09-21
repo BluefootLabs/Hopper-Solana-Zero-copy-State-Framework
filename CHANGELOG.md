@@ -18,9 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `bench/framework-comparison/results/RESULTS.md`. The cross-check
   reproduces pina's published pinocchio numbers exactly. Measured
   2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
-  the table), macro hello 2,376 / 186, substrate counter 8,616 bytes /
-  1,681 / 1,786 CU, macro counter 11,488 bytes / 3,231 / 1,772 CU (the
-  lowest `initialize` of the framework rows).
+  the table), macro hello 2,376 / 186, substrate counter 8,448 bytes /
+  1,681 / 1,762 CU, macro counter 11,408 bytes / 3,207 / 1,748 CU (the
+  lowest `initialize` and `increment` of the framework rows).
 - **`hopper publish-security`.** Publishes a program's `security.txt` record
   through Program Metadata at the canonical `[program, "security"]` PDA, the
   record Solana Explorer reads, over the same signed-send path as
@@ -137,6 +137,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   exact) and any other value rounds up to whole years in integer
   arithmetic, which can only overfund. The framework-comparison substrate
   counter went from 12,048 to 8,616 bytes.
+- **PDA and hash syscall wrappers repacked their inputs.**
+  `create_program_address`, `sha256`, `keccak256`, and `blake3` zero-filled
+  a 256-byte staging buffer and copied every `(ptr, len)` pair into it
+  before each syscall, although the `&[&[u8]]` the caller already holds is
+  that exact layout. They now pass the slice through, as the Solana SDK
+  and pinocchio do. Measured on the framework-comparison counter: 24 CU
+  less per PDA re-derivation on both paths (`increment` 1,786 to 1,762
+  substrate, 1,772 to 1,748 macro) and 168 bytes off the substrate ELF.
 - The generated `init_<field>()` helper no longer warns about an
   instruction argument that only a `bump = <arg>` proof uses.
 

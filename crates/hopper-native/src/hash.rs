@@ -42,21 +42,17 @@ pub fn sha256(inputs: &[&[u8]]) -> Result<Sha256Hash, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
-        // Build the parameter array: each element is (ptr, len) as two u64s.
-        let count = inputs.len();
-        let mut params: [u64; 32] = [0; 32];
-        let mut i = 0;
-        while i < count {
-            params[i * 2] = inputs[i].as_ptr() as u64;
-            params[i * 2 + 1] = inputs[i].len() as u64;
-            i += 1;
-        }
-
+        // The syscall reads `inputs.len()` (ptr, len) pairs of 8-byte words,
+        // exactly the in-memory shape of a `&[&[u8]]` on the SBF target, so
+        // the slice is handed over directly instead of being repacked
+        // through a zero-filled staging buffer (the same fix as
+        // `pda::create_program_address`).
+        const _: () = assert!(core::mem::size_of::<&[u8]>() == 16);
         // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_sha256(
-                params.as_ptr() as *const u8,
-                count as u64,
+                inputs.as_ptr() as *const u8,
+                inputs.len() as u64,
                 result.as_mut_ptr(),
             )
         };
@@ -95,20 +91,13 @@ pub fn keccak256(inputs: &[&[u8]]) -> Result<Keccak256Hash, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
-        let count = inputs.len();
-        let mut params: [u64; 32] = [0; 32];
-        let mut i = 0;
-        while i < count {
-            params[i * 2] = inputs[i].as_ptr() as u64;
-            params[i * 2 + 1] = inputs[i].len() as u64;
-            i += 1;
-        }
-
+        // Direct slice pass; see `sha256` above.
+        const _: () = assert!(core::mem::size_of::<&[u8]>() == 16);
         // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_keccak256(
-                params.as_ptr() as *const u8,
-                count as u64,
+                inputs.as_ptr() as *const u8,
+                inputs.len() as u64,
                 result.as_mut_ptr(),
             )
         };
@@ -142,21 +131,14 @@ pub fn blake3(inputs: &[&[u8]]) -> Result<Blake3Hash, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
-        let count = inputs.len();
-        let mut params: [u64; 32] = [0; 32];
-        let mut i = 0;
-        while i < count {
-            params[i * 2] = inputs[i].as_ptr() as u64;
-            params[i * 2 + 1] = inputs[i].len() as u64;
-            i += 1;
-        }
-
-        // SAFETY: params contains `count` slice descriptors and `result` is
-        // a 32-byte writable hash output buffer.
+        // Direct slice pass; see `sha256` above.
+        const _: () = assert!(core::mem::size_of::<&[u8]>() == 16);
+        // SAFETY: `inputs` is `inputs.len()` slice descriptors and `result`
+        // is a 32-byte writable hash output buffer.
         let rc = unsafe {
             crate::syscalls::sol_blake3(
-                params.as_ptr() as *const u8,
-                count as u64,
+                inputs.as_ptr() as *const u8,
+                inputs.len() as u64,
                 result.as_mut_ptr(),
             )
         };
