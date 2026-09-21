@@ -18,8 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `bench/framework-comparison/results/RESULTS.md`. The cross-check
   reproduces pina's published pinocchio numbers exactly. Measured
   2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
-  the table), macro hello 1,792 / 138, substrate counter 8,368 bytes /
-  1,670 / 1,754 CU, macro counter 10,784 bytes / 1,800 / 368 CU (the
+  the table), macro hello 1,792 / 138, substrate counter 8,160 bytes /
+  1,618 / 1,754 CU, macro counter 9,960 bytes / 1,572 / 368 CU (the
   lowest `initialize` of every row but hand-written pinocchio, and an
   `increment` second only to Quasar's 330 while validating owner, header,
   and layout).
@@ -56,9 +56,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `hopper-native`, `hopper-runtime`, and the `hopper-system` facade, a host
   emulator in the SVM harness, a Kani-proved encoder, and a differential
   golden test. `hopper_init!` (the `init` and `init_if_needed` lifecycles) now
-  creates every account with this one CPI: the payer is omitted when the
-  account already holds its rent, and the shortfall is a delta on top of the
-  existing balance. It replaces the CreateAccount branch and the
+  creates every account with this one CPI: the shortfall is a delta on top
+  of the existing balance, zero when the account already holds its rent. It replaces the CreateAccount branch and the
   Transfer, Allocate, Assign fallback. The feature gate is active on
   mainnet-beta (slot 422,928,004), devnet, and testnet.
 - **`AccountView::check_resize`** runs every resize precondition without
@@ -152,6 +151,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Changed
 
+- **`init` PDAs with a supplied bump are proven by the creation CPI.** For
+  an `init` or `init_if_needed` field declared with `seeds` and
+  `bump = <arg>`, `#[derive(Accounts)]` no longer hashes the seeds before
+  the lifecycle helper runs. The helper creates the account through a
+  System Program CPI signed with exactly those seeds and that bump, and the
+  System Program requires the created account to sign; an account that is
+  not a transaction signer can satisfy that only as the one address the
+  runtime derives from the seeds under this program, so the runtime's own
+  signer check is the PDA check. The hash still runs, out of line
+  (`hopper::pda::verify_pda_address_cold`), where the CPI cannot prove the
+  address: an account that already signs (a self-CPI passing its own PDA)
+  or one that already holds data (`init_if_needed`'s existing path). A
+  wrong address handed to `init` now fails the transaction at the CPI with
+  the runtime's privilege-escalation error instead of `InvalidSeeds`;
+  inferred bumps and `bump = stored` are unchanged. Measured on the
+  framework-comparison macro counter together with the multiply fix below:
+  `initialize` 1,761 to 1,572 CU, of which the multiply fix is about 50
+  (the substrate row, which only has that fix, went 1,670 to 1,618), and
+  10,216 to 9,960 bytes.
+- **One CPI body for `init`.** `CreateAccountAllowPrefund` sent the payer
+  only when the rent delta was nonzero, so `hopper_init!` compiled a
+  two-account and a one-account CPI body, 1.4 KiB of duplicated code in
+  every program that uses `init`. The builder now sends the payer whenever
+  one is given, with a zero delta when the account already holds its rent
+  (the System Program then checks for one account and ignores the second,
+  verified in the processor source and on devnet), so one body serves both
+  shapes; `funding: None` keeps the one-account instruction. The checked
+  CPI tiers also call one syscall site instead of branching between the
+  signed and unsigned wrappers, `invoke_unchecked` forwards to
+  `invoke_signed_unchecked` with no seeds, and the bounded tier now emulates
+  every System instruction on the host that the fixed tier does. Macro
+  counter 10,784 to 10,216 bytes at that step.
+- **The rent product no longer links `__multi3`.** `Rent::minimum_balance`
+  and `CachedRent::exempt_min` computed `(128 + len) * lamports_per_byte_year`
+  with `saturating_mul`, which lowers to `umul.with.overflow`; SBF has no
+  such instruction, so LLVM linked the 344-byte 128-bit multiply helper and
+  called it on every `init` (about 50 CU). The product is now the runtime's
+  own unsaturated one (the loader caps `len` at 10 MiB, so it cannot wrap
+  for any rate under 2^40 lamports per byte-year), and the whole-year
+  fallback for a non-standard threshold uses a 32-bit-halves overflow test
+  (`hopper_native::sysvar::saturating_mul_u64`), because LLVM recognizes
+  both the `a > MAX / b` and the `(a * b) / b != a` guards as the same idiom
+  and reinstates the helper. Substrate counter `initialize` 1,670 to 1,618
+  CU and 8,368 to 8,160 bytes.
 - **PDA checks on typed and `init` accounts are one sha256.** `#[derive(Accounts)]`
   verified `seeds` + `bump = stored` and `bump = <arg>` with the
   `create_program_address` syscall (1,500 CU) and inferred bumps with a

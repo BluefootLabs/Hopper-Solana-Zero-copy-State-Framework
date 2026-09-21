@@ -137,16 +137,18 @@ impl CachedRent {
     /// point; uncommon thresholds retain the historical multiply-and-truncate
     /// behavior. It is not divided by seconds/year.
     ///
-    /// The integer product is saturating purely as an overflow guard; for
-    /// every loader-permitted `data_len` (`<= 10 MiB`) and realistic
-    /// `lamports_per_byte_year` it never saturates, so the byte-match with the
-    /// runtime is exact. Mainnet's 2026-09-03 SIMD-0437 regime uses
+    /// The integer product is the runtime's own unsaturated one; for every
+    /// loader-permitted `data_len` (`<= 10 MiB`) and any rate under 2^40 it
+    /// cannot wrap, so the byte-match with the runtime is exact. Mainnet's 2026-09-03 SIMD-0437 regime uses
     /// `lpby=6333` and the SIMD-0194 wire threshold marker `1.0`.
     #[inline(always)]
     pub fn exempt_min(&self, data_len: usize) -> u64 {
+        // The runtime's own product, unsaturated (see `Rent::minimum_balance`
+        // in hopper-native): `saturating_mul` links and calls the 128-bit
+        // `__multi3` helper on SBF.
         let integer_part = super::ACCOUNT_STORAGE_OVERHEAD
             .saturating_add(data_len as u64)
-            .saturating_mul(self.lamports_per_byte_year);
+            .wrapping_mul(self.lamports_per_byte_year);
         // Float-free threshold scaling (bit-pattern match for 1.0 / 2.0,
         // u128 decomposition otherwise) so no soft-float routine is linked.
         hopper_runtime::__hopper_native::sysvar::scale_by_exemption_threshold(

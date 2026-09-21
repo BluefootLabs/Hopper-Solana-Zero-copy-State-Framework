@@ -717,8 +717,10 @@ macro_rules! hopper_init {
         // One CPI whether or not the account was pre-funded: the System
         // Program's CreateAccountAllowPrefund allocates, assigns, and tops the
         // balance up by exactly the rent shortfall. A fully funded account
-        // omits the payer from the instruction, so its signature and balance
-        // are never touched.
+        // sends a zero delta, which the System Program ignores along with the
+        // payer, so the payer's balance is never touched and one CPI body
+        // serves both shapes (the builder keeps the payer in the instruction
+        // for exactly that reason).
         let current_lamports = account.lamports();
         $crate::hopper_system::CreateAccountAllowPrefund {
             to: account,

@@ -1989,11 +1989,11 @@ mod kani_proofs {
         let mut views: [MaybeUninit<AccountView<'_>>; 4] =
             unsafe { MaybeUninit::uninit().assume_init() };
         static EMPTY_IX: [u8; 0] = [];
+        let program_id = Address::new_from_array(PID_SENTINEL);
         // SAFETY: same oracle-validated 8-aligned loader-layout buffer
         // contract as `check_fused_walk_against_oracle`; instruction data
         // and program id are supplied out of band per the fast-path
         // contract and are opaque pass-throughs to this walk.
-        let program_id = Address::new_from_array(PID_SENTINEL);
         let (pid, count, ix) = unsafe {
             deserialize_accounts_fast::<4>(
                 backing.0.as_mut_ptr(),
@@ -2258,13 +2258,13 @@ mod kani_proofs {
         let mut views: [MaybeUninit<AccountView<'_>>; 4] =
             unsafe { MaybeUninit::uninit().assume_init() };
         static EMPTY_IX: [u8; 0] = [];
+        let program_id = Address::new_from_array(PID_SENTINEL);
         // SAFETY: 8-aligned loader-layout buffer sized exactly to the
         // encoded frame, with out-of-band tail per the fast-path
         // contract; the malformed marker is the condition under test and
         // must trap before any access past the frame end, Kani checks
         // every access on every path against that exact allocation
         // boundary.
-        let program_id = Address::new_from_array(PID_SENTINEL);
         let _ = unsafe {
             deserialize_accounts_fast::<4>(
                 backing.0.as_mut_ptr(),

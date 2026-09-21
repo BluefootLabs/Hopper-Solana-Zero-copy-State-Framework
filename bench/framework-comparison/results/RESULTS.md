@@ -1,6 +1,6 @@
 # Framework comparison: Hopper rows against pina's fixtures
 
-Generated 2026-09-21 20:27 UTC by `scripts/bench-framework-comparison.py`.
+Generated 2026-09-21 21:32 UTC by `scripts/bench-framework-comparison.py`.
 
 Same fixtures, same verifier contract, same release recipe as pina's
 `benchmarks/framework-comparison` (pinned at pina commit
@@ -37,8 +37,8 @@ delta to keep in mind when reading the Hopper rows.
 
 | Framework | Source | Size (bytes) | `initialize` CU | `increment` CU | Account bytes | vs Pinocchio size |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Hopper (substrate) | measured here | 8,368 | 1,670 | 1,754 | 10 | +29% |
-| Hopper (macro) | measured here | 10,784 | 1,800 | 368 | 25 | +66% |
+| Hopper (substrate) | measured here | 8,160 | 1,618 | 1,754 | 10 | +25% |
+| Hopper (macro) | measured here | 9,960 | 1,572 | 368 | 25 | +53% |
 | Pinocchio (pina reference, rebuilt here) | measured here (cross-check) | 6,512 | 1,490 | 1,721 | 10 | +0% |
 | Pina | pina published | 13,024 | 3,301 | 1,753 |  | +100% |
 | Pinocchio (hand-written) | pina published | 6,512 | 1,490 | 1,721 |  | +0% |

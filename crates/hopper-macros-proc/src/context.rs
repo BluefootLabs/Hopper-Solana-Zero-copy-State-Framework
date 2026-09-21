@@ -1919,6 +1919,26 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 quote! { ::hopper::pda::verify_pda_address_checked }
             };
+            // CPI-proven PDA: an `init` / `init_if_needed` field with a
+            // supplied bump is created by the lifecycle helper through a
+            // System Program CPI signed with exactly these seeds and this
+            // bump, and the System Program requires the created account
+            // to sign. An account that is not a transaction signer can
+            // satisfy that only as the one address the runtime derives
+            // from the seeds under this program, so the CPI's own signer
+            // check is the PDA check, at no hash cost here; a wrong
+            // address fails the transaction at the CPI with a privilege
+            // escalation error instead of `InvalidSeeds`. The hash runs
+            // only where the CPI cannot prove the address: an account
+            // that already signs (a self-CPI passing its own PDA), or one
+            // that already holds data (`init_if_needed`'s existing path,
+            // where no CPI happens). Measured 2026-09-21 on the
+            // framework-comparison counter: one sha256 and its seed
+            // staging off the `initialize` path. A custom `seeds::program`
+            // is never CPI-proven, since the helper signs under this
+            // program's id (the derive refuses that combination anyway).
+            let cpi_proven =
+                (cf.attr.init || cf.attr.init_if_needed) && cf.attr.seeds_program.is_none();
             let find_bump_fn = if cheap_pda {
                 quote! { ::hopper::pda::find_bump_for_address }
             } else {
@@ -1933,6 +1953,26 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             #pda_program_expr,
                             ctx.account(#slot)?.address(),
                         )?;
+                    }
+                },
+                BumpSpec::Stored(bump_expr) if cpi_proven => quote! {
+                    {
+                        #seed_binds
+                        let bump: u8 = #bump_expr;
+                        let __hopper_pda_view = ctx.account(#slot)?;
+                        // Proven by the creation CPI's signer derivation
+                        // unless the account signs or holds data; see the
+                        // derive's note on CPI-proven PDAs.
+                        if __hopper_pda_view.is_signer() || __hopper_pda_view.data_len() != 0 {
+                            ::hopper::pda::verify_pda_address_cold(
+                                &[
+                                    #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
+                                    ::core::slice::from_ref(&bump),
+                                ],
+                                #pda_program_expr,
+                                __hopper_pda_view.address(),
+                            )?;
+                        }
                     }
                 },
                 BumpSpec::Stored(bump_expr) => quote! {
@@ -2003,6 +2043,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 field_name,
                 if cf.attr.seeds_program.is_some() {
                     " (under custom program ID)"
+                } else if cpi_proven && matches!(bump, BumpSpec::Stored(_)) {
+                    " (proven by the creation CPI's signer derivation; hashed only for a signer or a non-empty account)"
                 } else {
                     ""
                 }
@@ -9114,6 +9156,65 @@ mod instruction_arg_tests {
         assert!(
             !s.contains("fn payer_account_opt"),
             "required fields must not get a `<field>_account_opt` accessor: {s}"
+        );
+    }
+
+    /// An `init` field with a supplied bump is proven by its creation CPI:
+    /// the validator hashes only when the account signs or holds data, and
+    /// the hash it then runs is the out-of-line cold twin. A typed sibling
+    /// with a supplied bump keeps the inline one-sha256 verify. (`init`
+    /// under a custom `seeds::program` is refused by the derive, so there
+    /// is no third shape.)
+    #[test]
+    fn init_with_supplied_bump_is_proven_by_the_creation_cpi() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            #[instruction(bump: u8, other_bump: u8)]
+            pub struct Initialize<'info> {
+                #[account(mut)]
+                pub authority: Signer<'info>,
+
+                #[account(
+                    init,
+                    payer = authority,
+                    space = 32,
+                    seeds = [b"counter", authority.address().as_array()],
+                    bump = bump,
+                )]
+                pub counter: InitAccount<'info, Counter>,
+
+                #[account(mut, seeds = [b"other"], bump = other_bump)]
+                pub other: Account<'info, Counter>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+        let compact =
+            |window: &str| -> String { window.chars().filter(|c| !c.is_whitespace()).collect() };
+
+        let counter = compact(fn_window(&s, "validate_counter"));
+        assert!(
+            counter.contains("if__hopper_pda_view.is_signer()||__hopper_pda_view.data_len()!=0{"),
+            "init field must hash only for a signer or a non-empty account: {counter}"
+        );
+        assert!(
+            counter.contains("::hopper::pda::verify_pda_address_cold("),
+            "the guarded hash must be the out-of-line twin: {counter}"
+        );
+        assert!(
+            !counter.contains("verify_pda_address(")
+                && !counter.contains("verify_pda_address_checked("),
+            "no inline hash on the CPI-proven path: {counter}"
+        );
+
+        let other = compact(fn_window(&s, "validate_other"));
+        assert!(
+            other.contains("::hopper::pda::verify_pda_address(")
+                && !other.contains("is_signer()||"),
+            "a typed non-init field keeps the inline one-sha256 verify: {other}"
         );
     }
 

@@ -40,5 +40,5 @@ pub use hopper_runtime::pda::verify_pda_with_bump;
 /// `#[derive(Accounts)]` picks between them per field.
 pub use hopper_runtime::pda::{
     find_bump_for_address, find_canonical_bump_checked, verify_pda_address,
-    verify_pda_address_checked,
+    verify_pda_address_checked, verify_pda_address_cold,
 };

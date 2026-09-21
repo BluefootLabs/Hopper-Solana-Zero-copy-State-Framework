@@ -51,8 +51,8 @@ table (Agave 4.2.2, Mollusk 0.14).
 
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|
-| Hopper (substrate), measured here | 1,656 | 116 | 8,368 | 1,670 | 1,754 | 10 |
-| Hopper (macro), measured here | 1,792 | 138 | 10,784 | 1,800 | 368 | 25 |
+| Hopper (substrate), measured here | 1,656 | 116 | 8,160 | 1,618 | 1,754 | 10 |
+| Hopper (macro), measured here | 1,792 | 138 | 9,960 | 1,572 | 368 | 25 |
 | Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
 | Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
 | Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |
@@ -66,11 +66,14 @@ Pina. The macro rows use `#[derive(Accounts)]` with `init`, `payer`, `seeds`,
 `bump = <arg>` and `bump = stored`, and a headered 25-byte account; the
 verifier is told the offsets. The macro `initialize` reads the live Rent
 sysvar (a fix landed the same day; see the changelog), which the pinocchio
-fixture also does. The macro rows verify PDAs with one `sol_sha256` (no
-`create_program_address` syscall, no curve check) because the account is
-either owner- and layout-validated or about to be created by a CPI signed
-with the same seeds; Quasar's `increment` relies on the same argument. The
-substrate row keeps the syscall, like pinocchio and Pina. The macro rows
+fixture also does. The macro `increment` verifies the PDA with one
+`sol_sha256` (no `create_program_address` syscall, no curve check) because
+the account is owner- and layout-validated; Quasar's `increment` relies on
+the same argument. The macro `initialize` hashes nothing: the account is
+created by a CPI signed with the same seeds and bump, and the System
+Program requires the created account to sign, so the runtime's signer
+derivation is the PDA check (a signer or a non-empty account still gets the
+hash). The substrate row keeps the syscall, like pinocchio and Pina. The macro rows
 run on the tiny profile's count-exact entrypoint: the discriminator is read
 from the SIMD-0321 `r2` pointer and exactly the matched context's accounts
 are materialized, so no pointer table is sized for the transaction maximum

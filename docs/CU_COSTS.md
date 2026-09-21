@@ -215,7 +215,10 @@ discs for them, do not budget from this page:
   (about 150 CU on a typed program-owned account, since 2026-09-21; the
   curve-checked `create_program_address` syscall is 1,500) is an order of
   magnitude cheaper than a `find_program_address` bump search, and it is
-  the path Hopper's macros steer you toward.
+  the path Hopper's macros steer you toward. An `init` field with
+  `bump = <arg>` costs no hash at all: the creation CPI signed with the
+  seeds is the check, since the System Program requires the created account
+  to sign (the hash runs only for a signer or a non-empty account).
 - **Logging macro variants** (`hopper_log!`, `msg!` with formatting,
   `hopper_emit_cpi!`). The measured anchor points from this run: one
   log-class syscall bills 100 CU base (the empty bracket measures 101 CU),

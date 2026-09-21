@@ -164,6 +164,18 @@ marked the field and the context author asked for it. A field merely NAMED
 `bump` is never auto-detected, and `bump = stored` on an unmarked type is
 a compile error.
 
+On `init` with `seeds` and `bump = <arg>`, Anchor hashes the seeds before
+creating the account; Hopper does not hash at all. The lifecycle helper
+creates the account through a System Program CPI signed with those seeds
+and that bump, and the System Program requires the created account to sign,
+so an account that is not a transaction signer passes only as the address
+the runtime derives from the seeds. The one visible difference: a wrong
+account handed to `init` fails the transaction at the CPI with the
+runtime's privilege-escalation error (`Cross-program invocation with
+unauthorized signer or writable account`) rather than Anchor's
+`ConstraintSeeds`. A signing account or one that already holds data is
+still hashed and refused with `InvalidSeeds`.
+
 ### Composite (nested) accounts structs
 
 Anchor lets one accounts struct embed another; Hopper spells the same
@@ -415,8 +427,10 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
    no data takes the init lifecycle, which since 2026-09-19 is one System
    `CreateAccountAllowPrefund` CPI (instruction 13) for both `init` and
    `init_if_needed`; a slot that already holds lamports is topped up by
-   the shortfall, and the payer is omitted when the balance already
-   covers rent. Anchor v1 master (#5057) and v2 (#4945) adopted the same
+   the shortfall, a zero delta when the balance already covers rent (the
+   payer stays in the instruction and the System Program ignores it, so
+   one CPI body serves both shapes). Anchor v1 master (#5057) and v2
+   (#4945) adopted the same
    instruction on 2026-09-17, so account creation is not a difference
    between the frameworks. A slot with data skips the
    CPI and must already pass the owner + layout-header checks, so a

@@ -164,11 +164,46 @@ impl Rent {
     /// runtime is exact (proven in the Kani harnesses below).
     #[inline]
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
+        // The same product Solana's `Rent::minimum_balance` computes, which
+        // does not saturate either: the loader caps `data_len` at 10 MiB, so
+        // the byte term is below 2^24 and the product below 2^64 for any
+        // rate under 2^40 lamports per byte-year. `saturating_mul` here
+        // linked and called the 128-bit `__multi3` helper (344 bytes, about
+        // 50 CU) on every `init` (measured 2026-09-21).
         let bytes = data_len as u64;
         let integer_part = ACCOUNT_STORAGE_OVERHEAD
             .saturating_add(bytes)
-            .saturating_mul(self.lamports_per_byte_year);
+            .wrapping_mul(self.lamports_per_byte_year);
         scale_by_exemption_threshold(integer_part, self.exemption_threshold.to_bits())
+    }
+}
+
+/// `a * b`, saturating at `u64::MAX`, without the 128-bit multiply helper.
+///
+/// `u64::saturating_mul` and `checked_mul` lower to `umul.with.overflow`,
+/// which SBF has no instruction for, so LLVM links `__multi3` (344 bytes)
+/// and calls it (about 50 CU); the `a > u64::MAX / b` and `(a * b) / b != a`
+/// guards are recognized as the same idiom and get the same helper.
+/// Splitting both operands into 32-bit halves decides overflow with 64-bit
+/// arithmetic only: the product exceeds 64 bits exactly when both high
+/// halves are nonzero, when the cross term reaches 2^32, or when the final
+/// add carries.
+#[inline(always)]
+pub const fn saturating_mul_u64(a: u64, b: u64) -> u64 {
+    let (ah, al) = (a >> 32, a & 0xFFFF_FFFF);
+    let (bh, bl) = (b >> 32, b & 0xFFFF_FFFF);
+    if ah != 0 && bh != 0 {
+        return u64::MAX;
+    }
+    // At most one high half is nonzero, so each term is a 32 x 32 product
+    // and one addend is zero: exact in 64 bits.
+    let cross = ah * bl + al * bh;
+    if cross >> 32 != 0 {
+        return u64::MAX;
+    }
+    match (cross << 32).checked_add(al * bl) {
+        Some(product) => product,
+        None => u64::MAX,
     }
 }
 
@@ -201,7 +236,7 @@ pub fn scale_by_exemption_threshold(integer_part: u64, threshold_bits: u64) -> u
     if threshold_bits == THRESHOLD_TWO_BITS {
         return integer_part.saturating_mul(2);
     }
-    integer_part.saturating_mul(ceil_years(threshold_bits))
+    saturating_mul_u64(integer_part, ceil_years(threshold_bits))
 }
 
 /// Ceiling of a double (given as bits) as a `u64`, saturating: the whole
@@ -844,6 +879,35 @@ mod rent_tests {
     /// cluster has stored, and for every other finite positive threshold a
     /// whole-year round-up that is never below the float cast the runtime
     /// historically used.
+    #[test]
+    fn saturating_mul_u64_matches_the_library_operator() {
+        let samples = [
+            0u64,
+            1,
+            2,
+            3,
+            128,
+            153,
+            3_480,
+            5_080,
+            6_333,
+            10_485_888,
+            u32::MAX as u64,
+            u32::MAX as u64 + 1,
+            1 << 40,
+            u64::MAX / 3,
+            u64::MAX / 2,
+            u64::MAX / 2 + 1,
+            u64::MAX - 1,
+            u64::MAX,
+        ];
+        for &a in &samples {
+            for &b in &samples {
+                assert_eq!(saturating_mul_u64(a, b), a.saturating_mul(b), "{a} * {b}");
+            }
+        }
+    }
+
     #[test]
     fn threshold_scaling_is_float_free_and_never_underfunds() {
         fn reference(integer_part: u64, threshold: f64) -> u64 {

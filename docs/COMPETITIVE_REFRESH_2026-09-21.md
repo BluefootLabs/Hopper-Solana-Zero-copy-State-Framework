@@ -61,8 +61,8 @@ Mollusk 0.15.1, so the toolchain delta against pina's Agave 4.2.2 / Mollusk
 | --- | --- | ---: | --- | --- |
 | hello | Hopper (substrate) | 1,656 | 116 | smallest binary in the table; pinocchio 3,160 / 111, Anchor v2 1,880 / 127, Quasar 2,520 / 115, Pina 4,680 / 145 |
 | hello | Hopper (macro) | 1,792 | 138 | `#[program]` + `Signer` context on the count-exact entrypoint; 11 CU over Anchor v2, 23 over Quasar, while materializing the borrow registry and the write gate |
-| counter | Hopper (substrate) | 8,368 | 1,670 / 1,754 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
-| counter | Hopper (macro) | 10,784 | 1,800 / 368 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,458 CU or more while reading the live rent sysvar; `increment` 386 against Pina 1,753, Anchor 2,117, Quasar 330 |
+| counter | Hopper (substrate) | 8,160 | 1,618 / 1,754 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
+| counter | Hopper (macro) | 9,960 | 1,572 / 368 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,729 CU or more while reading the live rent sysvar, 82 CU behind hand-written pinocchio; `increment` 368 against Pina 1,753, Anchor 2,117, Quasar 330 |
 
 The table also paid for itself a second time. Instrumenting the substrate
 `increment` with `sol_log_compute_units` put the PDA re-derivation at 1,573
@@ -112,6 +112,30 @@ registry and the write gate, so the entry stays 11 CU behind Anchor and 23
 behind Quasar on the one-account hello; the win is the 152 bytes and the
 removed per-extra-account walk. The final rows above carry those numbers.
 
+The fifth pass got named function sizes out of the release ELF at last
+(`cargo build-sbf --dump` with `CARGO_PROFILE_RELEASE_DEBUG=2`; the earlier
+call-site slicer had been cutting one 4 KB dispatch body into six pieces)
+and found three things in the `init` path. `CreateAccountAllowPrefund`
+compiled two CPI bodies, one per account shape, because the payer was
+dropped from the instruction when the rent delta was zero; the System
+Program only checks for one account in that case and ignores a second, so
+the builder now always sends the payer and one body serves both (verified
+in the processor source and on devnet). The rent product used
+`saturating_mul`, which SBF lowers to a call into the 344-byte `__multi3`
+helper (about 50 CU per `init`); it is now the runtime's own plain product,
+and the whole-year fallback uses a 32-bit-halves overflow test after LLVM
+turned both a divide guard and a divide-back guard straight back into the
+helper. And the `init` field's own PDA hash was redundant: the helper
+creates the account through a CPI signed with the same seeds and bump, and
+the System Program requires the created account to sign, so an account
+that is not a transaction signer can only pass as the address the runtime
+derives from those seeds. The derive now hashes an `init` PDA with a
+supplied bump only when the account signs or already holds data (out of
+line, once per program), and lets the runtime's signer check prove it
+otherwise. The macro `initialize` went from 1,800 to 1,572 CU and the ELF
+from 10,784 to 9,960 bytes; the substrate row, which only shares the
+multiply fix, went from 1,670 to 1,618 and 8,368 to 8,160.
+
 Where Hopper does not win, in the table's own terms, with the measured
 split behind each gap:
 
@@ -124,13 +148,14 @@ split behind each gap:
   context object at all and its header compare is the parse; the `Context`
   stores are the price of the borrow registry and the write gate, and they
   are the part left to attack.
-- The macro counter binary (10,920 bytes) is larger than Anchor v2 (8,696)
-  and Quasar (7,808). The substrate row shows the framework's floor is not
-  the cause; the macro-generated lifecycle helpers, header writes, and
-  layout checks are. Every Hopper program also links about 1.7 KB for the
-  full body of the ambient write gate (`strict_writes`), whose no-gate fast
-  path is three loads and branches per mutable borrow; the code is only
-  executed under an installed policy but LTO cannot drop it. Quasar's own
+- The macro counter binary (9,960 bytes) is larger than Anchor v2 (8,696)
+  and Quasar (7,808). Named from the dump: the `initialize` dispatch (bind,
+  rent, the creation CPI with its validation, the header write) is 3,744
+  bytes, `increment` 1,704, the count-exact entrypoint 752, the out-of-line
+  cold PDA hash 320, and the ambient write gate body (`gate_store::check`)
+  1,736, linked into every Hopper program with a three-load fast path per
+  mutable borrow; the gate code is only executed under an installed policy
+  but LTO cannot drop it, and it is the whole remaining gap to Anchor. Quasar's own
   binaries carry a comparable self-inflicted cost (about 950 bytes of
   `u64 <-> ProgramError` round-trip tables, 42% of its hello ELF), so the
   size race is about which scaffolding each framework carries, not the
@@ -202,11 +227,12 @@ and `.../devnet-audit/`; the record is in `docs/DEVNET_RELEASE_EVIDENCE.md`.
 
 ## 7. Ledger
 
-- Open: a pull request adding the Hopper rows to pina's matrix; size
-  profiling of the macro counter path; the 70 CU macro hello overhead;
-  non-canonical metadata records and the `Close`/`Extend` instructions in
-  the publishers.
+- Open: a pull request adding the Hopper rows to pina's matrix; the 22 CU
+  macro hello overhead over the substrate; non-canonical metadata records
+  and the `Close`/`Extend` instructions in the publishers; the write gate
+  body's size.
 - Closed here: the hard-coded rent constant, the soft-float rent path, the
   missing Hopper row, security.txt publication parity with Anchor, manifest
-  publication, transaction v1 sending, and the `maxSupportedTransactionVersion`
-  cap in `tx explain`.
+  publication, transaction v1 sending, the `maxSupportedTransactionVersion`
+  cap in `tx explain`, the duplicated `init` CPI body, the `__multi3` rent
+  product, and the redundant `init` PDA hash.

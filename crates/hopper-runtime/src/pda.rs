@@ -83,6 +83,23 @@ pub fn verify_pda_address(
     }
 }
 
+/// [`verify_pda_address`] kept out of line.
+///
+/// `#[derive(Accounts)]` calls this on the branch of a CPI-proven `init`
+/// field that the creation CPI cannot prove (a signer, or an account that
+/// already holds data). That branch is cold, so the seed staging and the
+/// hash compare, about 700 bytes inlined, are linked once for the program
+/// instead of once per such field.
+#[cold]
+#[inline(never)]
+pub fn verify_pda_address_cold(
+    seeds: &[&[u8]],
+    program_id: &Address,
+    expected: &Address,
+) -> Result<(), ProgramError> {
+    verify_pda_address(seeds, program_id, expected)
+}
+
 /// [`verify_pda_address`] with the full `create_program_address` syscall,
 /// so an address whose hash lands on the ed25519 curve is refused.
 #[inline]

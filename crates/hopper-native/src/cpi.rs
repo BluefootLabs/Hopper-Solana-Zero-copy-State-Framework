@@ -113,13 +113,10 @@ pub(crate) fn invoke_specialized_signed<'a, const ACCOUNTS: usize>(
 
     // SAFETY: the protocol masks above produced exact metas; preflight checked
     // outer writable privileges and every account's borrow compatibility.
-    unsafe {
-        if signers_seeds.is_empty() {
-            invoke_unchecked(&instruction, accounts)
-        } else {
-            invoke_signed_unchecked(&instruction, accounts, signers_seeds)
-        }
-    }
+    // The signed form with an empty seed list is the unsigned invoke (the
+    // syscall reads the seed pointer only when the count is nonzero), so one
+    // syscall site serves both instead of the two copies a branch compiled to.
+    unsafe { invoke_signed_unchecked(&instruction, accounts, signers_seeds) }
 }
 
 // ---------------------------------------------------------------------

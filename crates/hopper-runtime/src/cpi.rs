@@ -70,37 +70,12 @@ pub unsafe fn invoke_unchecked(
     instruction: &InstructionView<'_, '_, '_, '_>,
     accounts: &[CpiAccount<'_>],
 ) -> ProgramResult {
-    #[cfg(target_os = "solana")]
-    {
-        let c_instruction = CInstruction {
-            program_id: instruction.program_id as *const Address,
-            accounts: instruction.accounts.as_ptr(),
-            accounts_len: instruction.accounts.len() as u64,
-            data: instruction.data.as_ptr(),
-            data_len: instruction.data.len() as u64,
-        };
-
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let result = unsafe {
-            hopper_native::syscalls::sol_invoke_signed_c(
-                &c_instruction as *const _ as *const u8,
-                accounts.as_ptr() as *const u8,
-                accounts.len() as u64,
-                core::ptr::null(),
-                0,
-            )
-        };
-        if result == 0 {
-            Ok(())
-        } else {
-            Err(ProgramError::from(result))
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (instruction, accounts);
-        Ok(())
-    }
+    // The signed form with no seeds is the unsigned invoke: the syscall
+    // reads the seed pointer only when the count is nonzero. One wrapper
+    // body serves both, so a program that invokes signed and unsigned links
+    // one syscall site instead of two.
+    // SAFETY: the caller upholds the unchecked CPI contract; forwarded as is.
+    unsafe { invoke_signed_unchecked(instruction, accounts, &[]) }
 }
 
 /// Invoke a signed CPI without borrow validation.
@@ -642,6 +617,51 @@ pub fn invoke<const ACCOUNTS: usize>(
     invoke_signed::<ACCOUNTS>(instruction, account_views, &[])
 }
 
+/// Host-only System Program emulation shared by the checked invoke tiers:
+/// `Some` when the instruction is one of the emulated System instructions
+/// (and carries its result), `None` when the caller should proceed to its
+/// validation pass and the (no-op off-chain) syscall.
+#[cfg(not(target_os = "solana"))]
+#[inline]
+fn emulate_host_system(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
+) -> Option<ProgramResult> {
+    if is_host_system_transfer(instruction) {
+        return Some(
+            validate_host_system_transfer(instruction, account_views, signers_seeds, 2)
+                .and_then(|()| emulate_host_system_transfer(instruction, account_views)),
+        );
+    }
+    if is_host_system_create_account(instruction) {
+        return Some(
+            validate_host_system_transfer(instruction, account_views, signers_seeds, 2)
+                .and_then(|()| emulate_host_system_create_account(instruction, account_views)),
+        );
+    }
+    if is_host_system_create_account_allow_prefund(instruction) {
+        return Some(
+            validate_host_system_transfer(instruction, account_views, signers_seeds, 1).and_then(
+                |()| emulate_host_system_create_account_allow_prefund(instruction, account_views),
+            ),
+        );
+    }
+    if is_host_system_allocate(instruction) {
+        return Some(
+            validate_host_system_transfer(instruction, account_views, signers_seeds, 1)
+                .and_then(|()| emulate_host_system_allocate(instruction, account_views)),
+        );
+    }
+    if is_host_system_assign(instruction) {
+        return Some(
+            validate_host_system_transfer(instruction, account_views, signers_seeds, 1)
+                .and_then(|()| emulate_host_system_assign(instruction, account_views)),
+        );
+    }
+    None
+}
+
 /// Invoke a signed CPI with full validation.
 #[inline]
 pub fn invoke_signed<const ACCOUNTS: usize>(
@@ -650,29 +670,8 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     #[cfg(not(target_os = "solana"))]
-    if is_host_system_transfer(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 2)?;
-        return emulate_host_system_transfer(instruction, &account_views[..]);
-    }
-    #[cfg(not(target_os = "solana"))]
-    if is_host_system_create_account(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 2)?;
-        return emulate_host_system_create_account(instruction, &account_views[..]);
-    }
-    #[cfg(not(target_os = "solana"))]
-    if is_host_system_create_account_allow_prefund(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 1)?;
-        return emulate_host_system_create_account_allow_prefund(instruction, &account_views[..]);
-    }
-    #[cfg(not(target_os = "solana"))]
-    if is_host_system_allocate(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 1)?;
-        return emulate_host_system_allocate(instruction, &account_views[..]);
-    }
-    #[cfg(not(target_os = "solana"))]
-    if is_host_system_assign(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 1)?;
-        return emulate_host_system_assign(instruction, &account_views[..]);
+    if let Some(result) = emulate_host_system(instruction, &account_views[..], signers_seeds) {
+        return result;
     }
 
     let metas_len = instruction.accounts.len();
@@ -805,13 +804,7 @@ fn dispatch_cpi_fixed<const ACCOUNTS: usize>(
     // shared-borrowable), so no live borrow conflicts with the runtime's
     // access during the CPI, exactly the invariant
     // `invoke_unchecked`/`invoke_signed_unchecked` require.
-    unsafe {
-        if signers_seeds.is_empty() {
-            invoke_unchecked(instruction, accounts.as_slice())
-        } else {
-            invoke_signed_unchecked(instruction, accounts.as_slice(), signers_seeds)
-        }
-    }
+    unsafe { invoke_signed_unchecked(instruction, accounts.as_slice(), signers_seeds) }
 }
 
 /// Invoke with a dynamic number of accounts (bounded by const generic).
@@ -835,9 +828,8 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     }
 
     #[cfg(not(target_os = "solana"))]
-    if is_host_system_transfer(instruction) {
-        validate_host_system_transfer(instruction, account_views, signers_seeds, 2)?;
-        return emulate_host_system_transfer(instruction, account_views);
+    if let Some(result) = emulate_host_system(instruction, account_views, signers_seeds) {
+        return result;
     }
 
     let metas_len = instruction.accounts.len();
@@ -911,13 +903,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     };
 
     // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        if signers_seeds.is_empty() {
-            invoke_unchecked(instruction, accounts)
-        } else {
-            invoke_signed_unchecked(instruction, accounts, signers_seeds)
-        }
-    }
+    unsafe { invoke_signed_unchecked(instruction, accounts, signers_seeds) }
 }
 
 // -- SIMD-0339 dedup-aware path ---------------------------------------

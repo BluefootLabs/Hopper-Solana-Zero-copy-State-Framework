@@ -212,15 +212,19 @@ impl CreateAccount<'_, '_> {
 /// System Program allocates, assigns, and then transfers `lamports` from the
 /// funding account as a delta on top of the existing balance, so callers pass
 /// `required.saturating_sub(current)`. The account order is `[to, from]`,
-/// the reverse of `CreateAccount`, and `from` is omitted when no lamports
-/// move. `to` must sign (or be a PDA in `signers`) and must be System-owned
-/// with no data. The feature gate is active on mainnet-beta, devnet, and
+/// the reverse of `CreateAccount`. A funding account is sent whenever one is
+/// given, even with a zero delta (the System Program checks for one account
+/// and ignores the second then), so `hopper_init!`, which always names the
+/// payer, links one CPI body instead of a funded and a pre-funded copy (1.4
+/// KiB of `.text` per program, measured 2026-09-21); `from` is left out only
+/// when `funding` is `None`. `to` must sign (or be a PDA in `signers`) and
+/// must be System-owned with no data. The feature gate is active on mainnet-beta, devnet, and
 /// testnet; the System Program rejects the tag with
 /// `InvalidInstructionData` where it is not.
 pub struct CreateAccountAllowPrefund<'a, 'b> {
     pub to: &'a AccountView<'a>,
-    /// Funding account and lamport delta. `None`, or a zero delta, omits the
-    /// payer from the instruction entirely.
+    /// Funding account and lamport delta. `None` omits the payer from the
+    /// instruction; a zero delta keeps it (ignored by the System Program).
     pub funding: Option<(&'a AccountView<'a>, u64)>,
     pub space: u64,
     pub owner: &'b Address,
@@ -234,18 +238,14 @@ impl CreateAccountAllowPrefund<'_, '_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let (from, lamports) = match self.funding {
-            Some((from, lamports)) if lamports > 0 => (Some(from), lamports),
-            _ => (None, 0),
-        };
         let data = encoders::encode_create_account_allow_prefund(
-            lamports,
+            self.funding.map_or(0, |(_, lamports)| lamports),
             self.space,
             self.owner.as_array(),
         );
 
-        match from {
-            Some(from) => {
+        match self.funding {
+            Some((from, _)) => {
                 let accounts = [
                     InstructionAccount::writable_signer(self.to.address()),
                     InstructionAccount::writable_signer(from.address()),
