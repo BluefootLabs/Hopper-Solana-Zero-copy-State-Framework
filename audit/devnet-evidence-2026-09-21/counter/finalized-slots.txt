@@ -1,0 +1,8 @@
+3Ffw7cvm 502112265 None 2670
+2F6GDXQm 502112352 {'InstructionError': [0, 'PrivilegeEscalation']} 1347
+4UvJXVJA 502112368 {'InstructionError': [0, 'InvalidSeeds']} 305
+4HfBzkCr 502112383 None 1572
+3hicMGiS 502112390 None 368
+5TmEtPxz 502112398 {'InstructionError': [0, 'AccountAlreadyInitialized']} 499
+4SuSwBSm 502112499 None 1570
+2gAkNoYD 502112508 None 368

@@ -225,6 +225,18 @@ snapshot, on-chain dumps matching the local ELFs before and after. The
 bundles and checksums are under `audit/devnet-evidence-2026-09-21/escrow/`
 and `.../devnet-audit/`; the record is in `docs/DEVNET_RELEASE_EVIDENCE.md`.
 
+The fifth pass changed the `init` path in ways no example lane exercises (a
+supplied-bump `init` PDA, a pre-funded account), so the macro counter fixture
+itself was deployed fresh at commit `a91462c` (`F4Um7PWs…`, slot
+502,112,265) and driven with `hopper tx send`: a wrong unsigned PDA was
+refused at the creation CPI with `PrivilegeEscalation` (1,347 CU), a signing
+non-PDA at bind with `InvalidSeeds` (305), `initialize` landed at 1,572 CU
+and `increment` at 368, exactly the Mollusk numbers, a second `initialize`
+was refused with `AccountAlreadyInitialized`, and a PDA pre-funded with
+2,000,000 lamports was initialized with the payer losing only its fee
+(1,570 CU). The on-chain dump matched the local ELF before and after; the
+bundle is `audit/devnet-evidence-2026-09-21/counter/`.
+
 ## 7. Ledger
 
 - Open: a pull request adding the Hopper rows to pina's matrix; the 22 CU

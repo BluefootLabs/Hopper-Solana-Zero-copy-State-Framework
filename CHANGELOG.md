@@ -111,6 +111,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   provenance, and checksum lists are archived under
   `audit/devnet-evidence-2026-09-19/`; the record with program ids and slots
   is in `docs/DEVNET_RELEASE_EVIDENCE.md`.
+- **Devnet lane for the framework-comparison counter.** The macro counter
+  fixture built at commit `a91462c` was deployed fresh on devnet
+  (`F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy`) and driven with
+  `hopper tx send` through the paths that commit changed: a wrong unsigned
+  PDA refused at the creation CPI (`PrivilegeEscalation`), a signing
+  non-PDA refused at bind (`InvalidSeeds`), `initialize` at 1,572 CU and
+  `increment` at 368 (the Mollusk numbers to the unit), a refused second
+  `initialize`, and a pre-funded PDA initialized with a zero-delta payer.
+  Logs, receipts, checksums, and the finalized re-fetch are under
+  `audit/devnet-evidence-2026-09-21/counter/`.
 
 ### Fixed
 
