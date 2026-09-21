@@ -155,8 +155,10 @@ pub struct Deposit<'info> {
 ```
 
 `bump = stored` reads the `#[bump]`-marked byte from the already-validated
-layout and verifies the PDA with one `create_program_address` hash, the
-same cost as the explicit expression form and far below a
+layout and verifies the PDA with one `sol_sha256` (about 150 CU, no
+`create_program_address` syscall and no curve check, which is sound because
+the owner and layout checks already ran), the same cost as the explicit
+expression form on a typed account and an order of magnitude below a
 `find_program_address` search. It is explicit twice over: the state author
 marked the field and the context author asked for it. A field merely NAMED
 `bump` is never auto-detected, and `bump = stored` on an unmarked type is

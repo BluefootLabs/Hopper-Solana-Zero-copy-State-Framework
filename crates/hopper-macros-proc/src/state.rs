@@ -305,7 +305,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     // `#[bump]` marker: emit the account-absolute offset of the canonical
     // bump byte so `#[account(seeds = [...], bump = stored)]` can verify
-    // the PDA with one `create_program_address` hash. Absent marker means
+    // the PDA with one sha256 hash. Absent marker means
     // absent const, so `bump = stored` on an unmarked type is a clean
     // missing-associated-item compile error.
     if let Some(bump_offset) = &canonical_bump_offset {
@@ -1609,7 +1609,7 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
             // program stored at init. The macro emits
             // `CANONICAL_BUMP_ABS_OFFSET` (headered AND compact walks) so
             // `#[account(seeds = [...], bump = stored)]` can verify the
-            // PDA with one `create_program_address` hash instead of a
+            // PDA with one sha256 hash instead of a
             // `find_program_address` search. Explicit by design: a field
             // merely NAMED `bump` is never auto-detected. The bare
             // identifier `stored` is reserved in `bump = ...` position;

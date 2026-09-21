@@ -34,3 +34,11 @@ pub use hopper_runtime::pda::verify_pda;
 
 /// Verify a PDA with an explicit bump seed appended to the seed list.
 pub use hopper_runtime::pda::verify_pda_with_bump;
+
+/// One-sha256 PDA verification for an address already bound to a
+/// program-owned or about-to-be-created account, and its curve-checked twin.
+/// `#[derive(Accounts)]` picks between them per field.
+pub use hopper_runtime::pda::{
+    find_bump_for_address, find_canonical_bump_checked, verify_pda_address,
+    verify_pda_address_checked,
+};

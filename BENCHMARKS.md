@@ -52,7 +52,7 @@ table (Agave 4.2.2, Mollusk 0.14).
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|
 | Hopper (substrate), measured here | 1,656 | 116 | 8,448 | 1,681 | 1,762 | 10 |
-| Hopper (macro), measured here | 2,376 | 186 | 11,408 | 3,207 | 1,748 | 25 |
+| Hopper (macro), measured here | 2,376 | 186 | 11,184 | 1,843 | 386 | 25 |
 | Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
 | Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
 | Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |
@@ -66,7 +66,11 @@ Pina. The macro rows use `#[derive(Accounts)]` with `init`, `payer`, `seeds`,
 `bump = <arg>` and `bump = stored`, and a headered 25-byte account; the
 verifier is told the offsets. The macro `initialize` reads the live Rent
 sysvar (a fix landed the same day; see the changelog), which the pinocchio
-fixture also does. Quasar's `increment` does not re-derive the PDA. Regenerate
+fixture also does. The macro rows verify PDAs with one `sol_sha256` (no
+`create_program_address` syscall, no curve check) because the account is
+either owner- and layout-validated or about to be created by a CPI signed
+with the same seeds; Quasar's `increment` relies on the same argument. The
+substrate row keeps the syscall, like pinocchio and Pina. Regenerate
 with `py -3.12 scripts/bench-framework-comparison.py`; the generated tables
 and JSON live in `bench/framework-comparison/results/`.
 

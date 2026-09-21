@@ -62,7 +62,7 @@ Mollusk 0.15.1, so the toolchain delta against pina's Agave 4.2.2 / Mollusk
 | hello | Hopper (substrate) | 1,656 | 116 | smallest binary in the table; pinocchio 3,160 / 111, Anchor v2 1,880 / 127, Quasar 2,520 / 115, Pina 4,680 / 145 |
 | hello | Hopper (macro) | 2,376 | 186 | `#[program]` + `Signer` context; the highest CU in the table, 70 over the substrate |
 | counter | Hopper (substrate) | 8,448 | 1,681 / 1,762 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
-| counter | Hopper (macro) | 11,408 | 3,207 / 1,748 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 while reading the live rent sysvar; `increment` beats Pina 1,753 and Anchor 2,117 |
+| counter | Hopper (macro) | 11,184 | 1,843 / 386 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,458 CU or more while reading the live rent sysvar; `increment` 386 against Pina 1,753, Anchor 2,117, Quasar 330 |
 
 The table also paid for itself a second time. Instrumenting the substrate
 `increment` with `sol_log_compute_units` put the PDA re-derivation at 1,573
@@ -71,7 +71,24 @@ zero-filling a 256-byte staging buffer and repacking the seeds before every
 call, although a `&[&[u8]]` already is the `(ptr, len)` array the syscall
 reads. The wrapper now passes the slice through (the hash wrappers had the
 same pattern and got the same fix): 24 CU per derivation on every PDA check
-in every Hopper program, which is what moved both counter rows above.
+in every Hopper program.
+
+The second lesson came from reading how Quasar reaches 330 CU on
+`increment`: for an account that is already owner- and discriminator-
+validated, it reads the stored bump and verifies the PDA with one
+`sol_sha256`, no `create_program_address` syscall and no curve check. The
+argument is sound: a hash output can only be an address someone holds a key
+for if they can invert the hash or solve a discrete log, so a program-owned,
+layout-validated account at that address is a PDA, and an `init` account is
+protected by the CreateAccount CPI's own signer check, which refuses an
+on-curve address. Hopper's substrate already had the one-hash verifier
+(`verify_program_address`) and the no-curve bump search
+(`find_bump_for_address`); the derive was wired to the syscall. It now
+picks the one-hash path for `init` fields and typed program-owned wrappers
+and keeps the curve-checked derivation for unchecked and system accounts.
+That is what took the macro `increment` from 1,748 to 386 CU and
+`initialize` from 3,207 to 1,843, on every `seeds` context in every Hopper
+program, not only the fixture.
 
 Where Hopper does not win, in the table's own terms, with the measured
 split behind each gap:
@@ -86,18 +103,25 @@ split behind each gap:
   of that is a single hot spot; closing it means slimmer scaffolding on the
   typed dispatch path, which is the next `profile = "tiny"` target. Anchor
   v2 does the same job in 127 CU.
-- The macro counter binary (11,408 bytes) is larger than Anchor v2 (8,696)
+- The macro counter binary (11,184 bytes) is larger than Anchor v2 (8,696)
   and Quasar (7,808). The substrate row shows the framework's floor is not
   the cause; the macro-generated lifecycle helpers, header writes, and
   layout checks are. Every Hopper program also links about 1.7 KB for the
   full body of the ambient write gate (`strict_writes`), whose no-gate fast
   path is three loads and branches per mutable borrow; the code is only
-  executed under an installed policy but LTO cannot drop it.
-- The substrate `increment` is now 41 CU over pinocchio for the same work:
-  entry and dispatch 58, signer and owner checks 20, the gated typed load
-  27, add and release 6, the rest the log and the PDA syscall. The typed
-  load is the gate fast path plus exact-length and discriminator
-  validation, which pinocchio's raw slice access does not do.
+  executed under an installed policy but LTO cannot drop it. Quasar's own
+  binaries carry a comparable self-inflicted cost (about 950 bytes of
+  `u64 <-> ProgramError` round-trip tables, 42% of its hello ELF), so the
+  size race is about which scaffolding each framework carries, not the
+  entrypoint.
+- The macro `increment` is 56 CU over Quasar's 330 for strictly more work
+  (Hopper validates the 16-byte header and layout id; Quasar checks a
+  1-byte discriminator), and the substrate `increment` is 41 CU over
+  pinocchio: entry and dispatch 58, signer and owner checks 20, the gated
+  typed load 27, add and release 6, the rest the log and the PDA syscall
+  the substrate row keeps on purpose (like-for-like with pinocchio and
+  Pina). The typed load is the gate fast path plus exact-length and
+  discriminator validation, which pinocchio's raw slice access does not do.
 
 The full tables, the driver, and the upstream recipe are in
 `bench/framework-comparison/`. The Hopper fixtures are written so they drop

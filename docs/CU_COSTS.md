@@ -211,10 +211,11 @@ discs for them, do not budget from this page:
 - **Token-2022 extension TLV walks** (`extensions::*`)
 - **PDA derivation** (`seeds`/`bump` paths). Structural guidance that
   remains true and is measured end-to-end in the vault parity lab
-  (`BENCHMARKS.md`): verifying a **stored bump** with one
-  `create_program_address` is roughly an order of magnitude cheaper than
-  `find_program_address` bump search, and it is the path Hopper's macros
-  steer you toward.
+  (`BENCHMARKS.md`): verifying a **stored bump** with one `sol_sha256`
+  (about 150 CU on a typed program-owned account, since 2026-09-21; the
+  curve-checked `create_program_address` syscall is 1,500) is an order of
+  magnitude cheaper than a `find_program_address` bump search, and it is
+  the path Hopper's macros steer you toward.
 - **Logging macro variants** (`hopper_log!`, `msg!` with formatting,
   `hopper_emit_cpi!`). The measured anchor points from this run: one
   log-class syscall bills 100 CU base (the empty bracket measures 101 CU),

@@ -50,6 +50,99 @@ pub fn derive(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     find_program_address(seeds, program_id)
 }
 
+/// Verify that `expected` is the address the PDA hash of `seeds` (bump
+/// included) yields under `program_id`: one `sol_sha256` (about 150 CU),
+/// no `create_program_address` syscall (1,500 CU) and no curve check.
+///
+/// Sound wherever the address is already bound to something only a PDA
+/// can be: an account this program owns and whose layout validated (no
+/// private key can sign a program-owned account into existence at a hash
+/// output), or an account about to be created by a CPI signed with these
+/// seeds (the runtime's own signer check rejects an on-curve address). For
+/// an address with no such binding, an unchecked or system account, use
+/// [`verify_pda_address_checked`], which keeps the curve rejection.
+#[inline]
+pub fn verify_pda_address(
+    seeds: &[&[u8]],
+    program_id: &Address,
+    expected: &Address,
+) -> Result<(), ProgramError> {
+    #[cfg(target_os = "solana")]
+    {
+        hopper_native::pda::verify_program_address(
+            seeds,
+            crate::native_boundary::as_backend_address(program_id),
+            crate::native_boundary::as_backend_address(expected),
+        )
+        .map_err(ProgramError::from)
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (seeds, program_id, expected);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
+/// [`verify_pda_address`] with the full `create_program_address` syscall,
+/// so an address whose hash lands on the ed25519 curve is refused.
+#[inline]
+pub fn verify_pda_address_checked(
+    seeds: &[&[u8]],
+    program_id: &Address,
+    expected: &Address,
+) -> Result<(), ProgramError> {
+    let derived = create_program_address(seeds, program_id)?;
+    if crate::address::address_eq(&derived, expected) {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
+/// Find the bump under which `seeds` hash to `expected`, searching from
+/// 255 down with one `sol_sha256` per candidate and no curve check (about
+/// 150 CU per candidate instead of about 310). Returns `InvalidSeeds` when
+/// no bump matches. Same soundness condition as [`verify_pda_address`]:
+/// use it only when `expected` is bound to a program-owned or about-to-be
+/// created account; otherwise [`find_canonical_bump_checked`].
+#[inline]
+pub fn find_bump_for_address(
+    seeds: &[&[u8]],
+    program_id: &Address,
+    expected: &Address,
+) -> Result<u8, ProgramError> {
+    #[cfg(target_os = "solana")]
+    {
+        hopper_native::pda::find_bump_for_address(
+            seeds,
+            crate::native_boundary::as_backend_address(program_id),
+            crate::native_boundary::as_backend_address(expected),
+        )
+        .map_err(ProgramError::from)
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (seeds, program_id, expected);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
+/// The canonical bump for `seeds`, found with the curve check on every
+/// candidate, provided the canonical address equals `expected`.
+#[inline]
+pub fn find_canonical_bump_checked(
+    seeds: &[&[u8]],
+    program_id: &Address,
+    expected: &Address,
+) -> Result<u8, ProgramError> {
+    let (derived, bump) = find_program_address(seeds, program_id);
+    if crate::address::address_eq(&derived, expected) {
+        Ok(bump)
+    } else {
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
 /// Verify that an account's address matches a PDA derived from the given seeds.
 #[inline]
 pub fn verify_pda(

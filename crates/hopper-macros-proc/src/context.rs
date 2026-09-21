@@ -1843,18 +1843,21 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 quote! { ctx.program_id() }
             };
+            // Same cheap-versus-checked choice as the `seeds = [...]` form
+            // below; see the note there.
+            let find_bump_fn = if cheap_pda_field(cf) {
+                quote! { ::hopper::pda::find_bump_for_address }
+            } else {
+                quote! { ::hopper::pda::find_canonical_bump_checked }
+            };
             field_checks.push(quote! {
                 {
                     let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
-                    let (expected, _bump) = ::hopper::pda::find_program_address(
+                    let _bump: u8 = #find_bump_fn(
                         __seed_slices,
                         #pda_program_expr,
-                    );
-                    if ctx.account(#slot)?.address() != &expected {
-                        return ::core::result::Result::Err(
-                            ::hopper::__runtime::ProgramError::InvalidSeeds
-                        );
-                    }
+                        ctx.account(#slot)?.address(),
+                    )?;
                 }
             });
             check_descriptions.push(format!(
@@ -1866,11 +1869,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 quote! {
                     {
                         let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
-                        let (_, __b) = ::hopper::pda::find_program_address(
+                        #find_bump_fn(
                             __seed_slices,
                             #pda_program_expr,
-                        );
-                        __b
+                            ctx.account(#slot)?.address(),
+                        )?
                     }
                 },
             ));
@@ -1900,19 +1903,36 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 ref_exprs.push(quote! { #bump_expr });
             }
             let seed_binds = sibling_binds(&ref_exprs, &ctx_ref);
+            // One-sha256 verification (no `create_program_address`
+            // syscall, no curve check) is sound where the address is
+            // already bound to something only a PDA can be: an `init`
+            // field, whose CreateAccount CPI is signed with these seeds
+            // and refused by the runtime for an on-curve address, or a
+            // typed program-owned wrapper, whose owner and layout checks
+            // no key-holder can satisfy at a hash output. Unchecked and
+            // system accounts keep the curve-checked syscall. Measured
+            // 2026-09-21 on the framework-comparison counter: 1,500 CU
+            // to about 150 per stored-bump check.
+            let cheap_pda = cheap_pda_field(cf);
+            let verify_fn = if cheap_pda {
+                quote! { ::hopper::pda::verify_pda_address }
+            } else {
+                quote! { ::hopper::pda::verify_pda_address_checked }
+            };
+            let find_bump_fn = if cheap_pda {
+                quote! { ::hopper::pda::find_bump_for_address }
+            } else {
+                quote! { ::hopper::pda::find_canonical_bump_checked }
+            };
             let verify_call = match bump {
                 BumpSpec::Inferred => quote! {
                     {
                         #seed_binds
-                        let (expected, _bump) = ::hopper::pda::find_program_address(
+                        let _bump: u8 = #find_bump_fn(
                             &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
                             #pda_program_expr,
-                        );
-                        if ctx.account(#slot)?.address() != &expected {
-                            return ::core::result::Result::Err(
-                                ::hopper::__runtime::ProgramError::InvalidSeeds
-                            );
-                        }
+                            ctx.account(#slot)?.address(),
+                        )?;
                     }
                 },
                 BumpSpec::Stored(bump_expr) => quote! {
@@ -1924,26 +1944,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         // until the end of this call, a separate binding would
                         // drop them first (E0716) whenever a seed evaluates to
                         // an owned value or a borrow like `&[u8; 32]`.
-                        let expected = ::hopper::pda::create_program_address(
+                        #verify_fn(
                             &[
                                 #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
                                 ::core::slice::from_ref(&bump),
                             ],
                             #pda_program_expr,
+                            ctx.account(#slot)?.address(),
                         )?;
-                        if ctx.account(#slot)?.address() != &expected {
-                            return ::core::result::Result::Err(
-                                ::hopper::__runtime::ProgramError::InvalidSeeds
-                            );
-                        }
                     }
                 },
                 // `bump = stored`: read the canonical bump from THIS
                 // account's `#[bump]`-marked field. This runs in Stage 4,
                 // AFTER the wrapper validated owner / discriminator /
                 // layout identity, so the byte is read from an
-                // already-authenticated layout. One create_program_address
-                // hash replaces the find_program_address search.
+                // already-authenticated layout. One sha256 hash replaces
+                // the find_program_address search.
                 BumpSpec::StoredField => match &layout_ty {
                     Some(bump_ty) => quote! {
                         {
@@ -1961,18 +1977,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                     }
                                 }
                             };
-                            let expected = ::hopper::pda::create_program_address(
+                            #verify_fn(
                                 &[
                                     #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
                                     ::core::slice::from_ref(&bump),
                                 ],
                                 #pda_program_expr,
+                                ctx.account(#slot)?.address(),
                             )?;
-                            if ctx.account(#slot)?.address() != &expected {
-                                return ::core::result::Result::Err(
-                                    ::hopper::__runtime::ProgramError::InvalidSeeds
-                                );
-                            }
                         }
                     },
                     None => syn::Error::new_spanned(
@@ -2040,11 +2052,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     quote! {
                         {
                             #gather_binds
-                            let (_, __b) = ::hopper::pda::find_program_address(
+                            #find_bump_fn(
                                 &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
                                 #pda_program_expr,
-                            );
-                            __b
+                                ctx.account(#slot)?.address(),
+                            )?
                         }
                     }
                 }
@@ -7825,6 +7837,27 @@ fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
     }
 }
 
+/// Whether a field's PDA check may use the one-sha256 verifier (no
+/// `create_program_address` syscall, no curve check). True for `init` and
+/// `init_if_needed` fields, whose CreateAccount CPI is signed with the same
+/// seeds and refused by the runtime for an on-curve address, and for typed
+/// program-owned wrappers (`Account`, `InitAccount`, and their `Option`
+/// forms), whose owner and layout validation no key-holder can satisfy at
+/// a hash output. Everything else keeps the curve-checked derivation.
+fn cheap_pda_field(field: &ContextField) -> bool {
+    if field.attr.init || field.attr.init_if_needed {
+        return true;
+    }
+    match classify_wrapper(&field.ty) {
+        Some(WrapperKind::Account { .. }) | Some(WrapperKind::InitAccount { .. }) => true,
+        Some(WrapperKind::Optional { inner }) => matches!(
+            *inner,
+            WrapperKind::Account { .. } | WrapperKind::InitAccount { .. }
+        ),
+        _ => false,
+    }
+}
+
 fn layout_type_for_field(field: &ContextField) -> Option<Type> {
     match classify_wrapper(&field.ty) {
         Some(WrapperKind::Account { inner }) | Some(WrapperKind::InitAccount { inner }) => {
@@ -9129,8 +9162,7 @@ mod instruction_arg_tests {
             "expect_signer_writable", // mut
             "check_owned_by",         // default owner pin
             "load :: < RefState >",   // layout header load
-            "find_program_address",   // PDA derivation (seeds + bump)
-            "InvalidSeeds",           // PDA mismatch error path
+            "find_bump_for_address",  // PDA derivation (seeds + bump), sha256-only
             "layout . payer",         // has_one field read
             "referral_enabled",       // custom constraint expr
         ] {

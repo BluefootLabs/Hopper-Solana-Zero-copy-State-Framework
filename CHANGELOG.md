@@ -19,8 +19,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   reproduces pina's published pinocchio numbers exactly. Measured
   2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
   the table), macro hello 2,376 / 186, substrate counter 8,448 bytes /
-  1,681 / 1,762 CU, macro counter 11,408 bytes / 3,207 / 1,748 CU (the
-  lowest `initialize` and `increment` of the framework rows).
+  1,681 / 1,762 CU, macro counter 11,184 bytes / 1,843 / 386 CU (the
+  lowest `initialize` of every row but hand-written pinocchio, and an
+  `increment` second only to Quasar's 330 while validating owner, header,
+  and layout).
 - **`hopper publish-security`.** Publishes a program's `security.txt` record
   through Program Metadata at the canonical `[program, "security"]` PDA, the
   record Solana Explorer reads, over the same signed-send path as
@@ -150,6 +152,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Changed
 
+- **PDA checks on typed and `init` accounts are one sha256.** `#[derive(Accounts)]`
+  verified `seeds` + `bump = stored` and `bump = <arg>` with the
+  `create_program_address` syscall (1,500 CU) and inferred bumps with a
+  curve check on every candidate (about 310 CU each). For an `init` field
+  the CreateAccount CPI signed with the same seeds already refuses an
+  on-curve address, and for a typed program-owned wrapper (`Account`,
+  `InitAccount`, their `Option` forms) the owner and layout checks cannot
+  be satisfied by any key-holder at a hash output, so those fields now use
+  `hopper::pda::verify_pda_address` (one `sol_sha256`, about 150 CU) and
+  `find_bump_for_address` (one sha256 per candidate, no curve check).
+  Unchecked and system accounts keep the curve-checked derivation through
+  the new `verify_pda_address_checked` and `find_canonical_bump_checked`.
+  The same rule Quasar applies; its safety argument holds for Hopper's
+  wrappers because they validate owner and layout before the seed check.
+  Measured on the framework-comparison macro counter: `initialize` 3,207
+  to 1,843 CU, `increment` 1,748 to 386 CU, 224 bytes off the ELF.
 - `hopper tx explain` requests `maxSupportedTransactionVersion: 1`, so v1
   transactions (already landing on every public cluster) decode instead of
   failing with `-32015`. The oversize-transaction error for legacy sends now
