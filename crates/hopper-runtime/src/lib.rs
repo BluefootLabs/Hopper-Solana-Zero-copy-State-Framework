@@ -645,7 +645,7 @@ macro_rules! hopper_entrypoint {
 
             // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_program_id = unsafe {
-                &*(&program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
+                &*(program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
             // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_accounts = unsafe {
@@ -730,10 +730,11 @@ macro_rules! hopper_fast_entrypoint {
                 let instruction_data: &'static [u8] =
                     unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
                 // SAFETY: program id trails the instruction data per the
-                // loader serialization layout; reading 32 bytes by value.
-                let program_id = unsafe {
-                    core::ptr::read(ix_data.add(ix_len) as *const $crate::__hopper_native::Address)
-                };
+                // loader serialization layout; `Address` is a transparent
+                // `[u8; 32]`, so a reference into the buffer is valid at any
+                // offset and lives as long as the invocation.
+                let program_id: &'static $crate::__hopper_native::Address =
+                    unsafe { &*(ix_data.add(ix_len) as *const $crate::__hopper_native::Address) };
 
                 if $crate::__hopper_native::raw_input::SIMD_0449_TABLE_ENABLED {
                     // SIMD-0449 build: consume the runtime's appended
@@ -772,7 +773,7 @@ macro_rules! hopper_fast_entrypoint {
             // SAFETY: `Address` is a transparent 32-byte wrapper shared by the
             // native and runtime layers; the reinterpret is layout-identical.
             let hopper_program_id = unsafe {
-                &*(&program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
+                &*(program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
             // SAFETY: the first `count` slots were initialized by the parser;
             // runtime `AccountView` is repr(transparent) over the native view.

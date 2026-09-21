@@ -72,6 +72,16 @@ Use `profile = "strict"` or `profile = "audit"` when a program needs those
 instrumented paths. Tiny programs still use typed contexts and Hopper account
 validation; the profile only keeps extra audit scaffolding out of the binary.
 
+Declare the instruction bound too: `#[program(profile = "tiny", max_accounts =
+N)]` where `N` is the widest context (plus any declared remaining accounts).
+The entrypoint's account scratch is sized to `N` slots instead of the 254-slot
+default, and at 64 or fewer the bridge that builds the `Context` is inlined
+into the entrypoint. Measured 2026-09-21 on the one-account hello fixture: 153
+CU with the default bound, 139 with `max_accounts = 1`, and 176 bytes off the
+ELF. Accounts past the bound are still walked (the instruction data and program
+id sit behind them) but not materialized, so a handler that reads undeclared
+extra accounts must keep the default.
+
 The repository enforces a 16 KiB SBF budget for [../examples/hopper-counter](../examples/hopper-counter)
 in the Solana SBF workflow. Keep that budget tied to the built `.so` size, not a
 source estimate:

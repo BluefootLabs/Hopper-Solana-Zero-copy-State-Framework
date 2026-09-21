@@ -60,9 +60,9 @@ Mollusk 0.15.1, so the toolchain delta against pina's Agave 4.2.2 / Mollusk
 | Fixture | Row | Size (bytes) | CU | Notes |
 | --- | --- | ---: | --- | --- |
 | hello | Hopper (substrate) | 1,656 | 116 | smallest binary in the table; pinocchio 3,160 / 111, Anchor v2 1,880 / 127, Quasar 2,520 / 115, Pina 4,680 / 145 |
-| hello | Hopper (macro) | 2,376 | 186 | `#[program]` + `Signer` context; the highest CU in the table, 70 over the substrate |
-| counter | Hopper (substrate) | 8,448 | 1,681 / 1,762 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
-| counter | Hopper (macro) | 11,184 | 1,843 / 386 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,458 CU or more while reading the live rent sysvar; `increment` 386 against Pina 1,753, Anchor 2,117, Quasar 330 |
+| hello | Hopper (macro) | 1,944 | 139 | `#[program]` + `Signer` context with `max_accounts = 1`; 12 CU over Anchor v2, 24 over Quasar, while materializing the borrow registry and the write gate |
+| counter | Hopper (substrate) | 8,368 | 1,670 / 1,754 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
+| counter | Hopper (macro) | 10,920 | 1,801 / 364 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,458 CU or more while reading the live rent sysvar; `increment` 386 against Pina 1,753, Anchor 2,117, Quasar 330 |
 
 The table also paid for itself a second time. Instrumenting the substrate
 `increment` with `sol_log_compute_units` put the PDA re-derivation at 1,573
@@ -90,20 +90,30 @@ That is what took the macro `increment` from 1,748 to 386 CU and
 `initialize` from 3,207 to 1,843, on every `seeds` context in every Hopper
 program, not only the fixture.
 
+The third pass traced the typed hello instruction by instruction (78
+executed before it, 100 of the 186 CU being the log syscall): the entrypoint
+copied the program id to the stack, `Context::new` zeroed an unused array,
+and two `#[inline(never)]` frames sat between the entrypoint and the
+dispatch. Program id by reference, no zeroing, dispatcher inlined into the
+bridge, and the bridge inlined into the entrypoint when `max_accounts` is
+small took it to 153 with the default bound and 139 with `max_accounts = 1`;
+`hopper_init!` also stopped re-zeroing data the runtime had just allocated.
+The final rows above carry those numbers.
+
 Where Hopper does not win, in the table's own terms, with the measured
 split behind each gap:
 
-- The macro hello path spends 70 CU more than the substrate. Measured with
-  compute-unit checkpoints: a hand-written `Context::new` plus `Hello::bind`
-  costs nothing over the substrate (115 vs 116 CU); the `#[program]` table
-  dispatch costs about 18 CU; the typed handler wrapper, which is where the
-  `Context` is actually materialized and the bound struct built and moved,
-  costs about 43 CU before the handler body runs. `max_accounts = 1` saves
-  another 8 CU and 128 bytes, and the `Signer` check itself is 5 CU. None
-  of that is a single hot spot; closing it means slimmer scaffolding on the
-  typed dispatch path, which is the next `profile = "tiny"` target. Anchor
-  v2 does the same job in 127 CU.
-- The macro counter binary (11,184 bytes) is larger than Anchor v2 (8,696)
+- The macro hello path is 23 CU over the substrate and 12 over Anchor v2
+  (127). What remains, counted: the account walk (about 20 instructions for
+  one account, including the duplicate-marker check and the original-length
+  store the resize accounting needs), the eight `Context` field stores, the
+  match dispatch, the bound-struct build and handler call (about 15), and
+  the return mapping. Quasar's 115 comes from parsing exactly the context's
+  accounts with the header compare as the parse and no context object at
+  all; the next step for `profile = "tiny"` is count-exact parsing keyed by
+  the discriminator, which removes the walk's table and loop but keeps the
+  registry and gate.
+- The macro counter binary (10,920 bytes) is larger than Anchor v2 (8,696)
   and Quasar (7,808). The substrate row shows the framework's floor is not
   the cause; the macro-generated lifecycle helpers, header writes, and
   layout checks are. Every Hopper program also links about 1.7 KB for the
@@ -114,10 +124,10 @@ split behind each gap:
   `u64 <-> ProgramError` round-trip tables, 42% of its hello ELF), so the
   size race is about which scaffolding each framework carries, not the
   entrypoint.
-- The macro `increment` is 56 CU over Quasar's 330 for strictly more work
+- The macro `increment` is 34 CU over Quasar's 330 for strictly more work
   (Hopper validates the 16-byte header and layout id; Quasar checks a
-  1-byte discriminator), and the substrate `increment` is 41 CU over
-  pinocchio: entry and dispatch 58, signer and owner checks 20, the gated
+  1-byte discriminator), and the substrate `increment` is 33 CU over
+  pinocchio: entry and dispatch, signer and owner checks 20, the gated
   typed load 27, add and release 6, the rest the log and the PDA syscall
   the substrate row keeps on purpose (like-for-like with pinocchio and
   Pina). The typed load is the gate fast path plus exact-length and

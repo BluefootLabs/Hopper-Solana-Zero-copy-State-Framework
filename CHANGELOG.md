@@ -18,8 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `bench/framework-comparison/results/RESULTS.md`. The cross-check
   reproduces pina's published pinocchio numbers exactly. Measured
   2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
-  the table), macro hello 2,376 / 186, substrate counter 8,448 bytes /
-  1,681 / 1,762 CU, macro counter 11,184 bytes / 1,843 / 386 CU (the
+  the table), macro hello 1,944 / 139, substrate counter 8,368 bytes /
+  1,670 / 1,754 CU, macro counter 10,920 bytes / 1,801 / 364 CU (the
   lowest `initialize` of every row but hand-written pinocchio, and an
   `increment` second only to Quasar's 330 while validating owner, header,
   and layout).
@@ -168,6 +168,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   wrappers because they validate owner and layout before the seed check.
   Measured on the framework-comparison macro counter: `initialize` 3,207
   to 1,843 CU, `increment` 1,748 to 386 CU, 224 bytes off the ELF.
+- **Leaner instruction entry on every macro program.** Traced instruction
+  by instruction on the framework-comparison hello fixture (78 executed
+  instructions before this change, 100 CU of them the log syscall). The
+  native deserializers now hand the program id out by reference into the
+  loader buffer instead of copying 32 bytes to the stack (8 instructions);
+  `Context::new` no longer zeroes the parametric write-args array, which a
+  zero count already guards (4); the generated dispatcher is inlined into
+  the bridge, since every handler body already sits behind an
+  `#[inline(never)]` helper with its own frame (one call and reload round);
+  and when `max_accounts` is 64 or less the bridge itself is inlined into
+  the entrypoint, the frame having room to spare (another call round).
+  Macro hello: 186 to 153 CU with the default bound, 139 with
+  `max_accounts = 1`; the substrate rows gain the program-id change too.
+- **`init` no longer re-zeroes freshly allocated data.** `hopper_init!`
+  zeroed the account after the CreateAccountAllowPrefund CPI, which
+  compiled to a `sol_memset_` syscall (100 CU) on every `init`; the runtime
+  zero-fills every allocation and the System Program refuses an account
+  that already holds data, so only the header write remains.
 - `hopper tx explain` requests `maxSupportedTransactionVersion: 1`, so v1
   transactions (already landing on every public cluster) decode instead of
   failing with `-32015`. The oversize-transaction error for legacy sends now

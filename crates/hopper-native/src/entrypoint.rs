@@ -58,7 +58,7 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
         core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'_>, effective_count)
     };
 
-    match process_instruction(&program_id, account_slice, instruction_data) {
+    match process_instruction(program_id, account_slice, instruction_data) {
         Ok(()) => crate::SUCCESS,
         Err(error) => err_to_u64(error),
     }
@@ -105,7 +105,7 @@ macro_rules! hopper_program_entrypoint {
             };
 
             match $process_instruction(
-                &program_id,
+                program_id,
                 // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe {
                     core::slice::from_raw_parts(
@@ -225,9 +225,11 @@ macro_rules! hopper_fast_entrypoint {
                     unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
 
                 // SAFETY: program id trails the instruction data per the
-                // loader serialization layout; reading 32 bytes by value.
-                let program_id =
-                    unsafe { core::ptr::read(ix_data.add(ix_len) as *const $crate::Address) };
+                // loader serialization layout; `Address` is a transparent
+                // `[u8; 32]`, so a reference into the buffer is valid at any
+                // offset and lives as long as the invocation.
+                let program_id: &'static $crate::Address =
+                    unsafe { &*(ix_data.add(ix_len) as *const $crate::Address) };
 
                 if $crate::raw_input::SIMD_0449_TABLE_ENABLED {
                     // SIMD-0449 build: consume the runtime's appended
@@ -262,7 +264,7 @@ macro_rules! hopper_fast_entrypoint {
             };
 
             match $process_instruction(
-                &program_id,
+                program_id,
                 // SAFETY: the first `count` slots were initialized by the
                 // parser above; `AccountView` is repr(C) over the slot data.
                 unsafe {

@@ -67,7 +67,9 @@ pub struct Increment<'info> {
     pub counter: Account<'info, Counter>,
 }
 
-#[program(profile = "tiny")]
+// `initialize` is the widest instruction at three accounts; the bound is
+// declared like the substrate fixture's `program_entrypoint!(_, 3)`.
+#[program(profile = "tiny", max_accounts = 3)]
 mod counter_program {
     use super::*;
 

@@ -127,7 +127,7 @@ const fn next_record_offset(offset: usize, data_len: usize) -> usize {
 pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
     input: *mut u8,
     accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
-) -> (Address, usize, &'info [u8]) {
+) -> (&'info Address, usize, &'info [u8]) {
     // SAFETY: `input` points to the head of the Solana BPF input buffer,
     // whose first 8 bytes are the account count. `read_unaligned` reads the
     // u64 without assuming 8-byte pointer alignment.
@@ -252,9 +252,12 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
         unsafe { core::slice::from_raw_parts(input.add(offset) as *const u8, ix_data_len) };
     offset += ix_data_len;
     // SAFETY: the 32-byte program id trails the instruction data per the
-    // loader serialization layout; `[u8; 32]` has alignment 1, so the read
-    // by value is valid at any offset.
-    let program_id = Address::new_from_array(unsafe { *(input.add(offset) as *const [u8; 32]) });
+    // loader serialization layout; `Address` is a transparent `[u8; 32]`
+    // with alignment 1, so a reference into the buffer is valid at any
+    // offset and lives as long as the input. Handing out the reference
+    // instead of a copy saves the 32-byte stack spill (eight stores and
+    // eight loads) every entrypoint used to pay.
+    let program_id: &'info Address = unsafe { &*(input.add(offset) as *const Address) };
 
     (program_id, count, instruction_data)
 }
@@ -274,8 +277,8 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     input: *mut u8,
     accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
     instruction_data: &'info [u8],
-    program_id: Address,
-) -> (Address, usize, &'info [u8]) {
+    program_id: &'info Address,
+) -> (&'info Address, usize, &'info [u8]) {
     // SAFETY: `input` points to the head of the Solana BPF input buffer, whose
     // first 8 bytes are the account count. `read_unaligned` reads the u64 without
     // assuming 8-byte pointer alignment, so this stays sound even if the loader
@@ -667,8 +670,8 @@ pub unsafe fn deserialize_accounts_0449_into<'info, const MAX: usize>(
     input: *mut u8,
     accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
     instruction_data: &'info [u8],
-    program_id: Address,
-) -> (Address, usize, &'info [u8]) {
+    program_id: &'info Address,
+) -> (&'info Address, usize, &'info [u8]) {
     // SAFETY: forwarded caller contract.
     let table = unsafe { deserialize_accounts_0449(input, instruction_data) };
     // Same 254 materialization clamp as the scanning walk and the r2 fast
@@ -1412,15 +1415,11 @@ mod fused_walk_tests {
         let mut frame = build_frame(&slots, &[0x99], PID);
         let mut views = uninit_views::<4>();
         let ix: &[u8] = &[0x99];
+        let program_id = Address::new_from_array(PID);
         // SAFETY: well-formed 8-aligned loader-layout fixture; ix data and
         // program id are supplied directly per the fast-path contract.
         let (pid, count, out_ix) = unsafe {
-            deserialize_accounts_fast::<4>(
-                frame.as_mut_ptr(),
-                &mut views,
-                ix,
-                Address::new_from_array(PID),
-            )
+            deserialize_accounts_fast::<4>(frame.as_mut_ptr(), &mut views, ix, &program_id)
         };
         assert_eq!(count, 3);
         // SAFETY: slots 0..count were initialized by the parser.
@@ -1856,12 +1855,13 @@ mod kani_proofs {
         // contract as `check_fused_walk_against_oracle`; instruction data
         // and program id are supplied out of band per the fast-path
         // contract and are opaque pass-throughs to this walk.
+        let program_id = Address::new_from_array(PID_SENTINEL);
         let (pid, count, ix) = unsafe {
             deserialize_accounts_fast::<4>(
                 backing.0.as_mut_ptr(),
                 &mut views,
                 &EMPTY_IX,
-                Address::new_from_array(PID_SENTINEL),
+                &program_id,
             )
         };
         assert_eq!(count, N);
@@ -2126,12 +2126,13 @@ mod kani_proofs {
         // must trap before any access past the frame end, Kani checks
         // every access on every path against that exact allocation
         // boundary.
+        let program_id = Address::new_from_array(PID_SENTINEL);
         let _ = unsafe {
             deserialize_accounts_fast::<4>(
                 backing.0.as_mut_ptr(),
                 &mut views,
                 &EMPTY_IX,
-                Address::new_from_array(PID_SENTINEL),
+                &program_id,
             )
         };
     }

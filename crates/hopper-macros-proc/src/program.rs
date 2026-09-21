@@ -913,8 +913,14 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         items.push(helper);
     }
 
+    // The dispatcher is a few instructions (discriminator read, match or
+    // table `callx`); every handler body lives behind an `#[inline(never)]`
+    // `__hopper_dispatch_*` helper with its own frame, so inlining the
+    // dispatcher into the bridge cannot grow any frame past the helper's.
+    // It removes one call/return and one round of argument reloads from
+    // every instruction (measured 2026-09-21 on the hello fixture).
     items.push(syn::parse_quote! {
-        #[inline(never)]
+        #[inline(always)]
         pub fn process_instruction(
             ctx: &mut ::hopper::prelude::Context<'_>,
         ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
@@ -939,6 +945,18 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         Some(max_accounts) => quote! { ::hopper::fast_entrypoint!(#bridge_fn, #max_accounts); },
         None => quote! { ::hopper::fast_entrypoint!(#bridge_fn); },
     };
+    // The bridge owns the `Context` frame (about 1 KiB: the segment borrow
+    // registry). With the default 254-slot account table the entrypoint
+    // frame is already 2 KiB, so the bridge stays a separate frame to keep
+    // both under the 4 KiB SBF v1 limit. A program that declares a small
+    // `max_accounts` has room to spare, and inlining the bridge into the
+    // entrypoint drops a call/return and the argument shuffle per
+    // instruction.
+    const BRIDGE_INLINE_MAX_ACCOUNTS: usize = 64;
+    let bridge_inline: TokenStream = match policy.max_accounts() {
+        Some(max) if max <= BRIDGE_INLINE_MAX_ACCOUNTS => quote! { #[inline(always)] },
+        _ => quote! { #[inline(never)] },
+    };
     let entrypoint_bridge = if policy.entrypoint() {
         quote! {
             #[allow(unexpected_cfgs)]
@@ -946,7 +964,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             #entrypoint_macro
 
             #[doc(hidden)]
-            #[inline(never)]
+            #bridge_inline
             fn #bridge_fn(
                 program_id: &::hopper::__runtime::Address,
                 accounts: &[::hopper::__runtime::AccountView<'_>],

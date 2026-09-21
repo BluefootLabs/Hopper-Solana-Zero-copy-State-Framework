@@ -60,8 +60,13 @@ pub struct Context<'a> {
     /// compare per write acquire.
     write_policy: Option<&'static crate::write_policy::WritePolicy>,
     /// Small invocation-local values used to resolve parametric cell rules.
-    /// Kept inline to avoid heap allocation and large SBF stack copies.
-    parametric_write_args: [u32; MAX_PARAMETRIC_WRITE_ARGS],
+    /// Kept inline to avoid heap allocation and large SBF stack copies, and
+    /// left uninitialized until a parametric policy is installed: only the
+    /// first `parametric_write_arg_count` entries are ever read, and those
+    /// are written by `set_parametric_write_policy` first. Zeroing the array
+    /// in `Context::new` cost four stores on every instruction of every
+    /// program for a feature most contexts never use.
+    parametric_write_args: [core::mem::MaybeUninit<u32>; MAX_PARAMETRIC_WRITE_ARGS],
     parametric_write_arg_count: u8,
 }
 
@@ -86,8 +91,22 @@ impl<'a> Context<'a> {
             instruction_data,
             segment_borrows: SegmentBorrowRegistry::new(),
             write_policy: None,
-            parametric_write_args: [0; MAX_PARAMETRIC_WRITE_ARGS],
+            parametric_write_args: [core::mem::MaybeUninit::uninit(); MAX_PARAMETRIC_WRITE_ARGS],
             parametric_write_arg_count: 0,
+        }
+    }
+
+    /// The installed parametric write arguments, exactly the entries
+    /// `set_parametric_write_policy` wrote.
+    #[inline(always)]
+    fn parametric_write_args(&self) -> &[u32] {
+        let count = self.parametric_write_arg_count as usize;
+        // SAFETY: `parametric_write_arg_count` is only ever raised by
+        // `set_parametric_write_policy`, which initializes exactly that many
+        // leading entries before storing the count; `MaybeUninit<u32>` has
+        // the layout of `u32`.
+        unsafe {
+            core::slice::from_raw_parts(self.parametric_write_args.as_ptr() as *const u32, count)
         }
     }
 
@@ -127,7 +146,9 @@ impl<'a> Context<'a> {
             return Err(ProgramError::InvalidInstructionData);
         }
         self.write_policy = Some(policy);
-        self.parametric_write_args[..args.len()].copy_from_slice(args);
+        for (slot, value) in self.parametric_write_args.iter_mut().zip(args) {
+            slot.write(*value);
+        }
         self.parametric_write_arg_count = args.len() as u8;
         Ok(())
     }
@@ -163,7 +184,7 @@ impl<'a> Context<'a> {
             index as u8,
             offset,
             size,
-            &self.parametric_write_args[..self.parametric_write_arg_count as usize],
+            self.parametric_write_args(),
         )
     }
 
@@ -182,7 +203,7 @@ impl<'a> Context<'a> {
                 index as u8,
                 offset,
                 size,
-                &self.parametric_write_args[..self.parametric_write_arg_count as usize],
+                self.parametric_write_args(),
             )?;
         }
         Ok(())

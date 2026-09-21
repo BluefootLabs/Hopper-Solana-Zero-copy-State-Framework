@@ -728,8 +728,14 @@ macro_rules! hopper_init {
         }
         .invoke_signed(__hopper_init_signers)?;
 
+        // The account's data was allocated by the System Program inside the
+        // CPI above, and the runtime zero-fills every allocation (Agave
+        // `set_data_length` zero-extends; CreateAccount and
+        // CreateAccountAllowPrefund refuse an account that already holds
+        // data, so there is never stale content to clear). Re-zeroing here
+        // compiled to a `sol_memset_` syscall on every init: 100 CU for
+        // nothing (removed 2026-09-21). Only the header is written.
         let mut data = account.try_borrow_mut()?;
-        $crate::hopper_core::account::zero_init(&mut *data);
         <$layout>::write_init_header(&mut *data)
     }};
 }

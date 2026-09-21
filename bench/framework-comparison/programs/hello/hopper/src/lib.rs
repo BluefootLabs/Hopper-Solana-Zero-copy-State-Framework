@@ -21,7 +21,11 @@ pub struct Hello<'info> {
     pub authority: Signer<'info>,
 }
 
-#[program(profile = "tiny")]
+// `max_accounts` declares the instruction bound the same way the substrate
+// fixture does with `program_entrypoint!(process_instruction, 1)`: the
+// entrypoint scratch is sized to one slot and the bridge frame folds into
+// the entrypoint.
+#[program(profile = "tiny", max_accounts = 1)]
 mod hello_program {
     use super::*;
 
