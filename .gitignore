@@ -97,3 +97,6 @@ Hopper-Solana-Zero-copy-State-Framework-main*.zip
 # Self
 .gitignore
 
+
+# Framework-comparison build outputs (ELFs and generated program keypairs)
+bench/framework-comparison/results/sbf/

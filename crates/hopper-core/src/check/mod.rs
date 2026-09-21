@@ -116,22 +116,30 @@ pub fn check_not_closed(data: &[u8]) -> ProgramResult {
     Ok(())
 }
 
-/// Rent-exempt minimum lamports for a given data size.
+/// Rent-exempt minimum lamports for a given data size under the
+/// **launch-era** rent snapshot (`(128 + data_len) * 3480 * 2`).
+///
+/// This is a fixed historical constant, not the cluster's price. SIMD-0194
+/// moved the whole price into the Rent sysvar's first field and SIMD-0437
+/// repriced it (mainnet-beta and devnet read 5,080 lamports per byte-year
+/// at threshold 1.0 on 2026-09-21, so this formula overstates the live
+/// minimum by 37%). Funding, top-up, and exemption decisions must use
+/// [`hopper_runtime::rent::minimum_balance_live`], which reads the sysvar.
+#[deprecated(
+    since = "0.3.1",
+    note = "launch-era snapshot; use hopper_runtime::rent::minimum_balance_live for the live rent"
+)]
 #[inline(always)]
 pub fn rent_exempt_min(data_len: usize) -> u64 {
     ((128 + data_len) as u64) * 6960
 }
 
-/// Check that an account is rent exempt.
+/// Check that an account is rent exempt against the **live** Rent sysvar
+/// (the documented launch snapshot on hosts, where no sysvar exists).
+/// Fails with `AccountNotRentExempt`, Solana's canonical code for it.
 #[inline(always)]
 pub fn check_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
-    let lamports = account.lamports();
-    let data = account.try_borrow()?;
-    let min = rent_exempt_min(data.len());
-    if lamports < min {
-        return Err(ProgramError::InsufficientFunds);
-    }
-    Ok(())
+    hopper_runtime::rent::check_rent_exempt(account)
 }
 
 /// Check that the account has at least `min` lamports.

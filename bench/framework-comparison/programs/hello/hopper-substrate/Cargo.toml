@@ -1,0 +1,16 @@
+[package]
+name = "hello-hopper-substrate"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "pina framework-comparison hello fixture on the Hopper substrate entrypoint."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hopper = { workspace = true }
+
+[lints]
+workspace = true

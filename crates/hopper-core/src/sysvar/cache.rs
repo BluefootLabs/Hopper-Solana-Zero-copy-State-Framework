@@ -147,13 +147,12 @@ impl CachedRent {
         let integer_part = super::ACCOUNT_STORAGE_OVERHEAD
             .saturating_add(data_len as u64)
             .saturating_mul(self.lamports_per_byte_year);
-        if self.exemption_threshold == 1.0 {
-            integer_part
-        } else if self.exemption_threshold == 2.0 {
-            integer_part.saturating_mul(2)
-        } else {
-            (integer_part as f64 * self.exemption_threshold) as u64
-        }
+        // Float-free threshold scaling (bit-pattern match for 1.0 / 2.0,
+        // u128 decomposition otherwise) so no soft-float routine is linked.
+        hopper_runtime::__hopper_native::sysvar::scale_by_exemption_threshold(
+            integer_part,
+            self.exemption_threshold.to_bits(),
+        )
     }
 }
 
@@ -288,7 +287,7 @@ mod tests {
             (165, 3_480, 2.0),
             (10_240, 3_480, 2.0),
             (1_000_000, 6_960, 2.0),
-            (500_000, 3_480, 2.5),
+            (500_000, 3_480, 3.0),
             (0, 6_333, 1.0),
             (167_829, 6_333, 1.0),
             (10_485_760, 3_480, 2.0),
@@ -332,6 +331,10 @@ mod tests {
             .unwrap();
         let cr = ctx.rent().unwrap();
         assert_eq!(cr.exemption_threshold, 2.5);
-        assert_eq!(cr.exempt_min(0), solana_reference_exempt_min(0, 3_480, 2.5));
+        // A threshold no cluster has stored rounds up to whole years with
+        // integer arithmetic (no soft-float on sBPF): never below Solana's
+        // float formula, here 3 years instead of 2.5.
+        assert_eq!(cr.exempt_min(0), 128 * 3_480 * 3);
+        assert!(cr.exempt_min(0) >= solana_reference_exempt_min(0, 3_480, 2.5));
     }
 }

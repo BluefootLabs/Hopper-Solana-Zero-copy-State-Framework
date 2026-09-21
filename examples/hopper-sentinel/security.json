@@ -1,0 +1,15 @@
+{
+  "name": "Hopper Sentinel",
+  "project_url": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+  "contacts": [
+    "email:security@bluefootlabs.com",
+    "link:https://x.com/moonmanquark"
+  ],
+  "policy": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/SECURITY.md",
+  "preferred_languages": ["en"],
+  "source_code": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-sentinel",
+  "source_release": "0.3.0",
+  "description": "Devnet reference deployment of the Hopper sentinel example: the program the ledger-bound upgrade authority gate is demonstrated against.",
+  "acknowledgements": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/SECURITY.md",
+  "expiry": "2027-09-21"
+}

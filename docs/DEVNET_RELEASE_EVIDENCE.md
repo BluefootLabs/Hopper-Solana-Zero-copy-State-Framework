@@ -111,6 +111,7 @@ transactions also executed Hopper's input parser under that configuration.
 | cross-program-read | A `2h5zat7pKjUHH3jkgsuPGqQ2N2hyVb1cCmvZ5FGCnn8J`, B `EyMprn3Ur5ix47hei5iTztPx48FjJJ7EzH4AkMw6Fqei` | see receipt | program_a:init, program_a:deposit, program_b:read, program_b:min | pass, both dumps match local ELFs |
 | sentinel authority gate | program `7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx`, buffer `7faSVbUUco4dba21xBZgssCeV1TtN11owVWgXPcPmTQa` | 501,068,155 | none (read-only review) | WIDENED, exit 2 |
 | hopper-devnet-audit | `EB6SZ7qTGerTuptmHjt6aGpZc1tpZDUPwiTBYpsbhs8M` | 501,098,319 | 15: initialize, three rejected negative cases with unchanged snapshots (wrong authority, too few remaining signers, read-only state mutation), rename, add-member, increment-segment, substrate, proof, token-policy, field-capability, and remaining-signer probes, read-audit, funding and cleanup | pass |
+| metadata records and transaction v1 (2026-09-21) | sentinel `7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx` | none (no deployment) | `publish-security` inline Initialize (slot 502,011,159); `publish-manifest` Allocate, two Writes, Initialize (502,011,247 to 502,011,260); `tx send --v1` SPL Memo, version 1 envelope (502,011,279) | pass, both records read back and decoded; see `audit/devnet-evidence-2026-09-21/metadata-and-txv1/` |
 
 The sentinel row is the ledger-bound upgrade review: v1 was built from the
 committed source and deployed; v2 was built from the same source with one

@@ -34,6 +34,14 @@
 //! After confirmation the command fetches the transaction and reports
 //! the measured compute units, because a send you cannot budget from
 //! is half a tool.
+//!
+//! `--v1` builds a SIMD-0385 transaction v1 envelope instead of legacy:
+//! 4,096-byte ceiling, up to 64 addresses and 12 signatures, and the
+//! compute-unit limit, loaded-accounts-data-size limit, and priority fee
+//! carried in the message's config mask rather than as ComputeBudget
+//! instructions (which v1 executes but ignores for configuration). The
+//! runtime treats an absent limit as zero, so the mask always sets both
+//! limits; `--priority-fee` is a total in lamports, not a per-CU price.
 
 use std::process;
 
@@ -41,9 +49,113 @@ use solana_client::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_keypair::{read_keypair_file, Keypair};
+use solana_message::v1::{Message as V1Message, TransactionConfig};
+use solana_message::VersionedMessage;
 use solana_pubkey::Pubkey;
 use solana_signer::Signer as _;
+use solana_transaction::versioned::VersionedTransaction;
 use solana_transaction::Transaction;
+
+/// Legacy per-instruction compute default, applied to a v1 send that
+/// names no `--compute-limit` (v1 would otherwise run with zero units).
+pub const V1_DEFAULT_COMPUTE_LIMIT: u32 = 200_000;
+
+/// Loaded-accounts-data-size limit a v1 send requests when none is given:
+/// 4 MiB, enough for any program this CLI targets plus its accounts,
+/// while keeping the cost-model charge (8 CU per 32 KiB page) sane. The
+/// legacy 64 MiB default would cost 16,384 CU of block space per send.
+pub const V1_DEFAULT_LOADED_DATA_LIMIT: u32 = 4 * 1024 * 1024;
+
+/// Which envelope a send builds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Envelope {
+    /// Legacy message; compute limit via a ComputeBudget instruction.
+    Legacy,
+    /// SIMD-0385 v1 message with its config mask.
+    V1 {
+        compute_limit: u32,
+        loaded_data_limit: u32,
+        priority_fee_lamports: Option<u64>,
+    },
+}
+
+/// Build the v1 config mask: both limits always set (the runtime treats a
+/// missing one as zero), the priority fee only when asked for.
+pub fn v1_config(
+    compute_limit: u32,
+    loaded_data_limit: u32,
+    priority_fee_lamports: Option<u64>,
+) -> TransactionConfig {
+    let config = TransactionConfig::empty()
+        .with_compute_unit_limit(compute_limit)
+        .with_loaded_accounts_data_size_limit(loaded_data_limit);
+    match priority_fee_lamports {
+        Some(fee) => config.with_priority_fee(fee),
+        None => config,
+    }
+}
+
+/// A signed transaction in either envelope, so the send path is one
+/// `match` instead of two copies of the RPC plumbing.
+enum SignedTx {
+    Legacy(Transaction),
+    V1(VersionedTransaction),
+}
+
+impl SignedTx {
+    fn build(
+        envelope: Envelope,
+        instructions: &[Instruction],
+        payer: &Keypair,
+        signers: &[&Keypair],
+        blockhash: solana_hash::Hash,
+    ) -> Result<Self, String> {
+        match envelope {
+            Envelope::Legacy => Ok(SignedTx::Legacy(Transaction::new_signed_with_payer(
+                instructions,
+                Some(&payer.pubkey()),
+                signers,
+                blockhash,
+            ))),
+            Envelope::V1 {
+                compute_limit,
+                loaded_data_limit,
+                priority_fee_lamports,
+            } => {
+                let message = V1Message::try_compile_with_config(
+                    &payer.pubkey(),
+                    instructions,
+                    blockhash,
+                    v1_config(compute_limit, loaded_data_limit, priority_fee_lamports),
+                )
+                .map_err(|e| format!("compile transaction v1 message: {e:?}"))?;
+                // Client-side mirror of the sanitizer: 64 addresses, 64
+                // instructions, 12 signatures, no duplicate keys, program
+                // index never the payer. Refuse here, not at the RPC.
+                message
+                    .validate()
+                    .map_err(|e| format!("transaction v1 message rejected: {e:?}"))?;
+                let tx = VersionedTransaction::try_new(VersionedMessage::V1(message), signers)
+                    .map_err(|e| format!("sign transaction v1: {e}"))?;
+                Ok(SignedTx::V1(tx))
+            }
+        }
+    }
+
+    /// Wire size check against the envelope's own ceiling; returns bytes.
+    fn ensure_size(&self, operation: &str) -> Result<(usize, usize), String> {
+        match self {
+            SignedTx::Legacy(tx) => Ok((
+                super::transaction_limits::ensure_legacy_transaction_size(tx, operation)?,
+                super::transaction_limits::LEGACY_V0_MAX_BYTES,
+            )),
+            SignedTx::V1(tx) => Ok((
+                super::transaction_limits::ensure_v1_transaction_size(tx, operation)?,
+                super::transaction_limits::V1_MAX_BYTES,
+            )),
+        }
+    }
+}
 
 /// One parsed `--account` spec: pubkey (or the `payer` placeholder),
 /// signer flag, writable flag.
@@ -128,12 +240,19 @@ fn print_usage() {
     eprintln!("           --account <pubkey|payer>[:s][:w] ...   (ordered; repeat per slot)");
     eprintln!("           --keypair <path> [--signer <path>]... [--rpc <url>]");
     eprintln!("           [--compute-limit <units>] [--allow-failure] [--dry-run]");
+    eprintln!("           [--v1 [--loaded-data-limit <bytes>] [--priority-fee <lamports>]]");
     eprintln!();
     eprintln!("Send one instruction with explicit account metas and raw hex data,");
     eprintln!("signed locally, the generic instruction sender the stock tooling");
     eprintln!("lacks without a JS scratch script. Account flags: s = signer,");
     eprintln!("w = writable (e.g. --account HoppR...:sw). The literal `payer`");
     eprintln!("resolves to the fee payer's pubkey.");
+    eprintln!();
+    eprintln!("--v1 builds a SIMD-0385 transaction v1 envelope (4,096-byte limit,");
+    eprintln!("active on every public cluster). Its compute limit (default 200,000),");
+    eprintln!("loaded-accounts-data limit (default 4 MiB), and optional priority fee");
+    eprintln!("(a TOTAL in lamports) travel in the message config, not as");
+    eprintln!("ComputeBudget instructions.");
     eprintln!();
     eprintln!("After confirmation the transaction is fetched back and its measured");
     eprintln!("compute units printed. --dry-run previews the exact plan offline.");
@@ -153,10 +272,30 @@ pub fn cmd_tx_send(args: &[String]) {
     let mut compute_limit: Option<u32> = None;
     let mut allow_failure = false;
     let mut dry_run = false;
+    let mut v1 = false;
+    let mut loaded_data_limit: Option<u32> = None;
+    let mut priority_fee: Option<u64> = None;
 
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
+            "--v1" => v1 = true,
+            "--loaded-data-limit" => {
+                i += 1;
+                loaded_data_limit = args.get(i).and_then(|v| v.parse().ok());
+                if loaded_data_limit.is_none() {
+                    eprintln!("--loaded-data-limit needs a byte count");
+                    process::exit(1);
+                }
+            }
+            "--priority-fee" => {
+                i += 1;
+                priority_fee = args.get(i).and_then(|v| v.parse().ok());
+                if priority_fee.is_none() {
+                    eprintln!("--priority-fee needs a lamport amount");
+                    process::exit(1);
+                }
+            }
             "--program" => {
                 i += 1;
                 program = args.get(i).cloned();
@@ -208,6 +347,14 @@ pub fn cmd_tx_send(args: &[String]) {
         i += 1;
     }
 
+    let envelope = match resolve_envelope(v1, compute_limit, loaded_data_limit, priority_fee) {
+        Ok(envelope) => envelope,
+        Err(e) => {
+            eprintln!("hopper tx send failed: {e}");
+            process::exit(1);
+        }
+    };
+
     if let Err(e) = run_send(
         program.as_deref(),
         data_hex.as_deref(),
@@ -216,12 +363,50 @@ pub fn cmd_tx_send(args: &[String]) {
         &extra_signer_paths,
         rpc.as_deref(),
         compute_limit,
+        envelope,
         allow_failure,
         dry_run,
     ) {
         eprintln!("hopper tx send failed: {e}");
         process::exit(1);
     }
+}
+
+/// Fold the envelope flags into one [`Envelope`]. Pure, so the flag
+/// interactions are unit-testable: v1-only options are refused on legacy
+/// sends instead of being silently dropped.
+pub fn resolve_envelope(
+    v1: bool,
+    compute_limit: Option<u32>,
+    loaded_data_limit: Option<u32>,
+    priority_fee: Option<u64>,
+) -> Result<Envelope, String> {
+    if !v1 {
+        if loaded_data_limit.is_some() {
+            return Err("--loaded-data-limit is a transaction v1 option; add --v1".to_string());
+        }
+        if priority_fee.is_some() {
+            return Err("--priority-fee is a transaction v1 option; add --v1".to_string());
+        }
+        return Ok(Envelope::Legacy);
+    }
+    let loaded = loaded_data_limit.unwrap_or(V1_DEFAULT_LOADED_DATA_LIMIT);
+    if loaded == 0 {
+        return Err(
+            "--loaded-data-limit must be positive: a v1 transaction with a zero limit fails \
+             before it executes"
+                .to_string(),
+        );
+    }
+    let compute = compute_limit.unwrap_or(V1_DEFAULT_COMPUTE_LIMIT);
+    if compute == 0 {
+        return Err("--compute-limit must be positive on a v1 send".to_string());
+    }
+    Ok(Envelope::V1 {
+        compute_limit: compute,
+        loaded_data_limit: loaded,
+        priority_fee_lamports: priority_fee,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -233,6 +418,7 @@ fn run_send(
     extra_signer_paths: &[String],
     rpc: Option<&str>,
     compute_limit: Option<u32>,
+    envelope: Envelope,
     allow_failure: bool,
     dry_run: bool,
 ) -> Result<(), String> {
@@ -328,14 +514,33 @@ fn run_send(
             .map(|k| format!(", {}", k.pubkey()))
             .collect::<String>()
     );
-    if let Some(cu) = compute_limit {
-        println!("cu limit  : {cu}");
+    match envelope {
+        Envelope::Legacy => {
+            println!("envelope  : legacy");
+            if let Some(cu) = compute_limit {
+                println!("cu limit  : {cu} (ComputeBudget instruction)");
+            }
+        }
+        Envelope::V1 {
+            compute_limit,
+            loaded_data_limit,
+            priority_fee_lamports,
+        } => {
+            println!("envelope  : transaction v1 (SIMD-0385)");
+            println!("cu limit  : {compute_limit} (config mask)");
+            println!("data limit: {loaded_data_limit} bytes loaded accounts (config mask)");
+            if let Some(fee) = priority_fee_lamports {
+                println!("priority  : {fee} lamports total (config mask)");
+            }
+        }
     }
     if allow_failure {
         println!("preflight : skipped (--allow-failure; an on-chain refusal will land)");
     }
     let mut instructions: Vec<Instruction> = Vec::new();
-    if let Some(units) = compute_limit {
+    if let (Envelope::Legacy, Some(units)) = (envelope, compute_limit) {
+        // v1 carries the limit in its config mask; a ComputeBudget
+        // instruction there would execute (150 CU) and configure nothing.
         instructions.push(
             solana_compute_budget_interface::ComputeBudgetInstruction::set_compute_unit_limit(
                 units,
@@ -353,17 +558,20 @@ fn run_send(
     // has the same serialized length as the live one fetched below.
     let mut all_signers: Vec<&Keypair> = vec![&payer];
     all_signers.extend(signers.iter());
-    let preview_tx = Transaction::new_signed_with_payer(
+    let preview_tx = SignedTx::build(
+        envelope,
         &instructions,
-        Some(&payer.pubkey()),
+        &payer,
         &all_signers,
         Default::default(),
-    );
-    let wire_bytes =
-        super::transaction_limits::ensure_legacy_transaction_size(&preview_tx, "hopper tx send")?;
+    )?;
+    let (wire_bytes, wire_max) = preview_tx.ensure_size("hopper tx send")?;
     println!(
-        "wire      : {wire_bytes}/{} bytes (legacy)",
-        super::transaction_limits::LEGACY_V0_MAX_BYTES
+        "wire      : {wire_bytes}/{wire_max} bytes ({})",
+        match envelope {
+            Envelope::Legacy => "legacy",
+            Envelope::V1 { .. } => "v1",
+        }
     );
     if dry_run {
         println!();
@@ -375,28 +583,23 @@ fn run_send(
     let blockhash = client
         .get_latest_blockhash()
         .map_err(|e| format!("get_latest_blockhash failed: {e}"))?;
-    let tx = Transaction::new_signed_with_payer(
-        &instructions,
-        Some(&payer.pubkey()),
-        &all_signers,
-        blockhash,
-    );
-    super::transaction_limits::ensure_legacy_transaction_size(&tx, "hopper tx send")?;
+    let tx = SignedTx::build(envelope, &instructions, &payer, &all_signers, blockhash)?;
+    tx.ensure_size("hopper tx send")?;
     let signature = if allow_failure {
         // Preflight simulation would reject a tx the program is going to
         // refuse; but landing that refusal IS the goal here. Send raw,
         // then poll for a commitment-level status ourselves, treating
         // "confirmed with a program error" as a successful LANDING.
         use solana_client::rpc_config::RpcSendTransactionConfig;
-        let sig = client
-            .send_transaction_with_config(
-                &tx,
-                RpcSendTransactionConfig {
-                    skip_preflight: true,
-                    ..RpcSendTransactionConfig::default()
-                },
-            )
-            .map_err(|e| format!("send (skip-preflight) failed: {e}"))?;
+        let config = RpcSendTransactionConfig {
+            skip_preflight: true,
+            ..RpcSendTransactionConfig::default()
+        };
+        let sig = match &tx {
+            SignedTx::Legacy(tx) => client.send_transaction_with_config(tx, config),
+            SignedTx::V1(tx) => client.send_transaction_with_config(tx, config),
+        }
+        .map_err(|e| format!("send (skip-preflight) failed: {e}"))?;
         let mut landed = false;
         for _ in 0..30 {
             std::thread::sleep(std::time::Duration::from_secs(2));
@@ -417,9 +620,11 @@ fn run_send(
         }
         sig
     } else {
-        client
-            .send_and_confirm_transaction(&tx)
-            .map_err(|e| format!("send_and_confirm failed: {e}"))?
+        match &tx {
+            SignedTx::Legacy(tx) => client.send_and_confirm_transaction(tx),
+            SignedTx::V1(tx) => client.send_and_confirm_transaction(tx),
+        }
+        .map_err(|e| format!("send_and_confirm failed: {e}"))?
     };
     println!();
     println!("signature : {signature}");
@@ -462,6 +667,113 @@ fn run_send(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn envelope_flags_fold_and_v1_only_options_are_refused_on_legacy() {
+        assert_eq!(
+            resolve_envelope(false, None, None, None).unwrap(),
+            Envelope::Legacy
+        );
+        assert!(resolve_envelope(false, None, Some(1024), None)
+            .unwrap_err()
+            .contains("--v1"));
+        assert!(resolve_envelope(false, None, None, Some(5))
+            .unwrap_err()
+            .contains("--v1"));
+        assert_eq!(
+            resolve_envelope(true, None, None, None).unwrap(),
+            Envelope::V1 {
+                compute_limit: V1_DEFAULT_COMPUTE_LIMIT,
+                loaded_data_limit: V1_DEFAULT_LOADED_DATA_LIMIT,
+                priority_fee_lamports: None,
+            }
+        );
+        assert_eq!(
+            resolve_envelope(true, Some(50_000), Some(65_536), Some(1_000)).unwrap(),
+            Envelope::V1 {
+                compute_limit: 50_000,
+                loaded_data_limit: 65_536,
+                priority_fee_lamports: Some(1_000),
+            }
+        );
+        // A zero limit is a guaranteed failure on chain; refuse it locally.
+        assert!(resolve_envelope(true, Some(0), None, None).is_err());
+        assert!(resolve_envelope(true, None, Some(0), None).is_err());
+    }
+
+    #[test]
+    fn v1_config_always_sets_both_limits() {
+        let config = v1_config(200_000, 65_536, None);
+        assert_eq!(config.compute_unit_limit, Some(200_000));
+        assert_eq!(config.loaded_accounts_data_size_limit, Some(65_536));
+        assert_eq!(config.priority_fee, None);
+        assert_eq!(config.heap_size, None, "heap stays at the 32 KiB default");
+        let config = v1_config(200_000, 65_536, Some(7));
+        assert_eq!(config.priority_fee, Some(7));
+    }
+
+    #[test]
+    fn v1_envelope_signs_and_measures_the_simd_0385_layout() {
+        let payer = Keypair::new();
+        let program = Pubkey::new_unique();
+        let target = Pubkey::new_unique();
+        let ix = Instruction {
+            program_id: program,
+            accounts: vec![
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new(target, false),
+            ],
+            data: vec![1, 2, 3],
+        };
+        let envelope = Envelope::V1 {
+            compute_limit: 10_000,
+            loaded_data_limit: 32 * 1024,
+            priority_fee_lamports: Some(500),
+        };
+        let tx = SignedTx::build(
+            envelope,
+            core::slice::from_ref(&ix),
+            &payer,
+            &[&payer],
+            Default::default(),
+        )
+        .unwrap();
+        let SignedTx::V1(tx) = tx else {
+            panic!("expected a v1 envelope");
+        };
+        let message = tx.message.serialize();
+        // Version prefix 0x80 | 1, then the three header bytes.
+        assert_eq!(message[0], 0x81);
+        assert_eq!(message[1], 1, "one required signature");
+        // Config mask at offset 4 (u32 LE): priority fee (bits 0+1), CU (bit 2),
+        // loaded data (bit 3).
+        let mask = u32::from_le_bytes([message[4], message[5], message[6], message[7]]);
+        assert_eq!(mask, 0b1111);
+        // Instructions count precedes the address count in v1.
+        assert_eq!(message[40], 1);
+        assert_eq!(message[41], 3, "payer, target, program");
+        assert_eq!(tx.signatures.len(), 1);
+        let (bytes, max) = SignedTx::V1(tx.clone()).ensure_size("test").unwrap();
+        assert_eq!(bytes, message.len() + 64);
+        assert_eq!(max, super::super::transaction_limits::V1_MAX_BYTES);
+
+        // The same instruction as a legacy envelope is a different, smaller
+        // ceiling and a different codec; both must build from one call site.
+        let legacy = SignedTx::build(
+            Envelope::Legacy,
+            &[ix],
+            &payer,
+            &[&payer],
+            Default::default(),
+        )
+        .unwrap();
+        let (legacy_bytes, legacy_max) = legacy.ensure_size("test").unwrap();
+        assert_eq!(
+            legacy_max,
+            super::super::transaction_limits::LEGACY_V0_MAX_BYTES
+        );
+        assert!(legacy_bytes <= legacy_max);
+    }
 
     #[test]
     fn account_spec_parses_flags_and_payer_placeholder() {

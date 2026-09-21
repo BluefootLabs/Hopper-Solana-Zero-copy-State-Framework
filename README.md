@@ -24,10 +24,11 @@ unpublished 0.3.0 development source. The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
 means a separate recomputation boundary, not a third-party audit.
 
-Three measured facts, with provenance in [BENCHMARKS.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md):
+Four measured facts, with provenance in [BENCHMARKS.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md):
 
 - In the clean 2026-08-16 same-behavior vault matrix, Hopper measured 1,578 CU for deposit and 424 CU for withdraw. The run used eight samples and passed all 30 rollback gates.
 - That run produced a 9,032-byte Hopper binary. Quasar's pinned beta snapshot produced the smallest binary in the matrix, while Pinocchio measured lower on the separate missing-signature failure row.
+- Under pina's cross-framework fixtures, rebuilt with pina's recipe and a verifier that reproduces pina's published pinocchio numbers exactly (2026-09-21), the Hopper substrate hello world is 1,656 bytes at 116 CU, the smallest binary in that table, and the Hopper macro counter initializes in 3,231 CU against Pina 3,301, Anchor v2 3,458, and Quasar 3,488. The like-for-like substrate counter is 8,616 bytes to pinocchio's 6,512, and the macro hello costs 186 CU; both gaps are recorded, not hidden. See [bench/framework-comparison](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/framework-comparison).
 - The result is one locked contract under one toolchain, not a universal framework ranking. Exact source pins, artifact hashes, and the evidence archive are recorded below.
 
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.

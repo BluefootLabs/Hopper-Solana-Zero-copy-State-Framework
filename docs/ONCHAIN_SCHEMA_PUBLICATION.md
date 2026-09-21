@@ -83,10 +83,20 @@ hopper verify --package <package> --strict --release
 # Project and publish only the compatible IDL.
 hopper publish-idl --help
 
+# Publish the full manifest next to the program (seed "hopper-manifest"),
+# and the security.txt record (seed "security"); read either back.
+hopper publish-manifest --manifest hopper.manifest.json --program-id <id> --cluster devnet
+hopper publish-security --file security.json --program-id <id> --cluster devnet
+hopper publish-manifest --read --program-id <id> --cluster devnet
+
 # Grillo's current workspace CLI uses the v0.1 caller-supplied evidence format.
 grillo verify hopper.manifest.json bundle.json
 ```
 
-Until a release-bound effect publication command ships, distribute the exact
-manifest, ELF, hashes, and attestation together. Do not infer Hopper adoption
-from the total number of accounts owned by Program Metadata.
+`hopper publish-manifest` publishes the declaration; it does not publish the
+effect record above. The ELF-embedded release-interface commitment, checked by
+`hopper verify --release` and, against a deployed program, by
+`--baseline-program`, is what binds that declaration to a binary. Until the
+effect publication ships, distribute the exact manifest, ELF, hashes, and
+attestation together. Do not infer Hopper adoption from the total number of
+accounts owned by Program Metadata.

@@ -201,6 +201,9 @@ pub mod prelude_core {
     pub use crate::check::modifier::{
         Account, AccountMut, FromAccount, HasView, HopperLayout, Mut, Signer,
     };
+    // `rent_exempt_min` stays exported for source compatibility; it is the
+    // deprecated launch-era snapshot and warns at its use sites.
+    #[allow(deprecated)]
     pub use crate::check::{
         check_account, check_discriminator, check_executable, check_has_one, check_keys_eq,
         check_owner, check_owner_multi, check_program, check_rent_exempt, check_signer, check_size,
@@ -404,6 +407,7 @@ pub mod prelude {
     pub use crate::check::trust::{
         load_foreign_with_profile, TrustFlags, TrustLevel, TrustProfile,
     };
+    #[allow(deprecated)]
     pub use crate::check::{
         check_account, check_discriminator, check_has_one, check_keys_eq,
         check_no_subsequent_invocation, check_owner, check_owner_multi, check_rent_exempt,

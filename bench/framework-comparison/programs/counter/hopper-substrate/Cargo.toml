@@ -1,0 +1,16 @@
+[package]
+name = "counter-hopper-substrate"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "pina framework-comparison counter fixture on the Hopper substrate with a compact 10-byte account."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+
+[lints]
+workspace = true

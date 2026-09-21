@@ -60,6 +60,11 @@ members = [
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
     "examples/cross-program-read/runner",
+    "bench/framework-comparison/programs/hello/hopper",
+    "bench/framework-comparison/programs/hello/hopper-substrate",
+    "bench/framework-comparison/programs/counter/hopper",
+    "bench/framework-comparison/programs/counter/hopper-substrate",
+    "bench/framework-comparison/verifier",
     "tests/hopper-trybuild",
     "crates/hopper-manager",
     "crates/hopper-sdk",
@@ -117,7 +122,13 @@ documentation = "https://docs.rs/crate/hopper-lang/0.3.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
 categories = ["no-std", "embedded"]
-exclude = ["tests/dx_parity_docs.rs"]
+exclude = [
+    "tests/dx_parity_docs.rs",
+    # pina's pinocchio reference fixtures: standalone crates the framework
+    # comparison rebuilds as its cross-check, never part of this workspace.
+    "bench/framework-comparison/reference/hello",
+    "bench/framework-comparison/reference/counter",
+]
 
 [lib]
 name = "hopper"

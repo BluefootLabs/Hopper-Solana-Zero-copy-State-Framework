@@ -147,7 +147,10 @@ pub struct AccountInfo {
 /// Returns `None` if the account does not exist (value is null).
 pub fn get_account_info(rpc_url: &str, pubkey: &str) -> Result<Option<AccountInfo>, String> {
     let body = format!(
-        r#"{{"jsonrpc":"2.0","id":1,"method":"getAccountInfo","params":["{pubkey}",{{"encoding":"base64"}}]}}"#
+        // `confirmed`, the commitment every send path in this CLI confirms
+        // at, so a record read straight after its publish is visible instead
+        // of racing finalization under the RPC's `finalized` default.
+        r#"{{"jsonrpc":"2.0","id":1,"method":"getAccountInfo","params":["{pubkey}",{{"encoding":"base64","commitment":"confirmed"}}]}}"#
     );
 
     let resp = ureq::post(rpc_url)

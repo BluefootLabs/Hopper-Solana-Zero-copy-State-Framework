@@ -48,6 +48,10 @@ Verify
   hopper publish-check --package <name>     Run interface binding, docs, feature, client, and fuzz gates
   hopper publish-idl --manifest <path> --program-id <pubkey> [--cluster <name>|--url <rpc>] [--yes] [--dry-run]
                                             Publish a lossless Solana IDL v0.1.0 projection through Program Metadata
+  hopper publish-security --file security.json --program-id <pubkey> [--init] [--read] [--dry-run]
+                                            Publish, scaffold, or read back the security.txt record (seed "security")
+  hopper publish-manifest --manifest <path> --program-id <pubkey> [--read] [--dry-run]
+                                            Publish or read back the full Hopper manifest (seed "hopper-manifest")
 
 Schema
   hopper schema export                         Static account-schema format reference
@@ -110,6 +114,7 @@ Config
 Transactions
   hopper tx explain <signature>      Fetch and explain an on-chain transaction
   hopper tx send --program <id> ...  Send one instruction with explicit metas and hex data, signed locally
+  hopper tx send --v1 ...            Same, as a SIMD-0385 transaction v1 envelope (4,096 bytes, config mask)
   hopper tx simulate <tx-base64>     Simulate a pre-built transaction
   hopper tx submit <tx-base64>       Submit a pre-built transaction
 

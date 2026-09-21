@@ -1,0 +1,122 @@
+{
+  "generated": "2026-09-21 17:55 UTC",
+  "toolchain": {
+    "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
+  },
+  "mollusk": "0.15.1",
+  "release_profile": {
+    "CARGO_PROFILE_RELEASE_LTO": "fat",
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "1",
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": "3",
+    "CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS": "false"
+  },
+  "program_ids": {
+    "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
+    "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
+  },
+  "hello": [
+    {
+      "label": "Hopper (substrate)",
+      "bytes": 1656,
+      "so": "hello_hopper_substrate.so",
+      "hello": 116,
+      "source": "measured here"
+    },
+    {
+      "label": "Hopper (macro)",
+      "bytes": 2376,
+      "so": "hello_hopper.so",
+      "hello": 186,
+      "source": "measured here"
+    },
+    {
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "bytes": 3160,
+      "so": "hello_pinocchio.so",
+      "hello": 111,
+      "source": "measured here (cross-check)"
+    },
+    {
+      "label": "Pina",
+      "bytes": 4680,
+      "hello": 145,
+      "source": "pina published"
+    },
+    {
+      "label": "Pinocchio (hand-written)",
+      "bytes": 3160,
+      "hello": 111,
+      "source": "pina published"
+    },
+    {
+      "label": "Quasar",
+      "bytes": 2520,
+      "hello": 115,
+      "source": "pina published"
+    },
+    {
+      "label": "Anchor v2 (lang-v2, rc.1)",
+      "bytes": 1880,
+      "hello": 127,
+      "source": "pina published"
+    }
+  ],
+  "counter": [
+    {
+      "label": "Hopper (substrate)",
+      "bytes": 8616,
+      "so": "counter_hopper_substrate.so",
+      "initialize": 1681,
+      "increment": 1786,
+      "account_size": 10,
+      "source": "measured here"
+    },
+    {
+      "label": "Hopper (macro)",
+      "bytes": 11488,
+      "so": "counter_hopper.so",
+      "initialize": 3231,
+      "increment": 1772,
+      "account_size": 25,
+      "source": "measured here"
+    },
+    {
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "bytes": 6512,
+      "so": "counter_pinocchio.so",
+      "initialize": 1490,
+      "increment": 1721,
+      "account_size": 10,
+      "source": "measured here (cross-check)"
+    },
+    {
+      "label": "Pina",
+      "bytes": 13024,
+      "initialize": 3301,
+      "increment": 1753,
+      "source": "pina published"
+    },
+    {
+      "label": "Pinocchio (hand-written)",
+      "bytes": 6512,
+      "initialize": 1490,
+      "increment": 1721,
+      "source": "pina published"
+    },
+    {
+      "label": "Quasar",
+      "bytes": 7808,
+      "initialize": 3488,
+      "increment": 330,
+      "source": "pina published"
+    },
+    {
+      "label": "Anchor v2 (lang-v2, rc.1)",
+      "bytes": 8696,
+      "initialize": 3458,
+      "increment": 2117,
+      "source": "pina published"
+    }
+  ]
+}

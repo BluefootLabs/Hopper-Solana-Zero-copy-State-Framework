@@ -23,6 +23,8 @@ pub mod profile;
 pub mod profile_dwarf;
 pub mod publish_check;
 pub mod publish_idl;
+pub mod publish_manifest;
+pub mod publish_security;
 pub mod solana_check;
 pub mod test_gen;
 pub mod transaction_limits;

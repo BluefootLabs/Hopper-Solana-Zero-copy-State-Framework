@@ -176,7 +176,7 @@ fn process_init_registry(
     }?;
 
     // Create account via CPI
-    let lamports = rent_exempt_min(REGISTRY_ACCOUNT_SIZE);
+    let lamports = hopper::hopper_runtime::rent::minimum_balance_live(REGISTRY_ACCOUNT_SIZE)?;
     let space = REGISTRY_ACCOUNT_SIZE as u64;
 
     hopper::hopper_system::CreateAccount {

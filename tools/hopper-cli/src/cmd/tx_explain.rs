@@ -122,7 +122,10 @@ pub(crate) fn rpc_get_transaction(rpc_url: &str, signature: &str) -> Result<Valu
             {
                 "encoding": "jsonParsed",
                 "commitment": "confirmed",
-                "maxSupportedTransactionVersion": 0
+                // v1 (SIMD-0385) envelopes land on every public cluster
+                // since 2026-09-15; a client that caps at 0 gets -32015
+                // for each of them, including the ones `tx send --v1` sends.
+                "maxSupportedTransactionVersion": 1
             }
         ]
     });

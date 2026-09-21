@@ -9,6 +9,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Hopper rows for pina's cross-framework matrix.** `bench/framework-comparison/`
+  holds hello-world and PDA-counter fixtures written to pina's exact
+  contracts on both the substrate entrypoint and the `#[program]` macro
+  path, a verifier ported from pina's, pina's pinocchio fixtures vendored as
+  the cross-check, and `scripts/bench-framework-comparison.py`, which
+  reproduces pina's release recipe and rewrites
+  `bench/framework-comparison/results/RESULTS.md`. The cross-check
+  reproduces pina's published pinocchio numbers exactly. Measured
+  2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
+  the table), macro hello 2,376 / 186, substrate counter 8,616 bytes /
+  1,681 / 1,786 CU, macro counter 11,488 bytes / 3,231 / 1,772 CU (the
+  lowest `initialize` of the framework rows).
+- **`hopper publish-security`.** Publishes a program's `security.txt` record
+  through Program Metadata at the canonical `[program, "security"]` PDA, the
+  record Solana Explorer reads, over the same signed-send path as
+  `publish-idl`. The document is validated first: unknown keys are refused,
+  values must be strings or string arrays, and `name`, `project_url`,
+  `contacts`, and `policy` must be present. `--init` writes a template,
+  `--read` fetches, decodes, and prints a published record. Parity with
+  Anchor's `anchor init` security metadata (PR #4177) without the `npx`
+  dependency.
+- **`hopper publish-manifest`.** Publishes the normalized Hopper manifest
+  under the custom Program Metadata seed `hopper-manifest`, so the document
+  `hopper verify --authority-baseline` diffs can be fetched from the ledger;
+  `--read` fetches it back. `publish-idl`, `publish-security`, and
+  `publish-manifest` share one send path and one dry-run renderer.
+- **`hopper tx send --v1`.** Builds a SIMD-0385 transaction v1 envelope:
+  4,096-byte ceiling, compute-unit limit, loaded-accounts-data limit
+  (default 4 MiB), and optional priority fee in the message config mask,
+  validated client-side before signing. No ComputeBudget instruction is
+  added to a v1 send because v1 executes it without honoring it.
+  `--loaded-data-limit` and `--priority-fee` are refused without `--v1`.
 - **Ledger-bound authority review.** `hopper verify --authority-baseline`
   accepts `--baseline-program <id>` (the deployed program's ProgramData ELF
   must carry the baseline manifest's interface commitment),
@@ -79,8 +111,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `audit/devnet-evidence-2026-09-19/`; the record with program ids and slots
   is in `docs/DEVNET_RELEASE_EVIDENCE.md`.
 
+### Fixed
+
+- **`init` funded accounts from a launch-era rent constant.** `hopper_init!`
+  (behind `#[account(init, ...)]` and `init_if_needed`) and
+  `hopper_core::check::check_rent_exempt` computed `(128 + len) * 6,960`
+  lamports. Devnet and mainnet-beta charge 5,080 lamports per byte-year at
+  threshold 1.0 (verified 2026-09-21 through `getMinimumBalanceForRentExemption`
+  and the Rent sysvar account), so every macro-path init overfunded the new
+  account by 37% and the guard could reject an account holding exactly the
+  live minimum. Both now use `hopper_runtime::rent::minimum_balance_live`,
+  which reads the sysvar on-chain, as do the showcase, registry, treasury,
+  migration, and orderbook examples that funded accounts from the same
+  constant; `rent_exempt_min` is deprecated as the documented launch
+  snapshot.
+- `publish-idl`, `publish-security`, and `publish-manifest` read the
+  metadata PDA at `confirmed`, the commitment their sends confirm at, so a
+  `--read` or an existence check issued right after a publish no longer
+  races finalization.
+- **Reading the Rent sysvar linked soft-float code.** `Rent::minimum_balance`
+  and `CachedRent::exempt_min` compared the `exemption_threshold` as an
+  `f64` and kept a float multiply fallback, which pulled `__muldf3`,
+  `__floatundidf`, and `__fixunsdfdi` into every program that read the
+  sysvar. The threshold is now matched by bit pattern (`1.0` and `2.0`,
+  exact) and any other value rounds up to whole years in integer
+  arithmetic, which can only overfund. The framework-comparison substrate
+  counter went from 12,048 to 8,616 bytes.
+- The generated `init_<field>()` helper no longer warns about an
+  instruction argument that only a `bump = <arg>` proof uses.
+
 ### Changed
 
+- `hopper tx explain` requests `maxSupportedTransactionVersion: 1`, so v1
+  transactions (already landing on every public cluster) decode instead of
+  failing with `-32015`. The oversize-transaction error for legacy sends now
+  points at `hopper tx send --v1`.
 - **Contexts name the instructions they serve.** `ContextDescriptor` gains
   `instructions`, filled by `#[program]` with the handler names bound to
   each context, and the manifest writes it as the `instructions` key of

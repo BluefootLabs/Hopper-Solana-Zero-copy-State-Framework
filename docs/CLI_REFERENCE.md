@@ -190,6 +190,38 @@ Named devnet is the default. Named Mainnet and every raw, custom, or
 `--yes` is supplied. `--dry-run` exits before target resolution, prompting,
 keypair loading, or network access.
 
+### `hopper publish-security --file <security.json> --program-id <pubkey> [--cluster <name> | --url <rpc>] [--keypair <path>] [--seed <str>] [--overwrite] [--allow-incomplete] [--allow-unknown-keys] [--yes] [--dry-run]`
+
+Publish a program's `security.txt` record through Program Metadata at the
+canonical `[program, "security"]` PDA, the record Solana Explorer reads on the
+program page and the successor to the ELF-embedded `security_txt!` section.
+Same header, same Utf8 + Zlib + Json tags, same signed-send path and cluster
+guards as `publish-idl`; the signer must be the program's upgrade authority.
+The document is validated before anything is compressed: unknown keys are
+refused (the consumer parser ignores them, so a typo would publish silently),
+every value must be a string or an array of strings, and `name`,
+`project_url`, `contacts`, and `policy` must be present and non-empty. The
+published bytes are the minified document with keys sorted.
+
+`hopper publish-security --init [path]` writes a `security.json` template with
+every known field empty (it fails validation until filled in).
+`hopper publish-security --read --program-id <pubkey>` fetches the published
+record, decodes the header, inflates the payload, and prints it; `--seed` reads
+any other record at the canonical PDA.
+
+### `hopper publish-manifest --manifest <path> --program-id <pubkey> [--cluster <name> | --url <rpc>] [--keypair <path>] [--seed <str>] [--overwrite] [--yes] [--dry-run]`
+
+Publish the normalized Hopper manifest, the document `hopper verify
+--authority-baseline` diffs, at the canonical `[program, "hopper-manifest"]`
+Program Metadata PDA. Program Metadata permits custom seeds but does not
+reserve them, so this is a Hopper convention: the record puts the exact
+declaration next to the program it describes so a reviewer can fetch the
+baseline from the ledger instead of trusting a file handed over out of band.
+Large manifests take the Allocate, chunked Write, Initialize path; a large
+`--overwrite` is refused like `publish-idl`. `--read` fetches and prints the
+published manifest. Publishing the declaration does not bind it to the
+deployed ELF; `hopper verify --release` and `--baseline-program` do that.
+
 ### `hopper schema validate <manifest.json>`
 
 Static validation of a manifest file.
@@ -368,6 +400,35 @@ Drill-downs for each piece: named segment offsets, receipt wire-format decode.
 
 Human-readable narratives. `explain receipt <hex>` turns a raw receipt into "Invariant `balance_nonzero` failed at stage Invariant, code 0x1001".
 `explain instruction <manifest> <tag|name>` prints the instruction's account order, signer/writable requirements, argument bytes, capabilities, policy pack, and receipt expectation.
+
+## Transactions
+
+### `hopper tx send --program <pubkey> [--data <hex>] --account <pubkey|payer>[:s][:w]... --keypair <path> [--signer <path>]... [--rpc <url>] [--compute-limit <units>] [--allow-failure] [--dry-run] [--v1 [--loaded-data-limit <bytes>] [--priority-fee <lamports>]]`
+
+Send one instruction with explicit, ordered account metas and raw hex data,
+signed locally. Every signer-flagged slot must be covered by the fee payer or
+a `--signer` keypair, checked before any RPC round trip. `--allow-failure`
+skips preflight so an on-chain refusal lands and is reported as data.
+`--dry-run` prints the plan and the wire size without touching the network.
+After confirmation the transaction is fetched back and its measured compute
+units and fee are printed.
+
+`--v1` builds a SIMD-0385 transaction v1 envelope instead of legacy: a
+4,096-byte ceiling, up to 64 addresses, 64 instructions, and 12 signatures,
+serialized with the wire codec the RPC client uses for v1. The compute-unit
+limit (default 200,000), the loaded-accounts-data-size limit (default 4 MiB),
+and the optional priority fee travel in the message's config mask; the
+runtime treats an absent limit as zero, so both limits are always set, and a
+ComputeBudget instruction is never added to a v1 send because v1 executes it
+without honoring it. `--priority-fee` is a total in lamports, not a per-CU
+price. The v1 gate is active on mainnet-beta (slot 447,120,000), devnet, and
+testnet; `--loaded-data-limit` and `--priority-fee` are refused without
+`--v1` rather than silently dropped.
+
+### `hopper tx explain <signature> [--rpc <url>]`
+
+Fetch a confirmed transaction (legacy, v0, or v1) and explain every
+instruction against the touched Hopper programs' manifests.
 
 ## On-chain fetch
 

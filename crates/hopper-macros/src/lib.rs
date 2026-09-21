@@ -703,7 +703,11 @@ macro_rules! hopper_init {
             Err($crate::hopper_runtime::ProgramError::InvalidAccountData)?;
         }
 
-        let lamports = $crate::hopper_core::check::rent_exempt_min(space);
+        // Live Rent sysvar on-chain (SIMD-0194 moved the whole price into
+        // `lamports_per_byte_year`, and SIMD-0437 repriced it, so a baked
+        // constant either overfunds or underfunds); the documented launch
+        // snapshot on hosts, where no sysvar exists.
+        let lamports = $crate::hopper_runtime::rent::minimum_balance_live(space)?;
         let space = space as u64;
 
         if account.data_len() != 0 {

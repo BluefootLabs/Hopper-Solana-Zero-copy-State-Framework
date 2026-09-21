@@ -465,7 +465,7 @@ fn composite_v2_lets_the_outer_container_use_init_if_needed() {
 
 #[test]
 fn prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall() {
-    let rent_min = hopper::hopper_core::check::rent_exempt_min(Ledger::LEN);
+    let rent_min = hopper::hopper_runtime::rent::minimum_balance_live(Ledger::LEN).unwrap();
     // Strictly between 0 and the rent-exempt minimum, so the branch must
     // BOTH top the account up (Transfer of the shortfall) AND still
     // allocate + assign it.
@@ -539,7 +539,7 @@ fn prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall() 
 
 #[test]
 fn prefunded_at_minimum_debits_the_payer_nothing_but_still_allocates_and_assigns() {
-    let rent_min = hopper::hopper_core::check::rent_exempt_min(Ledger::LEN);
+    let rent_min = hopper::hopper_runtime::rent::minimum_balance_live(Ledger::LEN).unwrap();
 
     let accounts = [
         payer_fixture(0x71, 10_000_000_000),

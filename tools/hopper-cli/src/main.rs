@@ -192,6 +192,8 @@ fn main() {
         "publish-check" => cmd::publish_check::cmd_publish_check(&args[2..]),
         "audit-check" => cmd::audit_check::cmd_audit_check(&args[2..]),
         "publish-idl" => cmd::publish_idl::cmd_publish_idl(&args[2..]),
+        "publish-security" => cmd::publish_security::cmd_publish_security(&args[2..]),
+        "publish-manifest" => cmd::publish_manifest::cmd_publish_manifest(&args[2..]),
         "solana-check" => cmd::solana_check::cmd_solana_check(&args[2..]),
 
         // DX and tooling
@@ -2450,6 +2452,12 @@ fn print_usage() {
     );
     println!("    hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run]");
     println!("                                           Publish Solana IDL v0.1.0 through Program Metadata (zero Node deps)");
+    println!("    hopper publish-security --file security.json --program-id <pubkey> [--init] [--read] [--dry-run]");
+    println!("                                           Publish, scaffold, or read back the security.txt record (seed \"security\")");
+    println!(
+        "    hopper publish-manifest --manifest <path> --program-id <pubkey> [--read] [--dry-run]"
+    );
+    println!("                                           Publish or read back the full Hopper manifest (seed \"hopper-manifest\")");
     println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
     println!("    hopper contention <manifest>           Declared write-lock/signature footprint per instruction");
     println!("                                           (--max-block-cost <CU> gates it in CI)");

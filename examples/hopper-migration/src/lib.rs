@@ -205,7 +205,7 @@ fn process_migrate_v1_to_v2(
         }
     }
 
-    let rent_needed = rent_exempt_min(VaultV2::LEN);
+    let rent_needed = hopper::hopper_runtime::rent::minimum_balance_live(VaultV2::LEN)?;
     let rent_delta = rent_needed.saturating_sub(vault_account.lamports());
     if rent_delta > 0 {
         hopper::hopper_system::Transfer {

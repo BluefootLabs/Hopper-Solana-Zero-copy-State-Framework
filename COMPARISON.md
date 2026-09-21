@@ -211,6 +211,28 @@ dated note in `BENCHMARKS.md`). The archived figures stand as archived
 evidence and are not restated here. See `BENCHMARKS.md` for the complete
 method, two-way rows, source pins, and claim boundary.
 
+### Hopper rows in pina's fixtures (2026-09-21)
+
+pina's `benchmarks/framework-comparison` measures a hello world and a PDA
+counter under one release recipe and one Mollusk verifier with post-state
+checks. `bench/framework-comparison/` reproduces that recipe for Hopper and
+rebuilds pina's pinocchio fixtures as the cross-check, which reproduced pina's
+published numbers exactly (3,160 B / 111 CU; 6,512 B / 1,490 / 1,721 CU).
+
+| Fixture | Hopper (substrate) | Hopper (macro) | Pinocchio | Pina | Quasar | Anchor v2 |
+|---|---:|---:|---:|---:|---:|---:|
+| hello, bytes / CU | 1,656 / 116 | 2,376 / 186 | 3,160 / 111 | 4,680 / 145 | 2,520 / 115 | 1,880 / 127 |
+| counter, bytes / init / increment | 8,616 / 1,681 / 1,786 | 11,488 / 3,231 / 1,772 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
+
+The substrate counter is the like-for-like row (10-byte compact account,
+plain `CreateAccount`, PDA re-derived on `increment`). The macro counter
+carries Hopper's 16-byte header (25-byte account) like Anchor's 24-byte one,
+and its `initialize` includes a live Rent sysvar read. Quasar's `increment`
+skips the PDA re-derivation. Hopper does not win everywhere: the macro hello
+costs 70 CU over the substrate and the macro counter binary is larger than
+Anchor's and Quasar's; see `bench/framework-comparison/results/RESULTS.md`
+and `docs/COMPETITIVE_REFRESH_2026-09-21.md`.
+
 ---
 
 ## Where Hopper is differentiated in the pinned comparison

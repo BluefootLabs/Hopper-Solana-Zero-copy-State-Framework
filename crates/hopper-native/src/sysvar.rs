@@ -141,19 +141,22 @@ impl Rent {
     /// **live sysvar** values, the correct source for reaping-relevant
     /// decisions after a rent reprice.
     ///
-    /// This follows Solana's own `solana_rent::Rent::minimum_balance`:
+    /// This follows Solana's own `solana_rent::Rent::minimum_balance` for the
+    /// two thresholds any cluster has stored, with no floating point at all:
     ///
     /// ```text
     /// integer_part = (ACCOUNT_STORAGE_OVERHEAD + data_len) * rate
     /// threshold 1.0 => integer_part
     /// threshold 2.0 => integer_part * 2
-    /// otherwise     => (integer_part as f64 * threshold) as u64
+    /// otherwise     => integer_part * ceil(threshold)   (never below Solana's
+    ///                  `(integer_part as f64 * threshold) as u64`)
     /// ```
     ///
     /// SIMD-0194 made `1.0` the live wire marker and moved the full price into
-    /// the rate field. Solana also retains an integer `2.0` legacy fast path.
-    /// Matching both avoids unsupported/expensive floating point on sBPF while
-    /// preserving the generic host calculation for historical custom values.
+    /// the rate field; `2.0` is the launch-era value. Both are matched by bit
+    /// pattern (see [`scale_by_exemption_threshold`]), so a program that reads
+    /// the sysvar links no soft-float code. A threshold no cluster has ever
+    /// used rounds up to whole years, which can only overfund.
     ///
     /// The integer product uses saturating ops purely as an overflow guard;
     /// for every loader-permitted `data_len` (`<= 10_485_760`) and realistic
@@ -165,13 +168,78 @@ impl Rent {
         let integer_part = ACCOUNT_STORAGE_OVERHEAD
             .saturating_add(bytes)
             .saturating_mul(self.lamports_per_byte_year);
-        if self.exemption_threshold == 1.0 {
-            integer_part
-        } else if self.exemption_threshold == 2.0 {
-            integer_part.saturating_mul(2)
-        } else {
-            (integer_part as f64 * self.exemption_threshold) as u64
-        }
+        scale_by_exemption_threshold(integer_part, self.exemption_threshold.to_bits())
+    }
+}
+
+/// Bit pattern of `1.0f64`, the SIMD-0194 live threshold marker.
+const THRESHOLD_ONE_BITS: u64 = 0x3FF0_0000_0000_0000;
+/// Bit pattern of `2.0f64`, the launch-era threshold.
+const THRESHOLD_TWO_BITS: u64 = 0x4000_0000_0000_0000;
+
+/// Apply the rent `exemption_threshold` (given as its IEEE-754 bit pattern)
+/// to an integer lamport amount **without any floating-point instruction**.
+///
+/// sBPF has no FPU: every `f64` compare or multiply lowers to a soft-float
+/// library call, and the launch-era formula's `(x as f64 * t) as u64`
+/// fallback dragged `__muldf3`, `__floatundidf`, and `__fixunsdfdi` into
+/// every program that read the Rent sysvar (measured 2026-09-21 on the
+/// framework-comparison counter: 2,528 bytes of `.text` for a path no
+/// cluster has ever taken). The two thresholds that have existed are
+/// matched by bit pattern and are exact: `1.0`, the SIMD-0194 wire marker
+/// every public cluster stores today, and the launch-era `2.0`. Any other
+/// finite positive threshold is rounded **up** to a whole number of years
+/// with integer arithmetic, which can only overfund, never underfund, so a
+/// rent-exemption decision made through it stays safe. Saturates at
+/// `u64::MAX` (an infinite threshold saturates too); a zero, negative, or
+/// NaN threshold yields `0`, the same as the cast.
+#[inline]
+pub fn scale_by_exemption_threshold(integer_part: u64, threshold_bits: u64) -> u64 {
+    if threshold_bits == THRESHOLD_ONE_BITS {
+        return integer_part;
+    }
+    if threshold_bits == THRESHOLD_TWO_BITS {
+        return integer_part.saturating_mul(2);
+    }
+    integer_part.saturating_mul(ceil_years(threshold_bits))
+}
+
+/// Ceiling of a double (given as bits) as a `u64`, saturating: the whole
+/// number of years a non-standard threshold rounds up to. Zero, negative,
+/// and NaN give `0`; anything in `(0, 1]` gives `1`; infinity saturates.
+#[inline]
+fn ceil_years(bits: u64) -> u64 {
+    if bits >> 63 == 1 {
+        return 0;
+    }
+    let exponent = ((bits >> 52) & 0x7FF) as i32;
+    let mantissa = bits & ((1u64 << 52) - 1);
+    if exponent == 0x7FF {
+        return if mantissa == 0 { u64::MAX } else { 0 };
+    }
+    if exponent == 0 {
+        // Zero, or a subnormal that still rounds up to one year.
+        return if mantissa == 0 { 0 } else { 1 };
+    }
+    // value = 1.mantissa * 2^(exponent - 1023)
+    let e = exponent - 1023;
+    if e < 0 {
+        return 1;
+    }
+    if e >= 64 {
+        return u64::MAX;
+    }
+    let significand = (1u64 << 52) | mantissa;
+    if e >= 52 {
+        return significand << (e - 52);
+    }
+    let shift = (52 - e) as u32;
+    let whole = significand >> shift;
+    let fraction = significand & ((1u64 << shift) - 1);
+    if fraction == 0 {
+        whole
+    } else {
+        whole + 1
     }
 }
 
@@ -751,7 +819,7 @@ mod rent_tests {
             (165, 3_480, 2.0),
             (10_240, 3_480, 2.0),
             (1_000_000, 6_960, 2.0),  // hypothetical 2x reprice
-            (500_000, 3_480, 2.5),    // fractional threshold
+            (500_000, 3_480, 3.0),    // whole-year non-default threshold
             (10_485_760, 3_480, 2.0), // max size
             // `lpby` just past f64's 2^53 exact-integer range, the case
             // that motivates the integer product + single f64 step (an
@@ -770,6 +838,92 @@ mod rent_tests {
                 "sysvar minimum_balance != Solana reference at dl={dl}, lpby={lpby}, threshold={threshold}"
             );
         }
+    }
+
+    /// The float-free threshold scaling: exact for the two thresholds any
+    /// cluster has stored, and for every other finite positive threshold a
+    /// whole-year round-up that is never below the float cast the runtime
+    /// historically used.
+    #[test]
+    fn threshold_scaling_is_float_free_and_never_underfunds() {
+        fn reference(integer_part: u64, threshold: f64) -> u64 {
+            (integer_part as f64 * threshold) as u64
+        }
+        let amounts: [u64; 8] = [
+            0,
+            1,
+            7,
+            128 * 3_480,
+            890_880,
+            1_740_445_440,
+            1 << 40,
+            1 << 52,
+        ];
+        let whole_thresholds: [f64; 4] = [1.0, 2.0, 3.0, 4.0];
+        let fractional: [(f64, u64); 10] = [
+            (0.5, 1),
+            (1.5, 2),
+            (2.5, 3),
+            (0.25, 1),
+            (0.75, 1),
+            (1.1, 2),
+            (1.7, 2),
+            (0.3, 1),
+            (2.9, 3),
+            (3.33, 4),
+        ];
+        for &amount in &amounts {
+            for &threshold in &whole_thresholds {
+                assert_eq!(
+                    scale_by_exemption_threshold(amount, threshold.to_bits()),
+                    reference(amount, threshold),
+                    "amount {amount} threshold {threshold}"
+                );
+            }
+            for &(threshold, years) in &fractional {
+                let ours = scale_by_exemption_threshold(amount, threshold.to_bits());
+                assert_eq!(ours, amount.saturating_mul(years), "threshold {threshold}");
+                assert!(
+                    ours >= reference(amount, threshold),
+                    "amount {amount} threshold {threshold}: {ours} underfunds"
+                );
+            }
+            // Degenerate thresholds: zero, negative, and NaN yield 0 like the
+            // cast; a subnormal rounds up to one year; infinity saturates.
+            assert_eq!(scale_by_exemption_threshold(amount, 0.0f64.to_bits()), 0);
+            assert_eq!(scale_by_exemption_threshold(amount, (-1.0f64).to_bits()), 0);
+            assert_eq!(scale_by_exemption_threshold(amount, f64::NAN.to_bits()), 0);
+            assert_eq!(
+                scale_by_exemption_threshold(amount, f64::MIN_POSITIVE.to_bits() >> 1),
+                amount
+            );
+            let saturated = if amount == 0 { 0 } else { u64::MAX };
+            assert_eq!(
+                scale_by_exemption_threshold(amount, f64::INFINITY.to_bits()),
+                saturated
+            );
+        }
+        // Huge thresholds saturate.
+        let huge: f64 = (1u64 << 63) as f64;
+        assert_eq!(scale_by_exemption_threshold(2, huge.to_bits()), u64::MAX);
+        let astronomical: f64 = 1e300;
+        assert_eq!(
+            scale_by_exemption_threshold(1, astronomical.to_bits()),
+            u64::MAX
+        );
+        let exactly_2_pow_60: f64 = (1u64 << 60) as f64;
+        assert_eq!(
+            scale_by_exemption_threshold(1, exactly_2_pow_60.to_bits()),
+            1 << 60
+        );
+        assert_eq!(
+            scale_by_exemption_threshold(u64::MAX, 1.0f64.to_bits()),
+            u64::MAX
+        );
+        assert_eq!(
+            scale_by_exemption_threshold(u64::MAX, 2.0f64.to_bits()),
+            u64::MAX
+        );
     }
 
     /// The correctness gap the safety work closes: after an UPWARD rent

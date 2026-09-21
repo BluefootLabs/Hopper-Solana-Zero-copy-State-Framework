@@ -314,6 +314,50 @@ impl MetadataHeader {
         seed16: [u8; SEED_LEN],
         payload: &PreparedPayload,
     ) -> Self {
+        Self::canonical(program, seed16, payload)
+    }
+
+    /// Decode the 96-byte header at the front of a metadata account. The
+    /// inverse of [`Self::encode`]; used to read a published record back.
+    pub fn decode(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() < HEADER_LEN {
+            return Err(format!(
+                "metadata account holds {} bytes; the header alone is {HEADER_LEN}",
+                bytes.len()
+            ));
+        }
+        let mut program = [0u8; 32];
+        program.copy_from_slice(&bytes[1..33]);
+        let mut authority = [0u8; 32];
+        authority.copy_from_slice(&bytes[33..65]);
+        let mut seed = [0u8; SEED_LEN];
+        seed.copy_from_slice(&bytes[67..83]);
+        Ok(MetadataHeader {
+            discriminator: bytes[0],
+            program,
+            authority: (authority != [0u8; 32]).then_some(authority),
+            mutable: bytes[65] != 0,
+            canonical: bytes[66] != 0,
+            seed,
+            encoding: bytes[83],
+            compression: bytes[84],
+            format: bytes[85],
+            data_source: bytes[86],
+            data_len: u32::from_le_bytes([bytes[87], bytes[88], bytes[89], bytes[90]]),
+        })
+    }
+
+    /// The printable seed: the field up to its first zero byte.
+    pub fn seed_text(&self) -> String {
+        let end = self.seed.iter().position(|&b| b == 0).unwrap_or(SEED_LEN);
+        String::from_utf8_lossy(&self.seed[..end]).into_owned()
+    }
+
+    /// Build the canonical header for any record under `seed16`, recording
+    /// the prepared `payload`'s encoding/compression/format and stored
+    /// length. The payload tags are the single source of truth for these
+    /// fields.
+    pub fn canonical(program: [u8; 32], seed16: [u8; SEED_LEN], payload: &PreparedPayload) -> Self {
         MetadataHeader {
             discriminator: DISC_METADATA,
             program,
@@ -366,9 +410,8 @@ pub fn zlib_compress(data: &[u8]) -> Vec<u8> {
 }
 
 /// Zlib-decompress `data` (round-trip inverse of [`zlib_compress`]).
-/// Used by the compression round-trip tests and by the signed-send
-/// followup that will read back and verify a published account.
-#[allow(dead_code)]
+/// Used by the compression round-trip tests and by `--read`, which fetches
+/// a published record back and inflates it.
 pub fn zlib_decompress(data: &[u8]) -> Result<Vec<u8>, String> {
     use flate2::read::ZlibDecoder;
     use std::io::Read;
@@ -395,17 +438,25 @@ pub struct PreparedPayload {
 }
 
 impl PreparedPayload {
-    /// Prepare an Anchor-IDL JSON string for on-chain storage as
-    /// Utf8 + Zlib + Json.
-    pub fn from_idl_json(idl_json: &str) -> Self {
-        let compressed = zlib_compress(idl_json.as_bytes());
+    /// Prepare any JSON document for on-chain storage as Utf8 + Zlib + Json,
+    /// the tag triple the reference client writes for a `.json` file. The
+    /// IDL, `security.txt`, and manifest records all share it; only the seed
+    /// and the source differ.
+    pub fn from_json(json: &str) -> Self {
+        let compressed = zlib_compress(json.as_bytes());
         PreparedPayload {
-            raw_len: idl_json.len(),
+            raw_len: json.len(),
             compressed,
             encoding: ENCODING_UTF8,
             compression: COMPRESSION_ZLIB,
             format: FORMAT_JSON,
         }
+    }
+
+    /// Prepare an Anchor-IDL JSON string for on-chain storage as
+    /// Utf8 + Zlib + Json.
+    pub fn from_idl_json(idl_json: &str) -> Self {
+        Self::from_json(idl_json)
     }
 
     /// Stored payload length (post-compression), the header's `data_len`.
@@ -558,10 +609,34 @@ fn hex_encode(bytes: &[u8]) -> String {
 // Dry-run rendering
 // ---------------------------------------------------------------------------
 
-/// Render the full `--dry-run` report as a string: derived PDA, prepared
-/// payload sizes, the 96-byte header (hex + decoded fields), and the
-/// instruction plan that a signed send *would* submit. Pure and
-/// side-effect free so it is directly unit-testable.
+/// What a publish command is writing: the banner name, the noun used in
+/// status lines and prompts, and a one-line provenance for the payload.
+/// `publish-idl`, `publish-security`, and `publish-manifest` share every
+/// byte of the send path; this is the only thing that differs.
+pub struct PublishRecord {
+    /// CLI command name for banners (`publish-idl`).
+    pub command: &'static str,
+    /// What the payload is, for status lines (`IDL`, `security.txt`).
+    pub noun: &'static str,
+    /// One-line provenance printed under `Payload: Source:`.
+    pub source: String,
+}
+
+impl PublishRecord {
+    /// The IDL record projected from a manifest.
+    pub fn idl(manifest_name: &str, manifest_version: &str) -> Self {
+        PublishRecord {
+            command: "publish-idl",
+            noun: "IDL",
+            source: format!(
+                "Solana IDL v0.1.0 (projected from manifest {manifest_name} v{manifest_version})"
+            ),
+        }
+    }
+}
+
+/// Render the full `--dry-run` report for the IDL record. See
+/// [`render_dry_run_record`].
 pub fn render_dry_run(
     program_id: &[u8; 32],
     seed16: &[u8; SEED_LEN],
@@ -569,23 +644,38 @@ pub fn render_dry_run(
     manifest_name: &str,
     manifest_version: &str,
 ) -> String {
+    render_dry_run_record(
+        &PublishRecord::idl(manifest_name, manifest_version),
+        program_id,
+        seed16,
+        &PreparedPayload::from_idl_json(idl_json),
+    )
+}
+
+/// Render the full `--dry-run` report as a string: derived PDA, prepared
+/// payload sizes, the 96-byte header (hex + decoded fields), and the
+/// instruction plan that a signed send *would* submit. Pure and
+/// side-effect free so it is directly unit-testable.
+pub fn render_dry_run_record(
+    record: &PublishRecord,
+    program_id: &[u8; 32],
+    seed16: &[u8; SEED_LEN],
+    payload: &PreparedPayload,
+) -> String {
     let program_b58 = bs58::encode(program_id).into_string();
     let (pda, bump) = derive_canonical_pda(program_id, seed16);
     let pda_b58 = bs58::encode(pda).into_string();
 
-    let payload = PreparedPayload::from_idl_json(idl_json);
-    let header = MetadataHeader::canonical_idl(*program_id, *seed16, &payload);
+    let header = MetadataHeader::canonical(*program_id, *seed16, payload);
     let header_bytes = header.encode();
 
     // Render the seed field: printable prefix + hex of the fixed 16 bytes.
-    let seed_text =
-        String::from_utf8_lossy(&seed16[..seed16.iter().position(|&b| b == 0).unwrap_or(SEED_LEN)])
-            .into_owned();
+    let seed_text = header.seed_text();
 
     let mut out = String::new();
     use std::fmt::Write as _;
 
-    let _ = writeln!(out, "=== hopper publish-idl (dry run) ===");
+    let _ = writeln!(out, "=== hopper {} (dry run) ===", record.command);
     let _ = writeln!(out);
     let _ = writeln!(out, "Program:            {program_b58}");
     let _ = writeln!(out, "Metadata program:   {METADATA_PROGRAM_ID_B58}");
@@ -599,10 +689,7 @@ pub fn render_dry_run(
     let _ = writeln!(out);
 
     let _ = writeln!(out, "Payload:");
-    let _ = writeln!(
-        out,
-        "  Source:           Solana IDL v0.1.0 (projected from manifest {manifest_name} v{manifest_version})"
-    );
+    let _ = writeln!(out, "  Source:           {}", record.source);
     let _ = writeln!(out, "  Raw size:         {} bytes", payload.raw_len);
     let _ = writeln!(
         out,
@@ -892,6 +979,7 @@ pub fn cmd_publish_idl(args: &[String]) {
     // Non-dry-run: build, sign, and submit the real on-chain transaction(s).
     let payload = PreparedPayload::from_idl_json(&idl_json);
     if let Err(e) = run_publish_send(
+        &PublishRecord::idl(manifest.name, manifest.version),
         &program_id,
         &seed16,
         &payload,
@@ -900,8 +988,6 @@ pub fn cmd_publish_idl(args: &[String]) {
         keypair_arg.as_deref(),
         overwrite,
         yes,
-        manifest.name,
-        manifest.version,
     ) {
         eprintln!("publish-idl: {e}");
         process::exit(1);
@@ -920,14 +1006,14 @@ const PUBLISH_DEFAULT_RPC: &str = "https://api.devnet.solana.com";
 /// cluster they proxy, so every custom or environment-derived endpoint is
 /// conservatively treated as potentially mainnet.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct PublishTarget {
-    url: String,
-    label: String,
-    requires_confirmation: bool,
+pub(crate) struct PublishTarget {
+    pub(crate) url: String,
+    pub(crate) label: String,
+    pub(crate) requires_confirmation: bool,
 }
 
 impl PublishTarget {
-    fn display_url(&self) -> String {
+    pub(crate) fn display_url(&self) -> String {
         crate::cmd::cluster::redact_rpc_url(&self.url)
     }
 
@@ -977,7 +1063,7 @@ fn named_publish_target(moniker: &str) -> Result<PublishTarget, String> {
 /// Resolve a publish target without consulting global state. This makes the
 /// safety precedence directly testable: explicit endpoint or cluster, then an
 /// environment endpoint, then a safe devnet default.
-fn resolve_publish_target(
+pub(crate) fn resolve_publish_target(
     cli_url: Option<&str>,
     cli_cluster: Option<&str>,
     env_url: Option<&str>,
@@ -1006,14 +1092,15 @@ fn confirm_publish_target(
     yes: bool,
     overwrite: bool,
     program_id: &str,
+    noun: &str,
 ) -> Result<(), String> {
     if !target.requires_confirmation || yes {
         return Ok(());
     }
     let action = if overwrite {
-        "overwrite the published IDL"
+        format!("overwrite the published {noun}")
     } else {
-        "publish an IDL"
+        format!("publish the {noun}")
     };
     eprint!(
         "About to {action} for {program_id} on {} ({}). This submits signed transactions. Type 'yes' to continue: ",
@@ -1033,7 +1120,7 @@ fn confirm_publish_target(
     Ok(())
 }
 
-fn redact_rpc_error(target: &PublishTarget, error: impl ToString) -> String {
+pub(crate) fn redact_rpc_error(target: &PublishTarget, error: impl ToString) -> String {
     error
         .to_string()
         .replace(&target.url, &target.display_url())
@@ -1050,12 +1137,14 @@ fn resolve_keypair_path(cli: Option<&str>) -> Result<std::path::PathBuf, String>
     })
 }
 
-/// Build, sign and submit the transaction(s) that write the IDL to the
-/// canonical metadata PDA. Chooses the inline path for small IDLs and the
-/// `Allocate` + chunked `Write` + `Initialize` path for large ones, and the
-/// `SetData` rewrite path under `--overwrite`.
+/// Build, sign and submit the transaction(s) that write a record to the
+/// canonical metadata PDA. Chooses the inline path for small payloads and
+/// the `Allocate` + chunked `Write` + `Initialize` path for large ones, and
+/// the `SetData` rewrite path under `--overwrite`. Every publish command
+/// (`idl`, `security`, `hopper-manifest`) rides this one function.
 #[allow(clippy::too_many_arguments)]
-fn run_publish_send(
+pub(crate) fn run_publish_send(
+    record: &PublishRecord,
     program_id: &[u8; 32],
     seed16: &[u8; SEED_LEN],
     payload: &PreparedPayload,
@@ -1064,8 +1153,6 @@ fn run_publish_send(
     keypair_cli: Option<&str>,
     overwrite: bool,
     yes: bool,
-    manifest_name: &str,
-    manifest_version: &str,
 ) -> Result<(), String> {
     use solana_client::rpc_client::RpcClient;
     use solana_commitment_config::CommitmentConfig;
@@ -1079,7 +1166,7 @@ fn run_publish_send(
     let env_url = std::env::var("SOLANA_RPC_URL").ok();
     let target = resolve_publish_target(url_cli, cluster_cli, env_url.as_deref())?;
     let program_b58 = bs58::encode(program_id).into_string();
-    confirm_publish_target(&target, yes, overwrite, &program_b58)?;
+    confirm_publish_target(&target, yes, overwrite, &program_b58, record.noun)?;
     let display_url = target.display_url();
     let url = target.url.clone();
     let keypair_path = resolve_keypair_path(keypair_cli)?;
@@ -1101,7 +1188,7 @@ fn run_publish_send(
     let stored = payload.compressed.len();
     let final_space = HEADER_LEN + stored;
 
-    println!("=== hopper publish-idl ===");
+    println!("=== hopper {} ===", record.command);
     println!("rpc              : {display_url}");
     println!("signer/authority : {authority_pk}");
     println!("program          : {program_b58}");
@@ -1110,7 +1197,7 @@ fn run_publish_send(
         "payload          : {} raw -> {} zlib bytes",
         payload.raw_len, stored
     );
-    println!("source           : manifest {manifest_name} v{manifest_version}");
+    println!("source           : {}", record.source);
 
     // Inspect the current state of the PDA (existence / discriminator / owner).
     let existing = crate::rpc::get_account_info(&url, &pda_b58).map_err(|e| {
@@ -1221,7 +1308,7 @@ fn run_publish_send(
         );
         super::transaction_limits::ensure_legacy_transaction_size(
             &tx,
-            &format!("hopper publish-idl {label}"),
+            &format!("hopper {} {label}", record.command),
         )?;
         rpc.send_and_confirm_transaction(&tx)
             .map(|s| s.to_string())
@@ -1289,7 +1376,7 @@ fn run_publish_send(
         println!("path             : fresh inline Initialize");
         let sig = send(&ixs, "Initialize")?;
         println!("signature        : {sig}");
-        println!("status           : confirmed (IDL published)");
+        println!("status           : confirmed ({} published)", record.noun);
         return Ok(());
     }
 
@@ -1366,8 +1453,80 @@ fn run_publish_send(
     };
     let sig = send(&[ix], "Initialize (finalize buffer)")?;
     println!("finalize         : {sig}");
-    println!("status           : confirmed (IDL published)");
+    println!("status           : confirmed ({} published)", record.noun);
     Ok(())
+}
+
+/// A metadata record read back from the chain: the decoded 96-byte header
+/// and the stored payload, inflated when the header says zlib.
+pub struct PublishedRecord {
+    /// The canonical PDA the record lives at.
+    pub pda_b58: String,
+    /// Decoded account header.
+    pub header: MetadataHeader,
+    /// Lamports held by the account (its rent).
+    pub lamports: u64,
+    /// Stored (post-compression) payload length.
+    pub stored_len: usize,
+    /// The payload after undoing the recorded compression. For a non-direct
+    /// `data_source` this is the raw pointer bytes (a URL or an address).
+    pub payload: Vec<u8>,
+}
+
+/// Fetch the canonical record for `program_id` under `seed16`, or `None`
+/// when nothing is published at that PDA. Refuses accounts the metadata
+/// program does not own and unfinalized buffers, so the caller never
+/// mistakes a stray account for a record.
+pub(crate) fn fetch_published_record(
+    url: &str,
+    program_id: &[u8; 32],
+    seed16: &[u8; SEED_LEN],
+) -> Result<Option<PublishedRecord>, String> {
+    let (pda, _bump) = derive_canonical_pda(program_id, seed16);
+    let pda_b58 = bs58::encode(pda).into_string();
+    let Some(account) = crate::rpc::get_account_info(url, &pda_b58)? else {
+        return Ok(None);
+    };
+    if account.owner != METADATA_PROGRAM_ID_B58 {
+        return Err(format!(
+            "{pda_b58} is owned by {}, not the Program Metadata program",
+            account.owner
+        ));
+    }
+    let header = MetadataHeader::decode(&account.data)?;
+    if header.discriminator != DISC_METADATA {
+        return Err(format!(
+            "{pda_b58} holds a Program Metadata account with discriminator {} (an unfinalized \
+             Buffer, not a published record)",
+            header.discriminator
+        ));
+    }
+    let stored_len = header.data_len as usize;
+    let body = account
+        .data
+        .get(HEADER_LEN..HEADER_LEN + stored_len)
+        .ok_or_else(|| {
+            format!(
+                "{pda_b58}: header declares {stored_len} payload bytes but the account holds {}",
+                account.data.len().saturating_sub(HEADER_LEN)
+            )
+        })?;
+    let payload = match header.compression {
+        COMPRESSION_ZLIB => zlib_decompress(body)?,
+        0 => body.to_vec(),
+        other => {
+            return Err(format!(
+                "{pda_b58}: unsupported compression tag {other} (only none and zlib are read)"
+            ))
+        }
+    };
+    Ok(Some(PublishedRecord {
+        pda_b58,
+        header,
+        lamports: account.lamports,
+        stored_len,
+        payload,
+    }))
 }
 
 // ---------------------------------------------------------------------------

@@ -10,17 +10,20 @@ pays for nothing it does not use.
 > that derives the loader, the registry row, the field offsets, and the
 > upgrade gate from a single layout declaration.
 
-> **Implementation boundary, reverified 2026-09-06.** Tier-1 compact loading,
+> **Implementation boundary, reverified 2026-09-21.** Tier-1 compact loading,
 > the Tier-2 binary data model/parser/diff helpers, manifest-profile constants,
 > and Tier-3 local generators ship. Hopper does **not** ship a generic
-> transaction that creates/publishes the binary registry PDA, a generic JSON
-> manifest-PDA publisher, or runtime enforcement that consults a deployed
-> `onchain`/`governed` registry. Those profiles currently describe generated
-> intent for tooling. `hopper publish-idl` publishes only a losslessly
-> representable Solana IDL v0.1 projection through Program Metadata and fails
-> closed otherwise; the current Cicada surface is refused because its
-> u16-prefixed bounded route data and remaining-account contract are not
-> faithfully expressible in that schema.
+> transaction that creates/publishes the binary registry PDA, or runtime
+> enforcement that consults a deployed `onchain`/`governed` registry. Those
+> profiles currently describe generated intent for tooling. `hopper
+> publish-idl` publishes only a losslessly representable Solana IDL v0.1
+> projection through Program Metadata and fails closed otherwise; the current
+> Cicada surface is refused because its u16-prefixed bounded route data and
+> remaining-account contract are not faithfully expressible in that schema.
+> `hopper publish-manifest` publishes the full JSON manifest under the custom
+> Program Metadata seed `hopper-manifest`, and `hopper publish-security` the
+> `security.txt` record; both are declarations on the ledger, not the binary
+> registry and not runtime enforcement.
 
 ## Motivation
 

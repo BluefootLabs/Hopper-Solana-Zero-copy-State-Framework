@@ -179,7 +179,7 @@ fn process_init_book(
     }?;
 
     if !(book.owned_by(program_id) && book.data_len() == BOOK_ACCOUNT_SIZE) {
-        let lamports = rent_exempt_min(BOOK_ACCOUNT_SIZE);
+        let lamports = hopper::hopper_runtime::rent::minimum_balance_live(BOOK_ACCOUNT_SIZE)?;
         hopper::hopper_system::CreateAccount {
             from: payer,
             to: book,

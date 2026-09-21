@@ -176,7 +176,7 @@ fn process_init_pool(program_id: &Address, accounts: &[AccountView], data: &[u8]
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Create account
-    let rent = rent_exempt_min(POOL_SIZE);
+    let rent = hopper::hopper_runtime::rent::minimum_balance_live(POOL_SIZE)?;
     hopper::hopper_system::CreateAccount {
         from: payer,
         to: pool,

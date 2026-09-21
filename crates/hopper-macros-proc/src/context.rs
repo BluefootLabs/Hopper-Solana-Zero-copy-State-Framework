@@ -3360,9 +3360,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 TokenStream::new()
             };
 
+            // The threaded args exist for the seed expressions; an arg the
+            // seeds never name (a `bump = <arg>` proof, say) is legitimately
+            // unused here and must not warn at the user's attribute site.
             accessors.push(quote! {
                 #[doc = #doc]
                 #[inline]
+                #[allow(unused_variables)]
                 #vis fn #init_fn(&self #init_arg_fragment) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     #body
                 }

@@ -421,6 +421,7 @@ pub mod systems {
         write_dynamic_u32, write_dynamic_u8, DynamicView, DynamicViewMut, ReallocGuard,
         VerifiedAccount, VerifiedAccountMut, CLOSE_SENTINEL,
     };
+    #[allow(deprecated)]
     pub use hopper_core::check::{find_and_verify_pda, rent_exempt_min};
     pub use hopper_core::prelude_advanced::*;
     pub use hopper_core::prelude_core::*;

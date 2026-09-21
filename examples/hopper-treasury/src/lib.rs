@@ -163,7 +163,7 @@ fn process_init_treasury(
     ]);
 
     // Create the account with full treasury size
-    let rent = rent_exempt_min(TREASURY_ACCOUNT_SIZE);
+    let rent = hopper::hopper_runtime::rent::minimum_balance_live(TREASURY_ACCOUNT_SIZE)?;
     hopper::hopper_system::CreateAccount {
         from: payer,
         to: treasury,
@@ -328,7 +328,7 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
 
     // Balance check
     let balance = treasury.lamports();
-    let rent = rent_exempt_min(TREASURY_ACCOUNT_SIZE);
+    let rent = hopper::hopper_runtime::rent::minimum_balance_live(TREASURY_ACCOUNT_SIZE)?;
     let available = balance.saturating_sub(rent);
     if amount > available {
         return Err(InsufficientBalance.into());
@@ -356,7 +356,8 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
     hopper_invariant! {
         "treasury_solvent" => {
             let remaining = treasury.lamports();
-            let min_rent = rent_exempt_min(TREASURY_ACCOUNT_SIZE);
+            // The live minimum read in the balance check above.
+            let min_rent = rent;
             if remaining < min_rent {
                 Err(ProgramError::InsufficientFunds)
             } else {

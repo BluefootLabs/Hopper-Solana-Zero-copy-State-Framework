@@ -32,6 +32,11 @@ solana-commitment-config = "=3.1.1"
 solana-compute-budget-interface = "=3.0.0"
 solana-instruction = "=3.4.0"
 solana-keypair = "=3.1.2"
+# Transaction v1 (SIMD-0385) message builder for `hopper tx send --v1`. The
+# `wincode` feature is the wire codec the RPC client serializes v1 with;
+# serde/bincode deliberately does not produce the SIMD-0385 layout.
+solana-message = { version = "=4.4.1", features = ["wincode"] }
+solana-hash = "=4.5.0"
 solana-pubkey = "=4.2.1"
 solana-signature = "=3.4.1"
 solana-signer = "=3.0.1"

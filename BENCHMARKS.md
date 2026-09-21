@@ -34,6 +34,42 @@ numbers only within one provenance block. A primitive-lab refresh on the
 Agave 4.2.1 / Mollusk 0.15 stack is still required before those historical
 primitive rows can be called current.
 
+## pina cross-framework fixtures (2026-09-21)
+
+pina (`pina-rs/pina`, commit `aa81c8d1`) publishes a hello-world and a
+PDA-counter table for Pina, hand-written Pinocchio, Quasar, and Anchor v2,
+each crate `cdylib`-only, built with `cargo build-sbf --lto` under
+`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`,
+`overflow-checks = false`, and measured once per instruction in Mollusk with
+post-state verification (counter account size, discriminator, stored bump,
+count 0 then 1). `bench/framework-comparison/` reproduces that recipe for
+Hopper fixtures written to the same contracts and rebuilds pina's pinocchio
+fixtures as the cross-check. On cargo-build-sbf 4.1.0, platform-tools v1.54,
+rustc 1.96.0, Mollusk 0.15.1, the cross-check reproduced pina's published
+pinocchio numbers exactly, so the rows below compare directly with pina's
+table (Agave 4.2.2, Mollusk 0.14).
+
+| Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
+|---|---:|---:|---:|---:|---:|---:|
+| Hopper (substrate), measured here | 1,656 | 116 | 8,616 | 1,681 | 1,786 | 10 |
+| Hopper (macro), measured here | 2,376 | 186 | 11,488 | 3,231 | 1,772 | 25 |
+| Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
+| Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
+| Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |
+| Anchor v2 (rc.1), pina published | 1,880 | 127 | 8,696 | 3,458 | 2,117 | 24 |
+
+The substrate rows use `hopper::program_entrypoint!` and a
+`#[hopper::state(compact, disc = 1)]` account: the same 10-byte layout, the
+same plain `CreateAccount` CPI with the bump from instruction data, and the
+same `create_program_address` re-derivation on `increment` as pinocchio and
+Pina. The macro rows use `#[derive(Accounts)]` with `init`, `payer`, `seeds`,
+`bump = <arg>` and `bump = stored`, and a headered 25-byte account; the
+verifier is told the offsets. The macro `initialize` reads the live Rent
+sysvar (a fix landed the same day; see the changelog), which the pinocchio
+fixture also does. Quasar's `increment` does not re-derive the PDA. Regenerate
+with `py -3.12 scripts/bench-framework-comparison.py`; the generated tables
+and JSON live in `bench/framework-comparison/results/`.
+
 ## Automation Status
 
 The benchmark program defines instruction discriminators `0..=18` for
