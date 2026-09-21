@@ -1,0 +1,24 @@
+{
+  "schema": "hopper.devnet-program-evidence.v1",
+  "example": "hopper-escrow",
+  "sourceCommit": "34d51dc7983c7c2a15b8574ba75f622bba040503",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "solanaVersion": "solana-cli 2.3.13 (src:5466f459; feat:2142755730, client:Agave)",
+  "localElfSha256": "6fc8829c67a066e1b1fe2a0641f8e9a405321b4bedc17a4b816036fd8de2fba0",
+  "deploymentReceiptSha256": "d5b9f132822b85cb65e91cb886a15438f81c21b476035b63bb77bb08e156ec06",
+  "deploymentConfirmationSha256": "1aa5f87bc3a9e51dcb5651812651f41b291599cec2beccd4588ba9fc1823af4a",
+  "deploymentSignature": "2agYTuoUG63sr5oYhb4TgsPzN5gd3Moiuy3TrHZYunGWt86kAoecxeVa81t5eGjShJKjKtq73zhP2kChMFMxjGyu",
+  "program": {
+    "programId": "J45ZZmwT54eoNX2uCbvQS6cjQCvs4aT4422pogDSvYWW",
+    "programDataAddress": "Bf5tHjRhWTJPvm2etpeRpHbubnMGmy9KYZmUebtUYsKg",
+    "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "lastDeployedSlot": 502072801,
+    "upgradeAuthority": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+    "showSha256": "a45e0b35257d8b5aee0536826ddf175aada8043b8f2041a144851d040bf375c6",
+    "programDataAccountSha256": "292e94d40705d3cd246f2f82465b2c34dd1ea846fe230643d231ed8651136dcb",
+    "elfSha256": "6fc8829c67a066e1b1fe2a0641f8e9a405321b4bedc17a4b816036fd8de2fba0"
+  },
+  "receiptSha256": "6a2d08a10a81020e982e7d79856a2f44ad49db194a15a9344cf9a6470d4b5148",
+  "treeCleanBeforeAndAfter": true
+}

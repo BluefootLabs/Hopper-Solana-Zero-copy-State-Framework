@@ -60,9 +60,9 @@ Mollusk 0.15.1, so the toolchain delta against pina's Agave 4.2.2 / Mollusk
 | Fixture | Row | Size (bytes) | CU | Notes |
 | --- | --- | ---: | --- | --- |
 | hello | Hopper (substrate) | 1,656 | 116 | smallest binary in the table; pinocchio 3,160 / 111, Anchor v2 1,880 / 127, Quasar 2,520 / 115, Pina 4,680 / 145 |
-| hello | Hopper (macro) | 1,944 | 139 | `#[program]` + `Signer` context with `max_accounts = 1`; 12 CU over Anchor v2, 24 over Quasar, while materializing the borrow registry and the write gate |
+| hello | Hopper (macro) | 1,792 | 138 | `#[program]` + `Signer` context on the count-exact entrypoint; 11 CU over Anchor v2, 23 over Quasar, while materializing the borrow registry and the write gate |
 | counter | Hopper (substrate) | 8,368 | 1,670 / 1,754 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
-| counter | Hopper (macro) | 10,920 | 1,801 / 364 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,458 CU or more while reading the live rent sysvar; `increment` 386 against Pina 1,753, Anchor 2,117, Quasar 330 |
+| counter | Hopper (macro) | 10,784 | 1,800 / 368 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,458 CU or more while reading the live rent sysvar; `increment` 386 against Pina 1,753, Anchor 2,117, Quasar 330 |
 
 The table also paid for itself a second time. Instrumenting the substrate
 `increment` with `sol_log_compute_units` put the PDA re-derivation at 1,573
@@ -98,21 +98,32 @@ dispatch. Program id by reference, no zeroing, dispatcher inlined into the
 bridge, and the bridge inlined into the entrypoint when `max_accounts` is
 small took it to 153 with the default bound and 139 with `max_accounts = 1`;
 `hopper_init!` also stopped re-zeroing data the runtime had just allocated.
-The final rows above carry those numbers.
+
+The fourth pass adopted the structural idea behind Quasar's entry: read the
+discriminator first and parse only the matched instruction's accounts. The
+tiny profile now emits a count-exact entrypoint (`hopper_exact_entrypoint!`)
+that takes the instruction data from the SIMD-0321 `r2` pointer, resolves
+the arm's bound (`ACCOUNT_COUNT` plus any declared remaining accounts), and
+materializes exactly that many accounts through one shared walk before
+building the one `Context`; there is no transaction-sized pointer table and
+accounts a transaction passes beyond the bound are never walked. Where
+Quasar drops the context object entirely, Hopper keeps the segment borrow
+registry and the write gate, so the entry stays 11 CU behind Anchor and 23
+behind Quasar on the one-account hello; the win is the 152 bytes and the
+removed per-extra-account walk. The final rows above carry those numbers.
 
 Where Hopper does not win, in the table's own terms, with the measured
 split behind each gap:
 
-- The macro hello path is 23 CU over the substrate and 12 over Anchor v2
-  (127). What remains, counted: the account walk (about 20 instructions for
-  one account, including the duplicate-marker check and the original-length
-  store the resize accounting needs), the eight `Context` field stores, the
-  match dispatch, the bound-struct build and handler call (about 15), and
-  the return mapping. Quasar's 115 comes from parsing exactly the context's
-  accounts with the header compare as the parse and no context object at
-  all; the next step for `profile = "tiny"` is count-exact parsing keyed by
-  the discriminator, which removes the walk's table and loop but keeps the
-  registry and gate.
+- The macro hello path is 22 CU over the substrate and 11 over Anchor v2
+  (127). What remains, counted: the one-account walk (about 12
+  instructions, including the duplicate-marker check and the original-length
+  store the resize accounting needs), the eight `Context` field stores, two
+  discriminator matches (bound, then helper), the bound-struct build and
+  handler call (about 15), and the return mapping. Quasar's 115 has no
+  context object at all and its header compare is the parse; the `Context`
+  stores are the price of the borrow registry and the write gate, and they
+  are the part left to attack.
 - The macro counter binary (10,920 bytes) is larger than Anchor v2 (8,696)
   and Quasar (7,808). The substrate row shows the framework's floor is not
   the cause; the macro-generated lifecycle helpers, header writes, and
@@ -177,7 +188,19 @@ Proven on devnet the same day: a one-signer SPL Memo sent with `--v1` landed
 as a 220-byte v1 envelope (signature `2oqSeV99…`, slot 502,011,279,
 `getTransaction` reports `"version": 1`), and `hopper tx explain` decoded it.
 
-## 6. Ledger
+## 6. Devnet re-proof
+
+The rent, PDA, and entry-path changes above touch every macro program, so
+the escrow and devnet-audit examples were rebuilt at commit `34d51dc`,
+deployed fresh on devnet (`J45ZZmwT…` at slot 502,072,801 and `D7LSG9su…`
+at 502,072,572, upgrade authority the devnet-only payer), and run through
+their finalized evidence lanes from a clean worktree: 5 and 15
+transactions, every rejection landing as a rejection with an unchanged
+snapshot, on-chain dumps matching the local ELFs before and after. The
+bundles and checksums are under `audit/devnet-evidence-2026-09-21/escrow/`
+and `.../devnet-audit/`; the record is in `docs/DEVNET_RELEASE_EVIDENCE.md`.
+
+## 7. Ledger
 
 - Open: a pull request adding the Hopper rows to pina's matrix; size
   profiling of the macro counter path; the 70 CU macro hello overhead;

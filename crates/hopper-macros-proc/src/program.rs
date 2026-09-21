@@ -387,9 +387,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .map(|h| {
             let helper = format_ident!("__hopper_dispatch_{}", h.fn_name);
             let invocation = handler_invocation(h);
+            // `pub(crate)` so the count-exact entrypoint emitted beside the
+            // module (tiny profile) can name the helper directly.
             let item = syn::parse2(quote! {
+                #[doc(hidden)]
                 #[inline(never)]
-                fn #helper(
+                pub(crate) fn #helper(
                     ctx: &mut ::hopper::prelude::Context<'_>,
                     data: &[u8],
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
@@ -894,7 +897,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 /// PDA address pin.
                 #[inline(never)]
                 #[allow(dead_code)]
-                fn __hopper_dispatch_event_sink(
+                pub(crate) fn __hopper_dispatch_event_sink(
                     ctx: &mut ::hopper::prelude::Context<'_>,
                     data: &[u8],
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
@@ -945,6 +948,44 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         Some(max_accounts) => quote! { ::hopper::fast_entrypoint!(#bridge_fn, #max_accounts); },
         None => quote! { ::hopper::fast_entrypoint!(#bridge_fn); },
     };
+    // `profile = "tiny"`: count-exact entry. The discriminator is read from
+    // the SIMD-0321 `r2` pointer before any account is touched, and the
+    // matched arm materializes exactly its context's declared bound
+    // (`ACCOUNT_COUNT`, plus a declared `#[remaining_accounts(max)]`), so
+    // the transaction-sized pointer table and the walk to the instruction
+    // tail disappear from the entry path. Raw `&mut Context` handlers keep
+    // the full bound (`max_accounts` or the transaction maximum) because
+    // they may read any account. Undeclared extra accounts are not
+    // materialized on this path; declare them with `#[remaining_accounts]`.
+    let exact_entrypoint: Option<TokenStream> = if policy.is_tiny_profile() {
+        let raw_bound = match policy.max_accounts() {
+            Some(max_accounts) => quote! { #max_accounts },
+            None => quote! { ::hopper::__runtime::MAX_TX_ACCOUNTS },
+        };
+        let mut arms: Vec<TokenStream> = handlers
+            .iter()
+            .map(|h| {
+                let disc = h.discriminator[0];
+                let helper = format_ident!("__hopper_dispatch_{}", h.fn_name);
+                let bound = match (&h.binding, &h.remaining_accounts_max) {
+                    (ContextBinding::Typed { spec }, Some(max)) => {
+                        quote! { <#spec>::ACCOUNT_COUNT + (#max) }
+                    }
+                    (ContextBinding::Typed { spec }, None) => quote! { <#spec>::ACCOUNT_COUNT },
+                    (ContextBinding::Raw, _) => raw_bound.clone(),
+                };
+                quote! { (#disc, #bound, #program_mod::#helper) }
+            })
+            .collect();
+        if event_sink_live {
+            arms.push(quote! {
+                (0xE0u8, #raw_bound, #program_mod::__hopper_dispatch_event_sink)
+            });
+        }
+        Some(quote! { ::hopper::hopper_exact_entrypoint! { #(#arms),* } })
+    } else {
+        None
+    };
     // The bridge owns the `Context` frame (about 1 KiB: the segment borrow
     // registry). With the default 254-slot account table the entrypoint
     // frame is already 2 KiB, so the bridge stays a separate frame to keep
@@ -957,7 +998,13 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         Some(max) if max <= BRIDGE_INLINE_MAX_ACCOUNTS => quote! { #[inline(always)] },
         _ => quote! { #[inline(never)] },
     };
-    let entrypoint_bridge = if policy.entrypoint() {
+    let entrypoint_bridge = if let (true, Some(exact)) = (policy.entrypoint(), exact_entrypoint) {
+        quote! {
+            #[allow(unexpected_cfgs)]
+            #[cfg(target_os = "solana")]
+            #exact
+        }
+    } else if policy.entrypoint() {
         quote! {
             #[allow(unexpected_cfgs)]
             #[cfg(target_os = "solana")]
@@ -2598,6 +2645,80 @@ mod dispatch_table_tests {
             .replace(":: ", "::")
             .replace(" .", ".")
             .replace(". ", ".")
+    }
+
+    #[test]
+    fn tiny_profile_emits_the_count_exact_entrypoint() {
+        // Token-level comparison: strip every space so the check does not
+        // depend on how the token stream is printed.
+        fn compact(out: &str) -> String {
+            out.chars().filter(|c| !c.is_whitespace()).collect()
+        }
+        // A typed handler contributes its context's `ACCOUNT_COUNT`, a raw
+        // handler the transaction maximum (or `max_accounts`), and a handler
+        // with a declared remaining-account ceiling adds it to the bound.
+        let out = compact(&expand_normalized(
+            quote!(profile = "tiny"),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn typed(ctx: Ctx<Deposit>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn raw(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(2)]
+                    #[remaining_accounts(max = 4)]
+                    fn extras(ctx: Ctx<Sweep>) -> ProgramResult { Ok(()) }
+                }
+            },
+        ));
+        assert!(
+            out.contains("hopper_exact_entrypoint!{"),
+            "tiny profile must use the count-exact entrypoint: {out}"
+        );
+        assert!(
+            out.contains("(0u8,<Deposit>::ACCOUNT_COUNT,vault::__hopper_dispatch_typed)"),
+            "typed arm carries the context bound: {out}"
+        );
+        assert!(
+            out.contains("(1u8,::hopper::__runtime::MAX_TX_ACCOUNTS,vault::__hopper_dispatch_raw)"),
+            "raw arm keeps the transaction maximum: {out}"
+        );
+        assert!(
+            out.contains("(2u8,<Sweep>::ACCOUNT_COUNT+(4),vault::__hopper_dispatch_extras)"),
+            "declared remaining accounts widen the bound: {out}"
+        );
+        assert!(
+            !out.contains("fast_entrypoint!"),
+            "the scanning entrypoint must not also be emitted: {out}"
+        );
+
+        // `max_accounts` bounds only the raw arm on this path.
+        let out = compact(&expand_normalized(
+            quote!(profile = "tiny", max_accounts = 7),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn raw(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        ));
+        assert!(
+            out.contains("(0u8,7usize,vault::__hopper_dispatch_raw)"),
+            "raw arm takes max_accounts: {out}"
+        );
+
+        // The other profiles keep the scanning entrypoint and the bridge.
+        let out = compact(&expand_normalized(
+            quote!(),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn typed(ctx: Ctx<Deposit>) -> ProgramResult { Ok(()) }
+                }
+            },
+        ));
+        assert!(out.contains("fast_entrypoint!"), "{out}");
+        assert!(!out.contains("hopper_exact_entrypoint!"), "{out}");
     }
 
     #[test]

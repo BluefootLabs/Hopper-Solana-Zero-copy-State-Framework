@@ -52,7 +52,7 @@ table (Agave 4.2.2, Mollusk 0.14).
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|
 | Hopper (substrate), measured here | 1,656 | 116 | 8,368 | 1,670 | 1,754 | 10 |
-| Hopper (macro), measured here | 1,944 | 139 | 10,920 | 1,801 | 364 | 25 |
+| Hopper (macro), measured here | 1,792 | 138 | 10,784 | 1,800 | 368 | 25 |
 | Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
 | Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
 | Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |
@@ -70,7 +70,11 @@ fixture also does. The macro rows verify PDAs with one `sol_sha256` (no
 `create_program_address` syscall, no curve check) because the account is
 either owner- and layout-validated or about to be created by a CPI signed
 with the same seeds; Quasar's `increment` relies on the same argument. The
-substrate row keeps the syscall, like pinocchio and Pina. Regenerate
+substrate row keeps the syscall, like pinocchio and Pina. The macro rows
+run on the tiny profile's count-exact entrypoint: the discriminator is read
+from the SIMD-0321 `r2` pointer and exactly the matched context's accounts
+are materialized, so no pointer table is sized for the transaction maximum
+and accounts past the declared bound are never walked. Regenerate
 with `py -3.12 scripts/bench-framework-comparison.py`; the generated tables
 and JSON live in `bench/framework-comparison/results/`.
 

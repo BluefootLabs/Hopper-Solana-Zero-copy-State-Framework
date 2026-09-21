@@ -18,8 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `bench/framework-comparison/results/RESULTS.md`. The cross-check
   reproduces pina's published pinocchio numbers exactly. Measured
   2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
-  the table), macro hello 1,944 / 139, substrate counter 8,368 bytes /
-  1,670 / 1,754 CU, macro counter 10,920 bytes / 1,801 / 364 CU (the
+  the table), macro hello 1,792 / 138, substrate counter 8,368 bytes /
+  1,670 / 1,754 CU, macro counter 10,784 bytes / 1,800 / 368 CU (the
   lowest `initialize` of every row but hand-written pinocchio, and an
   `increment` second only to Quasar's 330 while validating owner, header,
   and layout).
@@ -181,6 +181,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   the entrypoint, the frame having room to spare (another call round).
   Macro hello: 186 to 153 CU with the default bound, 139 with
   `max_accounts = 1`; the substrate rows gain the program-id change too.
+- **Count-exact entrypoint for `profile = "tiny"`.** The generated
+  entrypoint reads the discriminator from the SIMD-0321 `r2` instruction-data
+  pointer first, then materializes exactly the matched context's declared
+  bound (`ACCOUNT_COUNT` plus any `#[remaining_accounts(max)]`) through the
+  new native `deserialize_leading_accounts`: no transaction-sized pointer
+  table, no walk to the instruction tail, one shared walk and one `Context`
+  for every arm (`hopper_runtime::hopper_exact_entrypoint!`). Accounts past
+  the declared bound are not materialized on this profile, so extra accounts
+  must be declared; raw handlers keep the full bound. The `r2` gate is active
+  on every public cluster; a runtime that leaves it zero gets
+  `InvalidArgument` back rather than a scanning fallback. Against the
+  scanning path with a declared `max_accounts`: macro hello 1,944 to 1,792
+  bytes at 138 CU, macro counter 10,920 to 10,784 bytes at the same CU, and
+  no `max_accounts` to declare; accounts a transaction passes beyond the
+  bound cost nothing instead of a walk each.
 - **`init` no longer re-zeroes freshly allocated data.** `hopper_init!`
   zeroed the account after the CreateAccountAllowPrefund CPI, which
   compiled to a `sol_memset_` syscall (100 CU) on every `init`; the runtime

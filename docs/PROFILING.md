@@ -72,15 +72,28 @@ Use `profile = "strict"` or `profile = "audit"` when a program needs those
 instrumented paths. Tiny programs still use typed contexts and Hopper account
 validation; the profile only keeps extra audit scaffolding out of the binary.
 
-Declare the instruction bound too: `#[program(profile = "tiny", max_accounts =
-N)]` where `N` is the widest context (plus any declared remaining accounts).
-The entrypoint's account scratch is sized to `N` slots instead of the 254-slot
-default, and at 64 or fewer the bridge that builds the `Context` is inlined
-into the entrypoint. Measured 2026-09-21 on the one-account hello fixture: 153
-CU with the default bound, 139 with `max_accounts = 1`, and 176 bytes off the
-ELF. Accounts past the bound are still walked (the instruction data and program
-id sit behind them) but not materialized, so a handler that reads undeclared
-extra accounts must keep the default.
+The tiny profile also uses the count-exact entrypoint. It reads the
+discriminator from the SIMD-0321 `r2` instruction-data pointer before touching
+any account, then materializes exactly the matched context's declared bound
+(`ACCOUNT_COUNT`, plus a declared `#[remaining_accounts(max = N)]`): no
+254-slot pointer table, no walk to the instruction tail, and one `Context` for
+every arm. Two consequences to design around:
+
+- accounts a transaction passes beyond the declared bound are not
+  materialized, so a handler that reads extra accounts must declare them with
+  `#[remaining_accounts(max = N)]` (raw `&mut Context` handlers keep the full
+  bound: `max_accounts` if set, else the transaction maximum);
+- the `r2` gate (`5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`) must be
+  active on the target cluster. It is active on mainnet-beta, devnet, and
+  testnet; a runtime that leaves `r2` zero gets `InvalidArgument` back, and
+  `hopper feature-gate` reports the gate.
+
+On the other profiles `#[program(max_accounts = N)]` bounds the scanning
+entrypoint's scratch (254 slots by default) and, at 64 or fewer, inlines the
+bridge that builds the `Context` into the entrypoint; accounts past the bound
+are walked but not materialized. Measured 2026-09-21 on the one-account hello
+fixture: 153 CU with the default scanning bound, 139 with `max_accounts = 1`,
+and 138 on the count-exact path with 152 fewer bytes and no bound to declare.
 
 The repository enforces a 16 KiB SBF budget for [../examples/hopper-counter](../examples/hopper-counter)
 in the Solana SBF workflow. Keep that budget tied to the built `.so` size, not a

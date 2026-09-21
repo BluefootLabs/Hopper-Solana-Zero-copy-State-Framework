@@ -262,6 +262,99 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
     (program_id, count, instruction_data)
 }
 
+/// Materialize at most `MAX` leading account views without walking to the
+/// instruction tail.
+///
+/// For entrypoints that already hold the instruction data and program id
+/// (the SIMD-0321 `r2` pointer) and know how many accounts the matched
+/// instruction declares: `#[program(profile = "tiny")]` reads the
+/// discriminator first and materializes exactly that context's account
+/// count. Records past `MAX` are neither materialized nor walked, so the
+/// cost is the declared accounts only, and there is no pointer table to
+/// size for the transaction maximum. Duplicate markers inside the prefix
+/// are resolved exactly as [`deserialize_accounts`] resolves them; a
+/// duplicate can only reference an earlier slot, so no reference escapes
+/// the materialized prefix. `limit` is the matched instruction's bound (at
+/// most `MAX`, the widest bound in the program, so one walk serves every
+/// arm); the return value is the number of views written,
+/// `min(num_accounts, limit)`, and the caller's context binder enforces its
+/// own minimum.
+///
+/// # Safety
+///
+/// `input` must point to a valid Solana BPF input buffer.
+#[inline(always)]
+pub unsafe fn deserialize_leading_accounts<'info, const MAX: usize>(
+    input: *mut u8,
+    accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
+    limit: usize,
+) -> usize {
+    // SAFETY: `input` points to the head of the loader input buffer, whose
+    // first 8 bytes are the account count.
+    let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
+    let limit = if limit > MAX { MAX } else { limit };
+    let count = if num_accounts > limit {
+        limit
+    } else {
+        num_accounts
+    };
+    let mut offset = 8usize;
+    let mut slot = 0usize;
+    // The loop runs to the compile-time `MAX` with an early exit at
+    // `count`, rather than to the runtime `count` directly, so that LLVM
+    // unrolls it for the small bounds typed contexts declare: the same
+    // straight-line parse the scanning entrypoint gets from a literal
+    // `max_accounts`, shared by every instruction of the program.
+    while slot < MAX {
+        if slot >= count {
+            break;
+        }
+        // SAFETY: `slot < count <= num_accounts`, so `offset` sits on a
+        // loader-produced record boundary and the marker byte is in bounds.
+        let marker = unsafe { *input.add(offset) };
+        if marker == u8::MAX {
+            // SAFETY: a 0xFF marker means a canonical `RuntimeAccount`
+            // record starts here; the loader guarantees its header and
+            // data follow in bounds.
+            let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
+            // SAFETY: `raw` is a valid canonical record and the view has
+            // not escaped yet (the `initialize_original_data_len` contract).
+            let view = unsafe { AccountView::new_unchecked(raw) };
+            // SAFETY: see above.
+            unsafe { view.initialize_original_data_len() };
+            // SAFETY: `slot < count <= MAX`.
+            unsafe {
+                *accounts.get_unchecked_mut(slot) = MaybeUninit::new(view);
+            }
+            // SAFETY: `raw` points at the record header just decoded.
+            let data_len = unsafe { (*raw).data_len as usize };
+            offset = next_record_offset(offset, data_len);
+        } else {
+            let duplicate_of = marker as usize;
+            if duplicate_of >= slot {
+                malformed_duplicate_marker(marker, slot);
+            }
+            // SAFETY: `duplicate_of < slot`, so that slot was initialized
+            // earlier in this walk.
+            let raw = unsafe {
+                accounts
+                    .get_unchecked(duplicate_of)
+                    .assume_init_ref()
+                    .raw_ptr()
+            };
+            // SAFETY: `slot < count <= MAX`, and `raw` came from a validated
+            // earlier slot in this same frame.
+            unsafe {
+                *accounts.get_unchecked_mut(slot) =
+                    MaybeUninit::new(AccountView::new_unchecked(raw))
+            };
+            offset += 8;
+        }
+        slot += 1;
+    }
+    count
+}
+
 /// Fast two-argument deserialize: instruction data and program id are provided
 /// directly by the caller (from the SVM's second entrypoint register), so the
 /// full account-scan pass is skipped entirely.
@@ -1220,6 +1313,51 @@ mod fused_walk_tests {
         assert!(view.is_signer());
         assert_eq!(ix, &[1, 2, 3, 4]);
         assert_eq!(pid.as_array(), &PID);
+    }
+
+    #[test]
+    fn leading_prefix_materializes_only_the_declared_accounts() {
+        // Five records, a duplicate of slot 0 among them; only the first
+        // three are asked for, and the walk never has to reach the tail.
+        let slots = [
+            fresh(9, 7),
+            Slot::Dup(0),
+            fresh(3, 8),
+            fresh(5, 9),
+            fresh(1, 10),
+        ];
+        let mut frame = build_frame(&slots, &[0x11], PID);
+        let mut views = uninit_views::<3>();
+        // SAFETY: well-formed 8-aligned loader-layout fixture.
+        let count = unsafe { deserialize_leading_accounts::<3>(frame.as_mut_ptr(), &mut views, 3) };
+        assert_eq!(count, 3);
+        // SAFETY: the first three slots were initialized (count == 3).
+        let (a, b, c) = unsafe {
+            (
+                views[0].assume_init_ref(),
+                views[1].assume_init_ref(),
+                views[2].assume_init_ref(),
+            )
+        };
+        assert_eq!(a.data_len(), 9);
+        assert_eq!(b.raw_ptr(), a.raw_ptr(), "the duplicate aliases slot 0");
+        assert_eq!(c.data_len(), 3);
+        assert_eq!(c.lamports(), 8);
+
+        // Fewer accounts than the bound: the count is the loader's, and
+        // the caller's binder decides whether that is enough.
+        let mut frame = build_frame(&[fresh(2, 1)], &[0x11], PID);
+        let mut views = uninit_views::<3>();
+        // SAFETY: well-formed 8-aligned loader-layout fixture.
+        let count = unsafe { deserialize_leading_accounts::<3>(frame.as_mut_ptr(), &mut views, 3) };
+        assert_eq!(count, 1);
+
+        // A narrower arm bound inside the same scratch: only that many.
+        let mut frame = build_frame(&slots, &[0x11], PID);
+        let mut views = uninit_views::<3>();
+        // SAFETY: well-formed 8-aligned loader-layout fixture.
+        let count = unsafe { deserialize_leading_accounts::<3>(frame.as_mut_ptr(), &mut views, 2) };
+        assert_eq!(count, 2);
     }
 
     #[test]

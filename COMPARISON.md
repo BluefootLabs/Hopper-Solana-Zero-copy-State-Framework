@@ -221,8 +221,8 @@ published numbers exactly (3,160 B / 111 CU; 6,512 B / 1,490 / 1,721 CU).
 
 | Fixture | Hopper (substrate) | Hopper (macro) | Pinocchio | Pina | Quasar | Anchor v2 |
 |---|---:|---:|---:|---:|---:|---:|
-| hello, bytes / CU | 1,656 / 116 | 1,944 / 139 | 3,160 / 111 | 4,680 / 145 | 2,520 / 115 | 1,880 / 127 |
-| counter, bytes / init / increment | 8,368 / 1,670 / 1,754 | 10,920 / 1,801 / 364 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
+| hello, bytes / CU | 1,656 / 116 | 1,792 / 138 | 3,160 / 111 | 4,680 / 145 | 2,520 / 115 | 1,880 / 127 |
+| counter, bytes / init / increment | 8,368 / 1,670 / 1,754 | 10,784 / 1,800 / 368 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
 
 The substrate counter is the like-for-like row (10-byte compact account,
 plain `CreateAccount`, PDA re-derived on `increment` through the
@@ -232,7 +232,7 @@ counter carries Hopper's 16-byte header (25-byte account) like Anchor's
 PDA checks are one `sol_sha256` each: `bump = stored` on an owner- and
 layout-validated account and `bump = <arg>` on an `init` account need no
 curve check, the same rule Quasar applies for its 330. Hopper does not win
-everywhere: the macro hello costs 23 CU over the substrate and 12 over
+everywhere: the macro hello costs 22 CU over the substrate and 11 over
 Anchor's, and the macro counter binary is larger than Anchor's and Quasar's; see
 `bench/framework-comparison/results/RESULTS.md` and
 `docs/COMPETITIVE_REFRESH_2026-09-21.md`.

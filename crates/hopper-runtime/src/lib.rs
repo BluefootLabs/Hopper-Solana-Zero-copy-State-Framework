@@ -807,6 +807,100 @@ macro_rules! hopper_fast_entrypoint {
     };
 }
 
+/// Declare the count-exact program entrypoint.
+///
+/// Reads the discriminator from the SIMD-0321 `r2` instruction-data pointer
+/// first, then materializes exactly the matched instruction's declared
+/// account bound before dispatching to the helper `#[program]` generated
+/// for it. `arms` pairs each one-byte discriminator with that bound and
+/// that helper. Accounts past the bound are neither materialized nor
+/// walked, and there is no transaction-sized pointer table: the entry cost
+/// is the declared accounts only. The `Context` (segment borrow registry,
+/// write gate, parametric args) is built exactly as on the scanning path.
+///
+/// The `r2` gate (`5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`) is active
+/// on mainnet-beta, devnet, and testnet. A runtime that leaves `r2` zero
+/// gets `ProgramError::InvalidArgument` back instead of a scanning
+/// fallback, which keeps the dual-path code out of the binary; `hopper
+/// feature-gate` reports the gate for a target cluster.
+#[macro_export]
+macro_rules! hopper_exact_entrypoint {
+    ( $( ( $disc:literal, $bound:expr, $helper:path ) ),* $(,)? ) => {
+        /// # Safety
+        ///
+        /// Called by the Solana runtime with the loader input in `input` and,
+        /// under SIMD-0321, the instruction-data pointer in `ix_data` (length
+        /// at `ix_data - 8`, program id after the data).
+        #[no_mangle]
+        pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
+            if ix_data.is_null() {
+                return $crate::ProgramError::InvalidArgument.into();
+            }
+            // SAFETY: SIMD-0321 serialization contract, see above.
+            let ix_len =
+                unsafe { core::ptr::read_unaligned(ix_data.sub(8) as *const u64) as usize };
+            // SAFETY: `ix_len` bytes of instruction data start at `ix_data`
+            // and live for the whole invocation.
+            let instruction_data: &'static [u8] =
+                unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
+            // SAFETY: the 32-byte program id trails the data; `Address` is a
+            // transparent `[u8; 32]` with alignment 1.
+            let program_id: &'static $crate::Address =
+                unsafe { &*(ix_data.add(ix_len) as *const $crate::Address) };
+            // The matched arm's bound first, so one walk and one `Context`
+            // serve every instruction (no per-arm copy of either).
+            let bound: usize = match instruction_data.first() {
+                $( ::core::option::Option::Some(&$disc) => $bound, )*
+                _ => return $crate::ProgramError::InvalidInstructionData.into(),
+            };
+            const WIDEST: usize = $crate::max_account_bound(&[ $( $bound ),* ]);
+            const UNINIT: core::mem::MaybeUninit<
+                $crate::__hopper_native::AccountView<'static>,
+            > = core::mem::MaybeUninit::uninit();
+            let mut views = [UNINIT; WIDEST];
+            // SAFETY: `input` is the loader input buffer; the prefix walk
+            // validates its own framing and never exceeds `WIDEST` slots.
+            let count = unsafe {
+                $crate::__hopper_native::raw_input::deserialize_leading_accounts::<WIDEST>(
+                    input,
+                    &mut views,
+                    bound,
+                )
+            };
+            // SAFETY: the first `count` slots were initialized by the walk;
+            // runtime `AccountView` is repr(transparent) over the native view.
+            let accounts = unsafe {
+                core::slice::from_raw_parts(views.as_ptr() as *const $crate::AccountView<'_>, count)
+            };
+            let mut ctx = $crate::Context::new(program_id, accounts, instruction_data);
+            let result: ::core::result::Result<(), $crate::ProgramError> =
+                match instruction_data.first() {
+                    $( ::core::option::Option::Some(&$disc) => $helper(&mut ctx, instruction_data), )*
+                    _ => ::core::result::Result::Err($crate::ProgramError::InvalidInstructionData),
+                };
+            match result {
+                ::core::result::Result::Ok(()) => $crate::__hopper_native::SUCCESS,
+                ::core::result::Result::Err(error) => error.into(),
+            }
+        }
+    };
+}
+
+/// The widest of a program's per-instruction account bounds; sizes the
+/// scratch the count-exact entrypoint materializes into.
+#[doc(hidden)]
+pub const fn max_account_bound(bounds: &[usize]) -> usize {
+    let mut widest = 0usize;
+    let mut i = 0usize;
+    while i < bounds.len() {
+        if bounds[i] > widest {
+            widest = bounds[i];
+        }
+        i += 1;
+    }
+    widest
+}
+
 /// Backward-compatible alias for the fast Hopper entrypoint macro.
 #[macro_export]
 macro_rules! fast_entrypoint {
