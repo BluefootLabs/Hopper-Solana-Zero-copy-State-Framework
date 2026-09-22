@@ -1,0 +1,20 @@
+{
+  "schema": "hopper.devnet-program-capture.v1",
+  "example": "hopper-devnet-audit",
+  "sourceCommit": "03adc6d615a1ceb1bcb989acb8a01835328453e7",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "solanaVersion": "solana-cli 2.3.13 (src:5466f459; feat:2142755730, client:Agave)",
+  "localElfSha256": "1cc716deeccdeabf1eaf92b2213668678f788e45d95eb08960f8191fa6151c00",
+  "deploymentReceiptSha256": "eabb845ac32bbb2b21c001a3c69982b4f5a968276cc74e68e6e3f212af9a63b6",
+  "deploymentConfirmationSha256": "1aa5f87bc3a9e51dcb5651812651f41b291599cec2beccd4588ba9fc1823af4a",
+  "before": {
+    "programId": "F42uSNm8WgnMoKWuKKtqEiKmeeayF9iVSD7NExzoDuJ8",
+    "programDataAddress": "36NNHDSofAizXYsCpfKEtz9jXnVAeXg3gTRUNwG9GJBZ",
+    "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "lastDeployedSlot": 502250352,
+    "upgradeAuthority": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+    "showSha256": "bc7043fb488b96ec1d7a89b45087b5e34922ed5f1cb64b3c3ba4ccf411ee3348",
+    "programDataAccountSha256": "06b1298d8bd343a9f04a5a5a0a365ccc8567bc7d28056983662062dc31fc2f82",
+    "elfSha256": "1cc716deeccdeabf1eaf92b2213668678f788e45d95eb08960f8191fa6151c00"
+  }
+}

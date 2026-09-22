@@ -211,7 +211,7 @@ dated note in `BENCHMARKS.md`). The archived figures stand as archived
 evidence and are not restated here. See `BENCHMARKS.md` for the complete
 method, two-way rows, source pins, and claim boundary.
 
-### Hopper rows in pina's fixtures (2026-09-21)
+### Hopper rows in pina's fixtures (2026-09-22)
 
 pina's `benchmarks/framework-comparison` measures a hello world and a PDA
 counter under one release recipe and one Mollusk verifier with post-state
@@ -222,7 +222,7 @@ published numbers exactly (3,160 B / 111 CU; 6,512 B / 1,490 / 1,721 CU).
 | Fixture | Hopper (substrate) | Hopper (macro) | Pinocchio | Pina | Quasar | Anchor v2 |
 |---|---:|---:|---:|---:|---:|---:|
 | hello, bytes / CU | 1,656 / 116 | 1,792 / 138 | 3,160 / 111 | 4,680 / 145 | 2,520 / 115 | 1,880 / 127 |
-| counter, bytes / init / increment | 8,256 / 1,598 / 1,741 | 10,056 / 1,552 / 358 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
+| counter, bytes / init / increment | 6,728 / 1,606 / 1,742 | 8,304 / 1,549 / 358 | 6,512 / 1,490 / 1,721 | 13,024 / 3,301 / 1,753 | 7,808 / 3,488 / 330 | 8,696 / 3,458 / 2,117 |
 
 The substrate counter is the like-for-like row (10-byte compact account,
 plain `CreateAccount`, PDA re-derived on `increment` through the
@@ -234,9 +234,11 @@ layout-validated account needs no curve check, the same rule Quasar applies
 for its 330), and its `initialize` hashes nothing, because the creation CPI
 signed with the seeds is refused by the runtime for any other address. Hopper does not win
 everywhere: the macro hello costs 22 CU over the substrate and 11 over
-Anchor's, and the macro counter binary is larger than Anchor's and Quasar's; see
+Anchor's, and the macro counter binary is larger than Quasar's; it is now
+smaller than the pinned Anchor row. That Anchor fixture disables default
+features, including `guardrails`. See
 `bench/framework-comparison/results/RESULTS.md` and
-`docs/COMPETITIVE_REFRESH_2026-09-21.md`.
+`docs/COMPETITIVE_REFRESH_2026-09-22.md`.
 
 ---
 

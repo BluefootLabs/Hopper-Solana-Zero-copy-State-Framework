@@ -17,12 +17,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   reproduces pina's release recipe and rewrites
   `bench/framework-comparison/results/RESULTS.md`. The cross-check
   reproduces pina's published pinocchio numbers exactly. Measured
-  2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
-  the table), macro hello 1,792 / 138, substrate counter 8,256 bytes /
-  1,598 / 1,741 CU, macro counter 10,056 bytes / 1,552 / 358 CU (the
+  2026-09-22: substrate hello 1,656 bytes / 116 CU (the smallest binary in
+  the table), macro hello 1,792 / 138, substrate counter 6,728 bytes /
+  1,606 / 1,742 CU, macro counter 8,304 bytes / 1,549 / 358 CU (the
   lowest `initialize` of every row but hand-written pinocchio, and an
   `increment` second only to Quasar's 330 while validating owner, header,
   and layout).
+- **Installation-registered SBF write gate.** Guard installation registers
+  the evaluator in reserved VM memory. Programs with no installation path
+  can discard the evaluator without enabling `unguarded-raw-surfaces`.
+  The macro counter shrinks 10,056 to 8,304 bytes, initializes 3 CU cheaper,
+  and keeps its 358 CU increment. The substrate counter shrinks 8,256 to
+  6,728 bytes with an 8/1 CU init/increment increase. Nested guards, failed
+  installs, exact-cell policies, raw writes, and leaked guards are covered
+  by host tests and a compiled SBF regression on v0 and v3.
 - **Compile-time PDAs.** `hopper::const_pda!(ID, [b"config"], bump)` and
   `hopper::pda::const_program_address` evaluate a program-derived address
   at compile time with the const SHA-256 (the hash half of

@@ -218,7 +218,7 @@ jobs:
           retention-days: 90
 
   sbf-agave-4-2-forward:
-    name: Compile-only SBF compatibility (Agave CLI 4.2.1, builder 4.1.0)
+    name: SBF compatibility + gate Mollusk tests (Agave CLI 4.2.1, builder 4.1.0)
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
@@ -291,6 +291,17 @@ jobs:
             --manifest-path examples/hopper-counter/Cargo.toml \
             --sbf-out-dir "${SBF_RELEASE_DIR}/counter-sbpf-v3" \
             -- --locked
+      - name: Execute ambient gate regressions in Mollusk on SBF v0 and v3
+        run: |
+          for arch in v0 v3; do
+            "$HOME/.cargo/bin/cargo-build-sbf" \
+              --arch "$arch" \
+              --manifest-path bench/runtime-gate/program/Cargo.toml \
+              --sbf-out-dir "target/hopper/runtime-gate-$arch" \
+              -- --locked
+            HOPPER_GATE_SBF="$PWD/target/hopper/runtime-gate-$arch/hopper_runtime_gate_fixture.so" \
+              cargo test -p hopper-framework-verifier --test ambient_gate_sbf --locked -- --ignored --nocapture
+          done
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
       - name: Build, verify, and attest isolated Cicada with the forward builder
@@ -315,6 +326,8 @@ jobs:
             printf 'cargo=%s\n' "$(cargo --version)"
             printf 'coverageMode=compile-only\n'
             printf 'runtimeAgaveValidatorExecuted=false\n'
+            printf 'ambientGateMolluskExecuted=true\n'
+            printf 'ambientGateArch=sbpf-v0,sbpf-v3\n'
             printf 'migrationArch=sbpf-v0\n'
             printf 'counterArch=sbpf-v3\n'
             printf 'cicadaArch=sbpf-v0\n'

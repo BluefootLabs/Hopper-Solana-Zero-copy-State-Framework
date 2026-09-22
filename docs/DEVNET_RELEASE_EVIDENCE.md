@@ -87,6 +87,16 @@ content-addressed release asset.
 
 ## Record: 2026-09-19 run
 
+Round 4 completed on 2026-09-22 UTC at source commit `03adc6d`: escrow
+`ADjgLVeqM4t64bFuR5JKYhYw2JdsNcBWuQ3judJn7s4N` (deployment slot
+502,250,553; five finalized transactions) and devnet-audit
+`F42uSNm8WgnMoKWuKKtqEiKmeeayF9iVSD7NExzoDuJ8` (slot 502,250,352;
+15 finalized transactions). Both bundles record a clean source tree and
+matching local/before/after ELF hashes. The audit lane's three rejection
+cases retained identical account snapshots. The complete public records
+are in [the round-4 archive](../audit/devnet-evidence-2026-09-22/README.md).
+This proves `03adc6d`, not the later gate-dispatch optimization.
+
 Archived under
 [`audit/devnet-evidence-2026-09-19/`](../audit/devnet-evidence-2026-09-19/)
 without the ELF copies; every ELF hash is in each lane's `SHA256SUMS` and

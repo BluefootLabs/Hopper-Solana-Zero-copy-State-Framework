@@ -18,6 +18,11 @@ PDA helpers: find_program_address, create_program_address, plus Hopper's verify-
 
 Layout contract: LayoutContract trait, header read/write, layout fingerprint comparison.
 
+Ambient write policies: data ranges, lamport authority, and writable CPI
+delegation remain enforced while a policy is installed. On SBF, installation
+registers the evaluator in reserved VM memory. Programs with no installation
+path can omit the evaluator from their binary without disabling guard APIs.
+
 Guard macros: require!, require_eq!, require_neq!, require_keys_eq!, require_keys_neq!, require_gt!, require_gte!, require_lt!, require_lte!, plus err! / error! short-form.
 
 Native boundary: direct routing to hopper-native for loader input, account memory, CPI, PDA helpers, and syscall access.

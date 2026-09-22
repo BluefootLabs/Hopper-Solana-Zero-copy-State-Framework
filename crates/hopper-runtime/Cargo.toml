@@ -49,8 +49,9 @@ copy = []
 # OPT-OUT of the ambient write gate on the PUBLIC raw AccountView
 # surfaces (raw whole-account borrows, direct segment access outside a
 # Context, resize/close transitions). The guard is ON by default; this
-# feature exists for raw-tier programs that never bind a `strict_writes`
-# context and want the ~1.7 KiB gate-check code provably unlinked.
+# feature remains an explicit change to the enforcement contract. SBF
+# programs without a gate installation path already discard the evaluator
+# through installation-registered dispatch; no opt-out is needed for that.
 # Soundness fence, both tiers: `strict_writes` codegen const-asserts the
 # guard (compile error), and hand-rolled installs of a data-declaring
 # policy are refused at install time with AMBIENT_GATE_UNGUARDED_BUILD.

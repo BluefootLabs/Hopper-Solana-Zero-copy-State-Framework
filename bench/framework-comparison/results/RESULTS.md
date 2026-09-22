@@ -1,6 +1,6 @@
 # Framework comparison: Hopper rows against pina's fixtures
 
-Generated 2026-09-21 22:11 UTC by `scripts/bench-framework-comparison.py`.
+Generated 2026-09-22 05:10 UTC by `scripts/bench-framework-comparison.py`.
 
 Same fixtures, same verifier contract, same release recipe as pina's
 `benchmarks/framework-comparison` (pinned at pina commit
@@ -37,8 +37,8 @@ delta to keep in mind when reading the Hopper rows.
 
 | Framework | Source | Size (bytes) | `initialize` CU | `increment` CU | Account bytes | vs Pinocchio size |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Hopper (substrate) | measured here | 8,256 | 1,598 | 1,741 | 10 | +27% |
-| Hopper (macro) | measured here | 10,056 | 1,552 | 358 | 25 | +54% |
+| Hopper (substrate) | measured here | 6,728 | 1,606 | 1,742 | 10 | +3% |
+| Hopper (macro) | measured here | 8,304 | 1,549 | 358 | 25 | +28% |
 | Pinocchio (pina reference, rebuilt here) | measured here (cross-check) | 6,512 | 1,490 | 1,721 | 10 | +0% |
 | Pina | pina published | 13,024 | 3,301 | 1,753 |  | +100% |
 | Pinocchio (hand-written) | pina published | 6,512 | 1,490 | 1,721 |  | +0% |
@@ -57,8 +57,11 @@ delta to keep in mind when reading the Hopper rows.
   `increment`. The account carries Hopper's 16-byte universal header, so
   it is 25 bytes; Anchor's row has the same caveat at 24 bytes. The
   verifier is told the offsets and checks the same post-state.
-- Quasar's `increment` is cheap because it does not re-derive the PDA.
-  Both Hopper rows do, like pinocchio and Pina.
+- Quasar and the Hopper macro row verify the PDA with SHA-256 without
+  a curve check after account validation. The Hopper substrate,
+  Pinocchio, and Pina rows use the full PDA derivation syscall.
+- The pinned Anchor fixture disables default features and enables
+  `alloc`; its row does not include the default `guardrails` feature.
 - Pinocchio and Pina take the bump from instruction data; Quasar and
   Anchor search for it on chain inside `initialize`. Both Hopper rows
   take it from instruction data.

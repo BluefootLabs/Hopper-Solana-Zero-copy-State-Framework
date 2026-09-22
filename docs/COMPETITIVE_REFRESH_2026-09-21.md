@@ -1,5 +1,9 @@
 # Competitive and network refresh, 2026-09-21
 
+The next [refresh](COMPETITIVE_REFRESH_2026-09-22.md) supersedes the current
+performance rows and remaining-size-gap discussion below. The numbers here
+remain the record of this day's measurements.
+
 This refresh records what changed between the
 [2026-09-19 refresh](COMPETITIVE_REFRESH_2026-09-19.md) and 2026-09-21. It
 supersedes the time-sensitive rows it names and leaves the rest of that
@@ -145,7 +149,8 @@ substrate row 1,754 to 1,741 and 1,618 to 1,598, for 96 bytes on each ELF.
 The same pass added compile-time PDAs: `hopper::const_pda!` evaluates an
 all-literal-seed address with the const SHA-256, so a config or vault PDA
 is a constant checked by a 32-byte compare rather than a hash on every
-instruction, something no framework in the table does. The final rows
+instruction. Anchor v2 also precomputes literal-seed addresses and canonical
+bumps; this is feature parity, not a unique Hopper capability. The final rows
 above carry these numbers.
 
 Where Hopper does not win, in the table's own terms, with the measured

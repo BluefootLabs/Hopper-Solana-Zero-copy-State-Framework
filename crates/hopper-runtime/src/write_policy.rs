@@ -1203,8 +1203,56 @@ impl SpinlockGateStore {
 /// lamport-declared contexts simultaneously in the SAME instruction.
 /// Two concurrent binds is already exotic; a third fails loudly with
 /// [`LAMPORT_GATE_DEPTH_EXCEEDED`].
-#[cfg(target_os = "solana")]
+#[cfg(any(target_os = "solana", test))]
 pub(crate) const SBF_GATE_DEPTH: usize = 2;
+
+/// Register the policy evaluator only when a gate is installed. Mutation
+/// sites load this optional callback instead of referencing the evaluator
+/// directly, so programs with no installation path can discard that code.
+/// The callback is a program function, never a borrowed account pointer.
+#[cfg(any(target_os = "solana", test))]
+type GateChecker = fn(&GateStore<SBF_GATE_DEPTH>, &Address, GateCheck) -> ProgramResult;
+
+#[cfg(any(target_os = "solana", test))]
+#[repr(C)]
+struct SbfGateState {
+    checker: Option<GateChecker>,
+    store: GateStore<SBF_GATE_DEPTH>,
+}
+
+#[cfg(any(target_os = "solana", test))]
+impl SbfGateState {
+    fn install_with_args(
+        &mut self,
+        accounts: &[crate::account::AccountView<'_>],
+        policy: &'static WritePolicy,
+        args: &[u32],
+    ) -> Result<u64, GateInstallError> {
+        let token = self.store.install_with_args(accounts, policy, args)?;
+        self.checker = Some(GateStore::check);
+        Ok(token)
+    }
+
+    fn remove(&mut self, token: u64) {
+        self.store.remove(token);
+        if !self.store.any_active() {
+            self.checker = None;
+        }
+    }
+
+    #[inline(always)]
+    fn check(&self, address: &Address, check: GateCheck) -> ProgramResult {
+        match self.checker {
+            Some(checker) => checker(&self.store, address, check),
+            None => Ok(()),
+        }
+    }
+
+    #[inline(always)]
+    fn any_active(&self) -> bool {
+        self.checker.is_some()
+    }
+}
 
 /// End offset (exclusive) of the lamport gate store inside the reserved
 /// VM-heap scratch (`hopper_native::HEAP_RUNTIME_RESERVED`); i.e. the
@@ -1215,11 +1263,11 @@ pub(crate) const SBF_GATE_DEPTH: usize = 2;
 #[cfg(target_os = "solana")]
 #[allow(dead_code)]
 pub(crate) const SBF_GATE_HEAP_END: usize =
-    core::mem::size_of::<usize>() + core::mem::size_of::<GateStore<SBF_GATE_DEPTH>>();
+    core::mem::size_of::<usize>() + core::mem::size_of::<SbfGateState>();
 
 #[cfg(target_os = "solana")]
 mod gate_store {
-    use super::{GateCheck, GateInstallError, GateStore, WritePolicy, SBF_GATE_DEPTH};
+    use super::{GateCheck, GateInstallError, SbfGateState, WritePolicy};
     use crate::address::Address;
     use crate::error::ProgramError;
     use crate::ProgramResult;
@@ -1229,9 +1277,9 @@ mod gate_store {
     const GATE_HEAP_OFFSET: usize = core::mem::size_of::<usize>();
 
     // The store must fit the reserved runtime scratch at the heap bottom,
-    // and start 8-aligned (GateStore leads with a u64).
+    // and start 8-aligned (SbfGateState leads with an optional function).
     const _: () = assert!(
-        core::mem::size_of::<GateStore<SBF_GATE_DEPTH>>()
+        core::mem::size_of::<SbfGateState>()
             <= hopper_native::HEAP_RUNTIME_RESERVED - GATE_HEAP_OFFSET,
         "GateStore exceeds HEAP_RUNTIME_RESERVED; grow the reservation in \
          hopper-native/src/entrypoint.rs or shrink the store"
@@ -1244,7 +1292,7 @@ mod gate_store {
     pub(super) const NO_FREE_SLOT: ProgramError = super::LAMPORT_GATE_DEPTH_EXCEEDED;
 
     /// Per-invocation gate store, living in the RESERVED BOTTOM of the VM
-    /// heap (`[HEAP_START + 8, HEAP_START + 8 + size_of::<GateStore>...)`,
+    /// heap (`[HEAP_START + 8, HEAP_START + 8 + size_of::<SbfGateState>...)`,
     /// see [`hopper_native::HEAP_RUNTIME_RESERVED`]).
     ///
     /// Why the heap and not a `static`: deployed SBF programs cannot carry
@@ -1257,24 +1305,25 @@ mod gate_store {
     /// invocation**; which composes exactly with two invariants this
     /// module already pins:
     ///
-    /// - `GateStore::new()` is ALL-ZERO (`initial_gate_store_is_all_zero_bytes`),
-    ///   so zeroed heap IS the valid empty store; no init code runs at all.
+    /// - `None` is the all-zero representation of `Option<fn>`, and
+    ///   `GateStore::new()` has zero-valued fields, so zeroed heap is the
+    ///   valid empty state; no init code runs at all.
     /// - Heap freshness per invocation gives instruction scoping for free:
     ///   state can never leak across transactions or CPI levels (each CPI
     ///   level is its own VM with its own heap).
     ///
     /// The `BumpAllocator`'s floor excludes this range, so allocations can
     /// never overwrite an installed gate.
-    fn with_store<R>(f: impl FnOnce(&mut GateStore<SBF_GATE_DEPTH>) -> R) -> R {
-        let ptr = (hopper_native::HEAP_START_ADDRESS + GATE_HEAP_OFFSET)
-            as *mut GateStore<SBF_GATE_DEPTH>;
+    #[inline(always)]
+    fn with_store<R>(f: impl FnOnce(&mut SbfGateState) -> R) -> R {
+        let ptr = (hopper_native::HEAP_START_ADDRESS + GATE_HEAP_OFFSET) as *mut SbfGateState;
         // SAFETY: SBF execution is single-threaded and none of the store
         // operations passed as `f` (`install`/`remove`/`check`/
         // `any_active`) re-enter this module, so this exclusive reference
         // is unique for the duration of `f`. The pointee is valid: the VM
         // maps and ZEROES the heap region for every invocation, all-zero
-        // bytes are a valid `GateStore` (pinned by
-        // `initial_gate_store_is_all_zero_bytes`), the address is 8-aligned
+        // bytes are a valid `SbfGateState` (the checker is None and the
+        // store is empty), the address is 8-aligned
         // (const-asserted above) and the whole object lies inside
         // `HEAP_RUNTIME_RESERVED` (const-asserted above), a range the
         // `BumpAllocator` floor excludes and no other Hopper code touches.
@@ -1293,10 +1342,9 @@ mod gate_store {
         with_store(|store| store.remove(token));
     }
 
-    /// The full gate walk, kept out of line: the wrappers in the parent
-    /// module test [`any_active`] inline first, so a program with no gate
-    /// installed never enters this body (1.7 KB, linked once).
-    #[inline(never)]
+    /// One callback load and branch when no gate is installed. Only the
+    /// installation path references the full evaluator.
+    #[inline(always)]
     pub(super) fn check(address: &Address, check: GateCheck) -> ProgramResult {
         with_store(|store| store.check(address, check))
     }
@@ -1561,9 +1609,8 @@ pub fn lamport_gate_active() -> bool {
 /// address.
 #[inline(always)]
 pub(crate) fn check_lamport_mutation(address: &Address) -> ProgramResult {
-    // Liveness first, inline: with no gate installed this is one heap load
-    // and a branch instead of a call into the walk (about 6 CU per guarded
-    // mutation, measured 2026-09-21).
+    // Test before constructing GateCheck so the no-policy path does not
+    // spill its payload. On SBF this reads the optional checker word.
     if !gate_store::any_active() {
         return Ok(());
     }
@@ -1636,6 +1683,24 @@ pub(crate) fn check_lamport_delegation(address: &Address) -> ProgramResult {
 mod gate_store_layout_tests {
     use super::*;
 
+    #[test]
+    fn zeroed_sbf_state_has_no_evaluator() {
+        // SAFETY: every GateStore field admits zero, including None for
+        // optional policy references. Option<fn> guarantees a zero None.
+        let state: SbfGateState = unsafe { core::mem::zeroed() };
+        assert!(!state.any_active());
+        assert_eq!(state.store.installed, 0);
+        assert!(state
+            .check(&Address::default(), GateCheck::Lamports)
+            .is_ok());
+        assert_eq!(core::mem::offset_of!(SbfGateState, checker), 0);
+        assert_eq!(core::mem::size_of::<Option<GateChecker>>(), 8);
+        assert!(
+            core::mem::size_of::<SbfGateState>() + core::mem::size_of::<usize>()
+                <= hopper_native::HEAP_RUNTIME_RESERVED
+        );
+    }
+
     /// The SBF tier holds [`GateStore`] in a `static mut`. The linker puts
     /// it in `.bss` (`NOBITS`, **zero bytes in the `.so`**) only if its
     /// initializer is entirely zero; one non-zero byte moves it to `.data`
@@ -1685,6 +1750,99 @@ mod gate_store_layout_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sbf_dispatch_preserves_nested_and_failed_install_enforcement() {
+        let (_b0, a0) = make_account(70);
+        let (_bf, foreign) = make_account(71);
+        let accounts = [a0];
+        static ALLOW: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
+        static DENY: WritePolicy = WritePolicy::with_lamports(&[], &[]);
+        let mut state = SbfGateState {
+            checker: None,
+            store: GateStore::new(),
+        };
+
+        let outer = state.install_with_args(&accounts, &ALLOW, &[]).unwrap();
+        assert!(state.any_active());
+        assert!(state
+            .check(accounts[0].address(), GateCheck::Delegation)
+            .is_ok());
+        assert_eq!(
+            state.check(foreign.address(), GateCheck::Lamports),
+            Err(write_policy_violation(u8::MAX))
+        );
+        let inner = state.install_with_args(&accounts, &DENY, &[]).unwrap();
+        assert!(matches!(
+            state.install_with_args(&accounts, &ALLOW, &[]),
+            Err(GateInstallError::NoFreeSlot)
+        ));
+        assert_eq!(
+            state.check(accounts[0].address(), GateCheck::Lamports),
+            Err(write_policy_violation(0))
+        );
+        state.remove(inner);
+        assert!(state
+            .check(accounts[0].address(), GateCheck::Lamports)
+            .is_ok());
+        let inner = state.install_with_args(&accounts, &DENY, &[]).unwrap();
+        state.remove(outer);
+        state.remove(outer); // a stale guard must not clear the inner gate
+        assert!(state.any_active());
+        assert_eq!(
+            state.check(accounts[0].address(), GateCheck::Delegation),
+            Err(write_policy_violation(0))
+        );
+        state.remove(inner);
+        assert!(!state.any_active());
+        assert!(state.check(foreign.address(), GateCheck::Lamports).is_ok());
+    }
+
+    #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    fn sbf_dispatch_preserves_byte_ranges_and_data_only_lamport_passthrough() {
+        let (_b0, a0) = make_account(72);
+        let (_bf, foreign) = make_account(73);
+        let accounts = [a0];
+        static NARROW: WritePolicy = WritePolicy::new(&[WriteRange::new(0, 8, 8)]);
+        let mut state = SbfGateState {
+            checker: None,
+            store: GateStore::new(),
+        };
+        let token = state.install_with_args(&accounts, &NARROW, &[]).unwrap();
+        assert!(state
+            .check(
+                accounts[0].address(),
+                GateCheck::Data { offset: 8, size: 8 }
+            )
+            .is_ok());
+        assert_eq!(
+            state.check(
+                accounts[0].address(),
+                GateCheck::Data { offset: 9, size: 8 }
+            ),
+            Err(write_policy_violation(0))
+        );
+        assert_eq!(
+            state.check(foreign.address(), GateCheck::Transition),
+            Err(write_policy_violation(u8::MAX))
+        );
+        assert!(state.check(foreign.address(), GateCheck::Lamports).is_ok());
+        assert!(state
+            .check(foreign.address(), GateCheck::Delegation)
+            .is_ok());
+        state.remove(token);
+        assert!(state
+            .check(
+                foreign.address(),
+                GateCheck::Data {
+                    offset: 0,
+                    size: 32
+                }
+            )
+            .is_ok());
+    }
 
     // vault (account 1): balance [16, 24), nonce [24, 32)
     static POLICY: WritePolicy = WritePolicy::new(&[

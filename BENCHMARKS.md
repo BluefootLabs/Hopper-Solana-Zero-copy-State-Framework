@@ -34,7 +34,7 @@ numbers only within one provenance block. A primitive-lab refresh on the
 Agave 4.2.1 / Mollusk 0.15 stack is still required before those historical
 primitive rows can be called current.
 
-## pina cross-framework fixtures (2026-09-21)
+## pina cross-framework fixtures (2026-09-22)
 
 pina (`pina-rs/pina`, commit `aa81c8d1`) publishes a hello-world and a
 PDA-counter table for Pina, hand-written Pinocchio, Quasar, and Anchor v2,
@@ -47,12 +47,15 @@ Hopper fixtures written to the same contracts and rebuilds pina's pinocchio
 fixtures as the cross-check. On cargo-build-sbf 4.1.0, platform-tools v1.54,
 rustc 1.96.0, Mollusk 0.15.1, the cross-check reproduced pina's published
 pinocchio numbers exactly, so the rows below compare directly with pina's
-table (Agave 4.2.2, Mollusk 0.14).
+table (Agave 4.2.2, Mollusk 0.14). This cross-check establishes agreement for
+the Pinocchio fixtures; it does not prove every compiler/runtime difference
+is irrelevant to the other rows. Pina's pinned Anchor fixture disables
+default features, including `guardrails`, and enables only `alloc`.
 
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|
-| Hopper (substrate), measured here | 1,656 | 116 | 8,256 | 1,598 | 1,741 | 10 |
-| Hopper (macro), measured here | 1,792 | 138 | 10,056 | 1,552 | 358 | 25 |
+| Hopper (substrate), measured here | 1,656 | 116 | 6,728 | 1,606 | 1,742 | 10 |
+| Hopper (macro), measured here | 1,792 | 138 | 8,304 | 1,549 | 358 | 25 |
 | Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
 | Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
 | Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |

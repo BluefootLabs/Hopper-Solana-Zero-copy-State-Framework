@@ -21,5 +21,8 @@ solana-pubkey = "4.2.1"
 solana-sdk-ids = "3"
 solana-svm-log-collector = "4.2"
 
+[dev-dependencies]
+solana-instruction-error = "2.5"
+
 [lints]
 workspace = true
