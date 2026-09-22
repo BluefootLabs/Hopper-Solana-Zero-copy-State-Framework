@@ -98,3 +98,20 @@ commitment. Coverage includes canonical SPL Token and Token-2022 routes,
 refunds, reclaim, hostile-route rejection, and rollback. The
 [artifact hashes and results](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/cicada-sbf-2026-09-22) retain the exact scope: local execution
 evidence, not a public-cluster deployment or an isolated clean-build attestation.
+
+## Final workspace validation
+
+At `4155ad4c6101c1ef984b6908c4a6873738b8246e`, the locked workspace suite
+completed with 2,206 passed, zero failed, and 224 ignored tests/examples.
+Workspace/all-target Clippy also passed with warnings denied:
+
+```text
+cargo test --workspace --locked --no-fail-fast --features grillo-verifier/cli
+cargo clippy --workspace --all-targets --locked --features grillo-verifier/cli -- -D warnings
+```
+
+The dedicated PDA fixture separately passed 84 assertions on SBF v0 and 84
+on SBF v3. These local results do not establish a passing GitHub Actions run.
+The [Rust release-gate run for that commit](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/actions/runs/35797388277)
+did not start because GitHub reported that the account was locked due to a
+billing issue. The website deployment succeeded independently.
