@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22 05:10 UTC",
+  "generated": "2026-09-22 22:22 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -15,11 +15,16 @@
     "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
     "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
   },
+  "source_commit": "ad1e209daacc5fbee5fa1a9da58b6df561d6badd",
+  "source_tree_clean": true,
+  "build_mode": "rebuilt",
+  "lockfile_sha256": "ee29c09c92651cc69e46e63128d0350ca0df15063956ca5e8f250170bd0b38a4",
   "hello": [
     {
       "label": "Hopper (substrate)",
       "bytes": 1656,
       "so": "hello_hopper_substrate.so",
+      "elf_sha256": "4838bdf829905035c285f28334308d648452d0bc4024348be6f872e1649d8c59",
       "hello": 116,
       "source": "measured here"
     },
@@ -27,6 +32,7 @@
       "label": "Hopper (macro)",
       "bytes": 1792,
       "so": "hello_hopper.so",
+      "elf_sha256": "558c8cb951a3b8e0e49c8427843bf04724edd2ed00c042132c434f3a1e6999bd",
       "hello": 138,
       "source": "measured here"
     },
@@ -34,6 +40,7 @@
       "label": "Pinocchio (pina reference, rebuilt here)",
       "bytes": 3160,
       "so": "hello_pinocchio.so",
+      "elf_sha256": "5d05e239a62e579ea8aa72f2f9658c7d3ac7e60e9321998ca4418f26fd790ed6",
       "hello": 111,
       "source": "measured here (cross-check)"
     },
@@ -67,6 +74,7 @@
       "label": "Hopper (substrate)",
       "bytes": 6728,
       "so": "counter_hopper_substrate.so",
+      "elf_sha256": "cabd592deb5fc67d43fc7efe4306cf12ab4f1425c0bac112e9a3c63b8bb6caae",
       "initialize": 1606,
       "increment": 1742,
       "account_size": 10,
@@ -74,8 +82,9 @@
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 8304,
+      "bytes": 8376,
       "so": "counter_hopper.so",
+      "elf_sha256": "d921bf4ec1591113a21001d164779c56506df8855c0774236b2210d972b307d9",
       "initialize": 1549,
       "increment": 358,
       "account_size": 25,
@@ -85,6 +94,7 @@
       "label": "Pinocchio (pina reference, rebuilt here)",
       "bytes": 6512,
       "so": "counter_pinocchio.so",
+      "elf_sha256": "040d6acf1a933535d5bf7a96cb089d70d8b8f817ff86ba6c8825058c582745f6",
       "initialize": 1490,
       "increment": 1721,
       "account_size": 10,

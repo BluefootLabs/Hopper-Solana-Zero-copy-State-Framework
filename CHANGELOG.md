@@ -23,6 +23,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **Finalized runtime-gate devnet evidence.** The `fefc94b` fixture passed
   12 transactions including six exact refusals with unchanged snapshots.
   Public transaction responses and receipts are archived without keypairs.
+  A second clean run at `ad1e209` repeated all 12 transactions with a freshly
+  rebuilt, identical ELF and retained full before/after snapshot JSON.
+- **Clean seed-boundary benchmark rerun.** At `ad1e209`, the macro counter is
+  8,376 bytes (+72 for the seed validation), with CU unchanged at 1,549/358.
+  Both hello rows, the substrate counter, and the Pinocchio cross-check are
+  unchanged. Source and ELF hashes are in the generated report.
 
 - **Hopper rows for pina's cross-framework matrix.** `bench/framework-comparison/`
   holds hello-world and PDA-counter fixtures written to pina's exact

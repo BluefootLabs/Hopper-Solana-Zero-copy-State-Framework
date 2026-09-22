@@ -1,5 +1,9 @@
 # Devnet evidence, 2026-09-22
 
+[`runtime-gate-ad1e209/`](runtime-gate-ad1e209/README.md) repeats the 12-case
+transaction run from clean `ad1e209`, with a freshly rebuilt identical ELF
+and full before/after snapshot JSON for every policy case.
+
 [`runtime-gate/`](runtime-gate/README.md) records the later policy fixture at
 `fefc94b`: 12 finalized transactions, six exact refusals with unchanged
 snapshots, and matching local/before/after deployed ELF bytes.

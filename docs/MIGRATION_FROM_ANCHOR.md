@@ -78,7 +78,7 @@ stays small.
 
 ## Account layouts
 
-Anchor's `#[account(zero_copy)]` forces `#[repr(C)]`, `Pod`, `Zeroable`, and an 8-byte discriminator. Hopper's default/headered `#[account]` path does the same plus writes a 16-byte Hopper header that carries a layout fingerprint, version byte, and schema epoch; its payload starts at byte 16 and the discriminator lives at byte 0. Opt-in compact Hopper layouts instead use `[disc][body]` bytes, so their body starts at byte 1 and the fingerprint lives in manifest/IDL metadata rather than account bytes. Fixed compact layouts require the exact declared size; compact-dynamic layouts accept bytes after their declared minimum prefix and leave tail semantics to the application.
+Anchor's safe `#[account(zero_copy)]` path uses a Pod-compatible layout and defaults to an 8-byte discriminator; the account attribute supports a custom discriminator. Hopper's default/headered `#[account]` path writes a 16-byte Hopper header that carries a layout fingerprint, version byte, and schema epoch; its payload starts at byte 16 and the discriminator lives at byte 0. Opt-in compact Hopper layouts instead use `[disc][body]` bytes, so their body starts at byte 1 and the fingerprint lives in manifest/IDL metadata rather than account bytes. Fixed compact layouts require the exact declared size; compact-dynamic layouts accept bytes after their declared minimum prefix and leave tail semantics to the application.
 
 ```rust
 // Anchor

@@ -79,10 +79,11 @@ byte-precise verdict offline from a manifest and an evidence bundle. In the
 v0.1 bundle, the snapshots, instruction name/payload, and touch map are
 caller-supplied facts: Grillo recomputes containment but does not authenticate
 their producer, verify a transaction signature, or bind them to a ledger
-message or program deployment. Full supplied snapshot/lamport scope is also
-required before a PASS can be described as transaction-complete. Build the
+message or program deployment. Complete supplied snapshots and declared
+lamport scope are required for a complete v0.1 observation scope; this is not
+proof of every effect of a ledger transaction. Build the
 `grillo` binary from the Hopper workspace. Neither `grillo-verifier` nor
-`grillo-manifest` was observed indexed on crates.io on 2026-09-06; version
+`grillo-manifest` was observed indexed on crates.io on 2026-09-22; version
 0.1.0 currently names the workspace packages and evidence format, not an
 available registry release:
 

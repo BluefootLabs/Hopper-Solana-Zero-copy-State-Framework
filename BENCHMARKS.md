@@ -55,7 +55,7 @@ default features, including `guardrails`, and enables only `alloc`.
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|
 | Hopper (substrate), measured here | 1,656 | 116 | 6,728 | 1,606 | 1,742 | 10 |
-| Hopper (macro), measured here | 1,792 | 138 | 8,304 | 1,549 | 358 | 25 |
+| Hopper (macro), measured here | 1,792 | 138 | 8,376 | 1,549 | 358 | 25 |
 | Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
 | Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
 | Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |

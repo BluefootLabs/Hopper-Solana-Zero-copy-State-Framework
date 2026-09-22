@@ -72,8 +72,11 @@ SOL spending is needed for Grillo itself.
 The preceding gate-registration optimization reduced the macro counter ELF
 from 10,056 to 8,304 bytes and the substrate counter from 8,256 to 6,728.
 Those measurements and their compute tradeoffs remain in the
-[earlier refresh](COMPETITIVE_REFRESH_2026-09-22.md). Seed-boundary changes
-must be remeasured before treating those values as a later-source result.
+[earlier refresh](COMPETITIVE_REFRESH_2026-09-22.md). The clean `ad1e209`
+rerun measures the macro counter at 8,376 bytes: seed-boundary validation
+adds 72 bytes, with initialize/increment unchanged at 1,549/358 CU. The
+substrate counter and both hello rows are unchanged. The rebuilt Pinocchio
+reference still exactly reproduces its published CU and size rows.
 
 The comparison driver now records source commit, clean-tree status, lockfile
 SHA-256, and measured ELF hashes. `--require-clean` requires a build and refuses

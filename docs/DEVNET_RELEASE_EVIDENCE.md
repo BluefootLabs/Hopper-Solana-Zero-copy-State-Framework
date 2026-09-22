@@ -87,6 +87,12 @@ content-addressed release asset.
 
 ## Runtime policy record: 2026-09-22
 
+The later clean-source rerun at `ad1e209daacc5fbee5fa1a9da58b6df561d6badd`
+passed the same 12 transactions using a newly rebuilt, byte-identical ELF.
+Its [complete snapshot archive](../audit/devnet-evidence-2026-09-22/runtime-gate-ad1e209/README.md)
+retains the before/after account JSON in addition to transaction responses and
+receipt hashes. All six expected refusals left those snapshots unchanged.
+
 The policy optimization was deployed separately as
 `BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX` and tested from clean source
 `fefc94bc898cf1ceaae55c7b5abf0fceebac3044`. Twelve transactions finalized:
