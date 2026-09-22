@@ -1,0 +1,25 @@
+hopper verify
+  manifest: <workspace>\examples/hopper-cicada/hopper.manifest.json
+
+Manifest integrity (3 layouts):
+------------------------------------------------------------------------
+  OK: unique layout_id, non-zero bytes, valid names.
+
+Binary scan: <workspace>\target/deploy/hopper_cicada.so
+  binary size: 158640 bytes
+
+Release interface binding:
+  expected: 98a0eaf0cf78b13881426c0894e4fd521b7250e7f419389b180662a3b08d1976
+  binary:   98a0eaf0cf78b13881426c0894e4fd521b7250e7f419389b180662a3b08d1976
+  OK: v1 SHA-256 commitment matched at 0x023cb0.
+
+Layout-anchor diagnostics:
+Layout                           LAYOUT_ID (hex)          Presence
+--------------------------------------------------------------------------------
+CicadaConfig                     ff3ad975e746c159         anchored at 0x023c98
+SourceLease                      ebb203c495778eef         anchored at 0x023ca0
+IntentShard                      656adbfbf12ba453         anchored at 0x023ca8
+
+  layout-anchor presence: 3 of 3 layouts found in the ELF
+
+OK: release interface binding matched; layout anchors above are supplemental diagnostics.

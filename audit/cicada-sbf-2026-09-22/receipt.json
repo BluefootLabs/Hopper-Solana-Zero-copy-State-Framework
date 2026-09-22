@@ -1,0 +1,56 @@
+{
+  "schema": "hopper.cicada-local-sbf.v1",
+  "implementationSourceCommit": "ad1e209daacc5fbee5fa1a9da58b6df561d6badd",
+  "verificationHead": "9fad082e0a1fbb3e42a1ecf24d26653195e9bf7d",
+  "scope": "local compiled-SBF lifecycle regression and release-interface binding",
+  "isolatedCleanBuildAttestation": false,
+  "requiredArtifacts": true,
+  "artifacts": [
+    {
+      "name": "hopper_cicada.so",
+      "bytes": 158640,
+      "sha256": "4aedcbf0792d03132b4a8b7f55442e9e1239be12b7c967d994d59ac4b3301dcc"
+    },
+    {
+      "name": "hopper_cicada_route_fixture.so",
+      "bytes": 4752,
+      "sha256": "02ad6c5ec738b1d543e0ca198d8d4fde78d67593eb8f9f94873f823f1ae4a72c"
+    },
+    {
+      "name": "hopper_cicada_canonical_route_fixture.so",
+      "bytes": 23736,
+      "sha256": "21d3a28efaff07f551eacffda6c6a6d3de9f38d1e24b9f253d2c85fab8c0fbaf"
+    }
+  ],
+  "tests": {
+    "passed": 23,
+    "failed": 0,
+    "ignored": 0,
+    "names": [
+      "compiled_cancelled_dust_cannot_block_reclaim_for_canonical_tokens",
+      "compiled_canonical_route_executes_two_real_token_legs_refunds_and_reclaims",
+      "compiled_canonical_route_owner_authorized_policy_mutation_rolls_back",
+      "compiled_canonical_route_underpayment_and_zero_input_roll_back",
+      "compiled_canonical_spl_cancel_refund_and_reclaim_round_trip",
+      "compiled_canonical_token_2022_custody_cancel_and_reclaim_round_trip",
+      "compiled_canonical_token_2022_route_executes_refunds_and_reclaims",
+      "compiled_claim_release_cancel_and_reclaim_lifecycle",
+      "compiled_exact_route_accepts_host_generated_commitment",
+      "compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims",
+      "compiled_hostile_route_cannot_delegate_cicada_state",
+      "compiled_hostile_route_cannot_spoof_output_without_spending_input",
+      "compiled_hostile_route_lamport_debit_is_rolled_back",
+      "compiled_hostile_route_policy_mutation_is_rolled_back",
+      "compiled_initialize_refuses_finalized_program_without_authority",
+      "compiled_initialize_refuses_non_upgrade_authority_first_caller",
+      "compiled_native_lamport_floors_accept_canonical_spl_and_token_2022_routes",
+      "compiled_native_lamport_shortfall_is_rolled_back",
+      "compiled_noncanonical_token_account_shapes_are_rejected",
+      "compiled_settled_dust_cannot_block_reclaim_for_canonical_tokens",
+      "compiled_tampered_stored_bump_byte_refuses_the_bind",
+      "compiled_writable_or_conflicting_duplicate_route_meta_is_rejected",
+      "compiled_writable_output_mint_is_rejected_before_route_cpi"
+    ]
+  },
+  "releaseInterfaceCommitment": "98a0eaf0cf78b13881426c0894e4fd521b7250e7f419389b180662a3b08d1976"
+}

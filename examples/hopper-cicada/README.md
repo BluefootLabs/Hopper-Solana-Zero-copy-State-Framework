@@ -15,6 +15,16 @@ It is designed to accept execution from any delivery path:
 The transport decides **how the transaction lands**. Cicada decides **what the
 transaction is allowed to accomplish**.
 
+## Local SBF regression, 2026-09-22
+
+The newly rebuilt 158,640-byte Cicada ELF passes all 23 compiled-SBF lifecycle
+tests with zero skips and matches the manifest's versioned release-interface
+commitment. Coverage includes canonical SPL Token and Token-2022 routes,
+refunds, reclaim, hostile-route rejection, and rollback. The
+[artifact hashes and results](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/cicada-sbf-2026-09-22) retain the exact scope: local execution
+evidence, not a public-cluster deployment or an isolated clean-build attestation.
+
+
 ## V1 vertical slice
 
 The first slice implements:

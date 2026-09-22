@@ -89,3 +89,12 @@ representative fixture, incorrect-input cases, and measured code-size/CU
 tradeoffs. Hopper's useful distinction is the combination of direct state,
 declared byte authority, runtime enforcement, and inspectable evidence.
 The source and benchmark evidence do not establish universal fastest status.
+
+## Local SBF regression, 2026-09-22
+
+The newly rebuilt 158,640-byte Cicada ELF passes all 23 compiled-SBF lifecycle
+tests with zero skips and matches the manifest's versioned release-interface
+commitment. Coverage includes canonical SPL Token and Token-2022 routes,
+refunds, reclaim, hostile-route rejection, and rollback. The
+[artifact hashes and results](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/cicada-sbf-2026-09-22) retain the exact scope: local execution
+evidence, not a public-cluster deployment or an isolated clean-build attestation.
