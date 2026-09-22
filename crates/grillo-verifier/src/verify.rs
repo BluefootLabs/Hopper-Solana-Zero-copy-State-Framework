@@ -94,6 +94,9 @@ pub enum Violation {
 /// Why a verdict could not be a definitive PASS or VIOLATION.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InconclusiveReason {
+    /// A positional account index occurs more than once. Even identical
+    /// copies are ambiguous evidence and would double-count changed bytes.
+    DuplicateAccountSnapshot { account_index: u8 },
     /// The instruction did not compile the byte-range write contract
     /// (`strict_writes = false`). Its `authorized` set carries no authority,
     /// so there is no byte contract to check `changed`/`acquired` against.
@@ -234,6 +237,10 @@ impl Verdict {
                 s
             }
             Verdict::Inconclusive(reason) => match reason {
+                InconclusiveReason::DuplicateAccountSnapshot { account_index } => format!(
+                    "GRILLO VERDICT: INCONCLUSIVE - duplicate snapshot for account {account_index}; \
+                     supply exactly one pre/post pair per positional index\n"
+                ),
                 InconclusiveReason::NoByteContract => String::from(
                     "GRILLO VERDICT: INCONCLUSIVE - the instruction declares no byte-range write \
                      contract (strict_writes = false); nothing to verify against\n",
@@ -302,6 +309,15 @@ fn verify_contract<C: MutationContractView + ?Sized>(
     deltas: &[AccountDelta<'_>],
     touch_map: &TouchMap,
 ) -> Verdict {
+    let mut observed = [false; 256];
+    for delta in deltas {
+        if core::mem::replace(&mut observed[delta.account_index as usize], true) {
+            return Verdict::Inconclusive(InconclusiveReason::DuplicateAccountSnapshot {
+                account_index: delta.account_index,
+            });
+        }
+    }
+
     // A non-strict-writes instruction publishes no enforced byte contract,
     // so there is nothing to hold `changed`/`acquired` to.
     if !contract.strict_writes() {
@@ -318,10 +334,11 @@ fn verify_contract<C: MutationContractView + ?Sized>(
     }
 
     // Precompute the coalesced changed intervals for each supplied account.
-    let changed_per_account: Vec<(u8, Vec<(u32, u32)>)> = deltas
+    let mut changed_per_account: Vec<(u8, Vec<(u32, u32)>)> = deltas
         .iter()
         .map(|d| (d.account_index, changed_intervals(d.pre, d.post)))
         .collect();
+    changed_per_account.sort_unstable_by_key(|(index, _)| *index);
 
     let mut violations = Vec::new();
     let mut changed_all: Vec<RangeContract> = Vec::new();

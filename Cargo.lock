@@ -2399,6 +2399,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-pda-boundaries-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-policy-vault"
 version = "0.3.0"
 dependencies = [

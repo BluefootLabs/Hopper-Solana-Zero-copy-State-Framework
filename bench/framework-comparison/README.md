@@ -32,6 +32,13 @@ variables pina's driver sets), builds the verifier, measures each artifact,
 and rewrites `results/`. It exits non-zero if any fixture fails its functional
 checks; a fast number from a broken program is not a result.
 
+For a source-bound capture, commit the source and use `--require-clean` with
+an output directory under `target`, then review/copy the generated reports.
+The JSON records source commit, clean-tree status, lockfile SHA-256 and each
+measured ELF's SHA-256. The driver refuses source changes during capture.
+`--skip-build` explicitly records reused artifacts without asserting their
+source identity and cannot be combined with `--require-clean`.
+
 ## Adding the rows upstream
 
 pina's driver takes one entry per framework in `frameworksFor()`; the

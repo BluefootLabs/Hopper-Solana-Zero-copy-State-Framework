@@ -88,6 +88,19 @@ fn a_real_slot3_execute_bundle_verifies_as_a_scoped_pass() {
 }
 
 #[test]
+fn duplicate_snapshot_indices_are_malformed_even_when_each_would_pass() {
+    let pre = vec![0; SHARD_LEN];
+    let json = bundle_json(3, &pre, &pre, &[]);
+    let mut bundle = parse_bundle(&json).unwrap();
+    let second = parse_bundle(&json).unwrap().accounts.remove(0);
+    bundle.accounts.push(second);
+    assert!(matches!(
+        verify_bundle(&manifest(), &bundle),
+        Err(grillo_verifier::BundleError::DuplicateAccountSnapshot { index: SHARD })
+    ));
+}
+
+#[test]
 fn a_neighbor_slot_write_bundle_is_a_violation() {
     let pre = vec![0u8; SHARD_LEN];
     let mut post = pre.clone();

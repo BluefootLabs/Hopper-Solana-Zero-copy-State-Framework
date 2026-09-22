@@ -85,7 +85,19 @@ the local release ELF, the finalized receipt, a provenance record,
 valid only when it is bound to the final source commit and retained as a
 content-addressed release asset.
 
-## Record: 2026-09-19 run
+## Runtime policy record: 2026-09-22
+
+The policy optimization was deployed separately as
+`BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX` and tested from clean source
+`fefc94bc898cf1ceaae55c7b5abf0fceebac3044`. Twelve transactions finalized:
+two account creations, four successful policy/lifetime cases, and six exact
+policy refusals. Every refusal left the observed account snapshots unchanged.
+Local and deployed ELF bytes matched before and after capture. The
+[public receipt and transactions](../audit/devnet-evidence-2026-09-22/runtime-gate/README.md)
+record the program, slots, errors, CU, and snapshot hashes. This is focused
+runtime evidence; it does not replace a Cicada lifecycle or full release run.
+
+## Earlier example lanes
 
 Round 4 completed on 2026-09-22 UTC at source commit `03adc6d`: escrow
 `ADjgLVeqM4t64bFuR5JKYhYw2JdsNcBWuQ3judJn7s4N` (deployment slot

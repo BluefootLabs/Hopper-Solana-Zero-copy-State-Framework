@@ -1,0 +1,84 @@
+{
+  "blockTime": 1790114295,
+  "meta": {
+    "computeUnitsConsumed": 284,
+    "costUnits": 1912,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 53248
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX invoke [1]",
+      "Program BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX consumed 284 of 200000 compute units",
+      "Program BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX failed: custom program error: 0xd000"
+    ],
+    "postBalances": [
+      3650535440,
+      812800,
+      812800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      3650540440,
+      812800,
+      812800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      }
+    }
+  },
+  "slot": 502630536,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "5eXnLZ6zY9R6YyqR2whR2ode1SLcBSj1GGkAHCkMGHsh",
+        "CXffar49KyDXxLRMpkV5sCYz5Nt3SBmYcjUDNR3QF49f",
+        "BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            2
+          ],
+          "data": "8",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "6N4sJvUWJpERpmwDVqGNqHYqW2FfE6iWAC93CNvVnCYb"
+    },
+    "signatures": [
+      "2P1KHR5yhgXGzD5FTjb2r8h4XfDxBGHu6f6MJj8hR8UG7KtE1YEEf2EeAr7gj4s6KdLHu5Zabc2gAAYr9MrPj1R7"
+    ]
+  },
+  "transactionIndex": 19,
+  "version": "legacy"
+}

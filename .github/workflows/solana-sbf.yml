@@ -302,6 +302,17 @@ jobs:
             HOPPER_GATE_SBF="$PWD/target/hopper/runtime-gate-$arch/hopper_runtime_gate_fixture.so" \
               cargo test -p hopper-framework-verifier --test ambient_gate_sbf --locked -- --ignored --nocapture
           done
+      - name: Check PDA seed boundaries against the SDK on SBF v0 and v3
+        run: |
+          for arch in v0 v3; do
+            "$HOME/.cargo/bin/cargo-build-sbf" \
+              --arch "$arch" \
+              --manifest-path bench/pda-boundaries/program/Cargo.toml \
+              --sbf-out-dir "target/hopper/pda-boundaries-$arch" \
+              -- --locked
+            HOPPER_PDA_SBF="$PWD/target/hopper/pda-boundaries-$arch/hopper_pda_boundaries_fixture.so" \
+              cargo test -p hopper-framework-verifier --test pda_boundaries_sbf --locked -- --ignored --nocapture
+          done
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
       - name: Build, verify, and attest isolated Cicada with the forward builder
@@ -328,6 +339,7 @@ jobs:
             printf 'runtimeAgaveValidatorExecuted=false\n'
             printf 'ambientGateMolluskExecuted=true\n'
             printf 'ambientGateArch=sbpf-v0,sbpf-v3\n'
+            printf 'pdaBoundariesMolluskExecuted=true\n'
             printf 'migrationArch=sbpf-v0\n'
             printf 'counterArch=sbpf-v3\n'
             printf 'cicadaArch=sbpf-v0\n'

@@ -9,6 +9,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **PDA signing-domain regression.** Dynamic SBF inputs exercise 12 public
+  PDA paths against SDK-derived addresses, including hash-equivalent
+  oversized seeds. SHA verification now enforces the 16-total-seed and
+  32-byte-per-seed limits; bump helpers reserve a slot, and the old runtime
+  verifier no longer truncates excess seeds.
+- **Client and evidence boundary checks.** Cicada's host commitment helper
+  refuses duplicate-account envelopes rejected by execution. Grillo v0.1
+  refuses repeated snapshot indices and returns changed ranges in stable
+  account/offset order. Existing valid route commitment bytes are unchanged.
+- **Source-bound benchmark capture.** Reports include source/clean-tree
+  status, lockfile and ELF hashes; `--require-clean` refuses reused binaries.
+- **Finalized runtime-gate devnet evidence.** The `fefc94b` fixture passed
+  12 transactions including six exact refusals with unchanged snapshots.
+  Public transaction responses and receipts are archived without keypairs.
+
 - **Hopper rows for pina's cross-framework matrix.** `bench/framework-comparison/`
   holds hello-world and PDA-counter fixtures written to pina's exact
   contracts on both the substrate entrypoint and the `#[program]` macro

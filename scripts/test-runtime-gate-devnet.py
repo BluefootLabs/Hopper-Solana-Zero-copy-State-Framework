@@ -159,6 +159,10 @@ def main() -> None:
         after = snapshot(addresses, record["slot"])
         if after != expected:
             raise RuntimeError(f"case {case}: unexpected account mutation")
+        (args.out / f"case-{case}.snapshots.json").write_text(
+            json.dumps({"addresses": addresses, "before": before, "after": after}, indent=2) + "\n",
+            encoding="utf-8",
+        )
         record.update({"preSnapshotSha256": digest(before), "postSnapshotSha256": digest(after),
                        "expectedStateVerified": True})
         print(f"case {case}: finalized, {record['computeUnits']} CU, exact state verified", flush=True)

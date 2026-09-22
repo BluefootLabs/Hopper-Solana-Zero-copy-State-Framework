@@ -2782,14 +2782,30 @@ pub fn compute_route_commitment<const N: usize>(
 ///
 /// This is the same allocation-free implementation used by the on-chain
 /// adapter. It rejects envelopes that cannot be submitted to Cicada: more than
-/// [`MAX_ROUTE_ACCOUNTS`] ordered records or more than [`MAX_ROUTE_DATA`] bytes
-/// of instruction data. Duplicate addresses remain distinct records and order
-/// is commitment-significant.
+/// [`MAX_ROUTE_ACCOUNTS`] ordered records, more than [`MAX_ROUTE_DATA`] bytes
+/// of instruction data, or duplicate addresses with writable or conflicting
+/// privileges. Read-only duplicates with identical signer flags remain
+/// distinct records and order is commitment-significant. This structural
+/// check does not replace execution's account-owner, mint, and custody checks.
 pub fn compute_route_commitment_records(
     route_program: &[u8; 32],
     route_data: &[u8],
     accounts: &[RouteCommitmentAccount],
 ) -> Result<[u8; 32]> {
+    hopper::hopper_require!(
+        accounts.len() <= MAX_ROUTE_ACCOUNTS,
+        RouteAccountCountMismatch
+    );
+    for (index, account) in accounts.iter().enumerate() {
+        for prior in &accounts[..index] {
+            validate_duplicate_route_meta(
+                &Address::new_from_array(*account.address()),
+                account.flags(),
+                &Address::new_from_array(*prior.address()),
+                prior.flags(),
+            )?;
+        }
+    }
     compute_route_commitment_from(route_program, route_data, accounts.len(), |index| {
         Ok(accounts[index])
     })
@@ -3290,6 +3306,30 @@ mod tests {
             compute_route_commitment_records(&route_program, &oversized_route_data, &[]),
             Err(ProgramError::InvalidInstructionData)
         );
+    }
+
+    #[test]
+    fn route_commitment_host_alias_rules_match_execution() {
+        // Check the complete flag cross-product, including read-only signer
+        // duplicates. Put the second occurrence beyond the hash chunk boundary.
+        for left in 0..4 {
+            for right in 0..4 {
+                let a = RouteCommitmentAccount::new([0x11; 32], left & 1 != 0, left & 2 != 0);
+                let b = RouteCommitmentAccount::new([0x11; 32], right & 1 != 0, right & 2 != 0);
+                let mut accounts = route_commitment_accounts(8);
+                accounts[0] = a;
+                accounts.push(b);
+                let result = compute_route_commitment_records(&[0xa5; 32], &[], &accounts);
+                if left == right && left & ROUTE_META_WRITABLE == 0 {
+                    assert!(result.is_ok());
+                } else {
+                    assert_eq!(
+                        result,
+                        Err(ProgramError::from(ConflictingDuplicateRouteMeta))
+                    );
+                }
+            }
+        }
     }
 
     fn range_covers(ranges: &[WriteRange], account: usize, offset: u32, len: u32) -> bool {

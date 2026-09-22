@@ -36,6 +36,11 @@ Scope rules:
   an observed balance change on an undeclared account is a violation.
 - Every PASS lists the exact account-data and lamport snapshot scope. Missing
   snapshots are never presented as transaction-complete evidence.
+- Supply one snapshot pair per positional account index. Repeated indices,
+  even identical copies, are malformed JSON-bundle evidence; the typed core
+  returns INCONCLUSIVE. Conflicting snapshots cannot produce a scoped PASS,
+  and duplicate copies cannot inflate changed-byte counts. Changed ranges
+  are returned in account/offset order regardless of snapshot input order.
 
 Violations carry byte-precise evidence: `UntrackedWrite` (account index and
 first uncovered offset), `UnauthorizedAcquisition` (account index, offset,

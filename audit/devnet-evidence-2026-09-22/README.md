@@ -1,5 +1,9 @@
 # Devnet evidence, 2026-09-22
 
+[`runtime-gate/`](runtime-gate/README.md) records the later policy fixture at
+`fefc94b`: 12 finalized transactions, six exact refusals with unchanged
+snapshots, and matching local/before/after deployed ELF bytes.
+
 `round4/` preserves the completed round-4 lanes started from the previous
 handoff. Both bind to source commit
 `03adc6d615a1ceb1bcb989acb8a01835328453e7`, before the installation-registered

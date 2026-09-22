@@ -1,0 +1,172 @@
+{
+  "schema": "hopper.runtime-gate-devnet.v1",
+  "sourceCommit": "fefc94bc898cf1ceaae55c7b5abf0fceebac3044",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programId": "BPNYrNXCPJwV3k8txPVYWjbqTswkLxRGF1d2DzcGTHAX",
+  "elfSha256": "a55d562d7047cc119be552280ccce6b053a20d4ef98b47525ebbf1f99da93335",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "accounts": [
+    "5eXnLZ6zY9R6YyqR2whR2ode1SLcBSj1GGkAHCkMGHsh",
+    "CXffar49KyDXxLRMpkV5sCYz5Nt3SBmYcjUDNR3QF49f"
+  ],
+  "commitment": "finalized",
+  "transactions": [
+    {
+      "name": "create-state",
+      "signature": "3GXNby44VPDsSk5Cynh6EyNtkqWUbHwFjjWVifgPaSha5DhNxprjeXLhGbfdm1QNx696qAs4imUAdv5AQDVMyYMd",
+      "slot": 502630172,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "create-foreign",
+      "signature": "5iyycJ4x4gxa4MWsNxmGKKjE125b2zuQeHPTwqnFDFR6znYneV43S3LTKb3EUAk3t7rpTwVFDqHT7vgUYWAiRQEc",
+      "slot": 502630212,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "case-1",
+      "signature": "5zAFTRs6jbcT7FauzphJH7a79DLmtKgAAxpxSymrC6qR3ZkatbdrQNfETq5Fp9qqhbCL9CYyufJvV9H3fKqnctPV",
+      "slot": 502630250,
+      "error": null,
+      "computeUnits": 365,
+      "preSnapshotSha256": "a79872a659edaba647075b413677323ece6ed143c0c6461541005333cd286be2",
+      "postSnapshotSha256": "d6007565ad88d9faac1c5061cb1acbf8adb787593532b3e7750c5900c9dcc6c5",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-2",
+      "signature": "21QF5XKih3UAhsRY89YKa7ky57cVo4HLzHmsecTKvNbBD3JchJvE8RuCJe2V1UChGTLEaPSwoi7g7JCyGg8URPuJ",
+      "slot": 502630301,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 365,
+      "preSnapshotSha256": "d6007565ad88d9faac1c5061cb1acbf8adb787593532b3e7750c5900c9dcc6c5",
+      "postSnapshotSha256": "d6007565ad88d9faac1c5061cb1acbf8adb787593532b3e7750c5900c9dcc6c5",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-3",
+      "signature": "F3inE4XxfQGr27zH4usUdD3AskPsBnPU2RaDeiixTiQuRpaT9UuYRY9AJEvpWjyCtxDnngg9dRQuavNLFs6va3S",
+      "slot": 502630350,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53503
+          }
+        ]
+      },
+      "computeUnits": 327,
+      "preSnapshotSha256": "d6007565ad88d9faac1c5061cb1acbf8adb787593532b3e7750c5900c9dcc6c5",
+      "postSnapshotSha256": "d6007565ad88d9faac1c5061cb1acbf8adb787593532b3e7750c5900c9dcc6c5",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-4",
+      "signature": "4dnFoTf8kWbRnBLowAj3nCyrWztTcww2J7wsSbZ1YV32qNhimTsJuYbAv8cmpJphQskYP7FYKgydSYT3XqaNm9hF",
+      "slot": 502630396,
+      "error": null,
+      "computeUnits": 944,
+      "preSnapshotSha256": "d6007565ad88d9faac1c5061cb1acbf8adb787593532b3e7750c5900c9dcc6c5",
+      "postSnapshotSha256": "a1a3a117f3d710a9e1608b2a3b0a4b24dc7b249f389046e2bf14cb72f615cf89",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-5",
+      "signature": "3z3DHZanL56CztGyyzHmkqVjN9BV4VCbrza7txhHrFMu1CJ6h6cTyDh1e87sjpKZhuaxBr9HFFw3wLE7JMZYEo5v",
+      "slot": 502630452,
+      "error": null,
+      "computeUnits": 399,
+      "preSnapshotSha256": "a1a3a117f3d710a9e1608b2a3b0a4b24dc7b249f389046e2bf14cb72f615cf89",
+      "postSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-6",
+      "signature": "3BXqnGewWkAZGUzrMVYBev2cJcYdYsFuqKhctbRJwUTuQNp5Xjx8AVh63h8L36RzwoMCTgEPCK8dPNyeeLw7VLCQ",
+      "slot": 502630492,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 389,
+      "preSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "postSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-7",
+      "signature": "2P1KHR5yhgXGzD5FTjb2r8h4XfDxBGHu6f6MJj8hR8UG7KtE1YEEf2EeAr7gj4s6KdLHu5Zabc2gAAYr9MrPj1R7",
+      "slot": 502630536,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 284,
+      "preSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "postSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-8",
+      "signature": "52EEfosTMQZdsGxSzAHo42D71HQhBKXmheyiW241dYmAfkAx5nCHCUK129jzRjd14fpfEAqo3iYPZoxn822X2Xe4",
+      "slot": 502630574,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53503
+          }
+        ]
+      },
+      "computeUnits": 325,
+      "preSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "postSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-9",
+      "signature": "2oiya9Wu7cPSqjoN21ydEZ2YQUZKphaUsZrpcxnsQ16GeNqu3ffB6kK9j857X1B8sF7U4PedX364sXFqFt92PLK8",
+      "slot": 502630621,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53503
+          }
+        ]
+      },
+      "computeUnits": 307,
+      "preSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "postSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-0",
+      "signature": "3aHBDbJYS62mA1GGcgyN8NGM4RZvVPfap4wKgqm6ao1STpWMnW7mbovWt8hEAHxaYFkSSiFrdEgp5rJkLtybTeVE",
+      "slot": 502630668,
+      "error": null,
+      "computeUnits": 100,
+      "preSnapshotSha256": "756254fd93b56783ff34adee8fa3be79cd1f24de4e53a39b4c79cbbc2df924e4",
+      "postSnapshotSha256": "d3c23bd85da610ba7d367299ac17753eb10b2171c40af576415c23f5d47d09ff",
+      "expectedStateVerified": true
+    }
+  ]
+}

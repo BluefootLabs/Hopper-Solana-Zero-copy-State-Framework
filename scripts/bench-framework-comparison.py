@@ -34,6 +34,7 @@ non-zero if any fixture fails to build or fails its functional checks.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -223,7 +224,8 @@ def measure(verifier: Path, case: str, so: Path, row: dict[str, object]) -> dict
         if row.get("initialize_takes_bump"):
             cmd.append("--initialize-takes-bump")
     report = json.loads(run(cmd))
-    result = {"label": row["label"], "bytes": report["bytes"], "so": so.name}
+    result = {"label": row["label"], "bytes": report["bytes"], "so": so.name,
+              "elf_sha256": hashlib.sha256(so.read_bytes()).hexdigest()}
     for step in report["instructions"]:
         if not step["ok"]:
             raise SystemExit(f"{row['label']} {case}: step {step['name']} failed")
@@ -256,6 +258,8 @@ def render_markdown(results: dict[str, object]) -> str:
         f"- `{versions['cargo-build-sbf']}`",
         f"- `{versions['rustc']}`",
         f"- Mollusk {results['mollusk']}",
+        f"- Source `{results['source_commit']}`; clean tree: `{results['source_tree_clean']}`",
+        f"- Artifact build mode: `{results['build_mode']}`; ELF and lockfile SHA-256 hashes in `results.json`",
         "",
         "Rows marked `pina published` are copied from pina's",
         "`docs/src/framework-comparison.md` (generated at pina commit",
@@ -332,9 +336,15 @@ def main() -> int:
     )
     parser.add_argument("--no-reference", action="store_true", help="skip the pinocchio cross-check rows")
     parser.add_argument("--skip-build", action="store_true", help="reuse the .so files already in --out")
+    parser.add_argument("--require-clean", action="store_true", help="require committed source and rebuilt artifacts")
     args = parser.parse_args()
     if args.no_reference:
         args.reference_dir = None
+
+    source_commit = run(["git", "rev-parse", "HEAD"], cwd=REPO).strip()
+    source_status = run(["git", "status", "--porcelain"], cwd=REPO)
+    if args.require_clean and (source_status.strip() or args.skip_build):
+        raise SystemExit("--require-clean needs a clean source tree and cannot reuse --skip-build artifacts")
 
     out = Path(args.out).resolve()
     artifacts = out / "sbf"
@@ -365,6 +375,10 @@ def main() -> int:
         "mollusk": mollusk,
         "release_profile": RELEASE_PROFILE,
         "program_ids": PROGRAM_IDS,
+        "source_commit": source_commit,
+        "source_tree_clean": not bool(source_status.strip()),
+        "build_mode": "reused, source binding unverified" if args.skip_build else "rebuilt",
+        "lockfile_sha256": hashlib.sha256((REPO / "Cargo.lock").read_bytes()).hexdigest(),
     }
 
     for case, rows in HOPPER_FIXTURES.items():
@@ -384,6 +398,9 @@ def main() -> int:
             table.append({**published, "source": "pina published"})
         results[case] = table
 
+    if (run(["git", "rev-parse", "HEAD"], cwd=REPO).strip() != source_commit
+            or run(["git", "status", "--porcelain"], cwd=REPO) != source_status):
+        raise SystemExit("source changed during benchmark capture; no results published")
     (out / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     (out / "RESULTS.md").write_text(render_markdown(results), encoding="utf-8")
     print(render_markdown(results))

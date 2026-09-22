@@ -3,13 +3,23 @@
 //! Direct syscall-based PDA creation and derivation. No external dependencies.
 
 use crate::account_view::AccountView;
-use crate::address::{Address, MAX_SEEDS};
+use crate::address::{Address, MAX_SEEDS, MAX_SEED_LEN};
 use crate::error::ProgramError;
 
 #[cfg(target_os = "solana")]
 const CURVE25519_EDWARDS: u64 = 0;
 #[cfg(target_os = "solana")]
 const PDA_MARKER_BYTES: &[u8; 21] = crate::address::PDA_MARKER;
+
+/// SHA-based paths must accept exactly the seed domain that the PDA signing
+/// syscall accepts. A helper which appends a bump reserves one of the 16 slots.
+#[inline(always)]
+fn validate_seeds(seeds: &[&[u8]], max_count: usize) -> Result<(), ProgramError> {
+    if seeds.len() > max_count || seeds.iter().any(|seed| seed.len() > MAX_SEED_LEN) {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    Ok(())
+}
 
 /// Create a program-derived address from seeds and a program ID.
 ///
@@ -22,9 +32,7 @@ pub fn create_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<Address, ProgramError> {
-    if seeds.len() > MAX_SEEDS {
-        return Err(ProgramError::InvalidSeeds);
-    }
+    validate_seeds(seeds, MAX_SEEDS)?;
     #[cfg(target_os = "solana")]
     {
         // The syscall reads `seeds.len()` (ptr, len) pairs of 8-byte words,
@@ -64,8 +72,9 @@ pub fn create_program_address(
 ///
 /// # Panics
 ///
-/// Panics if no viable bump exists or more than [`MAX_SEEDS`] seeds are
-/// supplied, matching upstream `Pubkey::find_program_address` semantics.
+/// Panics if no viable bump exists, 16 or more base seeds are supplied,
+/// or a seed exceeds 32 bytes. The bump occupies the final seed slot,
+/// matching upstream `Pubkey::find_program_address` semantics.
 /// Silently returning a placeholder here would hand callers the all-zero
 /// address, the System Program, as if it were their PDA. Use
 /// [`based_try_find_program_address`] for the fallible variant.
@@ -103,10 +112,14 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
 /// `find_program_address`; a bump the runtime would skip because its hash
 /// lands on the ed25519 curve is not detected here. Static seeds hashed
 /// once at compile time turn a runtime PDA check into a 32-byte compare.
-/// Panics at compile time on more than [`MAX_SEEDS`] seeds or a seed longer
-/// than [`crate::address::MAX_SEED_LEN`] bytes, the runtime's own limits.
+/// Panics on 16 or more base seeds or a seed longer than 32 bytes. The bump
+/// occupies one of the runtime's 16 seed slots. In a const expression the
+/// refusal is a compilation error.
 pub const fn program_address_const(seeds: &[&[u8]], bump: u8, program_id: &Address) -> Address {
-    assert!(seeds.len() <= MAX_SEEDS, "a PDA takes at most 16 seeds");
+    assert!(
+        seeds.len() < MAX_SEEDS,
+        "a PDA takes at most 15 seeds plus its bump"
+    );
     let mut hasher = crate::sha256::ConstSha256::new();
     let mut i = 0;
     while i < seeds.len() {
@@ -134,14 +147,12 @@ pub fn verify_program_address(
     program_id: &Address,
     expected: &Address,
 ) -> Result<(), ProgramError> {
-    if seeds.len() > MAX_SEEDS + 1 {
-        return Err(ProgramError::InvalidSeeds);
-    }
+    validate_seeds(seeds, MAX_SEEDS)?;
 
     #[cfg(target_os = "solana")]
     {
         let n = seeds.len();
-        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 3]>::uninit();
+        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 2]>::uninit();
         let slice_ptr = slices.as_mut_ptr() as *mut &[u8];
 
         let mut i = 0;
@@ -193,14 +204,12 @@ pub fn based_try_find_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<(Address, u8), ProgramError> {
-    if seeds.len() > MAX_SEEDS {
-        return Err(ProgramError::InvalidSeeds);
-    }
+    validate_seeds(seeds, MAX_SEEDS - 1)?;
 
     #[cfg(target_os = "solana")]
     {
         let n = seeds.len();
-        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 3]>::uninit();
+        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 2]>::uninit();
         let slice_ptr = slices.as_mut_ptr() as *mut &[u8];
 
         let mut i = 0;
@@ -300,8 +309,8 @@ pub fn verify_pda(
 /// SHA-256 (~200 CU). This is substantially cheaper than the syscall-based
 /// `create_program_address` approach (~1500 CU).
 ///
-/// Returns `Err(InvalidSeeds)` if more than [`MAX_SEEDS`] seeds are
-/// supplied (the bump occupies its own slot on top of that limit).
+/// Returns `Err(InvalidSeeds)` for 16 or more base seeds or a seed longer
+/// than 32 bytes. The bump counts toward the 16-seed runtime limit.
 ///
 /// # Bump canonicalization
 ///
@@ -319,12 +328,10 @@ pub fn verify_pda_with_bump(
     bump: u8,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    if seeds.len() > MAX_SEEDS {
-        return Err(ProgramError::InvalidSeeds);
-    }
+    validate_seeds(seeds, MAX_SEEDS - 1)?;
     // Build a seed list with the bump appended.
-    // Stack-allocated: MAX_SEEDS seeds + 1 bump slot.
-    let mut full_seeds: [&[u8]; MAX_SEEDS + 1] = [&[]; MAX_SEEDS + 1];
+    // Stack-allocated: at most 15 base seeds plus the bump.
+    let mut full_seeds: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
     let num = seeds.len();
     let mut i = 0;
     while i < num {
@@ -378,14 +385,12 @@ pub fn find_bump_for_address(
     program_id: &Address,
     expected: &Address,
 ) -> Result<u8, ProgramError> {
-    if seeds.len() > MAX_SEEDS {
-        return Err(ProgramError::InvalidSeeds);
-    }
+    validate_seeds(seeds, MAX_SEEDS - 1)?;
 
     #[cfg(target_os = "solana")]
     {
         let n = seeds.len();
-        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 3]>::uninit();
+        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 2]>::uninit();
         let slice_ptr = slices.as_mut_ptr() as *mut &[u8];
 
         let mut i = 0;
@@ -485,12 +490,10 @@ pub fn verify_pda_from_stored_bump(
     bump_offset: usize,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    if seeds.len() > MAX_SEEDS {
-        return Err(ProgramError::InvalidSeeds);
-    }
+    validate_seeds(seeds, MAX_SEEDS - 1)?;
     let bump = read_bump_from_account(account, bump_offset)?;
 
-    let mut full_seeds: [&[u8]; MAX_SEEDS + 1] = [&[]; MAX_SEEDS + 1];
+    let mut full_seeds: [&[u8]; MAX_SEEDS] = [&[]; MAX_SEEDS];
     let num = seeds.len();
     let mut i = 0;
     while i < num {
@@ -501,4 +504,32 @@ pub fn verify_pda_from_stored_bump(
     full_seeds[num] = &bump_bytes;
 
     verify_program_address(&full_seeds[..num + 1], program_id, account.address())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn const_pda_accepts_fifteen_base_seeds() {
+        let id = Address::new_from_array([91; 32]);
+        let fifteen: [&[u8]; 15] = [&[]; 15];
+        assert_eq!(
+            program_address_const(&fifteen, 255, &id),
+            program_address_const(&[], 255, &id)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "at most 15 seeds plus its bump")]
+    fn const_pda_reserves_the_bump_slot() {
+        let seeds: [&[u8]; 16] = [&[]; 16];
+        program_address_const(&seeds, 255, &Address::new_from_array([91; 32]));
+    }
+
+    #[test]
+    #[should_panic(expected = "at most 32 bytes")]
+    fn const_pda_rejects_oversized_seeds() {
+        program_address_const(&[&[0; 33]], 255, &Address::new_from_array([91; 32]));
+    }
 }

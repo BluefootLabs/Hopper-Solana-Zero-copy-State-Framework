@@ -65,6 +65,44 @@ fn complete_map(records: Vec<TouchRecord>) -> TouchMap {
     }
 }
 
+#[test]
+fn repeated_account_indices_cannot_produce_a_pass_or_inflate_evidence() {
+    let c = contract(true, true, vec![rng(1, 0, 8)], vec![1]);
+    let pre = [0; 8];
+    let post = [1; 8];
+    let map = complete_map(vec![write(1, 0, 8)]);
+    let delta = AccountDelta::new(1, &pre, &post).with_lamports(10, 20);
+    for other in [
+        delta.clone(),
+        AccountDelta::new(1, &post, &pre).with_lamports(20, 10),
+    ] {
+        let verdict = verify(&c, &[delta.clone(), other], &map);
+        assert_eq!(
+            verdict,
+            Verdict::Inconclusive(InconclusiveReason::DuplicateAccountSnapshot {
+                account_index: 1
+            })
+        );
+        assert!(verdict
+            .render()
+            .contains("duplicate snapshot for account 1"));
+    }
+}
+
+#[test]
+fn changed_evidence_is_ordered_by_account_not_input_order() {
+    let c = contract(true, false, vec![rng(1, 0, 8), rng(2, 0, 8)], vec![]);
+    let pre = [0; 8];
+    let post = [1; 8];
+    let map = complete_map(vec![write(1, 0, 8), write(2, 0, 8)]);
+    let first = AccountDelta::new(1, &pre, &post);
+    let second = AccountDelta::new(2, &pre, &post);
+    assert_eq!(
+        verify(&c, &[first.clone(), second.clone()], &map),
+        verify(&c, &[second, first], &map)
+    );
+}
+
 // ── PASS ────────────────────────────────────────────────────────────────
 
 #[test]

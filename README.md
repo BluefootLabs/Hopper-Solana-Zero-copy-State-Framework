@@ -35,6 +35,12 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 
 ## What's included
 
+The [2026-09-22 source review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-22.md)
+connects current peer changes to concrete Hopper fixes: signing-compatible
+PDA seed bounds, client-side Cicada route checks, and unambiguous Grillo
+snapshot evidence. The root README is also the `hopper-lang` crate README;
+package-specific API details live with each companion crate.
+
 - no_std / no_alloc program crates by default.
 - Direct Hopper account access. No serialize/deserialize boundary.
 - `#[account]`, `#[derive(Accounts)]`, `#[program]`, `Ctx<T>`, `Account<'info, T>`, `InitAccount<'info, T>`, `Signer<'info>`, `Program<'info, P>`, `UncheckedAccount<'info>`.
@@ -61,6 +67,12 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 - Headered Manager and generated-client decoders compare the `LAYOUT_ID` stored at bytes `4..12` before reading fields. Compact account bytes carry no fingerprint: the on-chain loader and all six generated SDKs check the discriminator, then require exact size for fixed layouts or the minimum prefix size for compact-dynamic layouts. Generated compact readers expose the manifest/IDL fingerprint as external identity metadata; they decode declared fixed fields but do not authenticate or validate a dynamic tail's application-specific payload. Raw-header Manager commands currently require the 16-byte headered form.
 
 ## Versioning
+
+The runtime policy fixture completed 12 finalized devnet transactions on
+2026-09-22 at source `fefc94b`, including six expected refusals with unchanged
+account state. Its local and deployed ELF matched before and after capture.
+See [the evidence record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DEVNET_RELEASE_EVIDENCE.md).
+This focused run covers the policy fixture, not every framework or Cicada path.
 
 Main framework: `hopper-lang`, imported as `hopper`. The registry release
 observed on 2026-09-06 is 0.2.1; this checkout is unpublished 0.3.0 development

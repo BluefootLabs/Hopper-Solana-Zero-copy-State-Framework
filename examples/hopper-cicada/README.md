@@ -174,6 +174,13 @@ and rejects more than 32 route records or more than 512 instruction-data bytes
 because Cicada cannot execute those envelopes. Golden vectors pin the empty,
 single-account, 8/9-account chunk boundary, duplicate, and reordered cases.
 
+The host helper also refuses writable duplicates and conflicting duplicate
+privileges, using execution's own alias rule. Read-only duplicates with
+identical signer flags remain ordered, commitment-significant records. This
+lets clients catch those unusable routes before publishing an intent. It is
+a structural check; execution still verifies actual account ownership,
+custody, mint policy, privileges, and token deltas.
+
 Ordered duplicate accounts remain supported only when every occurrence is
 read-only and uses identical signer flags. Solana unions privileges across
 duplicate Pubkeys during CPI, while Hopper's safe deduplicated CPI tier rejects

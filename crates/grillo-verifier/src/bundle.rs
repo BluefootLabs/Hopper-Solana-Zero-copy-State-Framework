@@ -80,6 +80,7 @@ pub enum BundleError {
     UnknownInstruction(String),
     TouchMap(String),
     LamportsHalfObserved { index: u8 },
+    DuplicateAccountSnapshot { index: u8 },
     Resolve(ResolveError),
 }
 
@@ -99,6 +100,9 @@ impl core::fmt::Display for BundleError {
                 "account {index}: preLamports/postLamports must be provided together or not at all"
             ),
             BundleError::Resolve(e) => write!(f, "parametric resolution failed: {e}"),
+            BundleError::DuplicateAccountSnapshot { index } => {
+                write!(f, "account {index}: duplicate snapshot index")
+            }
         }
     }
 }
@@ -157,6 +161,14 @@ pub fn verify_bundle(
 
     // Decode account evidence up front so deltas can borrow the buffers.
     type DecodedAccount = (u8, Vec<u8>, Vec<u8>, Option<(u64, u64)>);
+    let mut observed = [false; 256];
+    for account in &bundle.accounts {
+        if core::mem::replace(&mut observed[account.index as usize], true) {
+            return Err(BundleError::DuplicateAccountSnapshot {
+                index: account.index,
+            });
+        }
+    }
     let mut decoded: Vec<DecodedAccount> = Vec::with_capacity(bundle.accounts.len());
     for account in &bundle.accounts {
         let pre = decode_hex(&format!("accounts[{}].pre", account.index), &account.pre)?;

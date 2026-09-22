@@ -16,6 +16,13 @@ CPI: invoke, invoke_signed, invoke_checked, invoke_signed_checked, plus the unsa
 
 PDA helpers: find_program_address, create_program_address, plus Hopper's verify-only sha256 path that skips curve_validate for stored-bump PDA verification.
 
+All PDA paths reject oversized seed lists instead of truncating them. The
+16-seed limit includes the bump, and each seed is limited to 32 bytes.
+`const_pda!` evaluates the supplied-bump hash at compile time; it does not
+find or prove a canonical bump. SHA-only checks require the documented
+program-owned account or signed-creation binding. For unchecked accounts,
+use `verify_pda_address_checked` or `find_canonical_bump_checked`.
+
 Layout contract: LayoutContract trait, header read/write, layout fingerprint comparison.
 
 Ambient write policies: data ranges, lamport authority, and writable CPI

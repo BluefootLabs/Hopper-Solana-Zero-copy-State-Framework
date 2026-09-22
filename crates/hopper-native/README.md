@@ -30,6 +30,16 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 ## Safety posture
 
+PDA helpers enforce Solana's seed domain before hashing: at most 16 total
+seeds, each at most 32 bytes. Helpers that append a bump accept at most 15
+base seeds. Excess seeds are refused, never truncated. The compile-time
+`program_address_const` checks the same bounds but does not check the curve
+or find a canonical bump. SHA-only verification requires an address already
+bound to validated program-owned state or to a signed creation CPI; use the
+curve-checked path for unchecked addresses. The
+[compiled-SBF boundary fixture](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/pda-boundaries)
+checks hash-equivalent invalid inputs against the Solana SDK.
+
 The internally inventoried unsafe surface is enforced by
 [`scripts/check-unsafe-safety-comments.py`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/scripts/check-unsafe-safety-comments.py):
 every `unsafe` block needs a nearby `SAFETY:` comment, and every public unsafe
