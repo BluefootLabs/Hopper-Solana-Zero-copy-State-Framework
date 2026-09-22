@@ -51,6 +51,9 @@ table (Agave 4.2.2, Mollusk 0.14). This cross-check establishes agreement for
 the Pinocchio fixtures; it does not prove every compiler/runtime difference
 is irrelevant to the other rows. Pina's pinned Anchor fixture disables
 default features, including `guardrails`, and enables only `alloc`.
+Hopper's macro counter validates owner, header, layout, and the stored-bump
+PDA hash but does not enable `strict_writes`. Policy-enabled execution is
+covered by separate runtime-policy fixtures, not this counter measurement.
 
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|

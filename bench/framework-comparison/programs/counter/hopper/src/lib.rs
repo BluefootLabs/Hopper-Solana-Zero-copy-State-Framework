@@ -12,9 +12,10 @@
 //! 8-byte layout fingerprint) then `[bump][count u64 LE]`. Pina's verifier
 //! is told `--account-size 25 --bump-offset 16 --count-offset 17`; the
 //! same caveat the table already carries for Anchor's 24-byte account.
-//! `increment` verifies the PDA from the stored bump (`bump = stored`),
-//! one `create_program_address`, matching pinocchio and Pina rather than
-//! Quasar, which skips the re-derivation.
+//! `increment` verifies the PDA hash from the stored bump (`bump = stored`)
+//! after owner/header/layout validation. Like Quasar's validated-account
+//! path, it omits the curve check; the substrate, Pinocchio, and Pina rows
+//! retain full PDA derivation. This fixture does not enable `strict_writes`.
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code)]
 

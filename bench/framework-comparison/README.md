@@ -19,6 +19,11 @@ table pina publishes for Pina, Pinocchio, Quasar, and Anchor v2.
   any Hopper number is trusted. See `reference/NOTICE.md`.
 - `results/`: the generated `RESULTS.md` and `results.json`.
 
+The macro counter checks owner, header, layout, and the stored-bump PDA hash;
+it does not install a `strict_writes` policy. The substrate counter uses the
+full PDA syscall. Policy-enabled execution has separate regression and devnet
+fixtures. Keep those validation and policy differences visible with the numbers.
+
 ## Run it
 
 ```sh
