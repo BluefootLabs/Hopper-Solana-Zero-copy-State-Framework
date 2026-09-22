@@ -51,8 +51,8 @@ table (Agave 4.2.2, Mollusk 0.14).
 
 | Framework | hello bytes | hello CU | counter bytes | initialize CU | increment CU | account bytes |
 |---|---:|---:|---:|---:|---:|---:|
-| Hopper (substrate), measured here | 1,656 | 116 | 8,160 | 1,618 | 1,754 | 10 |
-| Hopper (macro), measured here | 1,792 | 138 | 9,960 | 1,572 | 368 | 25 |
+| Hopper (substrate), measured here | 1,656 | 116 | 8,256 | 1,598 | 1,741 | 10 |
+| Hopper (macro), measured here | 1,792 | 138 | 10,056 | 1,552 | 358 | 25 |
 | Pinocchio, pina's fixture rebuilt here | 3,160 | 111 | 6,512 | 1,490 | 1,721 | 10 |
 | Pina, pina published | 4,680 | 145 | 13,024 | 3,301 | 1,753 | 10 |
 | Quasar, pina published | 2,520 | 115 | 7,808 | 3,488 | 330 | 10 |

@@ -218,7 +218,10 @@ discs for them, do not budget from this page:
   the path Hopper's macros steer you toward. An `init` field with
   `bump = <arg>` costs no hash at all: the creation CPI signed with the
   seeds is the check, since the System Program requires the created account
-  to sign (the hash runs only for a signer or a non-empty account).
+  to sign (the hash runs only for a signer or a non-empty account). Seeds
+  that are all literals cost nothing either: `hopper::const_pda!` hashes
+  them at compile time and `#[account(address = CONST)]` is a 32-byte
+  compare.
 - **Logging macro variants** (`hopper_log!`, `msg!` with formatting,
   `hopper_emit_cpi!`). The measured anchor points from this run: one
   log-class syscall bills 100 CU base (the empty bracket measures 101 CU),

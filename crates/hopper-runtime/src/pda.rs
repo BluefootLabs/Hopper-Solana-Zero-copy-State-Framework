@@ -50,6 +50,41 @@ pub fn derive(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     find_program_address(seeds, program_id)
 }
 
+/// A program-derived address evaluated at compile time.
+///
+/// For seeds that are all literals (a `b"config"` singleton, a
+/// `b"vault"` + declared-id pair), the address is a constant of the
+/// program, so there is nothing to hash on chain: declare it once and
+/// check the account with `#[account(address = CONFIG)]`, a 32-byte
+/// compare instead of a `sol_sha256` (about 150 CU) or a
+/// `create_program_address` syscall (1,500 CU) on every instruction that
+/// touches the account. [`crate::const_pda!`] is the same call with the
+/// seed list spelled inline.
+///
+/// `bump` must be the canonical bump `find_program_address` returns (the
+/// one every client derives); the hash is not curve-checked here, exactly
+/// like [`verify_pda_address`], and the soundness argument is the same:
+/// an owner- and layout-validated account at a hash output is a PDA, and
+/// no key-holder can produce a program-owned account at one. For a raw or
+/// system-owned account keep the curve-checked runtime derivation.
+///
+/// ```ignore
+/// hopper::declare_id!("F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy");
+/// pub const CONFIG: Address = hopper::const_pda!(ID, [b"config"], 254);
+///
+/// #[derive(Accounts)]
+/// pub struct Touch<'info> {
+///     #[account(mut, address = CONFIG)]
+///     pub config: Account<'info, Config>,
+/// }
+/// ```
+pub const fn const_program_address(program_id: &Address, seeds: &[&[u8]], bump: u8) -> Address {
+    let backend = hopper_native::address::Address::new_from_array(*program_id.as_array());
+    Address::new_from_array(
+        hopper_native::pda::program_address_const(seeds, bump, &backend).to_bytes(),
+    )
+}
+
 /// Verify that `expected` is the address the PDA hash of `seeds` (bump
 /// included) yields under `program_id`: one `sol_sha256` (about 150 CU),
 /// no `create_program_address` syscall (1,500 CU) and no curve check.
@@ -406,5 +441,48 @@ pub fn verify_pda_from_stored_bump(
         } else {
             Err(ProgramError::InvalidSeeds)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The devnet lane of 2026-09-21 (`audit/devnet-evidence-2026-09-21/counter/`)
+    /// created these PDAs on chain under program `F4Um7PWs…`; the const
+    /// derivation must land on the same addresses, and on the address pina's
+    /// counter program derives for the same payer.
+    #[test]
+    fn const_program_address_matches_devnet_created_pdas() {
+        const PROGRAM: Address = crate::address!("F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy");
+        const PAYER: Address = crate::address!("4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn");
+        const AUTHORITY_C: Address =
+            crate::address!("7Qj28pSptq3YEdppwTmxDEP4jLsS1o67D1ZfKQJB9SE2");
+        const PINA_COUNTER: Address =
+            crate::address!("GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS");
+
+        const PDA_A: Address = crate::const_pda!(PROGRAM, [b"counter", PAYER.as_array()], 252);
+        const PDA_C: Address =
+            crate::const_pda!(PROGRAM, [b"counter", AUTHORITY_C.as_array()], 254);
+        const PDA_PINA: Address =
+            const_program_address(&PINA_COUNTER, &[b"counter", PAYER.as_array()], 253);
+
+        assert_eq!(
+            PDA_A,
+            crate::address!("Cn3JBYNBEctRDGuotxM7c3Fz3QgCZgRXkKV1G7h1qZKn")
+        );
+        assert_eq!(
+            PDA_C,
+            crate::address!("6vh34eBGs3gvwdaJ3fgXDLQMtNfqUwSJYrHqZ3FgCwYP")
+        );
+        assert_eq!(
+            PDA_PINA,
+            crate::address!("CW1z5aL4hTAFFubWKVKw1ANkdYurNEAiWbqxKsDCaERH")
+        );
+        // A different bump is a different address, never a silent match.
+        assert_ne!(
+            const_program_address(&PROGRAM, &[b"counter", PAYER.as_array()], 251),
+            PDA_A
+        );
     }
 }

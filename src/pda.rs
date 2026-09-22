@@ -42,3 +42,8 @@ pub use hopper_runtime::pda::{
     find_bump_for_address, find_canonical_bump_checked, verify_pda_address,
     verify_pda_address_checked, verify_pda_address_cold,
 };
+
+/// A PDA evaluated at compile time for all-literal seeds; check the account
+/// with `#[account(address = ...)]`, a 32-byte compare and no hash on chain.
+/// `hopper::const_pda!` spells the seed list inline.
+pub use hopper_runtime::pda::const_program_address;

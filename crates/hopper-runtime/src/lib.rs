@@ -237,6 +237,24 @@ macro_rules! declare_id {
     };
 }
 
+/// A program-derived address evaluated at compile time:
+/// `const_pda!(PROGRAM_ID, [seed, ...], bump)` is
+/// [`pda::const_program_address`] with the seed list spelled inline (each
+/// seed anything that casts to `&[u8]`: a byte-string literal, an
+/// `Address::as_array()`, a `&[u8; N]`). See that function for the bump
+/// contract and the soundness note.
+///
+/// ```ignore
+/// hopper::declare_id!("F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy");
+/// pub const VAULT: hopper::Address = hopper::const_pda!(ID, [b"vault", ID.as_array()], 255);
+/// ```
+#[macro_export]
+macro_rules! const_pda {
+    ( $program_id:expr, [ $( $seed:expr ),* $(,)? ], $bump:expr ) => {
+        $crate::pda::const_program_address(&$program_id, &[ $( $seed as &[u8] ),* ], $bump)
+    };
+}
+
 /// Early-return with an error if the condition is false.
 #[macro_export]
 macro_rules! require {

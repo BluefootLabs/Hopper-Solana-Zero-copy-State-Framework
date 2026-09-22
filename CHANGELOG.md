@@ -18,11 +18,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `bench/framework-comparison/results/RESULTS.md`. The cross-check
   reproduces pina's published pinocchio numbers exactly. Measured
   2026-09-21: substrate hello 1,656 bytes / 116 CU (the smallest binary in
-  the table), macro hello 1,792 / 138, substrate counter 8,160 bytes /
-  1,618 / 1,754 CU, macro counter 9,960 bytes / 1,572 / 368 CU (the
+  the table), macro hello 1,792 / 138, substrate counter 8,256 bytes /
+  1,598 / 1,741 CU, macro counter 10,056 bytes / 1,552 / 358 CU (the
   lowest `initialize` of every row but hand-written pinocchio, and an
   `increment` second only to Quasar's 330 while validating owner, header,
   and layout).
+- **Compile-time PDAs.** `hopper::const_pda!(ID, [b"config"], bump)` and
+  `hopper::pda::const_program_address` evaluate a program-derived address
+  at compile time with the const SHA-256 (the hash half of
+  `create_program_address`; the bump must be the canonical one clients
+  derive, since no curve check runs at compile time). A config, vault, or
+  authority PDA whose seeds are all literals becomes a constant of the
+  program, and `#[account(address = CONFIG)]` checks it with a 32-byte
+  compare: no `sol_sha256` (about 150 CU) and no `create_program_address`
+  syscall (1,500 CU) on any instruction that touches it. The same
+  soundness rule as the one-hash verifier applies (an owner- and
+  layout-validated account at a hash output is a PDA). Pinned against the
+  three PDAs the devnet counter lane created on chain.
 - **`hopper publish-security`.** Publishes a program's `security.txt` record
   through Program Metadata at the canonical `[program, "security"]` PDA, the
   record Solana Explorer reads, over the same signed-send path as
@@ -161,6 +173,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Changed
 
+- **The write gate's liveness check is inline.** Every guarded mutation
+  (`try_borrow_mut`, a lamport write, a length transition) called into the
+  1.7 KB gate walk, whose first three instructions returned when no policy
+  was installed. The liveness load is now inlined at the call site and the
+  walk is entered only when a gate is active, so an ungated mutable borrow
+  costs one heap load and a branch. Framework-comparison counter:
+  `increment` 368 to 358 CU and `initialize` 1,572 to 1,552 on the macro
+  row, 1,754 to 1,741 and 1,618 to 1,598 on the substrate row, for 96
+  bytes on each ELF.
 - **`init` PDAs with a supplied bump are proven by the creation CPI.** For
   an `init` or `init_if_needed` field declared with `seeds` and
   `bump = <arg>`, `#[derive(Accounts)]` no longer hashes the seeds before

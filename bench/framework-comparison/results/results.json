@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-21 21:32 UTC",
+  "generated": "2026-09-21 22:11 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -65,19 +65,19 @@
   "counter": [
     {
       "label": "Hopper (substrate)",
-      "bytes": 8160,
+      "bytes": 8256,
       "so": "counter_hopper_substrate.so",
-      "initialize": 1618,
-      "increment": 1754,
+      "initialize": 1598,
+      "increment": 1741,
       "account_size": 10,
       "source": "measured here"
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 9960,
+      "bytes": 10056,
       "so": "counter_hopper.so",
-      "initialize": 1572,
-      "increment": 368,
+      "initialize": 1552,
+      "increment": 358,
       "account_size": 25,
       "source": "measured here"
     },

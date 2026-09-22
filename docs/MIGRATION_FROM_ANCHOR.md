@@ -314,6 +314,26 @@ Two things to know:
 
 Use `ctx.bumps.field_name`, the same shape Anchor users expect. Hopper also retains `ctx.bumps().field_name` for older code.
 
+For a PDA whose seeds are all literals (a global config, a vault keyed by
+the program id), Anchor still hashes on every instruction. Hopper hashes it
+once at compile time:
+
+```rust
+hopper::declare_id!("F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy");
+pub const CONFIG: Address = hopper::const_pda!(ID, [b"config"], 254);
+
+#[derive(Accounts)]
+pub struct Touch<'info> {
+    #[account(mut, address = CONFIG)]
+    pub config: Account<'info, Config>,
+}
+```
+
+The bump is the canonical one your client derives (`find_program_address`);
+the compile-time hash does not curve-check it. The check on chain is a
+32-byte compare, and the account is still owner- and layout-validated, so
+the soundness argument is the same as for the one-hash verifier.
+
 ## Errors
 
 Anchor's `#[error_code]` maps directly to Hopper's `#[error_code]`:

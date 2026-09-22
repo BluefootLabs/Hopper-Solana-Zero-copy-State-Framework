@@ -94,6 +94,37 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
     }
 }
 
+/// The program-derived address for `seeds` and `bump` under `program_id`,
+/// computed with the const SHA-256 so it can be evaluated at compile time.
+///
+/// This is the hash half of `create_program_address` (seeds, bump, program
+/// id, the `ProgramDerivedAddress` marker) without the curve rejection, so
+/// callers must pass the canonical bump their client obtained from
+/// `find_program_address`; a bump the runtime would skip because its hash
+/// lands on the ed25519 curve is not detected here. Static seeds hashed
+/// once at compile time turn a runtime PDA check into a 32-byte compare.
+/// Panics at compile time on more than [`MAX_SEEDS`] seeds or a seed longer
+/// than [`crate::address::MAX_SEED_LEN`] bytes, the runtime's own limits.
+pub const fn program_address_const(seeds: &[&[u8]], bump: u8, program_id: &Address) -> Address {
+    assert!(seeds.len() <= MAX_SEEDS, "a PDA takes at most 16 seeds");
+    let mut hasher = crate::sha256::ConstSha256::new();
+    let mut i = 0;
+    while i < seeds.len() {
+        assert!(
+            seeds[i].len() <= crate::address::MAX_SEED_LEN,
+            "a PDA seed is at most 32 bytes"
+        );
+        hasher = hasher.update(seeds[i]);
+        i += 1;
+    }
+    let hash = hasher
+        .update(&[bump])
+        .update(program_id.as_array())
+        .update(crate::address::PDA_MARKER)
+        .finalize();
+    Address::new_from_array(hash)
+}
+
 /// Verify that an expected address matches the PDA hash for the provided seeds.
 ///
 /// The seeds slice must already include the bump byte.

@@ -61,8 +61,8 @@ Mollusk 0.15.1, so the toolchain delta against pina's Agave 4.2.2 / Mollusk
 | --- | --- | ---: | --- | --- |
 | hello | Hopper (substrate) | 1,656 | 116 | smallest binary in the table; pinocchio 3,160 / 111, Anchor v2 1,880 / 127, Quasar 2,520 / 115, Pina 4,680 / 145 |
 | hello | Hopper (macro) | 1,792 | 138 | `#[program]` + `Signer` context on the count-exact entrypoint; 11 CU over Anchor v2, 23 over Quasar, while materializing the borrow registry and the write gate |
-| counter | Hopper (substrate) | 8,160 | 1,618 / 1,754 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
-| counter | Hopper (macro) | 9,960 | 1,572 / 368 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,729 CU or more while reading the live rent sysvar, 82 CU behind hand-written pinocchio; `increment` 368 against Pina 1,753, Anchor 2,117, Quasar 330 |
+| counter | Hopper (substrate) | 8,256 | 1,598 / 1,741 | like-for-like: 10-byte compact account, plain `CreateAccount`, PDA re-derived on `increment`; pinocchio 6,512 / 1,490 / 1,721 |
+| counter | Hopper (macro) | 10,056 | 1,552 / 358 | `init`/`seeds`/`bump` context, 25-byte headered account; `initialize` beats Pina 3,301, Anchor v2 3,458, Quasar 3,488 by 1,749 CU or more while reading the live rent sysvar, 62 CU behind hand-written pinocchio; `increment` 358 against Pina 1,753, Anchor 2,117, Quasar 330 |
 
 The table also paid for itself a second time. Instrumenting the substrate
 `increment` with `sol_log_compute_units` put the PDA re-derivation at 1,573
@@ -136,6 +136,18 @@ otherwise. The macro `initialize` went from 1,800 to 1,572 CU and the ELF
 from 10,784 to 9,960 bytes; the substrate row, which only shares the
 multiply fix, went from 1,670 to 1,618 and 8,368 to 8,160.
 
+The sixth pass moved the write gate's liveness test inline: every guarded
+mutation had called into the 1.7 KB gate walk to execute the three
+instructions that return when no policy is installed. With the heap load
+and branch at the call site, an ungated mutable borrow no longer calls
+anything: `increment` 368 to 358 CU, `initialize` 1,572 to 1,552, and the
+substrate row 1,754 to 1,741 and 1,618 to 1,598, for 96 bytes on each ELF.
+The same pass added compile-time PDAs: `hopper::const_pda!` evaluates an
+all-literal-seed address with the const SHA-256, so a config or vault PDA
+is a constant checked by a 32-byte compare rather than a hash on every
+instruction, something no framework in the table does. The final rows
+above carry these numbers.
+
 Where Hopper does not win, in the table's own terms, with the measured
 split behind each gap:
 
@@ -148,19 +160,20 @@ split behind each gap:
   context object at all and its header compare is the parse; the `Context`
   stores are the price of the borrow registry and the write gate, and they
   are the part left to attack.
-- The macro counter binary (9,960 bytes) is larger than Anchor v2 (8,696)
+- The macro counter binary (10,056 bytes) is larger than Anchor v2 (8,696)
   and Quasar (7,808). Named from the dump: the `initialize` dispatch (bind,
-  rent, the creation CPI with its validation, the header write) is 3,744
-  bytes, `increment` 1,704, the count-exact entrypoint 752, the out-of-line
+  rent, the creation CPI with its validation, the header write) is 3,808
+  bytes, `increment` 1,736, the count-exact entrypoint 752, the out-of-line
   cold PDA hash 320, and the ambient write gate body (`gate_store::check`)
-  1,736, linked into every Hopper program with a three-load fast path per
-  mutable borrow; the gate code is only executed under an installed policy
-  but LTO cannot drop it, and it is the whole remaining gap to Anchor. Quasar's own
+  1,736, linked into every Hopper program behind an inline liveness test
+  per mutable borrow; the gate code is only executed under an installed
+  policy but LTO cannot drop it, and it is the whole remaining gap to
+  Anchor. Quasar's own
   binaries carry a comparable self-inflicted cost (about 950 bytes of
   `u64 <-> ProgramError` round-trip tables, 42% of its hello ELF), so the
   size race is about which scaffolding each framework carries, not the
   entrypoint.
-- The macro `increment` is 34 CU over Quasar's 330 for strictly more work
+- The macro `increment` is 28 CU over Quasar's 330 for strictly more work
   (Hopper validates the 16-byte header and layout id; Quasar checks a
   1-byte discriminator), and the substrate `increment` is 33 CU over
   pinocchio: entry and dispatch, signer and owner checks 20, the gated
