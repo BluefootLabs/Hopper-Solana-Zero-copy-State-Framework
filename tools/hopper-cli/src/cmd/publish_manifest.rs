@@ -148,9 +148,7 @@ mod tests {
     fn dry_run_describes_a_buffered_plan_for_a_real_manifest() {
         // The committed sentinel manifest is well past the 800-byte inline
         // threshold once compressed, so the plan must be Allocate + Write.
-        let json = include_str!(
-            "../../../../crates/grillo-manifest/tests/fixtures/hopper-sentinel.manifest.json"
-        );
+        let json = include_str!("../../tests/fixtures/hopper-sentinel.manifest.json");
         let payload = PreparedPayload::from_json(json);
         let record = PublishRecord {
             command: "publish-manifest",

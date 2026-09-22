@@ -1,0 +1,2 @@
+# Preserve the exact bytes referenced by the public checksum lists.
+* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

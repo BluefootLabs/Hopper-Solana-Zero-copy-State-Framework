@@ -144,6 +144,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- The CLI manifest-publication test now includes its fixture from inside
+  the CLI crate, so the publication train can package it independently.
+- The new devnet evidence archive preserves file bytes across Git checkouts,
+  keeping its recorded SHA-256 checksums valid on Windows and Unix.
+
 - **`init` funded accounts from a launch-era rent constant.** `hopper_init!`
   (behind `#[account(init, ...)]` and `init_if_needed`) and
   `hopper_core::check::check_rent_exempt` computed `(128 + len) * 6,960`
