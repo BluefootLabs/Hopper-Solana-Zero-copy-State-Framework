@@ -21,6 +21,9 @@ pub const MAX_INSTRUCTION_DATA_BYTES_V2: usize = 10_240;
 pub const MAX_ACCOUNTS_PER_FRAME_V2: usize = 256;
 pub const MAX_ACCOUNT_DATA_BYTES_V2: usize = 10 * 1024 * 1024;
 pub const MAX_LOADED_ACCOUNT_DATA_BYTES_V2: usize = 64 * 1024 * 1024;
+/// Off-chain labels are not SVM account data, but must also be bounded before
+/// the recursive commitment encoder allocates and the binder clones a frame.
+pub const MAX_PROVENANCE_TEXT_BYTES_V2: usize = 4096;
 
 /// Cluster identity for replay separation.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -514,6 +517,16 @@ fn validate_frame_shape(
         "instruction data bytes",
         MAX_INSTRUCTION_DATA_BYTES_V2,
         frame.instruction_data.len(),
+    )?;
+    let provenance_text_len = match &frame.provenance {
+        EvidenceProvenanceV2::RpcObserved { endpoint } => endpoint.len(),
+        EvidenceProvenanceV2::ReplayClaimed { source } => source.len(),
+        EvidenceProvenanceV2::Fixture | EvidenceProvenanceV2::ProviderClaimed { .. } => 0,
+    };
+    check_frame_limit(
+        "provenance text bytes",
+        MAX_PROVENANCE_TEXT_BYTES_V2,
+        provenance_text_len,
     )?;
     check_frame_limit(
         "accounts per frame",

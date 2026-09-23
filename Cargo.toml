@@ -67,6 +67,7 @@ members = [
     "bench/framework-comparison/verifier",
     "bench/runtime-gate/program",
     "bench/pda-boundaries/program",
+    "bench/canonical-pda/program",
     "tests/hopper-trybuild",
     "crates/hopper-manager",
     "crates/hopper-sdk",

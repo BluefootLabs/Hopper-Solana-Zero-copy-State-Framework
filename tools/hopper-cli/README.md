@@ -147,7 +147,7 @@ Project Health
   hopper solana-check [--all]        Check SBF crate shape and Hopper entrypoint invariants
   hopper expand                      Show lowered macro output for the current project
   hopper doctor                      Check toolchain and workspace health
-  hopper feature-gate [--cluster <c>] [<gate-pubkey>]  Report runtime feature-gate activation status
+  hopper feature-gate [--cluster <c>] [--json] [--require <name-or-pubkey>]...  Check finalized runtime prerequisites
 
 Adversarial Testing
   hopper fuzz generate --program <manifest> [--out <plan>] [--corpus <dir>]

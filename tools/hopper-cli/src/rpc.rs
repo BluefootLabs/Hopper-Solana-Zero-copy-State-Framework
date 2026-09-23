@@ -14,6 +14,11 @@ use sha2::{Digest, Sha256};
 /// Iterates bump seeds 255..0 until SHA-256(seeds || `[bump]` || program_id ||
 /// "ProgramDerivedAddress") produces a point NOT on the ed25519 curve.
 pub fn find_program_address(seeds: &[&[u8]], program_id: &[u8; 32]) -> Option<([u8; 32], u8)> {
+    // Reserve the sixteenth seed slot for the bump. Hash-equivalent seed
+    // lists outside the runtime's signing domain must never yield a PDA.
+    if seeds.len() >= 16 || seeds.iter().any(|seed| seed.len() > 32) {
+        return None;
+    }
     for bump in (0u8..=255).rev() {
         if let Some(addr) = create_program_address(seeds, &[bump], program_id) {
             return Some((addr, bump));
@@ -407,6 +412,19 @@ fn encode_manifest_account(json: &str, compress: bool) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pda_seed_domain_matches_runtime_even_for_hash_equivalent_inputs() {
+        let program = [1; 32];
+        let valid = [b"".as_slice(); 15];
+        assert!(find_program_address(&[], &program).is_some());
+        assert!(find_program_address(&valid, &program).is_some());
+        assert!(find_program_address(&[b"".as_slice(); 16], &program).is_none());
+        let long = [7; 33];
+        assert!(find_program_address(&[&long[..16], &long[16..]], &program).is_some());
+        assert!(find_program_address(&[&long], &program).is_none());
+        assert!(find_program_address(&[&long[..32]], &program).is_some());
+    }
 
     #[test]
     fn pda_derivation_deterministic() {

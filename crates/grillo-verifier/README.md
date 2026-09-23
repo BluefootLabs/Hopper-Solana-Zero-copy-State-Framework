@@ -60,6 +60,9 @@ future deployment slots, CPI context drift, invented child accounts, writable
 privilege escalation, and runtime-informed resource limits. A v0.2 PASS
 requires invocation-entry/exit snapshots. Transaction-wide snapshots are
 inconclusive because sibling instructions could hide a forbidden mutation.
+RPC endpoint and claimed replay-source labels are limited to 4,096 UTF-8
+bytes per frame, including nested frames, before commitment encoding and
+binding copy the evidence. The limit does not authenticate those labels.
 
 Binding is not authentication. The current verifier does not fetch a ledger
 transaction, verify the claimed signature, prove who produced the frame, or

@@ -35,6 +35,12 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 
 ## What's included
 
+The [2026-09-23 review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-23.md)
+adds canonical literal-PDA derivation, correct canonical validation for
+inferred bumps, retained validated bumps during direct binding, and finalized
+CLI feature prerequisites. It records current peer source pins and cluster
+observations, plus the remaining Cicada artifact-policy and Grillo replay work.
+
 The [2026-09-22 source review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-22.md)
 connects current peer changes to concrete Hopper fixes: signing-compatible
 PDA seed bounds, client-side Cicada route checks, and unambiguous Grillo

@@ -1134,16 +1134,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // Bumps captured during the PDA-derivation pass. Each entry is
     // `(field_ident, derive_expr)` where `derive_expr` evaluates to a
     // `::core::result::Result<u8, ProgramError>` inside `bind(...)`.
-    // Inferred bumps re-run `find_program_address` in a dedicated
-    // helper on the bound-context path (accept the extra derivation
-    // cost for the ergonomic win; stored bumps are free). Stored bumps
-    // read the user-supplied byte directly. Fields without `seeds = ...`
+    // Direct, required inferred fields retain the validator's bump for
+    // bind; optional and composite gather hooks derive it separately.
+    // Stored bumps read the user-supplied byte. Fields without PDA seeds
     // never appear here and never show up on the `Bumps` struct,
     // matching Anchor's shape exactly. That asymmetry is deliberate:
     // a `Bumps` struct with a `u8` slot for every account would invite
     // readers to assume every slot had a meaning, and writing `0` for
     // non-PDAs is worse than omitting them.
     let mut bump_entries: Vec<(Ident, TokenStream)> = Vec::new();
+    // Required inferred PDAs return the bump from their validator. Optional
+    // and composite gather hooks keep their separate, established paths.
+    let mut fused_bump_fields: Vec<Ident> = Vec::new();
     // Composite (nested) fields, collected in declaration order. Each is
     // lowered into: (1) an inner-context validation delegation at its
     // flattened offset (pushed into `validation_stmts` / `bind_validation_stmts`
@@ -1259,6 +1261,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // `AccountView` here.
         let option_inner = option_inner_type(&cf.ty);
         let is_optional = option_inner.is_some();
+        let fuse_bump = !is_optional
+            && cf.attr.seeds.is_some()
+            && matches!(cf.attr.bump, Some(BumpSpec::Inferred));
+        let fused_validate_fn = format_ident!("__hopper_validate_{}_and_bump", field_name);
+        let bound_bump = format_ident!("__hopper_validated_bump_{}", field_name);
+        if fuse_bump {
+            fused_bump_fields.push(field_name.clone());
+        }
         let effective_ty: &Type = option_inner.unwrap_or(&cf.ty);
         let wrapper = classify_wrapper(effective_ty);
         let wrapper_is_signer = matches!(wrapper, Some(WrapperKind::Signer));
@@ -1843,16 +1853,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 quote! { ctx.program_id() }
             };
-            // Same cheap-versus-checked choice as the `seeds = [...]` form
-            // below; see the note there.
-            let find_bump_fn = if cheap_pda_field(cf) {
-                quote! { ::hopper::pda::find_bump_for_address }
-            } else {
-                quote! { ::hopper::pda::find_canonical_bump_checked }
-            };
+            // An inferred bump must be canonical. Ownership proves neither
+            // that this is the highest off-curve bump nor uniqueness among
+            // the valid addresses for these base seeds.
+            let find_bump_fn = quote! { ::hopper::pda::find_canonical_bump_checked };
             field_checks.push(quote! {
                 {
-                    let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
+                    let __seed_value = (#seeds_fn_expr);
+                    let __seed_slices: &[&[u8]] = __seed_value.as_ref();
                     let _bump: u8 = #find_bump_fn(
                         __seed_slices,
                         #pda_program_expr,
@@ -1868,7 +1876,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 field_name.clone(),
                 quote! {
                     {
-                        let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
+                        let __seed_value = (#seeds_fn_expr);
+                        let __seed_slices: &[&[u8]] = __seed_value.as_ref();
                         #find_bump_fn(
                             __seed_slices,
                             #pda_program_expr,
@@ -1939,12 +1948,21 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // program's id (the derive refuses that combination anyway).
             let cpi_proven =
                 (cf.attr.init || cf.attr.init_if_needed) && cf.attr.seeds_program.is_none();
-            let find_bump_fn = if cheap_pda {
-                quote! { ::hopper::pda::find_bump_for_address }
-            } else {
-                quote! { ::hopper::pda::find_canonical_bump_checked }
-            };
+            // Supplied/stored bumps may use hash-only verification after
+            // the checks above. A bare bump instead requires the highest
+            // off-curve bump, even for an owned or newly initialized account.
+            let find_bump_fn = quote! { ::hopper::pda::find_canonical_bump_checked };
             let verify_call = match bump {
+                BumpSpec::Inferred if fuse_bump => quote! {
+                    let __hopper_validated_bump: u8 = {
+                        #seed_binds
+                        #find_bump_fn(
+                            &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
+                            #pda_program_expr,
+                            ctx.account(#slot)?.address(),
+                        )?
+                    };
+                },
                 BumpSpec::Inferred => quote! {
                     {
                         #seed_binds
@@ -2052,13 +2070,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
             // Build the derive expression used by the generated Bumps
             // struct gatherer. Stored bumps read the user-supplied byte
-            // straight from scope; Inferred bumps re-run
-            // `find_program_address` on the bound-context path. The
-            // extra derivation for Inferred is the cost of the
-            // ergonomic win: the whole point of surfacing
-            // `ctx.bumps().field` is to save the caller from redoing
-            // the work in a CPI signer-seeds block one line later.
-            // Stored bumps cost zero CU.
+            // straight from scope. Direct, required inferred fields replace
+            // this expression with the retained validator result at bind.
+            // Optional fields and composite hooks still use this derivation.
             let bump_gather_expr: TokenStream = match bump {
                 BumpSpec::Stored(bump_expr) => {
                     let gather_binds = sibling_binds(&[quote! { #bump_expr }], &ctx_ref);
@@ -2829,7 +2843,30 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 TokenStream::new()
             };
+            let validator_body = if fuse_bump {
+                quote! {
+                    Self::#fused_validate_fn::<__HOPPER_BASE>(ctx #arg_name_fragment).map(|_| ())
+                }
+            } else {
+                quote! { #arg_use_stmt #(#field_checks)* Ok(()) }
+            };
+            let fused_validator = if fuse_bump {
+                quote! {
+                    #[inline(always)]
+                    fn #fused_validate_fn<const __HOPPER_BASE: usize>(
+                        ctx: &::hopper::prelude::Context<'_>
+                        #arg_param_fragment
+                    ) -> ::core::result::Result<u8, ::hopper::__runtime::ProgramError> {
+                        #arg_use_stmt
+                        #(#field_checks)*
+                        Ok(__hopper_validated_bump)
+                    }
+                }
+            } else {
+                TokenStream::new()
+            };
             per_field_validators.push(quote! {
+                #fused_validator
                 /// Validate the `#field_name` account (index #idx).
                 ///
                 /// Generic over `__HOPPER_BASE`, the flattened slot offset
@@ -2843,9 +2880,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx: &::hopper::prelude::Context<'_>
                     #arg_param_fragment
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                    #arg_use_stmt
-                    #(#field_checks)*
-                    Ok(())
+                    #validator_body
                 }
             });
 
@@ -2871,6 +2906,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             ctx.account(#slot)?,
                             ctx.program_id(),
                         )?;
+                });
+            } else if fuse_bump {
+                bind_validation_stmts.push(quote! {
+                    let #bound_bump: u8 = Self::#fused_validate_fn::<#hopper_base>(ctx #arg_name_fragment)?;
                 });
             } else {
                 bind_validation_stmts.push(quote! {
@@ -4101,21 +4140,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
     // ── bind()'s validation entry ──────────────────────────────────────
     //
-    // Almost every context binds by delegating to `validate()`. The
-    // exception is `event_cpi`: its synthetic authority slot needs a
-    // bump that only the sha256 verify loop can produce, and running
-    // that loop inside `validate()` AND again in the bump gather would
-    // charge every event-emitting instruction twice (~200+ CU per
-    // attempt on-chain). So an event-authority context's `bind()` runs
-    // the SAME per-field validators in the SAME order, no duplicated
-    // check bodies, no reordered error precedence, with the authority's
-    // call swapped for one fused verify that binds the bump to a local
-    // the gather then reads. `validate()` itself is untouched, so
-    // standalone validate-only callers still get every check.
+    // Contexts with event authority or direct required inferred PDAs retain
+    // the bump returned by validation. Bind runs the same field checks in
+    // the same order and gathers those locals without another derivation.
+    // Standalone validation still performs every check and discards the bump.
     let has_event_authority = ctx_fields
         .iter()
         .any(|cf| cf.synthetic == Some(SyntheticFieldRole::EventAuthority));
-    let bind_validate_fragment: TokenStream = if has_event_authority {
+    let has_fused_validation = has_event_authority || !fused_bump_fields.is_empty();
+    let bind_validate_fragment: TokenStream = if has_fused_validation {
         quote! {
             ctx.require_accounts(Self::ACCOUNT_COUNT)?;
             #(#bind_validation_stmts)*
@@ -4169,9 +4202,20 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         .iter()
         .map(|(ident, _)| quote! { pub #ident: u8, })
         .collect();
-    let mut bumps_gather_stmts: Vec<TokenStream> = bump_entries
+    let bumps_gather_stmts_hook: Vec<TokenStream> = bump_entries
         .iter()
         .map(|(ident, expr)| quote! { __hopper_bumps.#ident = #expr; })
+        .collect();
+    let mut bumps_gather_stmts: Vec<TokenStream> = bump_entries
+        .iter()
+        .map(|(ident, expr)| {
+            if fused_bump_fields.contains(ident) {
+                let bound_bump = format_ident!("__hopper_validated_bump_{}", ident);
+                quote! { __hopper_bumps.#ident = #bound_bump; }
+            } else {
+                quote! { __hopper_bumps.#ident = #expr; }
+            }
+        })
         .collect();
     let mut bumps_registry_entries: Vec<TokenStream> = bump_entries
         .iter()
@@ -5453,11 +5497,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // usize = 0` puts the base in scope for the per-field turbofishes and the
     // inner delegations) and emits no `_at` surface, nesting a container
     // inside another is rejected via `__HOPPER_EMBEDDABLE`.
-    // `bumps_gather_stmts` is interpolated twice in the embeddable arm
-    // (`bind_at` and `__hopper_gather_bumps_at`); quote consumes a `Vec`
-    // repetition, so clone one copy for the second site. Same for the
-    // lazy-migration pre-steps, spliced into whichever bind arm is built.
-    let bumps_gather_stmts_hook = bumps_gather_stmts.clone();
+    // Composite gather hooks derive their own bumps because validation
+    // locals are scoped to the earlier call. Direct bind retains its locals.
+    // Clone migration pre-steps for whichever bind arm is built.
     let migration_stmts_at = migration_stmts.clone();
     // Only EMBEDDABLE contexts get the base-parametric `_at` surface and the
     // embed hooks. A non-embeddable context, a composite container, or one
@@ -5468,7 +5510,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // could not reference it. Nesting such a context is refused by the
     // `__HOPPER_EMBEDDABLE` assertion at the outer's expansion.
     let validate_bind_fns: TokenStream = if embeddable {
-        let bind_validation_body: TokenStream = if has_event_authority {
+        let bind_validation_body: TokenStream = if has_fused_validation {
             quote! {
                 ctx.require_accounts(__HOPPER_BASE + Self::ACCOUNT_COUNT)?;
                 #(#bind_validation_stmts)*
@@ -9260,12 +9302,12 @@ mod instruction_arg_tests {
             "absence must cost exactly one address compare: {w}"
         );
         for check in [
-            "expect_signer_writable", // mut
-            "check_owned_by",         // default owner pin
-            "load :: < RefState >",   // layout header load
-            "find_bump_for_address",  // PDA derivation (seeds + bump), sha256-only
-            "layout . payer",         // has_one field read
-            "referral_enabled",       // custom constraint expr
+            "expect_signer_writable",      // mut
+            "check_owned_by",              // default owner pin
+            "load :: < RefState >",        // layout header load
+            "find_canonical_bump_checked", // inferred bump must be canonical
+            "layout . payer",              // has_one field read
+            "referral_enabled",            // custom constraint expr
         ] {
             let at = w
                 .find(check)

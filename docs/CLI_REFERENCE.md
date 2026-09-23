@@ -490,6 +490,31 @@ Global profile option:
 
 - `-w`, `--watch` - re-run `profile bench` or `profile elf` on source changes
 
+## Runtime features
+
+### `hopper feature-gate [--cluster <cluster-or-url>] [--json] [--require <name-or-pubkey>]...`
+
+Observe runtime feature accounts in one finalized RPC snapshot. The report
+records the genesis hash, observation slot, feature keys and activation slots.
+Known names include `SIMD-0321`, `SIMD-0385`, `SIMD-0449`, `SBPF-v3`, and
+`SIMD-0512`. An optional positional name or pubkey queries one feature;
+use repeated `--require` instead to enforce deployment prerequisites.
+
+```bash
+hopper feature-gate --cluster devnet --require SIMD-0321 --require SIMD-0449 --json
+```
+
+Exit 0 means a valid observation and all requested requirements active.
+Exit 2 means a required feature is absent or pending. Exit 1 means invalid
+arguments, an RPC failure, a named-cluster genesis mismatch, or malformed
+feature-account evidence, including a wrong owner. Without `--require`,
+absent features do not make a valid report fail. The default is devnet.
+`--url` and `-u` are aliases for `--cluster`.
+
+These are RPC observations, not authenticated ledger proofs. A proposal's
+status or a feature key in Agave source does not prove network activation.
+An active feature also does not change the transaction format a client emits.
+
 ## Interactive
 
 ### `hopper interactive <manifest>` or `hopper ui <manifest>`

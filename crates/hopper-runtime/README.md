@@ -23,6 +23,11 @@ find or prove a canonical bump. SHA-only checks require the documented
 program-owned account or signed-creation binding. For unchecked accounts,
 use `verify_pda_address_checked` or `find_canonical_bump_checked`.
 
+`find_bump_for_address` finds a matching bump and does not establish
+canonicality, even for an owned account. Use `find_canonical_bump_checked`
+for uniqueness. The facade's optional `canonical_pda!` proc macro derives
+both the canonical address and bump at build time for explicit literal seeds.
+
 Layout contract: LayoutContract trait, header read/write, layout fingerprint comparison.
 
 Ambient write policies: data ranges, lamport authority, and writable CPI

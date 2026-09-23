@@ -347,7 +347,12 @@ fn cmd_pda(args: &[String]) {
     }
     // Find the canonical bump by scanning 255..=0.
     let seed_slices: Vec<&[u8]> = seeds.iter().map(|s| s.as_slice()).collect();
-    let (pda, bump) = find_program_address(&seed_slices, &program_bytes);
+    let program_bytes: [u8; 32] = program_bytes.try_into().expect("length checked above");
+    let (pda, bump) = crate::rpc::find_program_address(&seed_slices, &program_bytes)
+        .unwrap_or_else(|| {
+            eprintln!("PDA derivation failed: use at most 15 base seeds, each at most 32 bytes; a valid off-curve bump must exist");
+            process::exit(1);
+        });
     println!("PDA:    {}", bs58::encode(pda).into_string());
     println!("bump:   {bump}");
     println!("seeds:  {}", describe_seeds(&seeds));
@@ -473,62 +478,6 @@ fn hex_encode(bytes: &[u8]) -> String {
         s.push_str(&format!("{:02x}", b));
     }
     s
-}
-
-/// Find the canonical (address, bump) for a set of seeds under a
-/// program ID. Walks bumps from 255 down to 0, stopping at the first
-/// bump that yields an off-curve point.
-fn find_program_address(seeds: &[&[u8]], program_id: &[u8]) -> ([u8; 32], u8) {
-    for bump in (0u8..=255).rev() {
-        if let Some(addr) = create_program_address(seeds, bump, program_id) {
-            return (addr, bump);
-        }
-    }
-    panic!("no valid PDA exists for these seeds; extremely unlikely");
-}
-
-fn create_program_address(seeds: &[&[u8]], bump: u8, program_id: &[u8]) -> Option<[u8; 32]> {
-    const PDA_MARKER: &[u8] = b"ProgramDerivedAddress";
-    let mut hasher = Sha256Hasher::new();
-    for s in seeds {
-        if s.len() > 32 {
-            return None;
-        }
-        hasher.update(s);
-    }
-    hasher.update(&[bump]);
-    hasher.update(program_id);
-    hasher.update(PDA_MARKER);
-    let hash = hasher.finalize();
-    // If the hash is on the ed25519 curve, it is NOT a valid PDA.
-    if is_on_curve(&hash) {
-        return None;
-    }
-    Some(hash)
-}
-
-fn is_on_curve(bytes: &[u8; 32]) -> bool {
-    curve25519_dalek::edwards::CompressedEdwardsY(*bytes)
-        .decompress()
-        .is_some()
-}
-
-/// Tiny wrapper over `sha2::Sha256` to sidestep the incremental-update
-/// boilerplate at the call site.
-struct Sha256Hasher(sha2::Sha256);
-impl Sha256Hasher {
-    fn new() -> Self {
-        Self(sha2::Sha256::new())
-    }
-    fn update(&mut self, bytes: &[u8]) {
-        self.0.update(bytes);
-    }
-    fn finalize(self) -> [u8; 32] {
-        let result = self.0.finalize();
-        let mut out = [0u8; 32];
-        out.copy_from_slice(&result);
-        out
-    }
 }
 
 #[cfg(test)]

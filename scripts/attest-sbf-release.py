@@ -151,6 +151,7 @@ def build_command(
     program_manifest: pathlib.Path,
     output_directory: pathlib.Path,
     arch: str | None,
+    tools_version: str | None = None,
 ) -> list[str]:
     args = [
         build_tool,
@@ -161,6 +162,8 @@ def build_command(
     ]
     if arch:
         args.extend(["--arch", arch])
+    if tools_version:
+        args.extend(["--tools-version", tools_version])
     args.extend(["--", "--locked"])
     return args
 
@@ -186,6 +189,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--binary", required=True, help="new SBF binary output path")
     parser.add_argument("--build-tool", default="cargo-build-sbf")
     parser.add_argument("--arch", choices=("v0", "v3"))
+    parser.add_argument("--tools-version", help="pin SBF platform tools instead of the builder default")
     parser.add_argument("--hopper", default="hopper", help="Hopper CLI executable")
     parser.add_argument(
         "--require-clean",
@@ -249,6 +253,7 @@ def main() -> int:
                 program_manifest,
                 binary.parent,
                 args.arch,
+                args.tools_version,
             ),
             root,
         )

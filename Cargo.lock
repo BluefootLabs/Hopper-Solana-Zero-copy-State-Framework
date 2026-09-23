@@ -2085,6 +2085,13 @@ name = "hopper-builtins"
 version = "0.3.0"
 
 [[package]]
+name = "hopper-canonical-pda-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-cicada"
 version = "0.3.0"
 dependencies = [
@@ -2199,10 +2206,13 @@ dependencies = [
 name = "hopper-derive"
 version = "0.3.0"
 dependencies = [
+ "bs58",
+ "curve25519-dalek",
  "proc-macro2",
  "quote",
  "serde_json",
  "sha2 0.10.9",
+ "solana-address 2.6.1",
  "syn 2.0.117",
 ]
 
@@ -2261,6 +2271,7 @@ dependencies = [
 name = "hopper-framework-verifier"
 version = "0.0.0"
 dependencies = [
+ "hopper-lang",
  "mollusk-svm",
  "solana-account 4.3.1",
  "solana-instruction",

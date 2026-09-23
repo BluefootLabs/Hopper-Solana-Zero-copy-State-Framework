@@ -32,6 +32,7 @@ layout, validation, and dispatch surfaces.
 | `#[hopper::dynamic_account]` | Explicit systems-mode bounded `#[tail(...)]` fields lowered into fixed body + compact dynamic tail |
 | `#[hopper::dynamic]` | Dynamic-tail field metadata for ring-buffer bookkeeping |
 | `hopper::declare_program!` | Manifest-driven CPI surface with compile-time `FINGERPRINT`, borrowed Hopper instruction parts, and resolver/effect specs |
+| `hopper::canonical_pda!` | Canonical address and bump from an explicit program-ID string and literal byte-string seeds, computed on the build host |
 | `#[derive(HopperInitSpace)]` | `INIT_SPACE` derive for hand-authored Pod structs |
 
 ## `#[hopper::state]` Copy contract
@@ -112,7 +113,30 @@ pub struct Note<'a> {
 remaining Hopper dynamic-tail payload without an inner field prefix and enter
 the layout fingerprint as `tail_str` or `tail_bytes`.
 
-## Enable
+## Canonical PDAs
+
+```rust
+const CONFIG: (hopper::prelude::Address, u8) = hopper::canonical_pda!(
+    "F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy",
+    [b"config", b"v1"]
+);
+```
+
+The macro searches bumps from 255 down and checks the curve at build time.
+It emits address bytes and a bump, with no on-chain derivation. Inputs are
+explicit literals: at most 15 base seeds, each at most 32 bytes. Changing
+the program ID requires rebuilding the constant. Account ownership, layout,
+signer and writable requirements remain separate account constraints.
+
+For dynamic seeds, bare `bump` and `seeds_fn` require the canonical address,
+including for typed accounts. Direct, required fields with bare `bump`
+retain the validated bump during binding. Optional fields, typed seed
+helpers and nested-context gathering still derive separately.
+`bump = stored` and explicitly supplied bumps verify the selected address;
+they do not prove that the bump is canonical. Establish canonicality during
+initialization when the application requires a unique address per seed set.
+
+## Enable the proc macros
 
 ```toml
 [dependencies]

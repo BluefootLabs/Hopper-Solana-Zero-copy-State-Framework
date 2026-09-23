@@ -22,6 +22,13 @@ quote = "1"
 proc-macro2 = "1"
 sha2 = "0.10"
 serde_json = "1"
+# Host-only expansion, compatible with the older SBF toolchain's host Rust.
+bs58 = "0.5"
+curve25519-dalek = { version = "4", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+# Differential oracle; the modern SDK is not a proc-macro build dependency.
+solana-address = { version = "2.6.1", features = ["curve25519", "decode"] }
 
 [lints]
 workspace = true

@@ -1066,9 +1066,9 @@ macro_rules! program_manifest {
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{
-    account, accounts, args, constant, context, crank, declare_program, dynamic, dynamic_account,
-    error as error_code, event, hopper_args, hopper_constant, hopper_context, hopper_crank,
-    hopper_dynamic, hopper_dynamic_account, hopper_event, hopper_migrate, hopper_pod,
+    account, accounts, args, canonical_pda, constant, context, crank, declare_program, dynamic,
+    dynamic_account, error as error_code, event, hopper_args, hopper_constant, hopper_context,
+    hopper_crank, hopper_dynamic, hopper_dynamic_account, hopper_event, hopper_migrate, hopper_pod,
     hopper_program, hopper_state, migrate, pod, program, state, Accounts, HopperInitSpace,
 };
 

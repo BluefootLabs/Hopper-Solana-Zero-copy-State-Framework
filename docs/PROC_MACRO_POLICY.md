@@ -17,10 +17,10 @@ tasks:
 - `#[derive(Accounts)]` -- emit first-touch typed account binding over Hopper runtime wrappers
 - `#[hopper::context]` -- emit lower-level typed account accessors for migrations and systems-mode code
 - `#[hopper::program]` -- emit dispatch glue over ordinary Hopper handlers
-- `#[derive(HopperSchema)]` -- emit LayoutManifest const from struct
-- `#[derive(HopperInstruction)]` -- emit instruction metadata
-- `#[derive(HopperEvent)]` -- emit event metadata
-- `#[derive(HopperManifest)]` -- assemble full program manifest
+- `#[hopper::event]` -- emit event types and metadata
+- `#[hopper::args]` -- emit borrowed instruction-argument parsers
+- `#[derive(HopperInitSpace)]` -- derive initialization space for Pod structs
+- `hopper::canonical_pda!` -- emit a canonical PDA and bump for explicit literal inputs
 
 These generate **code around existing Hopper runtime semantics**, not new
 runtime behavior. The program works identically with or without them.
@@ -75,7 +75,7 @@ without compromising its trust model.
 
 ## Current macro inventory
 
-All current Hopper macros are `macro_rules!` (declarative, not proc):
+Hopper provides optional proc macros through `hopper-derive` and declarative macros through its runtime surfaces. See the [proc-macro inventory](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/crates/hopper-macros-proc/README.md) for the implemented attributes and derives. The following table lists declarative helpers:
 
 | Macro | Purpose |
 |-------|---------|

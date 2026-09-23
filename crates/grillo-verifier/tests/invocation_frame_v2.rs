@@ -452,6 +452,46 @@ fn impossible_frame_limits_and_future_deployments_are_rejected() {
 }
 
 #[test]
+fn untrusted_provenance_labels_are_bounded_before_commitment_at_every_depth() {
+    let contract = declared_cpi_contract();
+    for nested in [false, true] {
+        for replay in [false, true] {
+            for (size, accepted) in [(4096, true), (4097, false)] {
+                let mut parent = frame(&contract);
+                parent.children.push(child_frame(&contract, false));
+                let target = if nested {
+                    &mut parent.children[0]
+                } else {
+                    &mut parent
+                };
+                target.provenance = if replay {
+                    EvidenceProvenanceV2::ReplayClaimed {
+                        source: "x".repeat(size),
+                    }
+                } else {
+                    EvidenceProvenanceV2::RpcObserved {
+                        endpoint: "x".repeat(size),
+                    }
+                };
+                let result = bind_invocation_v2(&contract, &parent);
+                if accepted {
+                    assert!(result.is_ok(), "{result:?}");
+                } else {
+                    assert!(matches!(
+                        result,
+                        Err(BindErrorV2::FrameLimitExceeded {
+                            resource: "provenance text bytes",
+                            max: 4096,
+                            actual: 4097
+                        })
+                    ));
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn verifier_catches_each_state_dimension() {
     let contract = contract();
 

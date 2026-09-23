@@ -30,11 +30,31 @@ mod error;
 mod event;
 mod init_space;
 mod migrate;
+mod pda;
 mod pod;
 mod program;
 mod state;
 
 use proc_macro::TokenStream;
+
+/// Derive a canonical PDA and bump during macro expansion.
+///
+/// The program ID must be a base58 string literal and seeds must be byte
+/// string literals. Emits `(hopper::prelude::Address, u8)` with no runtime hashing or
+/// curve search. At most 15 seeds of at most 32 bytes each are accepted.
+/// Runtime account owner, layout, and privilege checks remain the caller's job.
+///
+/// ```ignore
+/// const CONFIG: (hopper::prelude::Address, u8) = hopper::canonical_pda!(
+///     "F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy", [b"config"]
+/// );
+/// ```
+#[proc_macro]
+pub fn canonical_pda(input: TokenStream) -> TokenStream {
+    pda::expand(input.into())
+        .unwrap_or_else(|error| error.to_compile_error())
+        .into()
+}
 
 /// Generate a `SegmentMap` implementation for a zero-copy layout struct.
 ///

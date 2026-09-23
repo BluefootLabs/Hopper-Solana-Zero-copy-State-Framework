@@ -9,6 +9,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Canonical literal PDAs.** `canonical_pda!` derives address bytes and the
+  highest off-curve bump on the build host from explicit literal inputs.
+- **Canonical inferred-bump validation.** Bare `bump` and `seeds_fn` now
+  require the canonical address even for typed/initializing accounts. A
+  matching bump alone did not establish that property. Direct required
+  bare-bump fields retain the validated result instead of searching twice.
+- **Finalized feature prerequisites.** `hopper feature-gate --json` records
+  genesis, slot and validated feature accounts. Repeated `--require` gates
+  automation on activation; malformed or wrongly owned evidence fails closed.
+- **CLI seed-domain parity.** Client PDA search rejects oversized base-seed
+  lists and individual seeds before hashing, matching the signing domain.
+- **Typed seed helper lifetime.** Generated code retains an array returned by
+  a `seeds_fn` helper while borrowing its slices for derivation.
+- **Grillo provenance quotas.** v0.2 binding bounds textual RPC/replay labels
+  before commitment encoding and cloning, including labels in CPI children.
+
 - **PDA signing-domain regression.** Dynamic SBF inputs exercise 12 public
   PDA paths against SDK-derived addresses, including hash-equivalent
   oversized seeds. SHA verification now enforces the 16-total-seed and

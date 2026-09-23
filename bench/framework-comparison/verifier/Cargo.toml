@@ -23,6 +23,7 @@ solana-svm-log-collector = "4.2"
 
 [dev-dependencies]
 solana-instruction-error = "2.5"
+hopper = { workspace = true, features = ["proc-macros"] }
 
 [lints]
 workspace = true

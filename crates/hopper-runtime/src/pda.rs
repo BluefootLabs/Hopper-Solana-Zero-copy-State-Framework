@@ -157,6 +157,10 @@ pub fn verify_pda_address_checked(
 /// no bump matches. Same soundness condition as [`verify_pda_address`]:
 /// use it only when `expected` is bound to a program-owned or about-to-be
 /// created account; otherwise [`find_canonical_bump_checked`].
+///
+/// This finds a matching bump, not necessarily the canonical (highest
+/// off-curve) bump. Ownership does not prove canonicality. Use
+/// [`find_canonical_bump_checked`] whenever one address per seed set is required.
 #[inline]
 pub fn find_bump_for_address(
     seeds: &[&[u8]],

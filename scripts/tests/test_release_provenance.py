@@ -61,6 +61,12 @@ class SbfAttestationTests(unittest.TestCase):
             first["stdoutSha256"], hashlib.sha256(b"stdout").hexdigest()
         )
 
+    def test_platform_tool_version_is_forwarded_before_cargo_arguments(self) -> None:
+        command = self.attest.build_command(
+            "cargo-build-sbf", Path("program/Cargo.toml"), Path("target/fresh"), "v0", "v1.54"
+        )
+        self.assertEqual(command[-4:], ["--tools-version", "v1.54", "--", "--locked"])
+
     def test_existing_output_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "existing"
