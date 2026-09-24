@@ -81,7 +81,16 @@ def main() -> None:
         tx = finalize(match[1])
         write(f"{name}.transaction.json", tx)
         expected = None if error is None else {"InstructionError": [int(budget is not None), error]}
-        assert tx["meta"]["err"] == expected, (name, tx["meta"]["err"], expected)
+        if budget is not None:
+            # The live SBF processor may surface nested VM exhaustion as
+            # ProgramFailedToComplete. Require the meter evidence as well as
+            # the specific error; an unrelated program failure is not a pass.
+            assert error == "ComputationalBudgetExceeded"
+            assert tx["meta"]["err"] in [expected, {"InstructionError": [1, "ProgramFailedToComplete"]}]
+            assert tx["meta"]["computeUnitsConsumed"] == budget
+            assert any("exceeded CUs meter" in line for line in tx["meta"]["logMessages"])
+        else:
+            assert tx["meta"]["err"] == expected, (name, tx["meta"]["err"], expected)
         record = {"name": name, "signature": match[1], "slot": tx["slot"],
                   "error": tx["meta"]["err"], "computeUnits": tx["meta"].get("computeUnitsConsumed")}
         records.append(record)
@@ -100,6 +109,7 @@ def main() -> None:
         old_payer, old_mint = before["value"]
         new_payer, new_mint = after["value"]
         fee = tx["meta"]["fee"]
+        write(f"{name}.snapshots.json", {"addresses": [payer, mint], "before": before, "after": after})
         if error is not None:
             assert old_mint == new_mint, "failed transaction changed the mint snapshot"
             expected_payer = dict(old_payer, lamports=old_payer["lamports"] - fee)
@@ -130,7 +140,6 @@ def main() -> None:
             assert new_mint["lamports"] == max(rent, old_balance)
             assert new_payer == dict(old_payer, lamports=old_payer["lamports"] - fee - funding)
             record.update({"mintBytes": size, "rentMinimum": rent, "payerFunding": funding})
-        write(f"{name}.snapshots.json", {"addresses": [payer, mint], "before": before, "after": after})
         record["expectedFullSnapshotsVerified"] = True
 
     deployment("before")
