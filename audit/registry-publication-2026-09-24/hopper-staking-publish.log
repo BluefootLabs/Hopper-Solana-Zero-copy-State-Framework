@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-staking v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-staking)
+    Updating crates.io index
+    Packaged 8 files, 11.7KiB (3.9KiB compressed)
+   Verifying hopper-staking v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-staking)
+   Compiling hopper-staking v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-staking-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 0.61s
+   Uploading hopper-staking v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-staking)
+    Uploaded hopper-staking v0.3.1 to registry `crates-io`
+note: waiting for hopper-staking v0.3.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-staking v0.3.1 at registry `crates-io`

@@ -1,0 +1,383 @@
+{
+  "schema": "hopper.registry-download-verification.v1",
+  "allPassed": true,
+  "packages": [
+    {
+      "name": "grillo-manifest",
+      "version": "0.1.0",
+      "url": "https://static.crates.io/crates/grillo-manifest/grillo-manifest-0.1.0.crate",
+      "sha256": "0159c94a908cfb94448f3e2225967cfaabf94fab021af07d9b74f7159657eb37",
+      "bytes": 52809,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/grillo-manifest"
+      }
+    },
+    {
+      "name": "hopper-topology",
+      "version": "0.1.0",
+      "url": "https://static.crates.io/crates/hopper-topology/hopper-topology-0.1.0.crate",
+      "sha256": "5cf30465dc174cc09639b883eca2ae089b7dab30220a3d5fea08ff413e3535ff",
+      "bytes": 18925,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-topology"
+      }
+    },
+    {
+      "name": "grillo-verifier",
+      "version": "0.1.0",
+      "url": "https://static.crates.io/crates/grillo-verifier/grillo-verifier-0.1.0.crate",
+      "sha256": "463d167142ccf1ad669b3c463920f6bac6ced619f3d6d0ae38ab6972a23e1b79",
+      "bytes": 45395,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/grillo-verifier"
+      }
+    },
+    {
+      "name": "hopper-builtins",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-builtins/hopper-builtins-0.3.1.crate",
+      "sha256": "aad7c2fef0ea687653cf921bd7322f17bbab25c6979dbeb1964b505a9884d853",
+      "bytes": 6739,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-builtins"
+      }
+    },
+    {
+      "name": "hopper-derive",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-derive/hopper-derive-0.3.1.crate",
+      "sha256": "c1636a53c145e29d5d197a6af5f9a7bf9caa70b9c7d306b1547e73e1bf4ee57e",
+      "bytes": 210684,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-macros-proc"
+      }
+    },
+    {
+      "name": "hopper-native",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-native/hopper-native-0.3.1.crate",
+      "sha256": "182e575070ea7e9442d40983b2715da2ef01861cfee36e0cd05b147289393ee4",
+      "bytes": 137841,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-native"
+      }
+    },
+    {
+      "name": "hopper-runtime",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-runtime/hopper-runtime-0.3.1.crate",
+      "sha256": "e62b63b31be928334ba2a9b1b3c207799c72bfa036c44a5bcc6e206aa10e564d",
+      "bytes": 301875,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-runtime"
+      }
+    },
+    {
+      "name": "hopper-anchor",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-anchor/hopper-anchor-0.3.1.crate",
+      "sha256": "ae3a8bf930eda50dfd5651bd4ebc47e1ad9965513c841a002178f492073f99e6",
+      "bytes": 4098,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-anchor"
+      }
+    },
+    {
+      "name": "hopper-system",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-system/hopper-system-0.3.1.crate",
+      "sha256": "27b49081ecbd08616ff6eb8670b947b6ebfa7c4f6ee49d05a590b25f0e665369",
+      "bytes": 2179,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-system"
+      }
+    },
+    {
+      "name": "hopper-systems",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-systems/hopper-systems-0.3.1.crate",
+      "sha256": "4f55f82b8e4dcb28b55ef765dc1c4d1d7107dfd6682cbe11993845c791c3c600",
+      "bytes": 198264,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-core"
+      }
+    },
+    {
+      "name": "hopper-token",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-token/hopper-token-0.3.1.crate",
+      "sha256": "a2bcc00c0e6fe19b1c8f56020867e5464e83f2fe1ce244351bcf665730cd2927",
+      "bytes": 9736,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-token"
+      }
+    },
+    {
+      "name": "hopper-distribute",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-distribute/hopper-distribute-0.3.1.crate",
+      "sha256": "2180cfa152a4b9e3dc563a46e639dafdbaad13a9c836a3abb98dd3fbc3647cd4",
+      "bytes": 4953,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-distribute"
+      }
+    },
+    {
+      "name": "hopper-lending",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-lending/hopper-lending-0.3.1.crate",
+      "sha256": "db455ea89c9baa0aac8936e14bcba376d43ed6aa3493d9e6fc5397f0228d24a8",
+      "bytes": 3713,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-lending"
+      }
+    },
+    {
+      "name": "hopper-memo",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-memo/hopper-memo-0.3.1.crate",
+      "sha256": "2751af8dfec8a037d3ce109cfdbe534bd9015234c0dc390deadac3db7b2e9794",
+      "bytes": 4315,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-memo"
+      }
+    },
+    {
+      "name": "hopper-metaplex",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-metaplex/hopper-metaplex-0.3.1.crate",
+      "sha256": "1d55b091360928c745fbc6237a983102d9140b2f9f562b3b06e93ae1edfc2e73",
+      "bytes": 12149,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-metaplex"
+      }
+    },
+    {
+      "name": "hopper-multisig",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-multisig/hopper-multisig-0.3.1.crate",
+      "sha256": "fc4cc77e47048c54b2c58d16ab1ec5c48290b83f1ea039d130e717bc16625ef5",
+      "bytes": 2619,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-multisig"
+      }
+    },
+    {
+      "name": "hopper-staking",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-staking/hopper-staking-0.3.1.crate",
+      "sha256": "df0dfc6e70a74eb8bdb426000be90505eea43950e189be437ceb24e7e9a151b2",
+      "bytes": 3977,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-staking"
+      }
+    },
+    {
+      "name": "hopper-svm",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-svm/hopper-svm-0.3.1.crate",
+      "sha256": "9922003a87d62409cc573d222d9f749fa64d037d37bbf7a28ed445c601854e79",
+      "bytes": 4581,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-svm"
+      }
+    },
+    {
+      "name": "hopper-vesting",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-vesting/hopper-vesting-0.3.1.crate",
+      "sha256": "479873a767d781671712e9b83fc3cb97dac094b802400a12ee91b69c3d656dd5",
+      "bytes": 3895,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-vesting"
+      }
+    },
+    {
+      "name": "hopper-finance",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-finance/hopper-finance-0.3.1.crate",
+      "sha256": "44aa1b707bbd1300a79709c00eb2968739bb1ee80379b48e6bf465eea7c7072e",
+      "bytes": 6650,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-finance"
+      }
+    },
+    {
+      "name": "hopper-schema",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-schema/hopper-schema-0.3.1.crate",
+      "sha256": "8adacb4646380ba99628727f28cb5384f8a6031965f57eff9f198c025cbc2fbd",
+      "bytes": 137055,
+      "vcs": {
+        "git": {
+          "sha1": "b9a688e3011871e8c8f061f62e21ba73adda7b1b"
+        },
+        "path_in_vcs": "crates/hopper-schema"
+      }
+    },
+    {
+      "name": "hopper-macros",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-macros/hopper-macros-0.3.1.crate",
+      "sha256": "f586b5a69f53490dec7d47255d8eff924b80bed7b4bcc01d3ecd6b2acc6f07ae",
+      "bytes": 17528,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "crates/hopper-macros"
+      }
+    },
+    {
+      "name": "hopper-solana",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-solana/hopper-solana-0.3.1.crate",
+      "sha256": "01b37f086fa010b8a83d510b16311b7b7f2033ff225f7e53d9d2815e440ff153",
+      "bytes": 33365,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "crates/hopper-solana"
+      }
+    },
+    {
+      "name": "hopper-associated-token",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-associated-token/hopper-associated-token-0.3.1.crate",
+      "sha256": "d7f73a47e34b23b58dc9375f592f50fdc2c1874d055f8e0d7eac100ed47bff5a",
+      "bytes": 3830,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-associated-token"
+      }
+    },
+    {
+      "name": "hopper-token-2022",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-token-2022/hopper-token-2022-0.3.1.crate",
+      "sha256": "089700ef7befafb0cb72664fbab4acc625c15c65cf9ffafca698cd5dae083034",
+      "bytes": 20840,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-token-2022"
+      }
+    },
+    {
+      "name": "hopper-manager",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-manager/hopper-manager-0.3.1.crate",
+      "sha256": "6c42d32b6e2baa9798269baacdf8ced0f5d12d30f0080f6d262200ac4ccaf1c3",
+      "bytes": 9134,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "crates/hopper-manager"
+      }
+    },
+    {
+      "name": "hopper-sdk",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-sdk/hopper-sdk-0.3.1.crate",
+      "sha256": "fc0cd1f629a72843adc9b12876f0f0b385fa0fefa305092a966d72a4d24289f8",
+      "bytes": 18900,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "crates/hopper-sdk"
+      }
+    },
+    {
+      "name": "hopper-lang",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-lang/hopper-lang-0.3.1.crate",
+      "sha256": "c13c88fca5060fefc7893dea62055cceeede41495b862e865e6fef9e9338fe25",
+      "bytes": 872686,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": ""
+      }
+    },
+    {
+      "name": "hopper-cli",
+      "version": "0.3.1",
+      "url": "https://static.crates.io/crates/hopper-cli/hopper-cli-0.3.1.crate",
+      "sha256": "492a4e8b021080e3379d9387323a0b5847686492174d681a10803e12416249c0",
+      "bytes": 354116,
+      "vcs": {
+        "git": {
+          "sha1": "54ec16c48eb7e2e350f9b4f249bde2f93aab97c0"
+        },
+        "path_in_vcs": "tools/hopper-cli"
+      }
+    }
+  ]
+}

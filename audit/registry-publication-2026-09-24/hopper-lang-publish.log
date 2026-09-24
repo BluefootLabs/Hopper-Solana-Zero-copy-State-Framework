@@ -1,0 +1,14 @@
+    Updating crates.io index
+   Packaging hopper-lang v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+warning: ignoring test `dx_parity_docs` as `tests\dx_parity_docs.rs` is not included in the published package
+warning: ignoring test `token_2022_docs` as `tests\token_2022_docs.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 587 files, 3.1MiB (852.2KiB compressed)
+   Verifying hopper-lang v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-lang v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-lang-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 1.18s
+   Uploading hopper-lang v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+    Uploaded hopper-lang v0.3.1 to registry `crates-io`
+note: waiting for hopper-lang v0.3.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-lang v0.3.1 at registry `crates-io`

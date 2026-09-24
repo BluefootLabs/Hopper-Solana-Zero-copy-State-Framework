@@ -1,0 +1,15 @@
+   Compiling hopper-systems v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-solana v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-associated-token v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-token-2022 v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-lang v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+    Finished `test` profile [unoptimized] target(s) in 2.73s
+     Running tests\token_2022_docs.rs (target\debug\deps\token_2022_docs-af2dadc164cafb15.exe)
+
+running 1 test
+test guide_matches_compiled_examples ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

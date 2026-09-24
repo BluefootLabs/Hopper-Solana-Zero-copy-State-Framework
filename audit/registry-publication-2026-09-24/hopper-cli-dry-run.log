@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-cli v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+    Updating crates.io index
+    Packaged 52 files, 1.4MiB (345.8KiB compressed)
+   Verifying hopper-cli v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+ Downloading crates ...
+  Downloaded hopper-manager v0.3.1
+   Compiling hopper-manager v0.3.1
+   Compiling hopper-cli v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-cli-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 18.27s
+   Uploading hopper-cli v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+warning: aborting upload due to dry run

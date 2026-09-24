@@ -1,0 +1,79 @@
+   Compiling hopper-lang v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized] target(s) in 2.34s
+     Running tests\mint_plan_sbf.rs (target\debug\deps\mint_plan_sbf-ef5684a5862074c0.exe)
+
+running 5 tests
+mint-plan legacy=true extensions=0 bytes=82 CU=3809
+test exhausted_budget_rolls_back_successful_creation_and_extension_cpis ... ok
+mint-plan legacy=false extensions=0 bytes=82 CU=4822
+mint-plan legacy=false extensions=1 bytes=278 CU=8982
+mint-plan legacy=false extensions=2 bytes=202 CU=8179
+test extension_constraint_rejects_identical_bytes_under_a_forged_owner ... ok
+mint-plan legacy=false extensions=3 bytes=314 CU=11564
+mint-plan legacy=false extensions=4 bytes=170 CU=7831
+mint-plan legacy=false extensions=5 bytes=282 CU=11216
+mint-plan legacy=false extensions=6 bytes=206 CU=10412
+mint-plan legacy=false extensions=7 bytes=318 CU=13860
+mint-plan legacy=false extensions=8 bytes=202 CU=8129
+test invalid_creation_and_initialization_leave_accounts_unchanged ... ok
+test prefunding_and_pda_signers_charge_only_the_live_rent_shortfall ... ok
+mint-plan legacy=false extensions=9 bytes=314 CU=11514
+mint-plan legacy=false extensions=10 bytes=238 CU=10710
+mint-plan legacy=false extensions=11 bytes=350 CU=14158
+mint-plan legacy=false extensions=12 bytes=206 CU=10362
+mint-plan legacy=false extensions=13 bytes=318 CU=13810
+mint-plan legacy=false extensions=14 bytes=242 CU=13005
+mint-plan legacy=false extensions=15 bytes=354 CU=16516
+mint-plan legacy=false extensions=16 bytes=234 CU=8376
+mint-plan legacy=false extensions=17 bytes=346 CU=11761
+mint-plan legacy=false extensions=18 bytes=270 CU=10960
+mint-plan legacy=false extensions=19 bytes=382 CU=14405
+mint-plan legacy=false extensions=20 bytes=238 CU=10609
+mint-plan legacy=false extensions=21 bytes=350 CU=14057
+mint-plan legacy=false extensions=22 bytes=274 CU=13256
+mint-plan legacy=false extensions=23 bytes=386 CU=16763
+mint-plan legacy=false extensions=24 bytes=270 CU=10910
+mint-plan legacy=false extensions=25 bytes=382 CU=14355
+mint-plan legacy=false extensions=26 bytes=306 CU=13554
+mint-plan legacy=false extensions=27 bytes=418 CU=17061
+mint-plan legacy=false extensions=28 bytes=274 CU=13206
+mint-plan legacy=false extensions=29 bytes=386 CU=16713
+mint-plan legacy=false extensions=30 bytes=310 CU=15912
+mint-plan legacy=false extensions=31 bytes=422 CU=19693
+mint-plan legacy=false extensions=32 bytes=234 CU=8360
+mint-plan legacy=false extensions=33 bytes=346 CU=11745
+mint-plan legacy=false extensions=34 bytes=270 CU=10944
+mint-plan legacy=false extensions=35 bytes=382 CU=14389
+mint-plan legacy=false extensions=36 bytes=238 CU=10593
+mint-plan legacy=false extensions=37 bytes=350 CU=14041
+mint-plan legacy=false extensions=38 bytes=274 CU=13240
+mint-plan legacy=false extensions=39 bytes=386 CU=16747
+mint-plan legacy=false extensions=40 bytes=270 CU=10894
+mint-plan legacy=false extensions=41 bytes=382 CU=14339
+mint-plan legacy=false extensions=42 bytes=306 CU=13538
+mint-plan legacy=false extensions=43 bytes=418 CU=17045
+mint-plan legacy=false extensions=44 bytes=274 CU=13190
+mint-plan legacy=false extensions=45 bytes=386 CU=16697
+mint-plan legacy=false extensions=46 bytes=310 CU=15896
+mint-plan legacy=false extensions=47 bytes=422 CU=19677
+mint-plan legacy=false extensions=48 bytes=302 CU=11140
+mint-plan legacy=false extensions=49 bytes=414 CU=14585
+mint-plan legacy=false extensions=50 bytes=338 CU=13784
+mint-plan legacy=false extensions=51 bytes=450 CU=17291
+mint-plan legacy=false extensions=52 bytes=306 CU=13436
+mint-plan legacy=false extensions=53 bytes=418 CU=16943
+mint-plan legacy=false extensions=54 bytes=342 CU=16142
+mint-plan legacy=false extensions=55 bytes=454 CU=19923
+mint-plan legacy=false extensions=56 bytes=338 CU=13734
+mint-plan legacy=false extensions=57 bytes=450 CU=17241
+mint-plan legacy=false extensions=58 bytes=374 CU=16440
+mint-plan legacy=false extensions=59 bytes=486 CU=20221
+mint-plan legacy=false extensions=60 bytes=342 CU=16092
+mint-plan legacy=false extensions=61 bytes=454 CU=19873
+mint-plan legacy=false extensions=62 bytes=378 CU=19072
+mint-plan legacy=false extensions=63 bytes=490 CU=22703
+test all_extension_subsets_initialize_with_exact_canonical_state_and_rent ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

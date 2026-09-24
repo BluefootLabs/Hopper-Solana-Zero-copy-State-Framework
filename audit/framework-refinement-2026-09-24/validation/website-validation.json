@@ -1,0 +1,12 @@
+{
+  "schema": "hopper.website-validation.v1",
+  "frameworkRelease": "0.3.1",
+  "lintPassed": true,
+  "productionBuildPassed": true,
+  "httpPages": 42,
+  "internalLinksChecked": 2732,
+  "internalLinkFailures": 0,
+  "homepageStoryOrderChecked": true,
+  "browserVisualCheckPerformed": false,
+  "browserLimitation": "The in-app browser reported no available browsers; validation used production-server HTML responses."
+}

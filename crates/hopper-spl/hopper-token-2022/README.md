@@ -36,8 +36,7 @@ It does not infer extension semantics, initialize variable-length metadata,
 create token accounts, or mint supply. Propagate errors from the multi-CPI
 sequence so the enclosing instruction rolls back earlier work.
 
-These additions require the workspace until the next registry release is
-verified. See the [Token-2022 guide](https://hopperzero.dev/docs/token-2022) for
+These APIs ship in the verified 0.3.1 registry release. See the [Token-2022 guide](https://hopperzero.dev/docs/token-2022) for
 complete examples and the distinction between readers, constraints, and creation.
 
 ## When to reach for this

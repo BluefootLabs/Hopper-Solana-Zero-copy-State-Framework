@@ -4,9 +4,9 @@ Hopper provides zero-copy token readers, declarative extension constraints,
 and fail-closed TLV policies. These are distinct from mint creation: reading
 an extension never initializes it.
 
-`MintPlan` and `InitializeMint2` below are workspace additions after the
-published 0.3.0 release. Use the matching workspace until the next registry
-release is verified.
+`MintPlan` and `InitializeMint2` below ship in Hopper 0.3.1. Use the matching
+framework and CLI release; registry packages and compiled consumer checks
+are recorded on the [release status page](https://hopperzero.dev/docs/release-status).
 
 ## Pin ownership and authority
 
@@ -32,7 +32,7 @@ pub struct ConfigureMint<'info> {
 
 `mint::token_program` and `token::token_program` choose the required owner
 for the corresponding mint or token constraints. Without an override they
-use legacy SPL Token. In this workspace, every extension constraint also
+use legacy SPL Token. In 0.3.1, every extension constraint also
 requires Token-2022 ownership before reading its bytes, even when a separate
 mint/token owner constraint is omitted. The published 0.3.0 release requires
 that explicit owner constraint; retain it in code that must support 0.3.0.

@@ -1,0 +1,10 @@
+   Compiling five8_core v1.0.0
+   Compiling five8_const v1.0.0
+   Compiling five8 v1.0.0
+   Compiling solana-address v2.7.0
+   Compiling solana-account-view v2.1.0
+   Compiling solana-instruction-view v2.1.0
+   Compiling pinocchio v0.11.2
+   Compiling pinocchio-system v0.6.1
+   Compiling counter_pinocchio v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\reference\counter)
+    Finished `release` profile [optimized] target(s) in 1.16s

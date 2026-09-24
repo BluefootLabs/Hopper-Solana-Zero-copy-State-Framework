@@ -1,0 +1,3 @@
+Executed 698 manifest-derived cases for hopper-cicada: 698 passed, 0 skipped
+Contract commitment: 09702a1baaa133bdc615093dc499e85b562e246b494d141aad729cc455c2ba3d
+Report: target/hopper/refinement-release-2026-09-24/cicada-semantic-report.json

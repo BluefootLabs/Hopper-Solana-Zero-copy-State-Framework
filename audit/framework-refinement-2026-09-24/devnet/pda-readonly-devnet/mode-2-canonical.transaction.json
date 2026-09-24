@@ -1,0 +1,66 @@
+{
+  "blockTime": 1790255481,
+  "meta": {
+    "computeUnitsConsumed": 1090,
+    "costUnits": 2118,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH invoke [1]",
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH consumed 1090 of 200000 compute units",
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH success"
+    ],
+    "postBalances": [
+      3392182117,
+      833120,
+      736600
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      3392187117,
+      833120,
+      736600
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 503482610,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH",
+        "9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2
+          ],
+          "data": "EC",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "HiQcCh9WeDYKRkrge6V9FP5JC9oopsQTvECRAfke9vKG"
+    },
+    "signatures": [
+      "4NL3dofpfzrbiXC4adxSTjofaeg7gpcJCX5aTxgRystKV22jx31GVUUnJzL4VptkNAY1M44ij4u9nk2vCBJwc8et"
+    ]
+  },
+  "transactionIndex": 22,
+  "version": "legacy"
+}

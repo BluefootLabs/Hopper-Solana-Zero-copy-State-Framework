@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "ab955e42aea007cd1d01d3facfc2818906f0bf44",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "payer": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "payerBefore": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 503477516
+    },
+    "value": 3604819840
+  },
+  "programs": [
+    {
+      "name": "mint-plan",
+      "programId": "GJHAaGgruxJiToRou1HE7Y8csHNunAuPthgc8RVSwACi",
+      "elfSha256": "6b047172d561242ac402545a8213acbdfa6e8c24bd3cea82c10712e835b0584f",
+      "elfBytes": 16576,
+      "deployment": {
+        "programId": "GJHAaGgruxJiToRou1HE7Y8csHNunAuPthgc8RVSwACi",
+        "signature": "cuBQAroQkzRMB2txeqSZ6TboUysVAs3u9xnTkgdNvFnkZ4TEAWD6DsRYPg7ScCB6FCL7yBRM1Hpt5TrbyDD5Tx4"
+      }
+    },
+    {
+      "name": "canonical-pda",
+      "programId": "8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH",
+      "compilerElfBytes": 13896,
+      "compilerElfSha256": "753b2702b1d3d1ba67a701b34f6c863767e5e2fb65e607f3ffb74908185e35e6",
+      "elfBytes": 18528,
+      "elfSha256": "fc7c043f77fcded944af4c4ea262426a90d8274aa2e7303ea25eb0882c348f69",
+      "padding": "Only zero-filled program-capacity bytes after the exact compiler ELF. Padded image passed all 3 compiled PDA suites before deployment.",
+      "deployment": {
+        "programId": "8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH",
+        "signature": "23Ac9CbQJx4YsKDMAmgdVcn65zp5GmaC3jxSie5yyNzavaA2MY5vJMMSPimxaHVb7uqeX6TrgeRRXJr4ieYQ86Mg"
+      }
+    }
+  ],
+  "payerAfter": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 503479132
+    },
+    "value": 3453028717
+  }
+}

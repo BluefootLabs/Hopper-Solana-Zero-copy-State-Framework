@@ -1,0 +1,10 @@
+    Updating crates.io index
+   Packaging hopper-schema v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+    Updating crates.io index
+    Packaged 18 files, 728.5KiB (133.8KiB compressed)
+   Verifying hopper-schema v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-systems v0.3.1
+   Compiling hopper-schema v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-schema-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 2.25s
+   Uploading hopper-schema v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+warning: aborting upload due to dry run

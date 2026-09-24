@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-token v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+    Updating crates.io index
+    Packaged 7 files, 48.7KiB (9.5KiB compressed)
+   Verifying hopper-token v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-token v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-token-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 0.65s
+   Uploading hopper-token v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+warning: aborting upload due to dry run

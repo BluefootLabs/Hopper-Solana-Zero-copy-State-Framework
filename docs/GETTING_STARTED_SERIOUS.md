@@ -16,10 +16,10 @@ but they are not where a new Hopper program should begin.
 
 ## Install Hopper
 
-Install the published 0.3.0 CLI and use the matching framework release:
+Install the published 0.3.1 CLI and use the matching framework release:
 
 ```bash
-cargo install hopper-cli --version 0.3.0 --locked
+cargo install hopper-cli --version 0.3.1 --locked
 hopper init my-vault --template minimal --yes
 cd my-vault
 ```
@@ -29,7 +29,7 @@ crate `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "=0.3.0", default-features = false, features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.3.1", default-features = false, features = ["proc-macros"] }
 ```
 
 The package is named `hopper-lang` on crates.io because the `hopper` package
@@ -40,7 +40,7 @@ name is already occupied by an unrelated crate. The library crate is still
 use hopper::prelude::*;
 ```
 
-These examples target Hopper 0.3.0. Keep the CLI and framework on the same
+These examples target Hopper 0.3.1. Keep the CLI and framework on the same
 release line.
 
 When developing against a local framework checkout, use the CLI flag instead of

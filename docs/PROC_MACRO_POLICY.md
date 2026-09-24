@@ -22,8 +22,9 @@ tasks:
 - `#[derive(HopperInitSpace)]` -- derive initialization space for Pod structs
 - `hopper::canonical_pda!` -- emit a canonical PDA and bump for explicit literal inputs
 
-These generate **code around existing Hopper runtime semantics**, not new
-runtime behavior. The program works identically with or without them.
+These generate validation, dispatch, and metadata code using Hopper runtime
+primitives. Equivalent code can be written manually. Removing an attribute
+without replacing its generated checks does not preserve program behavior.
 
 For first-touch typed account contexts, this means proc macros may emit the
 `Ctx<T>` binding and `ctx.accounts.*` wrapper construction used by

@@ -1,0 +1,2 @@
+[2026-09-24T12:55:09.775309900Z WARN  cargo_build_sbf] Package 'hopper-escrow' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+    Finished `release` profile [optimized] target(s) in 0.35s

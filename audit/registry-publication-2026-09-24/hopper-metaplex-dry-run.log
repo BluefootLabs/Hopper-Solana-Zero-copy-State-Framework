@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-metaplex v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+    Updating crates.io index
+    Packaged 10 files, 45.3KiB (11.9KiB compressed)
+   Verifying hopper-metaplex v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+   Compiling hopper-metaplex v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-metaplex-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 0.65s
+   Uploading hopper-metaplex v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+warning: aborting upload due to dry run

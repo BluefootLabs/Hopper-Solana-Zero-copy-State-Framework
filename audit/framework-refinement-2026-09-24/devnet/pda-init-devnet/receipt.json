@@ -1,0 +1,111 @@
+{
+  "schema": "hopper.pda-initialization-devnet.v1",
+  "sourceCommit": "b9a688e3011871e8c8f061f62e21ba73adda7b1b",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "commitment": "finalized",
+  "programId": "8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH",
+  "config": "9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG",
+  "canonicalBump": 253,
+  "elfSha256": "fc7c043f77fcded944af4c4ea262426a90d8274aa2e7303ea25eb0882c348f69",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "transactions": [
+    {
+      "name": "wrong-init-bump",
+      "signature": "2bBk5uUweUU9B7Z32E15E4S3A4FhX3Cb6ZqcfZvg334EM7BgcDLZYKcrDpdbkYwZn4TMBtxxubjpzeMhqguPA3tq",
+      "slot": 503481692,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidSeeds"
+        ]
+      },
+      "computeUnits": 1115,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize",
+      "signature": "hfivc2u5SJ6oAKbvrT3oKATuWbTvT8tChXaeDFRuj2L5m7cwQm3ssGbC67hKs5GZE7SAi4W5wm2jLtmJdNA4Hmd",
+      "slot": 503481741,
+      "error": null,
+      "computeUnits": 2541,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "reinitialize",
+      "signature": "5gJRxYYQCJBmDEa53acjdYVzbc8fbqBXByZDPMdSNQxcaoDREKr5NVcSV27JvFKXfZN1RoQznBrHi84N7Qeebqfj",
+      "slot": 503481792,
+      "error": {
+        "InstructionError": [
+          0,
+          "AccountAlreadyInitialized"
+        ]
+      },
+      "computeUnits": 1282,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "typed-5",
+      "signature": "5GCsEfHbRF1MgLYqSvHqFYxKCG7yUGRWxWvXgETCNQbx3SuGrzfcd8ne45SnXmqAK1znL5t6RvW5XR2xCWNvS6hk",
+      "slot": 503481839,
+      "error": null,
+      "computeUnits": 1125,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "typed-5-wrong-argument",
+      "signature": "5WQ9Tp4DF8YQtzkgwXFcnuCnWug9Wd3cRfLz2tjpgWXFm4GWxJZ1uVaanxDNzzbKueFpag9kiw58yVfJ1Jc4P8QH",
+      "slot": 503481891,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidSeeds"
+        ]
+      },
+      "computeUnits": 1128,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "typed-6",
+      "signature": "4hUcCu3VyesRBgbRpUPEaZjB8Cx3pSG6SeBGTGwLnZsJTMjKyXHWFqy3cMhABWerow4TZ3s84knraQ7DHBTSUgcK",
+      "slot": 503481936,
+      "error": null,
+      "computeUnits": 1124,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "typed-6-wrong-argument",
+      "signature": "5xguj2hrpkjsds43S6N2QVGhsNDSajivyN4NhTX4nubuscoWT4odyKP5nvAr5nk4t5ogx9WqARjkmwNxHkaexoAy",
+      "slot": 503481988,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidSeeds"
+        ]
+      },
+      "computeUnits": 1127,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "typed-7",
+      "signature": "37L4uMm5eh2LtpfKsWuaPKAqXjddtCoRKpKLfCvRrbrPUqjyx4YY7zpaEgg5Zy3WAq6wu3YirckZD7ziUbZ5sTwJ",
+      "slot": 503482034,
+      "error": null,
+      "computeUnits": 318,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "typed-7-wrong-argument",
+      "signature": "5RLfAL8k1fmmZkKyof5tFpLFuDD8xsXjSYN6qAzGCGKs29igGJAPddiUt5BCaV4whtk6XrQCrHCLvbQkTK5HTWDm",
+      "slot": 503482085,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidSeeds"
+        ]
+      },
+      "computeUnits": 321,
+      "expectedFullSnapshotsVerified": true
+    }
+  ]
+}

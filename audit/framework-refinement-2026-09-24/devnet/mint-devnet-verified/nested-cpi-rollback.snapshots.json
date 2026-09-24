@@ -1,0 +1,46 @@
+{
+  "addresses": [
+    "6P74cF5rozEbD4NLh3JTir99Qjt8ws8Hw5TVEnFHSmb4",
+    "Djk7TA1fiCSimtHZdataHUTeNQJMR9uiRWzUe4SaFf2S"
+  ],
+  "before": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 503481602
+    },
+    "value": [
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 16341117,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      },
+      null
+    ]
+  },
+  "after": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 503481648
+    },
+    "value": [
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 16331117,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      },
+      null
+    ]
+  }
+}

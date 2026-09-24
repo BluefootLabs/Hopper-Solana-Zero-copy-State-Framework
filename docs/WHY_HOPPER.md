@@ -1,209 +1,102 @@
 # Why Hopper
 
-## The short version
+Hopper is a zero-copy Solana program framework for developers who want direct
+state access and explicit validation, mutation, and upgrade contracts. Start
+with Rust account declarations and handlers. Add byte-range policies, generated
+clients, migrations, and release inspection when your program needs them.
 
-Hopper is a policy-driven zero-copy runtime for Solana. The short boundary is:
-**Solana locks accounts; Hopper governs bytes.** Three things set it apart:
+## Start with the program
 
-1. **Segment-level borrow tracking.** Within one Hopper invocation, a write lease over a vault's `balance` bytes can coexist with a disjoint read of `authority`. This is an in-program safety and observability model; Solana's scheduler still locks the whole Pubkey.
-2. **One access model, five explicit tiers.** Generated field accessors / `segment_ref_typed` are the default hot path; `load::<T>()` is validated whole-layout access; const/dynamic segment APIs are advanced; `raw_ref` / `raw_mut` are typed escape hatches; `unsafe { as_mut_ptr() }` is full raw access. Same pipeline, different guarantees.
-3. **Policy-driven enforcement.** `#[hopper::program(strict)]`, `(sealed)`, or `(raw)` records the module posture; `#[instruction(N, unsafe_memory, skip_token_checks)]` records per-handler exceptions. Typed contexts and supported governed APIs perform the enforcement. Policy constants do not semantically inspect arbitrary Rust, FFI, dependencies, or direct-substrate calls.
+Typed accounts validate ownership and layout before handler access. Account
+constraints express signer, address, authority, and PDA requirements. Headered
+layouts include version and layout identity; compact layouts use a smaller
+discriminator and size contract, with their fingerprint carried in metadata.
 
-## Where Hopper sits
+You choose the access level. Whole-layout loads, field and segment access,
+external-account adapters, and raw escapes have different guarantees. The
+[memory-access guide](https://hopperzero.dev/docs/memory-access) explains those boundaries.
 
-This dated summary uses the source pins in
-[`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md)
-and the
-[`COMPETITIVE_REFRESH_2026-09-02.md`](COMPETITIVE_REFRESH_2026-09-02.md)
-correction. Anchor stable and the published Anchor v2 release candidate are
-separate targets;
-Quasar means its active `0.1.0-release` source line, not the older default
-branch.
+## Control what can change
 
-| Capability | Anchor 1.2.0 | Anchor v2 RC/Alpha line | Quasar 0.1 release line | Pinocchio 0.11.2 | **Hopper 0.3 workspace** |
-|---|---|---|---|---|---|
-| Zero-copy account access | opt-in `AccountLoader` | default mapped accounts | yes | raw substrate primitives | **yes** |
-| `no_std` / no-allocation program path | no | yes | yes | yes | **yes** |
-| Typed dynamic zero-copy collections | no direct mapped `Vec`/`String` | `Slab`, `PodVec` | bounded fields and migration views | bring your own | **bounded fields, `Seq`, `Slab`, and other account-byte collections** |
-| Typed same/grow/shrink migration | app-authored | app-level / evolving alpha APIs | yes | bring your own | **yes, plus schema epochs, fingerprints, chains, and deposit-preserving fit shrink** |
-| IDL and generated clients | mature IDL/TS ecosystem | evolving alpha toolchain | wire IDL, ABI hash, stable Rust/Kit/Web3 plus preview Python/Go/C | no framework layer | **Six SDKs + Hopper public IDL + Codama JSON + conditional Solana IDL: 9 interop formats; full manifest/lowered Rust separate** |
-| Kani/Miri/fuzz workflow | ecosystem-dependent | substantial Miri/fuzz/Kani sources; Kani CI disabled at the pin | yes | substrate-specific | **yes, plus manifest-generated cases and compiled-SBF flagship lanes** |
-| Manifest-linked runtime byte-write policy | no | no equivalent found | no equivalent found | no | **yes (`strict_writes`)** |
-| On-chain per-instruction touch evidence | no | no equivalent found | test-SVM byte diffs, not the same contract | no | **yes, opt-in** |
-| Schema fingerprint/evolution graph tied to client decoding | no comparable graph | no comparable graph at the pin | narrower ABI hash plus typed migration | no | **yes** |
+`strict_writes` authorizes mutable acquisition of declared ranges on
+Hopper-tracked paths. Disjoint segment borrows can coexist inside one invocation.
+Solana still locks entire writable accounts; these policies do not create
+sub-account scheduling or an automatic fee discount.
 
-This is a source-snapshot comparison, not a permanent ranking. Anchor leads in
-ecosystem maturity, while Anchor v2 and Quasar contain serious zero-copy,
-collection, migration, client, and verification work. Quasar leads the pinned
-binary-size row and its verification lane is deeper. QEDGen/qedsvm also proves
-frame conditions for constrained selected compiled paths and performs IDL
-upgrade analysis; it does not provide Hopper's runtime gate or cumulative touch
-evidence. See the 2026-09-06 competitive refresh for pins and boundaries.
+Opt-in touch maps record the ranges acquired. Grillo can then recompute
+`changed ⊆ acquired ⊆ authorized` from a manifest and supplied snapshots.
+The [effect-verification guide](https://hopperzero.dev/docs/effect-verification) explains PASS,
+VIOLATION, INCONCLUSIVE, and the evidence that each verdict requires.
 
-## The three modes you can ship
+Before an upgrade, compare declared authority between releases. Hopper's
+release-interface commitment binds declarations to an ELF. It does not prove
+arbitrary handler behavior, and Grillo does not yet authenticate ledger replay.
 
-### `STRICT`
+## Keep useful framework ergonomics
 
-Typed contexts auto-bind and run the constraint gauntlet. The module also
-publishes the `enforce_token_checks` promise: authored token CPIs are expected
-to use Hopper's strict helpers. The policy does not rewrite arbitrary CPI code,
-so review remains required for direct or dependency CPI calls. `unsafe` is
-allowed but should remain isolated to explicit reviewed regions.
+Hopper provides checked CPI, token helpers, generated clients in six languages,
+bounded dynamic fields, account-byte collections, and typed migrations with
+explicit grow or shrink policies. Rent funding uses live values. Applications
+still define transformation rules and business invariants.
 
-```rust
-#[derive(Accounts)]
-pub struct Deposit<'info> {
-    #[account(mut, has_one = authority)]
-    pub vault: Account<'info, Vault>,
-    pub authority: Signer<'info>,
-}
+The 0.3.1 refinement adds an exact-size `MintPlan` for legacy base mints and
+six fixed-size Token-2022 mint extensions. The plan initializes extensions
+before the base mint, accepts signer or PDA creation, and preserves excess
+prefunding. It does not initialize every extension or populate metadata behind
+a pointer. See the [mint guide](https://hopperzero.dev/docs/token-2022) and [release status](https://hopperzero.dev/docs/release-status).
 
-impl<'info> Deposit<'info> {
-    pub fn deposit(&self, amount: u64) -> ProgramResult {
-        let mut vault = self.vault.get_mut()?;
-        vault.balance.checked_add_assign(amount)
-    }
-}
+## Learn from the other frameworks
 
-#[hopper::program(strict)]
-pub mod vault {
-    #[instruction(0)]
-    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
-        ctx.accounts.deposit(amount)
-    }
-}
-```
+The [September 24 source review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-24.md)
+records exact pins and bounded source scopes. Its conclusions apply to those
+scopes, rather than every API or line in each project.
 
-Reach for this by default.
-
-### `SEALED`
-
-Strict + `enforce_token_checks` + no `unsafe` anywhere. The program macro emits `#[deny(unsafe_code)]` on every handler. One handler can still opt back in via `#[instruction(N, unsafe_memory)]` for a single fast path.
-
-```rust
-#[hopper::program(sealed)]
-pub mod vault {
-    // Every handler here: no unsafe compiles.
-    #[instruction(0)]
-    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
-        ctx.accounts.deposit(amount)
-    }
-
-    // Opt-in: this one handler gets raw access back.
-    #[instruction(1, unsafe_memory)]
-    pub fn fast_sweep(ctx: Ctx<Sweep>) -> ProgramResult {
-        ctx.accounts.fast_sweep()
-    }
-}
-```
-
-Reach for this when writing code that goes to external audit.
-
-### `RAW`
-
-Raw-authoring posture: the module may use `&mut Context<'_>` handlers, does not
-promise strict token helpers, and permits unsafe code. Typed `Ctx<T>` handlers
-still bind even in a RAW module, and calls to validated Hopper accessors still
-perform their documented checks. The author owns every invariant omitted by a
-hand-written path.
-
-```rust
-#[hopper::program(raw)]
-pub mod vault {
-    #[instruction(0)]
-    pub fn deposit(ctx: &mut Context<'_>, amount: u64) -> ProgramResult {
-        let mut vault = ctx.load_mut::<Vault>(0)?;
-        vault.balance = WireU64::new(vault.balance.get().checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?);
-        Ok(())
-    }
-}
-```
-
-Reach for this only when the author has explicitly implemented and tested the
-invariants that the chosen raw path omits.
-
-## Why this matters
-
-Three classes of Solana exploits map directly onto the levers:
-
-| Exploit class | Lever that closes it |
+| Reviewed area | What matters when choosing or writing an API |
 |---|---|
-| Missing signer or wrong-authority token move | `enforce_token_checks = true` + `TransferChecked::invoke_strict` |
-| Layout drift between on-chain program and client | `LAYOUT_ID` fingerprint enforced in `load::<T>()` + TS / Kotlin / Rust client `assertLayoutId` |
-| Aliasing bug in a multi-segment write | `SegmentBorrowRegistry` rejects overlapping mutable borrows at runtime, compile-fail fixture `ref_only_rejects_raw_ref.rs` proves raw `&mut` cannot satisfy `HopperRefOnly` |
+| Pina stored-bump provenance | Validate the selected address, prove canonicality when required, and explicitly persist the validated bump. Ownership alone establishes none of those three. |
+| Anchor v2 interface mint allocation | Reading extensions and initializing them are distinct APIs. Hopper's new plan covers six explicit extensions and enforces the processor's exact-size contract. |
+| Quasar PDA and counter paths | Retaining a validated bump avoids repeated work. Quasar's pinned published increment is still lower than Hopper's refreshed result. |
+| Anza Pinocchio lazy entrypoint | Duplicate-account handling and typed validation remain caller responsibilities at the substrate boundary. A lazy parser alone is not a novelty claim. |
+| Agave feature gates and callbacks | Check cluster activation separately from source support. Complete nested-CPI evidence needs more than a top-level execution callback. |
+| SIMDs 0449, 0500, 0512, 0558 | Proposal labels and deployed features differ. The leader-info draft is not a shipped Hopper syscall. |
 
-Anchor and Quasar also generate standard signer, owner, PDA, and account
-constraints. Hopper's additional claim is narrower: its typed contexts make
-those checks the default, while its manifest can connect declared byte writes,
-runtime gates, generated client metas, touch evidence, contention analysis,
-and separately recomputed offline containment verification. Grillo is
-maintained in the same workspace and does not authenticate its current
-caller-supplied evidence. Raw and unchecked paths remain explicit
-review boundaries rather than disappearing from the threat model.
+Anchor has a broad existing ecosystem. Pinocchio offers a small substrate for
+manual program construction. Pina and Quasar provide other framework designs
+worth evaluating against your account model, validation needs, and tooling.
 
-## Benchmark, not claims
+## Measure the workload you ship
 
-Release-facing numbers must come from the current same-behavior five-way
-matrix in the sibling
-[hopper-bench](https://github.com/BluefootLabs/hopper-bench) repository. Its
-required targets are Hopper, Pinocchio 0.11.2, Quasar's pinned 0.1 release-line
-snapshot, Anchor v2's pinned alpha snapshot, and Star Frame's pinned snapshot.
-All five use the same program id, instruction contract, account state, seeds,
-release profile, SBF toolchain, and Mollusk runner.
+The clean September 24 Pina-recipe refresh measures Hopper's macro counter at
+**349 CU for increment**, down from 358, with an **8,312-byte ELF**, down from
+8,376. Initialization remains 1,549 CU. The rebuilt Pinocchio reference
+reproduces the pinned published cross-check exactly.
 
-The runner hard-fails on successful-state divergence, unsigned deposit or
-withdraw, wrong-PDA deposit or withdraw, a pin/lock mismatch, nonempty strict
-build output, or a dirty source tree. The clean 2026-08-16 run retained the
-required artifact from Hopper `8696640` and benchmark source `af5bc95`:
-successful-state parity checks and all 30 rejection gates passed, with Hopper
-at 1,578 deposit CU, 424 withdraw CU, and 9,032 binary bytes. The complete
-five-way rows, two-way rows, toolchain, and archive SHA are bound in
-[`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json).
-This closes the clean peer-benchmark evidence gap for that fixture only; it is
-not a universal speed, cost, or binary-size ranking.
+Quasar's published increment is 330 CU. Hopper's substrate hello is the
+smallest executable in that pinned hello table, while its macro hello uses
+more CU than Quasar and Anchor. Account layouts, initialization bump policies,
+and checks differ. The [benchmark guide](https://hopperzero.dev/docs/benchmarks) preserves the recipe,
+source pins, and separate historical vault measurements.
 
-Historical primitive, vault, router, and public-cluster measurements remain in
-`BENCHMARKS.md` with their dates and methods. They can motivate engineering
-work, but they do not establish that Hopper is universally faster, cheaper, or
-smaller than another framework.
+## Use policy modes with their actual guarantees
 
-## In-process testing - `hopper-svm`
+`strict` records the program posture and binds typed contexts. The account
+declarations and called APIs determine the checks. The token-policy flag does
+not rewrite arbitrary CPI calls; strict token helpers perform their documented
+checks. Ordinary Rust unsafe code still needs review.
 
-The in-tree `hopper-svm` crate is a deliberately small host harness. It
-fabricates aligned Hopper Native account buffers and calls the host bridge
-generated by `#[hopper::program]`, preserving Hopper account-view memory,
-borrow tracking, resulting bytes, owners, and lamports. It is useful for fast
-framework and business-logic tests without a validator process.
+`sealed` also emits `#[deny(unsafe_code)]` on handler bodies unless a handler
+opts out with `unsafe_memory`. It does not ban unsafe implementations in
+separately defined helpers or dependencies. `raw` permits manual context
+handling; called accessors still enforce their own checks.
 
-```rust
-let result = HopperSvm::new().process_instruction(
-    program_id,
-    &instruction_data,
-    &[vault_fixture],
-    process_instruction,
-);
-assert!(result.program_result.is_ok());
-```
+## Build on evidence
 
-This host path does not execute an SBF ELF, reproduce validator syscalls, or
-measure CU; `compute_units_consumed` is currently reported as zero. Use the
-workspace's Mollusk/compiled-SBF lanes for canonical SPL CPI behavior, rollback,
-and CU evidence, and a public cluster or validator-replay lane for deployment
-evidence. Calling `hopper-svm` “Mainnet-fidelity” would overstate its contract.
+Cicada exercises settlement, route binding, authority checks, and rollback
+against canonical token processors. It remains an application and regression
+target, with production route integration and executable policy work ahead.
+Grillo supplies a separate recomputation boundary; authenticated nested replay
+is the next evidence problem to solve.
 
-## Where to start
-
-1. Read [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the access-tier doctrine.
-2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops. For which capabilities require an account-access architectural retrofit versus ordinary feature work, read [COMPARISON.md](../COMPARISON.md).
-3. Read `examples/hopper-policy-vault/src/lib.rs` for the three modes side by side.
-4. Run `cargo run -p hopper-cli -- verify --package hopper-policy-vault` to see the LAYOUT_ID fingerprint scan on a shipping `.so`.
-5. Run `cargo test -p hopper-svm --locked` for the host-dispatch harness, then
-   use the compiled-SBF commands in `examples/hopper-cicada/README.md` when you
-   need runtime-backed CPI evidence.
-
-## What Hopper doesn't promise
-
-- Not an Anchor replacement for every workflow. Teams already on Anchor with a working IDL pipeline should weigh the migration cost against what Hopper adds.
-- Not a serialization library. Hopper maps structs directly onto account bytes. If your account format uses Borsh, Hopper's zero-copy layer is not useful; stick with the Borsh pipeline.
-- Not a host-side framework. The `hopper` crate is `no_std` and targets SBF. The schema / CLI / client-gen crates are host-side; programs are not.
+Choose Hopper for the contracts your program can use and test. The
+[release record](https://hopperzero.dev/docs/release-status) separates published packages, host and
+compiled tests, finalized devnet execution, and remaining independent review.

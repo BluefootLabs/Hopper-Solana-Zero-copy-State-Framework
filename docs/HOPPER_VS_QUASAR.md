@@ -115,7 +115,7 @@ on Quasar's engineering, which is real.
   QuasarSVM, Kani/Miri/fuzz lanes, and implemented CU/binary budget gates. It still describes the
   0.1 line as beta and unaudited, and had no public 0.1 tag/release at this
   snapshot.
-  Hopper 0.3.0 is published on crates.io, with archive checksums and source
+  Hopper 0.3.1 is published on crates.io, with archive checksums and source
   commits retained in the release evidence. Hopper builds on
   stable Rust (pinned 1.96.0) and
   carries an internal line-by-line audit trail (`docs/UNSAFE_INVARIANTS.md`),

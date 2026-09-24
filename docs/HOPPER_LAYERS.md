@@ -36,10 +36,10 @@ Framework mode centers these pieces:
 This path is published as `hopper-lang` and imported as `hopper`:
 
 ```toml
-hopper = { package = "hopper-lang", version = "=0.3.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.3.1", features = ["proc-macros"] }
 ```
 
-Version 0.3.0 is published on crates.io. Use a local path when developing
+Version 0.3.1 is published on crates.io. Use a local path when developing
 against a source checkout.
 
 There is no separate beginner crate. The main framework crate is the canonical

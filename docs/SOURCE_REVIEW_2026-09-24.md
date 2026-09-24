@@ -1,6 +1,6 @@
 # Source and API refinement: 2026-09-24
 
-Status: 0.3.1 release candidate under validation after the published 0.3.0 release.
+Status: 0.3.1 published; exact registry archives and registry-only consumers verified.
 This is a focused review of the boundaries below, not an independent audit of
 Hopper or a claim that every line of every competitor has been audited.
 
@@ -111,19 +111,37 @@ These are engineering targets, not claims of a first-ever Solana capability.
 
 ## Validation record
 
-Canonical interface comparisons pass for all 64 supported extension subsets
-and all emitted instruction formats. Five compiled mint tests and three PDA
-tests pass on SBF v0 and v3, including a compute-exhaustion rollback after
-successful creation and extension CPIs. The rebuilt 154,160-byte Cicada v0
-artifact passes all 23 compiled lifecycle tests. These are diagnostic builds
-before final release capture; artifact records will identify their exact source.
+The [refinement archive](../audit/framework-refinement-2026-09-24/) records
+2,224 passing host tests, zero failures and 232 ignored tests/examples;
+warnings-denied Clippy, formatting, release-provenance tests and the
+308-file unsafe-contract scan pass. Compiled mint and PDA tests pass on both
+SBF v0 and v3. All 64 extension subsets match the canonical SDK oracle.
 
-The initial full host run identified two stale tests: one inspected the former
-unfused validator body, and the documentation-surface guard rejected a raw
-account signature in the new guide. The validator assertion now follows the
-fused implementation; the guide uses typed signer inputs. Both corrected
-targets pass, and the guide's three complete examples compile.
+The fresh 154,160-byte Cicada executable passes its full release-interface
+attestation and 23 compiled lifecycle tests. Its generated host semantic plan
+passes 698 cases with zero skips through the CLI adapter boundary.
 
-The unsafe-contract scan covers 308 Rust files across 29 public packages.
-Final clean-source regressions, devnet, website checks, and registry publication
-remain release gates. The confirmed registry framework release remains 0.3.0.
+All 45 focused devnet transactions finalized: 11 mint cases, nine PDA
+initialization/typed cases and 25 readonly PDA cases. The exact deployed images
+match before and after capture. The nested rollback case reaches successful
+System and Token-2022 CPIs before compute exhaustion, then preserves the mint
+snapshot and charges the payer only its fee. The expanded fixture measures
+78 CU for its literal-PDA instruction and 1,079 CU for runtime search.
+
+Host and compiled captures use clean `ab955e4`; devnet uses `b9a688e`, whose
+only change fixes the live VM error assertion. Publication spans `b9a688e` and
+`54ec16c`, which corrects the CLI README heading before its upload. Rust,
+dependency manifests and lockfiles are identical. Devnet required a minimum
+10,240-byte program extension: the PDA compiler ELF is 13,896 bytes, with
+18,528 bytes of deployed capacity. The remaining bytes are verified zeros;
+the padded image passes the same compiled tests.
+
+The [registry archive](../audit/registry-publication-2026-09-24/) records 26
+new 0.3.1 packages and three retained 0.1.0 versions, each with a verified
+checksum. Fresh registry-only consumers pass five mint and three PDA suites
+and reproduce the compiler ELFs. Post-publication documentation clarifies
+availability without changing those immutable package archives.
+
+GitHub's hosted jobs did not start because of an account billing lock. Local
+validation and public-devnet evidence do not establish hosted CI success or
+independent security review.

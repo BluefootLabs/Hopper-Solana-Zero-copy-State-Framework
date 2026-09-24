@@ -1,0 +1,18 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH
+data      : 2 bytes (0x01fc)
+accounts  : 1 slots
+  [0] 9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG --
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 204/1232 bytes (legacy)
+
+signature : 49s8hDZrML3dokxtEwNkDUht8g14FXZHubrDZAy26LzG66E31KTgz6vXWZbgqAu51maoF2Q2hhHcy68wvZUkFVbZ
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidSeeds"]}
+compute   : 81 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 49s8hDZrML3dokxtEwNkDUht8g14FXZHubrDZAy26LzG66E31KTgz6vXWZbgqAu51maoF2Q2hhHcy68wvZUkFVbZ --rpc https://api.devnet.solana.com

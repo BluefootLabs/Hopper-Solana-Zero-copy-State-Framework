@@ -1,0 +1,71 @@
+{
+  "blockTime": 1790255473,
+  "meta": {
+    "computeUnitsConsumed": 41,
+    "costUnits": 1069,
+    "err": {
+      "InstructionError": [
+        0,
+        "NotEnoughAccountKeys"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH invoke [1]",
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH consumed 41 of 200000 compute units",
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH failed: insufficient account keys for instruction"
+    ],
+    "postBalances": [
+      3392187117,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      3392192117,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "NotEnoughAccountKeys"
+        ]
+      }
+    }
+  },
+  "slot": 503482564,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "9n",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "DELzP4BXRbREVrhXAZHKWxvYeGLk64L45qNuEWQKWZ5L"
+    },
+    "signatures": [
+      "5dxBAsMVejyq9sg2cQnxzYEsMh8XTgLeVvr4crL4KQbKm8LWB2c3YHsYnYq51riVM4jGAu42Eh1KUtXXXM1eKAxt"
+    ]
+  },
+  "transactionIndex": 26,
+  "version": "legacy"
+}

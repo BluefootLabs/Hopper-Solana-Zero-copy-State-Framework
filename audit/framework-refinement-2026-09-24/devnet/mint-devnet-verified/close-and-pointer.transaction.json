@@ -1,0 +1,129 @@
+{
+  "blockTime": 1790255255,
+  "meta": {
+    "computeUnitsConsumed": 12299,
+    "costUnits": 14524,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              0
+            ],
+            "data": "47zJyq1uxeuSWLSVzc9iqJrzrqZdsLhjfoZyMLiHEy2ZVTs4JatAMnUA1oWXA3xsbCGZodD",
+            "programIdIndex": 2,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "Znb3XSoVrng6FUFvm6mFdy4iMaytwsV11Uh5Fze6eD4r6r",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "GC5JkAiePXq2KdvpNWtgYYBdKLnmcbSKmqUvEdwJLR4nBR2kTsMeYhTi7T5thomjNN8Kj5fjhpVy7q4VcEdsyoqU2P",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "bSrzPH51ZwQrqZjDqSQ4ag6uzHmoY2SgApM4n3f8BsU7DbKs55jRthv1cv31bwuR9b8Ucm8osRQRvyoSJscR9DdYtRU",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program GJHAaGgruxJiToRou1HE7Y8csHNunAuPthgc8RVSwACi invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeMintCloseAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1356 of 195158 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: MetadataPointerInstruction::Initialize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1379 of 192555 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeMint2",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 2273 of 189996 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program GJHAaGgruxJiToRou1HE7Y8csHNunAuPthgc8RVSwACi consumed 12299 of 200000 compute units",
+      "Program GJHAaGgruxJiToRou1HE7Y8csHNunAuPthgc8RVSwACi success"
+    ],
+    "postBalances": [
+      25814560,
+      2021840,
+      1,
+      1159846,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      27846400,
+      0,
+      1,
+      1159846,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 503481243,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "6P74cF5rozEbD4NLh3JTir99Qjt8ws8Hw5TVEnFHSmb4",
+        "4nEwh9inppXKNnSLp1Au14hZ1dzwvsfPwN1mZdmmQbLF",
+        "11111111111111111111111111111111",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "GJHAaGgruxJiToRou1HE7Y8csHNunAuPthgc8RVSwACi"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            3,
+            2
+          ],
+          "data": "8QwQj1",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "AzhkxZKp95BHUJ99x6JcK73shhyBf1XdNehf19UuPzuS"
+    },
+    "signatures": [
+      "42YpBn2iVZ6MYUVtBuWH1yhrfivvqSogXMF9DcL6VJpgjfuSWbRVJu6uPUtJ4EWqyAoPkX3sbZTx6avozqPjxhJV",
+      "42LHY98NWDWzTMk31MYyxPRDEdK3CtH65gSjFkc76FYtM275ERthCg1DUdaxqq1EiR56sWXKWHkSy7QXJNBDbPkZ"
+    ]
+  },
+  "transactionIndex": 17,
+  "version": "legacy"
+}

@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "ab955e42aea007cd1d01d3facfc2818906f0bf44",
+  "sourceUnchangedAndClean": true,
+  "records": [
+    {
+      "name": "fmt",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "host",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--workspace",
+        "--locked",
+        "--offline",
+        "--no-fail-fast"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "clippy",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "unsafe",
+      "argv": [
+        "py",
+        "-X",
+        "utf8",
+        "scripts/check-unsafe-safety-comments.py"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "provenance",
+      "argv": [
+        "py",
+        "-X",
+        "utf8",
+        "scripts/tests/test_release_provenance.py"
+      ],
+      "exitCode": 0
+    }
+  ]
+}

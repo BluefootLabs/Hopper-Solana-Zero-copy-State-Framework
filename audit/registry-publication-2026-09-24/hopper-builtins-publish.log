@@ -1,0 +1,11 @@
+    Updating crates.io index
+   Packaging hopper-builtins v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-builtins)
+    Packaged 6 files, 21.3KiB (6.6KiB compressed)
+   Verifying hopper-builtins v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-builtins)
+   Compiling hopper-builtins v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-builtins-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 0.47s
+   Uploading hopper-builtins v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-builtins)
+    Uploaded hopper-builtins v0.3.1 to registry `crates-io`
+note: waiting for hopper-builtins v0.3.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-builtins v0.3.1 at registry `crates-io`

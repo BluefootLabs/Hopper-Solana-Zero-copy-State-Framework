@@ -1,0 +1,190 @@
+{
+  "sourceCommit": "ab955e42aea007cd1d01d3facfc2818906f0bf44",
+  "sourceUnchangedAndClean": true,
+  "builds": [
+    {
+      "name": "mint-plan",
+      "arch": "v0",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/mint-plan/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\mint-plan-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\mint-plan-v0\\hopper_mint_plan_fixture.so",
+      "bytes": 16576,
+      "sha256": "6b047172d561242ac402545a8213acbdfa6e8c24bd3cea82c10712e835b0584f"
+    },
+    {
+      "name": "canonical-pda",
+      "arch": "v0",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/canonical-pda/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\canonical-pda-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\canonical-pda-v0\\hopper_canonical_pda_fixture.so",
+      "bytes": 13896,
+      "sha256": "753b2702b1d3d1ba67a701b34f6c863767e5e2fb65e607f3ffb74908185e35e6"
+    },
+    {
+      "name": "cicada",
+      "arch": "v0",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-cicada/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\cicada-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\cicada-v0\\hopper_cicada.so",
+      "bytes": 154160,
+      "sha256": "9c67f2e9015af8c18846710c4d8e6dc5b82552d16a05014a138d78eb1e1a1d8a"
+    },
+    {
+      "name": "cicada-route",
+      "arch": "v0",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-cicada-route-fixture/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\cicada-route-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\cicada-route-v0\\hopper_cicada_route_fixture.so",
+      "bytes": 4752,
+      "sha256": "02ad6c5ec738b1d543e0ca198d8d4fde78d67593eb8f9f94873f823f1ae4a72c"
+    },
+    {
+      "name": "cicada-canonical-route",
+      "arch": "v0",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-cicada-canonical-route-fixture/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\cicada-canonical-route-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\cicada-canonical-route-v0\\hopper_cicada_canonical_route_fixture.so",
+      "bytes": 23736,
+      "sha256": "8f83ae338f7803adfccffbefbbc28ad9febea7947175480028153c8f6d0447cc"
+    },
+    {
+      "name": "escrow",
+      "arch": "v0",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-escrow/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\escrow-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\escrow-v0\\hopper_escrow.so",
+      "bytes": 11296,
+      "sha256": "e7ea499722fb1163ee3a99c85c87ad078f7055c2d16aab4cef5775da72c715a7"
+    },
+    {
+      "name": "mint-plan",
+      "arch": "v3",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/mint-plan/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\mint-plan-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\mint-plan-v3\\hopper_mint_plan_fixture.so",
+      "bytes": 16320,
+      "sha256": "fe9a305be2b2cf80cc33ad125d1e8079398e30f718ce2baec8a9acd98a597e19"
+    },
+    {
+      "name": "canonical-pda",
+      "arch": "v3",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/canonical-pda/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\canonical-pda-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0,
+      "elf": "target\\hopper\\refinement-release-2026-09-24\\sbf-validated\\canonical-pda-v3\\hopper_canonical_pda_fixture.so",
+      "bytes": 13288,
+      "sha256": "02489837fb41432754e55197b87f1b3e1abe53a57a38a2f721b9f838a26bd60d"
+    }
+  ],
+  "testSuites": [
+    "mint-plan-v0",
+    "canonical-pda-v0",
+    "mint-plan-v3",
+    "canonical-pda-v3",
+    "cicada-lifecycle"
+  ],
+  "allPassed": true
+}

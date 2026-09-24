@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-svm v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+    Updating crates.io index
+    Packaged 6 files, 12.8KiB (4.5KiB compressed)
+   Verifying hopper-svm v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+   Compiling hopper-svm v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-svm-0.3.1)
+    Finished `dev` profile [unoptimized] target(s) in 0.63s
+   Uploading hopper-svm v0.3.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+warning: aborting upload due to dry run

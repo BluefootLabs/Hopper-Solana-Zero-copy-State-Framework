@@ -1,0 +1,9 @@
+   Compiling solana-define-syscall v5.2.0
+   Compiling solana-program-error v3.0.1
+   Compiling solana-address v2.7.0
+   Compiling solana-account-view v2.1.0
+   Compiling solana-instruction-view v2.1.0
+   Compiling pinocchio v0.11.2
+   Compiling solana-program-log v1.2.0
+   Compiling hello_pinocchio v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\reference\hello)
+    Finished `release` profile [optimized] target(s) in 0.93s
