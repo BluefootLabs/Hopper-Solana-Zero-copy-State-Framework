@@ -19,9 +19,9 @@ touch evidence, safe grow and shrink migrations, and manifest-derived fuzzing.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
-and post-CPI checks while still exposing low-level control. This tree contains
-the prepared 0.3.0 release source, not yet published to crates.io. The published
-registry version remains 0.2.1 as observed on 2026-09-23. The independently runnable `grillo-*`
+and post-CPI checks while still exposing low-level control. This is the 0.3.0
+release source; registry availability is tracked on the
+[release status page](https://hopperzero.dev/docs/release-status). The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
 means a separate recomputation boundary, not a third-party audit.
 
@@ -73,7 +73,7 @@ package-specific API details live with each companion crate.
 - Manifest-derived adversarial execution: `hopper fuzz generate` deterministically expands layouts, instruction roles, Accounts-derived PDA, typed, lifecycle, and relational constraints, aliases, write ranges, declared compatibility pairs, declared lamport effects, policies, argument bounds, and remaining-account ceilings into seeded cases; `hopper fuzz check` gates contract drift, and `hopper fuzz run` executes every case and required invariant hook through an application adapter. A checked plan alone is planning evidence, not proof that a program ran.
 - Stable CU regression budgets and diffs: `hopper profile bench` reads the separate `hopper-bench` lab automatically when it is a sibling checkout, supports an explicit `--bench-root`, and gates measured rows against `cu_baselines.toml`.
 - Versioned release-interface binding: `hopper::program_manifest!` embeds a canonical SHA-256 commitment to the program identity, layouts, instruction surface, events, policy contracts, and context fields represented by `ProgramManifest`. `hopper verify --release` requires the compiled ELF to carry that exact commitment. This binds the manifest-projected declaration to the artifact; it does not cover constraints absent from the manifest or prove handler behavior, deployment identity, or artifact freshness.
-- Grillo: a separately runnable offline verifier maintained in this Hopper workspace (`grillo-manifest` + `grillo-verifier`). The current workspace CLI uses the v0.1 evidence format and recomputes `changed ⊆ acquired ⊆ authorized` from caller-supplied snapshots and touch evidence. The experimental Effect ABI v0.2 library surface additionally models full account transitions, supplied deployment/artifact identity, remaining-account grammar, and nested CPI. It checks that caller-supplied identity fields agree; it does not authenticate that frame or prove ledger provenance, and a v0.2 PASS requires invocation-entry/exit evidence. Both workspace packages are versioned 0.1.0 and were not observed on crates.io on 2026-09-22; v0.2 names an evidence/schema version, not a crate release. Grillo has no on-chain entrypoint and costs 0 SOL to deploy. `grillo verify m.json bundle.json` exits 0 PASS / 2 VIOLATION / 3 INCONCLUSIVE for the v0.1 bundle format.
+- Grillo: a separately runnable offline verifier maintained in this Hopper workspace (`grillo-manifest` + `grillo-verifier`). The current workspace CLI uses the v0.1 evidence format and recomputes `changed ⊆ acquired ⊆ authorized` from caller-supplied snapshots and touch evidence. The experimental Effect ABI v0.2 library surface additionally models full account transitions, supplied deployment/artifact identity, remaining-account grammar, and nested CPI. It checks that caller-supplied identity fields agree; it does not authenticate that frame or prove ledger provenance, and a v0.2 PASS requires invocation-entry/exit evidence. Both packages are versioned 0.1.0; v0.2 names an evidence/schema version, not a crate release. Grillo has no on-chain entrypoint and costs 0 SOL to deploy. `grillo verify m.json bundle.json` exits 0 PASS / 2 VIOLATION / 3 INCONCLUSIVE for the v0.1 bundle format.
 - Upgrade authority gate: `hopper verify --authority-baseline <old-manifest>` (and `grillo authority-diff old new`) fails a release when any instruction gains authority. It flags a dropped signer, a newly writable account, byte ranges that reach another layout field (compared per field, so a field that only moved is not a new permission), a removed exact-cell rule, a new lamport permission, and weaker context constraints such as removed PDA seeds, `has_one`, owner, or address checks. A PDA seed swap or a different CPI program goes to review. Exit 2 means widened and exit 3 means review. A reviewed report approves its widenings only for the exact manifest pair whose SHA-256 digests it records. Under `--release`, `--baseline-so` or `--baseline-program <id>` must bind the old manifest to its released ELF, and `--candidate-buffer <addr>` binds the new manifest to the loader Buffer holding the pending upgrade, both read from the cluster, so neither side is an unbound declaration. IDL compatibility checkers answer whether callers break and treat these relaxations as additive; this gate answers whether the program gained power. It compares declarations and does not prove handler behavior.
 - `hopper lint --deny-escapes`: a CI-deniable textual audit that rejects known ledger-bypassing accessor spellings in scanned project source. It is a review aid, not semantic proof against arbitrary Rust, FFI, dependency, or raw-backend mutation; those paths require explicit review.
 - Runtime-direction readiness as opt-in Cargo features: `simd-0321` (r2 instruction-data entrypoint; gate live on all clusters since 2026-04-01, kept opt-in because the r2 path measured CU-neutral for +368 bytes of `.text`) and `simd-0449` (O(1) account resolution from the pre-computed pointer table, one `from_raw_parts`, no stride walk; gate active on testnet and devnet, pending mainnet-beta).
@@ -88,12 +88,11 @@ account state. Its local and deployed ELF matched before and after capture.
 See [the evidence record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DEVNET_RELEASE_EVIDENCE.md).
 This focused run covers the policy fixture, not every framework or Cicada path.
 
-Main framework: `hopper-lang`, imported as `hopper`. The registry release
-observed on 2026-09-22 is 0.2.1; this checkout is unpublished 0.3.0 development
-source. Do not mix 0.2.1 install commands with 0.3-only APIs.
+Main framework: `hopper-lang` 0.3.0, imported as `hopper`. Keep the framework
+and CLI on the same release line when using generated code and new APIs.
 [Docs at docs.rs](https://docs.rs/crate/hopper-lang).
 
-Install the registry CLI with `cargo install hopper-cli --version 0.2.1 --locked`.
+Install this release's CLI with `cargo install hopper-cli --version 0.3.0 --locked`.
 Install this checkout's 0.3.0 CLI with
 `cargo install --path tools/hopper-cli --locked`.
 
@@ -157,17 +156,17 @@ See [docs/cli/](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Fr
 ### Add to an existing crate
 
 ```sh
-cargo add hopper-lang@0.2.1 --rename hopper --features proc-macros
+cargo add hopper-lang@0.3.0 --rename hopper --features proc-macros
 ```
 
-The exact published 0.2.1 dependency is:
+The exact dependency for this release is:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "=0.2.1", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.3.0", features = ["proc-macros"] }
 ```
 
-Before registry indexing, use this checkout through a local path:
+To develop against a checkout, use a local path:
 
 ```toml
 [dependencies]

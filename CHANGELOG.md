@@ -5,7 +5,7 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
-## [0.3.0] - prepared 2026-09-23, unpublished
+## [0.3.0] - 2026-09-23
 
 - **PDA search reference lifetimes.** Each native search iteration now stages
   an immutable bump seed before hashing instead of mutating a byte behind a

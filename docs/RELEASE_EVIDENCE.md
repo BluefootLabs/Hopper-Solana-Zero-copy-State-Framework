@@ -32,7 +32,23 @@ path in the marker. The workflow then uploads the `.so`, manifest, and
 attestation together. A previous `target/deploy` artifact cannot enter this
 gate, including when a reproducible rebuild is byte-identical to it.
 
-### Current 2026-09-06 working-tree diagnostic
+### Clean 2026-09-23 local attestation
+
+The [Cicada evidence archive](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/cicada-sbf-2026-09-23)
+records a fresh isolated build from clean commit `685deff6`, using
+`cargo-build-sbf 4.1.0`, platform-tools 1.54 and SBPF v0. Its 157,672-byte ELF
+has SHA-256 `09d71f5ada51cce3946545a242a63f00037c1bcd442490d9bae9a7459342e02b`.
+The exact interface-binding publish check passed, and all 23 compiled lifecycle
+tests passed against that ELF and the recorded route fixtures. The archive
+contains the manifest, attestation and command transcripts with checksums.
+
+This is local build and execution evidence. Cicada was not deployed by this
+run, and this does not establish third-party AMM integration or authenticated
+upgradeable-route artifact policy. Hosted workflows for this source could not
+start because GitHub reported an account billing lock; their status is not a
+passing CI result.
+
+### Historical 2026-09-06 working-tree diagnostic
 
 After the Cicada revision-overflow hardening, two isolated builds with
 `cargo-build-sbf 4.1.0`, platform-tools 1.54, and Rust/Cargo 1.96.0 produced
