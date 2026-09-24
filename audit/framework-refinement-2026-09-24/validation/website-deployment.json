@@ -1,0 +1,24 @@
+{
+  "schema": "hopper.website-deployment.v1",
+  "site": "https://hopperzero.dev",
+  "websiteCommit": "36a35b581ccb7f00527de3a9efda319e231f0c0a",
+  "frameworkEvidenceCommit": "4922aaab990da339e75a1372718cda76a296d2a0",
+  "deploymentId": 6639039862,
+  "deploymentCreatedAt": "2026-09-24T13:34:27Z",
+  "status": "success",
+  "providerStatuses": [
+    {
+      "context": "Vercel",
+      "state": "success",
+      "description": "Deployment has completed",
+      "target_url": "https://vercel.com/bluefootlabs/hopper-website/64DH1mfrZJJHsH7QwBFmfq9ijhVG"
+    }
+  ],
+  "liveHttpChecks": {
+    "base": "https://hopperzero.dev",
+    "pages": 42,
+    "internalLinksChecked": 3368,
+    "failures": []
+  },
+  "browserVisualCheckPerformed": false
+}

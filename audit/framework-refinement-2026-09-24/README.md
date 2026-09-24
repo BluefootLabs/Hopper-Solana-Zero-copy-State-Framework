@@ -46,3 +46,12 @@ No keypairs are archived. The scripts contain captured local paths; use the
 corresponding source revision and fresh output paths when reproducing. Hosted
 GitHub jobs did not start because of an account billing lock. Cicada's evidence
 here is local compiled execution, not a public-cluster Cicada deployment.
+
+The production website at `36a35b5` passed its build and lint checks, then all
+42 live routes and 3,368 internal links/anchors. The deployment and HTTP checks
+are in `validation/`. No browser visual inspection was available.
+
+For fresh live mint/PDA initialization captures, use a fresh mint payer/PDA
+and an absent config PDA. The retained initialization fixture now has state;
+reproducing its creation requires a fresh program identity and corresponding
+literal-PDA constant. Readonly fixture checks remain repeatable.
