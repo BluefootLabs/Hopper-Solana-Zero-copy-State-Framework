@@ -9,14 +9,14 @@ offline by default, with optional RPC connectivity for live account fetching.
 
 ## Install
 
-Install this release from crates.io:
+Install the published registry release (0.2.1, observed 2026-09-23):
 
 ```bash
-cargo install hopper-cli --version 0.3.0 --locked
+cargo install hopper-cli --version 0.2.1 --locked
 ```
 
 Registry availability is tracked on the [release status page](https://hopperzero.dev/docs/release-status).
-To build directly from a checkout:
+The validated 0.3.0 release source is not yet published. Build it from a checkout:
 
 ```bash
 cargo install --path tools/hopper-cli --locked

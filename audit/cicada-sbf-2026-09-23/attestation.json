@@ -1,0 +1,116 @@
+{
+  "schema": "hopper.sbf-release-attestation.v2",
+  "generatedAt": "2026-09-24T01:05:55.000224+00:00",
+  "package": "hopper-cicada",
+  "program": "hopper-cicada",
+  "source": {
+    "commitAtStart": "685deff6a14f00675a4e0f7dac410d94f5e69f57",
+    "commitAtEnd": "685deff6a14f00675a4e0f7dac410d94f5e69f57",
+    "treeCleanAtStart": true,
+    "treeCleanAtEnd": true
+  },
+  "ci": {
+    "githubRunId": null,
+    "githubRunAttempt": null,
+    "githubWorkflowRef": null,
+    "githubJob": null
+  },
+  "toolchain": {
+    "cargoBuildSbf": "cargo-build-sbf 4.1.0\nplatform-tools v1.54",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-pc-windows-msvc\nrelease: 1.96.0\nLLVM version: 22.1.2",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)\nrelease: 1.96.0\ncommit-hash: 30a34c6821b57de0aaec83a901aca39f88f6778c\ncommit-date: 2026-05-25\nhost: x86_64-pc-windows-msvc\nlibgit2: 1.9.2 (sys:0.20.4 vendored)\nlibcurl: 8.19.0-DEV (sys:0.4.87+curl-8.19.0 vendored ssl:Schannel)\nos: Windows 10.0.26200 (Windows 11 Core) [64-bit]"
+  },
+  "build": {
+    "isolatedOutputDirectory": "target/hopper/cicada-release-2026-09-23/sbf",
+    "outputDirectoryAbsentBeforeBuild": true,
+    "binaryAbsentBeforeBuild": true,
+    "command": {
+      "argv": [
+        "cargo-build-sbf",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\examples\\hopper-cicada\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\cicada-release-2026-09-23\\sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--",
+        "--locked"
+      ],
+      "exitCode": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "cd2f8e78fb68e9e0d14f8b54e697ea0b9d019f98332a1a409c7974215da3b704",
+      "transcriptSha256": "d61d95ab5d5677c4708dcdf294b43f6b011ac545ba8ce5ed65e2f9371bc9a232"
+    }
+  },
+  "manifestGeneration": {
+    "argv": [
+      "target/debug/hopper.exe",
+      "compile",
+      "--emit",
+      "manifest",
+      "--package",
+      "hopper-cicada",
+      "--out",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\cicada-release-2026-09-23\\manifest.json",
+      "--force"
+    ],
+    "exitCode": 0,
+    "stdoutSha256": "aff2af8f5a747d9e4328360568f1678c8764e47257a54245e3b67b6d286aa98f",
+    "stderrSha256": "d0050421b73b976af984d2280113a39a993cf9e9de8fb8340012c74b024e98b1",
+    "transcriptSha256": "c37a87db8ef84bce93c40010a60d1261ef876098fe8bfae9a3b85aac57355eb9"
+  },
+  "publishCheck": {
+    "passed": true,
+    "mode": "release-with-binary-full",
+    "command": {
+      "argv": [
+        "target/debug/hopper.exe",
+        "publish-check",
+        "--manifest",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\cicada-release-2026-09-23\\manifest.json",
+        "--so",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\cicada-release-2026-09-23\\sbf\\hopper_cicada.so",
+        "--full"
+      ],
+      "exitCode": 0,
+      "stdoutSha256": "9106fcaf8bb338caa388a36482a9132388f1d9a10ffe5502532598b4ae3ffa80",
+      "stderrSha256": "db947aca73360728bcfec5d39bc541ccbbbc24606bd6bd6a3dc7793d8a676ba8",
+      "transcriptSha256": "33620b423dc81946a1423408745f23808ba2825a1a2d69afc54c5f64149f003b"
+    }
+  },
+  "commandLogs": {
+    "build": {
+      "path": "target/hopper/cicada-release-2026-09-23/attestation.logs/build.json",
+      "bytes": 692,
+      "sha256": "d61d95ab5d5677c4708dcdf294b43f6b011ac545ba8ce5ed65e2f9371bc9a232"
+    },
+    "manifestGeneration": {
+      "path": "target/hopper/cicada-release-2026-09-23/attestation.logs/manifest-generation.json",
+      "bytes": 720,
+      "sha256": "c37a87db8ef84bce93c40010a60d1261ef876098fe8bfae9a3b85aac57355eb9"
+    },
+    "publishCheck": {
+      "path": "target/hopper/cicada-release-2026-09-23/attestation.logs/publish-check.json",
+      "bytes": 39648,
+      "sha256": "33620b423dc81946a1423408745f23808ba2825a1a2d69afc54c5f64149f003b"
+    }
+  },
+  "programManifest": {
+    "path": "examples/hopper-cicada/Cargo.toml",
+    "bytes": 930,
+    "sha256": "5cd7f4f02f3e72e96434fddf127224fc24e9fa8af3b43be0be4b9f749ffe4787"
+  },
+  "manifest": {
+    "path": "target/hopper/cicada-release-2026-09-23/manifest.json",
+    "bytes": 58316,
+    "sha256": "0bf633b8c790c3ca0a9359ffb67906642a25ae40e0dc1dfb79215eb16785127f"
+  },
+  "binary": {
+    "path": "target/hopper/cicada-release-2026-09-23/sbf/hopper_cicada.so",
+    "bytes": 157672,
+    "sha256": "09d71f5ada51cce3946545a242a63f00037c1bcd442490d9bae9a7459342e02b",
+    "format": "ELF"
+  }
+}

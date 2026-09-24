@@ -76,6 +76,18 @@ and 10 CU on the v0 runtime-search row; the literal constant check remains
 at the recorded source. CLI-only discovery changes have an additional complete
 CLI run with 262 passing tests, including its external-process integration.
 
+The [Cicada archive](../audit/cicada-sbf-2026-09-23/README.md) records a clean
+isolated 157,672-byte SBF v0 build at `685deff6`, its generated manifest and
+successful full release-interface check. All 23 compiled lifecycle tests pass
+with missing artifacts treated as failures. This closes the missing local
+build-attestation milestone; it does not establish a hosted CI result or a
+third-party route integration.
+
+All 29 release packages pass metadata, dependency-order and package-closure
+checks. The first crate also passes the registry dry run. Publication remains
+pending; 0.2.1 is still the observed `hopper-lang` and `hopper-cli` registry
+release. No successful upload is included in this evidence.
+
 ## Observed network state
 
 The [raw responses and observations](../audit/network-features-2026-09-23/README.md)

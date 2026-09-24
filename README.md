@@ -20,7 +20,8 @@ touch evidence, safe grow and shrink migrations, and manifest-derived fuzzing.
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
 and post-CPI checks while still exposing low-level control. This tree contains
-the 0.3.0 release source. The independently runnable `grillo-*`
+the prepared 0.3.0 release source, not yet published to crates.io. The published
+registry version remains 0.2.1 as observed on 2026-09-23. The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
 means a separate recomputation boundary, not a third-party audit.
 
