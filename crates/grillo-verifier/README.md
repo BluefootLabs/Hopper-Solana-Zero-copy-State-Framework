@@ -84,21 +84,19 @@ caller-supplied facts: Grillo recomputes containment but does not authenticate
 their producer, verify a transaction signature, or bind them to a ledger
 message or program deployment. Complete supplied snapshots and declared
 lamport scope are required for a complete v0.1 observation scope; this is not
-proof of every effect of a ledger transaction. Build the
-`grillo` binary from the Hopper workspace. Neither `grillo-verifier` nor
-`grillo-manifest` was observed indexed on crates.io on 2026-09-22; version
-0.1.0 currently names the workspace packages and evidence format, not an
-available registry release:
+proof of every effect of a ledger transaction. Install the `grillo` binary
+from the 0.1.0 package with its `cli` feature. Registry availability and
+verification records are on the [release status page](https://hopperzero.dev/docs/release-status):
 
 ```sh
-cargo install --path crates/grillo-verifier --features cli --locked
+cargo install grillo-verifier --version 0.1.0 --features cli --locked
 
 grillo commit hopper.manifest.json             # per-instruction contract commitments
 grillo verify hopper.manifest.json bundle.json # changed ⊆ acquired ⊆ authorized
 ```
 
-After publication, verify registry availability before using
-`cargo install grillo-verifier --version 0.1.0 --features cli --locked`.
+For source development, use
+`cargo install --path crates/grillo-verifier --features cli --locked`.
 
 Exit codes make it a CI gate: `0` scoped PASS, `2` VIOLATION, `3`
 INCONCLUSIVE, `1` malformed input.
