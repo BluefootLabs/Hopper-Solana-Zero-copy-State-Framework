@@ -3,19 +3,20 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-Hopper is a zero-copy Solana program framework. Its typed paths verify account
-ownership, role, discriminator, version, layout identity, and size before
-projecting account bytes into state. Raw SVM access remains explicit.
+Hopper is a zero-copy Solana program framework. Declare your state, account
+constraints, and handlers in Rust; work directly with validated account bytes.
+Headered layouts check version and layout identity. Compact layouts check their
+discriminator and size contract. Raw SVM access remains explicit.
 
 **Solana locks accounts. Hopper governs bytes.** Mainnet still schedules whole
 writable accounts. Hopper's byte ranges enforce and explain mutation inside
 program-owned access; they do not create sub-account parallelism or a byte-level
 fee discount.
 
-Programs get an Anchor-shaped API over a Quasar-style direct-state model:
-typed accounts, checked CPI, generated clients, and direct account memory in
-one runtime. For larger state, Hopper adds byte-range write policies, exact
-touch evidence, safe grow and shrink migrations, and manifest-derived fuzzing.
+Build with typed accounts, checked CPI, and generated clients. As a program
+grows, add byte-range write policies, reports of acquired ranges, typed grow
+and shrink migrations, and manifest-derived fuzzing. The same declarations
+connect program authoring, validation, and release inspection.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
@@ -35,6 +36,12 @@ Four measured facts, with provenance in [BENCHMARKS.md](https://github.com/Bluef
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.
 
 ## What's included
+
+The [2026-09-24 refinement](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-24.md)
+is being validated in the workspace after 0.3.0: exact-size mint creation plans,
+automatic Token-2022 ownership checks for extension constraints, and retained
+bumps for more direct binding paths. The guide distinguishes these additions
+from the published 0.3.0 API until the next registry release is verified.
 
 The [2026-09-23 review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-23.md)
 adds canonical literal-PDA derivation, correct canonical validation for
@@ -92,7 +99,7 @@ Main framework: `hopper-lang` 0.3.0, imported as `hopper`. Keep the framework
 and CLI on the same release line when using generated code and new APIs.
 [Docs at docs.rs](https://docs.rs/crate/hopper-lang).
 
-Install this release's CLI with `cargo install hopper-cli --version 0.3.0 --locked`.
+Install this release's CLI with `cargo install hopper-cli --version 0.3.1 --locked`.
 Install this checkout's 0.3.0 CLI with
 `cargo install --path tools/hopper-cli --locked`.
 
@@ -156,7 +163,7 @@ See [docs/cli/](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Fr
 ### Add to an existing crate
 
 ```sh
-cargo add hopper-lang@0.3.0 --rename hopper --features proc-macros
+cargo add hopper-lang@0.3.1 --rename hopper --features proc-macros
 ```
 
 The exact dependency for this release is:

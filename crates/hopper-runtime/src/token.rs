@@ -19,6 +19,8 @@ use crate::instruction::{InstructionAccount, InstructionView, Signer};
 use crate::ProgramResult;
 use core::mem::MaybeUninit;
 
+pub use crate::token_mint::{InitializeMint2, MintConfig, MintPlan, MintProgram};
+
 /// SPL Token multisig accounts support at most 11 signer accounts.
 pub const MAX_TOKEN_MULTISIG_SIGNERS: usize = 11;
 

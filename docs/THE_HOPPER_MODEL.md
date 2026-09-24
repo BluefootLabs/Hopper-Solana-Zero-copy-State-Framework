@@ -5,7 +5,7 @@ canonical reference for how the whole system fits together.
 
 ## The Pipeline
 
-Every Hopper program follows seven steps:
+The full workflow has seven stages. A program can use the stages it needs:
 
 ```
 1. Define     Layout your state with hopper_layout!
@@ -275,14 +275,21 @@ preserved, what can be cleared, and what can be rebuilt.
 
 ## Fingerprints and Compatibility
 
-Every layout has a deterministic `LAYOUT_ID`:
+Current proc-macro layouts derive `LAYOUT_ID` from the first eight bytes of
+SHA-256 over an ordered `hopper:wire:v2` descriptor. A fixed layout named Vault
+with `authority: Address`, `balance: WireU64`, and `bump: u8` at version 1 uses:
 
-```
-sha256("hopper:v1:Vault:1:authority:[u8;32]:32,balance:WireU64:8,bump:u8:1,")[..8]
+```text
+hopper:wire:v2|S:Vault|V:1|f0:authority:Address|f1:balance:WireU64|f2:bump:u8
 ```
 
-This fingerprint lets any tool verify that account data matches
-expectations without parsing the full layout. Compatibility checking is
+Dynamic-tail declarations add their tail schema/type. Older manual and
+declarative APIs may use a different fingerprint contract. Use generated
+identities and review changes to nested types and aliases explicitly; the
+macro does not recursively inspect every user-defined type.
+
+Headered accounts store the identity in their header. Compact accounts keep
+the fingerprint in schema/manifest metadata, not account bytes. Compatibility checking is
 built in:
 
 ```rust
@@ -390,18 +397,24 @@ hopper_error! {
 ```
 
 Each variant becomes a struct with a `CODE` constant and `Into<ProgramError>`
-impl. No panics on-chain. Every error path returns a specific code.
+impl. Propagate returned errors so failed instructions roll back their state changes.
+These helpers do not prevent panics in application code or other runtime paths.
 
 ## Design Principles
 
 1. **Bytes first.** Think in offsets and wire formats, not abstractions.
 2. **Pipeline model.** Define, Resolve, Validate, Execute, Record, Verify, Inspect.
-3. **Compile-time safety.** Typestate, const generics, and deterministic hashing over runtime checks.
-4. **Zero hidden cost.** No allocations, no trait objects, no dynamic dispatch on-chain.
+3. **Layered validation.** Typestate and generated metadata complement runtime
+   ownership, permission, layout, and policy checks.
+4. **Explicit costs.** The default core is `no_std` and `no_alloc`. Optional
+   facilities, callbacks, and application choices carry their own costs; measure
+   the compiled workload and the features it actually enables.
 5. **Explicit identity.** Headered accounts carry the 16-byte identity header;
    compact accounts carry a discriminator plus a fixed or minimum-prefix size
    contract and use external schema metadata.
-6. **Append-only evolution.** New fields extend layouts. Old data stays valid.
+6. **Deliberate evolution.** Append compatibility is one policy; explicit typed
+   migrations can transform, grow, or shrink data. Validate the source and target
+   layouts and preserve the application's invariants.
 7. **Rigid where safety matters, flexible where architecture matters.**
 
 ## Where to Go Next

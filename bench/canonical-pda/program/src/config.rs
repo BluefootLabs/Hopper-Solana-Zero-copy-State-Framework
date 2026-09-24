@@ -3,5 +3,6 @@
 #[hopper::state(disc = 1, version = 1)]
 #[repr(C)]
 pub struct Config {
+    #[bump]
     pub value: u8,
 }

@@ -24,6 +24,21 @@ pub struct TypedInferred<'info> {
     pub config: hopper::prelude::Account<'info, Config>,
 }
 
+#[derive(hopper::Accounts)]
+pub struct TypedStored<'info> {
+    #[account(seeds = [b"config", b"v1"], bump = stored)]
+    pub config: hopper::prelude::Account<'info, Config>,
+}
+
+#[derive(hopper::Accounts)]
+pub struct Initialize<'info> {
+    #[account(init, payer = payer, space = Config::LEN, seeds = [b"config", b"v1"], bump)]
+    pub config: hopper::prelude::InitAccount<'info, Config>,
+    #[account(mut)]
+    pub payer: hopper::prelude::Signer<'info>,
+    pub system_program: hopper::prelude::Program<'info, hopper::prelude::System>,
+}
+
 fn config_seeds() -> [&'static [u8]; 2] {
     [b"config", b"v1"]
 }
@@ -38,7 +53,7 @@ pub struct TypedSeeds<'info> {
 mod sbf {
     hopper::no_allocator!();
     hopper::nostd_panic_handler!();
-    hopper::program_entrypoint!(super::process_instruction, 1);
+    hopper::program_entrypoint!(super::process_instruction, 3);
 }
 
 pub fn process_instruction<'info>(
@@ -52,6 +67,19 @@ pub fn process_instruction<'info>(
     let &[mode, supplied_bump] = data else {
         return Err(ProgramError::InvalidInstructionData);
     };
+    if mode == 8 {
+        let mut context = Context::new(program_id, accounts, data);
+        let bound = Initialize::bind(&mut context)?;
+        let validated_bump = bound.bumps().config;
+        if supplied_bump != validated_bump {
+            return Err(ProgramError::InvalidSeeds);
+        }
+        bound.init_config()?;
+        // Initialization must persist the validated result, not an independent
+        // instruction-data byte or a second bump expression.
+        bound.accounts.config.get_mut_after_init()?.value = validated_bump;
+        return Ok(());
+    }
     let account = accounts.first().ok_or(ProgramError::NotEnoughAccountKeys)?;
     let canonical_bump = match mode {
         0 => hopper::pda::find_canonical_bump_checked(
@@ -87,6 +115,10 @@ pub fn process_instruction<'info>(
         6 => {
             let mut context = Context::new(program_id, accounts, data);
             TypedSeeds::bind(&mut context)?.bumps().config
+        }
+        7 => {
+            let mut context = Context::new(program_id, accounts, data);
+            TypedStored::bind(&mut context)?.bumps().config
         }
         _ => return Err(ProgramError::InvalidInstructionData),
     };

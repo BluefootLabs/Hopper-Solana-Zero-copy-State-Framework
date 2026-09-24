@@ -129,9 +129,9 @@ the program ID requires rebuilding the constant. Account ownership, layout,
 signer and writable requirements remain separate account constraints.
 
 For dynamic seeds, bare `bump` and `seeds_fn` require the canonical address,
-including for typed accounts. Direct, required fields with bare `bump`
-retain the validated bump during binding. Optional fields, typed seed
-helpers and nested-context gathering still derive separately.
+including for typed accounts. Direct required fields retain their validated bumps during binding: bare
+`bump`, supplied and stored bumps, and `seeds_fn` helpers. Optional fields
+and nested-context gathering still derive separately.
 `bump = stored` and explicitly supplied bumps verify the selected address;
 they do not prove that the bump is canonical. Establish canonicality during
 initialization when the application requires a unique address per seed set.
@@ -140,7 +140,7 @@ initialization when the application requires a unique address per seed set.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.3.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.3.1", features = ["proc-macros"] }
 ```
 
 Docs: <https://docs.rs/crate/hopper-derive>
@@ -148,3 +148,10 @@ Docs: <https://docs.rs/crate/hopper-derive>
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 
 License: Apache-2.0.
+
+New in 0.3.1: direct required bindings also retain stored,
+supplied, and seed-helper bumps, avoiding a second expression evaluation or
+search. Extension constraints establish Token-2022 ownership before inspecting
+TLV bytes. Optional/composite bump gathering remains a separate path. The
+`#[bump]` marker names a stored byte; initialization must write the validated
+bump explicitly and later handlers must preserve the intended invariant.

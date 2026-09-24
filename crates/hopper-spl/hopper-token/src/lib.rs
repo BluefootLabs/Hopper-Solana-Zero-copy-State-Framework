@@ -9,6 +9,8 @@
 
 pub mod layout;
 
+pub use hopper_runtime::token_mint::{InitializeMint2, MintConfig, MintPlan, MintProgram};
+
 pub use hopper_runtime::token::{
     ApproveChecked, BurnChecked, CheckedMintDecimals, CheckedTokenAuthority, CheckedTokenMint,
     CloseAccount, FreezeAccount, InitializeAccount, InitializeAccount2, InitializeAccount3,
@@ -33,6 +35,7 @@ pub mod instructions {
         InitializeAccount2, InitializeAccount3, MintToChecked, Revoke, SetAuthority, SyncNative,
         ThawAccount, TokenAuthorityType, TransferChecked,
     };
+    pub use hopper_runtime::token_mint::InitializeMint2;
 
     #[cfg(feature = "legacy-token-instructions")]
     #[allow(deprecated)]

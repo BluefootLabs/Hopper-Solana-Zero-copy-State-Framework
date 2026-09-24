@@ -1,6 +1,6 @@
 [package]
 name = "hopper-solana"
-version = "0.3.0"
+version = "0.3.1"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Solana integration layer for Hopper. SPL Token/Mint zero-copy readers, Token-2022 screening, CPI guards, token account helpers."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-solana/0.3.0"
+documentation = "https://docs.rs/crate/hopper-solana/0.3.1"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "spl-token", "cpi", "hopper-native"]
 categories = ["no-std"]
@@ -22,7 +22,7 @@ workspace = true
 [dependencies]
 hopper-core = { workspace = true }
 hopper-runtime = { workspace = true }
-hopper-system = { path = "../hopper-system", version = "0.3.0", default-features = false }
+hopper-system = { path = "../hopper-system", version = "0.3.1", default-features = false }
 hopper-token = { workspace = true, default-features = false }
 
 [features]

@@ -22,6 +22,8 @@ solana-sdk-ids = "3"
 solana-svm-log-collector = "4.2"
 
 [dev-dependencies]
+mollusk-svm-programs-token = { version = "0.15.0", default-features = false, features = ["token", "token-2022"] }
+spl-token-2022-interface = "=3.1.1"
 solana-instruction-error = "2.5"
 hopper = { workspace = true, features = ["proc-macros"] }
 

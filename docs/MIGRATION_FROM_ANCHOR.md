@@ -154,15 +154,23 @@ pub struct Deposit<'info> {
 }
 ```
 
-`bump = stored` reads the `#[bump]`-marked byte from the already-validated
-layout and verifies the PDA with one `sol_sha256` (about 150 CU, no
-`create_program_address` syscall and no curve check, which is sound because
-the owner and layout checks already ran), the same cost as the explicit
-expression form on a typed account and an order of magnitude below a
-`find_program_address` search. It is explicit twice over: the state author
-marked the field and the context author asked for it. A field merely NAMED
-`bump` is never auto-detected, and `bump = stored` on an unmarked type is
-a compile error.
+`bump = stored` reads the marked byte from this account's validated layout
+and checks the address using that selected bump. On typed program-owned
+accounts the optimized check uses SHA-256 without another curve check. It does
+not prove that the bump is canonical. Ownership, layout validity, canonical
+address derivation, and the byte persisted during initialization are separate
+invariants.
+
+Use bare `bump` on initialization when canonicality is required, then copy the
+validated `ctx.bumps.<field>` into the marked field. The `#[bump]` marker only
+provides an offset; it does not initialize the byte. Preserve that field in
+later mutation and migration paths. A field merely named `bump` is not
+automatically selected, and `bump = stored` on an unmarked type fails to compile.
+
+The new workspace bind path retains validated bumps for direct required
+stored, supplied, and seed-helper fields as well as bare inferred fields.
+Optional fields and composite gathering still use their separate gather paths.
+No retained value gains a stronger canonicality guarantee than its validator.
 
 On `init` with `seeds` and `bump = <arg>`, Anchor hashes the seeds before
 creating the account; Hopper does not hash at all. The lifecycle helper

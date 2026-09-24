@@ -12,7 +12,7 @@ offline by default, with optional RPC connectivity for live account fetching.
 Install the 0.3.0 release:
 
 ```bash
-cargo install hopper-cli --version 0.3.0 --locked
+cargo install hopper-cli --version 0.3.1 --locked
 ```
 
 Registry availability is tracked on the [release status page](https://hopperzero.dev/docs/release-status).

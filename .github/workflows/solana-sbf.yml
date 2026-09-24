@@ -313,6 +313,24 @@ jobs:
             HOPPER_PDA_SBF="$PWD/target/hopper/pda-boundaries-$arch/hopper_pda_boundaries_fixture.so" \
               cargo test -p hopper-framework-verifier --test pda_boundaries_sbf --locked -- --ignored --nocapture
           done
+      - name: Verify canonical bumps and mint plans on SBF v0 and v3
+        run: |
+          set -euo pipefail
+          for arch in v0 v3; do
+            for fixture in canonical-pda mint-plan; do
+              "$HOME/.cargo/bin/cargo-build-sbf" \
+                --tools-version v1.54 --arch "$arch" \
+                --manifest-path "bench/$fixture/program/Cargo.toml" \
+                --sbf-out-dir "${SBF_RELEASE_DIR}/$fixture-$arch" \
+                -- --locked
+            done
+            HOPPER_CANONICAL_PDA_SBF="$PWD/${SBF_RELEASE_DIR}/canonical-pda-$arch/hopper_canonical_pda_fixture.so" \
+              cargo test -p hopper-framework-verifier --test canonical_pda_sbf --locked -- --ignored --nocapture \
+              2>&1 | tee "${SBF_RELEASE_DIR}/canonical-pda-$arch/tests.log"
+            HOPPER_MINT_PLAN_SBF="$PWD/${SBF_RELEASE_DIR}/mint-plan-$arch/hopper_mint_plan_fixture.so" \
+              cargo test -p hopper-framework-verifier --test mint_plan_sbf --locked -- --ignored --nocapture \
+              2>&1 | tee "${SBF_RELEASE_DIR}/mint-plan-$arch/tests.log"
+          done
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
       - name: Build, verify, and attest isolated Cicada with the forward builder
@@ -340,6 +358,7 @@ jobs:
             printf 'ambientGateMolluskExecuted=true\n'
             printf 'ambientGateArch=sbpf-v0,sbpf-v3\n'
             printf 'pdaBoundariesMolluskExecuted=true\n'
+            printf 'canonicalPdaAndMintPlanMolluskExecuted=sbpf-v0,sbpf-v3\n'
             printf 'migrationArch=sbpf-v0\n'
             printf 'counterArch=sbpf-v3\n'
             printf 'cicadaArch=sbpf-v0\n'
@@ -356,6 +375,10 @@ jobs:
               sbf/hopper_cicada.so \
               migration-sbpf-v0/hopper_migration.so \
               counter-sbpf-v3/hopper_counter.so \
+              canonical-pda-v*/hopper_canonical_pda_fixture.so \
+              canonical-pda-v*/tests.log \
+              mint-plan-v*/hopper_mint_plan_fixture.so \
+              mint-plan-v*/tests.log \
               > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
@@ -374,4 +397,8 @@ jobs:
             target/hopper/release/agave-v4.2.1/SHA256SUMS
             target/hopper/release/agave-v4.2.1/migration-sbpf-v0/hopper_migration.so
             target/hopper/release/agave-v4.2.1/counter-sbpf-v3/hopper_counter.so
+            target/hopper/release/agave-v4.2.1/canonical-pda-v*/*.so
+            target/hopper/release/agave-v4.2.1/canonical-pda-v*/tests.log
+            target/hopper/release/agave-v4.2.1/mint-plan-v*/*.so
+            target/hopper/release/agave-v4.2.1/mint-plan-v*/tests.log
           retention-days: 90

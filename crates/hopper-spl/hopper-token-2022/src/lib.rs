@@ -12,6 +12,9 @@ pub use hook::{
     extra_account_metas_pda, ExtraAccountMeta, ExtraAccountMetaList, HookAccountBuf, HookError,
     ResolvedHookAccount, EXTRA_ACCOUNT_METAS_SEED,
 };
+pub use hopper_runtime::token_mint::{
+    InitializeMint2, MintConfig, MintExtension, MintInstructionData, MintPlan, MintProgram,
+};
 
 use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
 use hopper_runtime::{AccountView, ProgramResult};
@@ -272,5 +275,7 @@ impl InitializeAccount<'_> {
 }
 
 pub mod instructions {
-    pub use super::{Approve, Burn, CloseAccount, InitializeAccount, MintTo, Revoke, Transfer};
+    pub use super::{
+        Approve, Burn, CloseAccount, InitializeAccount, InitializeMint2, MintTo, Revoke, Transfer,
+    };
 }

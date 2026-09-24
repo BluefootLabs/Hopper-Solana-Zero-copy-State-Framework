@@ -191,9 +191,8 @@ struct AccountAttr {
     // Each lever lowers to a single call into
     // `hopper_runtime::token_2022_ext::require_*`. The readers scan
     // the mint or token-account TLV region in place, no heap, no full
-    // decode. This is the surface Anchor routes through
-    // `InterfaceAccount<Mint>` with a Borsh deserialize; Hopper keeps
-    // it on the zero-copy path end to end.
+    // decode. Generated extension constraints establish Token-2022
+    // ownership before invoking these byte readers.
     ext_non_transferable: bool,
     ext_immutable_owner: bool,
     ext_cpi_guard: bool,
@@ -1261,9 +1260,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // `AccountView` here.
         let option_inner = option_inner_type(&cf.ty);
         let is_optional = option_inner.is_some();
+        // Retain the exact value checked by validation. Besides avoiding a
+        // second search/read, this prevents an explicit bump expression from
+        // being evaluated again with a different result during bind.
         let fuse_bump = !is_optional
-            && cf.attr.seeds.is_some()
-            && matches!(cf.attr.bump, Some(BumpSpec::Inferred));
+            && (cf.attr.seeds_fn.is_some() || (cf.attr.seeds.is_some() && cf.attr.bump.is_some()));
         let fused_validate_fn = format_ident!("__hopper_validate_{}_and_bump", field_name);
         let bound_bump = format_ident!("__hopper_validated_bump_{}", field_name);
         if fuse_bump {
@@ -1858,15 +1859,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // the valid addresses for these base seeds.
             let find_bump_fn = quote! { ::hopper::pda::find_canonical_bump_checked };
             field_checks.push(quote! {
-                {
+                let __hopper_validated_bump: u8 = {
                     let __seed_value = (#seeds_fn_expr);
                     let __seed_slices: &[&[u8]] = __seed_value.as_ref();
-                    let _bump: u8 = #find_bump_fn(
+                    #find_bump_fn(
                         __seed_slices,
                         #pda_program_expr,
                         ctx.account(#slot)?.address(),
-                    )?;
-                }
+                    )?
+                };
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) matches PDA derived from typed seeds helper",
@@ -1974,7 +1975,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     }
                 },
                 BumpSpec::Stored(bump_expr) if cpi_proven => quote! {
-                    {
+                    let __hopper_validated_bump: u8 = {
                         #seed_binds
                         let bump: u8 = #bump_expr;
                         let __hopper_pda_view = ctx.account(#slot)?;
@@ -1991,10 +1992,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                 __hopper_pda_view.address(),
                             )?;
                         }
-                    }
+                        bump
+                    };
                 },
                 BumpSpec::Stored(bump_expr) => quote! {
-                    {
+                    let __hopper_validated_bump: u8 = {
                         #seed_binds
                         let bump: u8 = #bump_expr;
                         // The seed slice is built INLINE as the argument (not
@@ -2010,17 +2012,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             #pda_program_expr,
                             ctx.account(#slot)?.address(),
                         )?;
-                    }
+                        bump
+                    };
                 },
-                // `bump = stored`: read the canonical bump from THIS
+                // `bump = stored`: read the selected bump from THIS
                 // account's `#[bump]`-marked field. This runs in Stage 4,
                 // AFTER the wrapper validated owner / discriminator /
                 // layout identity, so the byte is read from an
-                // already-authenticated layout. One sha256 hash replaces
-                // the find_program_address search.
+                // validated layout. The byte is bound to this account's
+                // address, but neither ownership nor this check establishes
+                // canonicality or proves how initialization chose the byte.
                 BumpSpec::StoredField => match &layout_ty {
                     Some(bump_ty) => quote! {
-                        {
+                        let __hopper_validated_bump: u8 = {
                             #seed_binds
                             let bump: u8 = {
                                 let __bump_data = ctx.account(#slot)?.try_borrow()?;
@@ -2043,12 +2047,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                 #pda_program_expr,
                                 ctx.account(#slot)?.address(),
                             )?;
-                        }
+                            bump
+                        };
                     },
                     None => syn::Error::new_spanned(
                         &cf.name,
                         "`bump = stored` requires a typed `Account<'info, T>` wrapper whose \
-                         `T` marks its canonical-bump field with `#[bump]` (the marker emits \
+                         `T` marks its stored-bump field with `#[bump]` (the marker emits \
                          `T::CANONICAL_BUMP_ABS_OFFSET`)",
                     )
                     .to_compile_error(),
@@ -2070,8 +2075,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
             // Build the derive expression used by the generated Bumps
             // struct gatherer. Stored bumps read the user-supplied byte
-            // straight from scope. Direct, required inferred fields replace
-            // this expression with the retained validator result at bind.
+            // straight from scope. Direct, required fields replace this
+            // expression with the retained validator result at bind.
             // Optional fields and composite hooks still use this derivation.
             let bump_gather_expr: TokenStream = match bump {
                 BumpSpec::Stored(bump_expr) => {
@@ -2462,13 +2467,36 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         }
 
-        // Token-2022 extension constraints. Each lowers to a single
-        // TLV-scan call on the Token-2022 account bytes. Extensions
-        // are only valid on Token-2022 accounts, so the usual
-        // `token::token_program = TOKEN_2022_ID` or
-        // `mint::token_program = TOKEN_2022_ID` constraint should
-        // precede them in source; the emitted owner check has
-        // already run before any of this lowers.
+        // An extension constraint must never authenticate caller-owned bytes
+        // merely because they resemble a Token-2022 TLV envelope. Establish
+        // owner provenance even when no mint/token constraint was also named.
+        let has_token_2022_extensions = cf.attr.ext_non_transferable
+            || cf.attr.ext_immutable_owner
+            || cf.attr.ext_cpi_guard
+            || cf.attr.ext_confidential_transfer_mint
+            || cf.attr.ext_confidential_transfer_account
+            || cf.attr.ext_scaled_ui_amount_config
+            || cf.attr.ext_mint_close_authority.is_some()
+            || cf.attr.ext_permanent_delegate.is_some()
+            || cf.attr.ext_transfer_hook_authority.is_some()
+            || cf.attr.ext_transfer_hook_program.is_some()
+            || cf.attr.ext_metadata_pointer_authority.is_some()
+            || cf.attr.ext_metadata_pointer_address.is_some()
+            || cf.attr.ext_default_account_state.is_some()
+            || cf.attr.ext_interest_bearing_authority.is_some()
+            || cf.attr.ext_transfer_fee_config_authority.is_some()
+            || cf.attr.ext_transfer_fee_withdraw_authority.is_some();
+        if has_token_2022_extensions {
+            field_checks.push(quote! {
+                ctx.account(#slot)?.check_owned_by(
+                    &::hopper::token_2022::TOKEN_2022_PROGRAM_ID,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) is owned by Token-2022 before extension constraints",
+                idx, field_name
+            ));
+        }
         if cf.attr.ext_non_transferable {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_non_transferable(
@@ -9237,7 +9265,9 @@ mod instruction_arg_tests {
         let compact =
             |window: &str| -> String { window.chars().filter(|c| !c.is_whitespace()).collect() };
 
-        let counter = compact(fn_window(&s, "validate_counter"));
+        let wrapper = compact(fn_window(&s, "validate_counter"));
+        assert!(wrapper.contains("Self::__hopper_validate_counter_and_bump::<__HOPPER_BASE>("));
+        let counter = compact(fn_window(&s, "__hopper_validate_counter_and_bump"));
         assert!(
             counter.contains("if__hopper_pda_view.is_signer()||__hopper_pda_view.data_len()!=0{"),
             "init field must hash only for a signer or a non-empty account: {counter}"
@@ -9252,7 +9282,7 @@ mod instruction_arg_tests {
             "no inline hash on the CPI-proven path: {counter}"
         );
 
-        let other = compact(fn_window(&s, "validate_other"));
+        let other = compact(fn_window(&s, "__hopper_validate_other_and_bump"));
         assert!(
             other.contains("::hopper::pda::verify_pda_address(")
                 && !other.contains("is_signer()||"),

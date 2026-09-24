@@ -1,7 +1,18 @@
 # Schema and effect publication
 
-Status: shipped IDL path plus design-stage Hopper metadata. Reverified
-2026-09-06.
+Status: shipped IDL and custom-seed manifest publication; standardized effect
+publication and the schema-pointer lifecycle remain design work. Reverified
+2026-09-24.
+
+## Shipped publication workflows
+
+`hopper publish-manifest` publishes the normalized Hopper manifest through
+Program Metadata under the custom `hopper-manifest` seed. It supports readback
+and authority-baseline tooling. The seed is a Hopper convention, not a reserved
+standard. `hopper publish-idl` publishes the supported Solana IDL projection.
+Neither publication alone binds the declaration to the deployed ELF; use
+release verification for that check. These workflows do not implement the
+proposed `HopperSchemaPointer` account format described below.
 
 ## What ships
 

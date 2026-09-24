@@ -87,7 +87,7 @@ struct FieldMeta {
     /// Invariant name this field is guarded by (e.g. `"balance_nonzero"`).
     /// Empty when the field has no declared invariant.
     invariant: String,
-    /// `#[bump]`: this u8 field holds the canonical PDA bump the program
+    /// `#[bump]`: this u8 field holds the stored PDA bump the program
     /// stored at init. Drives the `CANONICAL_BUMP_ABS_OFFSET` const that
     /// `#[account(seeds = [...], bump = stored)]` verifies against.
     bump: bool,
@@ -311,7 +311,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     if let Some(bump_offset) = &canonical_bump_offset {
         inherent_items.push(quote! {
             /// Account-absolute byte offset of the `#[bump]`-marked field:
-            /// the canonical PDA bump this program stored at init.
+            /// the stored PDA bump. This marker neither initializes the byte
+            /// nor proves that the selected bump is canonical.
             #vis const CANONICAL_BUMP_ABS_OFFSET: u32 =
                 ::hopper::hopper_core::account::HEADER_LEN as u32 + #bump_offset;
         });
@@ -1027,7 +1028,8 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     if let Some(bump_offset) = &canonical_bump_offset {
         inherent_items.push(quote! {
             /// Account-absolute byte offset of the `#[bump]`-marked field:
-            /// the canonical PDA bump this program stored at init.
+            /// the stored PDA bump. This marker neither initializes the byte
+            /// nor proves that the selected bump is canonical.
             #vis const CANONICAL_BUMP_ABS_OFFSET: u32 =
                 ::hopper::account::COMPACT_BODY_OFFSET as u32 + #bump_offset;
         });
@@ -1605,7 +1607,7 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
             ));
         }
         if attr.path().is_ident("bump") {
-            // `#[bump]`: mark THIS field as the canonical PDA bump the
+            // `#[bump]`: mark THIS field as the stored PDA bump the
             // program stored at init. The macro emits
             // `CANONICAL_BUMP_ABS_OFFSET` (headered AND compact walks) so
             // `#[account(seeds = [...], bump = stored)]` can verify the

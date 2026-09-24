@@ -2273,12 +2273,14 @@ version = "0.0.0"
 dependencies = [
  "hopper-lang",
  "mollusk-svm",
+ "mollusk-svm-programs-token",
  "solana-account 4.3.1",
  "solana-instruction",
  "solana-instruction-error",
  "solana-pubkey 4.2.1",
  "solana-sdk-ids",
  "solana-svm-log-collector",
+ "spl-token-2022-interface",
 ]
 
 [[package]]
@@ -2365,6 +2367,13 @@ dependencies = [
  "solana-signer",
  "solana-system-interface 3.2.0",
  "solana-transaction",
+]
+
+[[package]]
+name = "hopper-mint-plan-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-lang",
 ]
 
 [[package]]
@@ -2602,6 +2611,8 @@ version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-solana",
+ "solana-pubkey 4.2.1",
+ "spl-token-2022-interface",
 ]
 
 [[package]]

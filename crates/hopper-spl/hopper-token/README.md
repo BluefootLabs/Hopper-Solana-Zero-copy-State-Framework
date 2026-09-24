@@ -30,6 +30,12 @@ unless the non-default `legacy-token-instructions` feature is enabled. Use that
 feature only for migration tests against legacy SPL Token programs that cannot
 use the checked instructions.
 
+The workspace after 0.3.0 also exports `InitializeMint2`, `MintConfig`,
+`MintProgram`, and `MintPlan`. A legacy plan has no extensions, allocates exactly
+82 bytes, and initializes an empty mint with the configured authorities.
+Creation uses live rent and supports prefunding and PDA signer seeds. These
+additions require the workspace until the next registry release is verified.
+
 For Token-2022 mints with extension awareness, see
 [`hopper-token-2022`](https://crates.io/crates/hopper-token-2022).
 

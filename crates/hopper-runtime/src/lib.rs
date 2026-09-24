@@ -71,6 +71,7 @@ pub mod syscalls;
 pub mod system;
 pub mod token;
 pub mod token_2022_ext;
+pub mod token_mint;
 pub mod write_policy;
 
 pub use account::AccountView;

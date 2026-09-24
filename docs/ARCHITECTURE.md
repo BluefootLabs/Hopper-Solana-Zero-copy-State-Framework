@@ -7,7 +7,8 @@ the dependency graph, and the design invariants that hold them together.
 
 ## The Pipeline
 
-Hopper is a typed state pipeline. Every program follows the same seven steps:
+Hopper connects program authoring to state validation and inspection. The full
+workflow has seven stages; applications can use the stages they need:
 
 ```
 1. Define      Layout state with hopper_layout!, declare errors, register discs
@@ -120,18 +121,26 @@ Offset  Size  Field        Description
 this header and store only a one-byte discriminator followed by the zero-copy
 body.
 
-**layout_id computation** (deterministic, compile-time):
+**Layout identity depends on the declaration API.** Current `#[account]`
+and `#[hopper::state]` proc macros hash an ordered wire descriptor with SHA-256
+and keep its first eight bytes. For a fixed layout its input has this shape:
 
-```
-sha256("hopper:v1:{Name}:{version}:{field_name}:{canonical_type}:{size},"...)[..8]
+```text
+hopper:wire:v2|S:<Name>|V:<version>|f0:<field>:<wire_stem>|f1:<field>:<wire_stem>
 ```
 
-Fields appear in declaration order. Each field contributes
-`"{name}:{canonical_type}:{size},"` with a trailing comma. The hash is computed
-at compile time by Hopper's owned const SHA-256 implementation. It is
-feature-independent; the deprecated `sha2-layout-id` feature is a no-op
-compatibility flag. Any change to name, type, size, or field order produces a
-different layout ID.
+There is no trailing separator. A dynamic tail appends `|tail:<schema-or-type>`.
+Path prefixes are normalized; array lengths and relevant generic arguments
+participate in the wire stem. The phantom tag in `TypedAddress<Tag>` is omitted.
+Use the emitted `LAYOUT_ID` and manifest instead of reconstructing the hash
+from a Rust type's display spelling.
+
+Older declarative/manual APIs can use `hopper:v1:...` descriptors or an
+explicitly supplied identity. These are separate contracts, not interchangeable
+hash formulas. The proc macro does not recursively inspect arbitrary user-defined
+field types: changing a nested type or a type alias still requires deliberate
+versioning and compatibility review. A matching fingerprint does not prove
+business invariants or migration safety.
 
 ### Segmented Accounts
 
@@ -562,40 +571,35 @@ functionality (see [PROC_MACRO_POLICY.md](PROC_MACRO_POLICY.md)).
 
 ---
 
-## Design Invariants
+## Design contracts
 
-These are the rules that all code must satisfy. Violations are bugs.
-
-1. **Align-1 wire types.** All ABI field types are `#[repr(transparent)]` over
-   `[u8; N]` with `align_of == 1`. No native integers in overlay structs.
-
-2. **Deterministic layout_id.** The SHA-256 input string is
-   `"hopper:v1:{Name}:{version}:{field}:{type}:{size},"` per field in
-   declaration order. Any structural change must produce a different layout_id.
-
-3. **Zero-init before header write.** Global invariant. `hopper_init!` enforces
-   this. Manual paths must call `zero_init()` before `write_header()`.
-
-4. **Append-only versioning.** V(N+1) is a strict superset of V(N). Fields
-   are never reordered or removed. New fields go at the end.
-
-5. **No proc macros required for the core/manual path.** The core code-generation
-   surface uses `macro_rules!`; optional proc and attribute macros provide
-   ergonomic front ends (see
-   [PROC_MACRO_POLICY.md](PROC_MACRO_POLICY.md)).
-
-6. **No std, no alloc.** All on-chain crates are `#![no_std]` with zero heap usage.
-
-7. **Every unsafe has a SAFETY comment.** Justifying alignment, length, aliasing.
-
-8. **`size_of == LEN` and `align_of == 1` compile-time assertions** for every
-   `#[repr(C)]` overlay struct.
-
-9. **Explicit error codes.** Every error path returns a specific `ProgramError`
-   or custom error code. No panics on-chain.
-
-10. **No hidden runtime behavior.** No global state, no lazy init, no implicit
-    allocations, no trait objects, no dynamic dispatch in on-chain code.
+1. **Checked wire projections.** Stored fields must satisfy the selected
+   overlay's Pod, alignment, bounds, and padding contract. Wire integers
+   provide alignment-safe representations of multi-byte values.
+2. **Explicit layout identity.** Use the identity emitted by the declaration
+   API. Review nested types, aliases, version changes, and migration semantics;
+   a fingerprint is not a recursive proof of every field's meaning.
+3. **Initialized storage.** The System creation path returns zeroed allocation
+   before Hopper writes its header. Manual creation and migration paths must
+   initialize every byte their resulting layout requires.
+4. **Deliberate evolution.** Append compatibility is one policy. Explicit typed
+   migrations may transform fields and grow or shrink accounts; validate the
+   old identity before interpreting old state and fund the live-rent shortfall.
+5. **Optional proc macros.** The manual/core path remains available; attribute
+   macros generate validation and authoring code over the same runtime.
+6. **No heap by default in program paths.** The program runtime supports
+   `no_std` and allocation-free APIs. Host tooling uses `std`; applications
+   that opt into other dependencies must account for their own allocations.
+7. **Documented unsafe boundaries.** Each unsafe operation needs a concrete
+   alignment, lifetime, aliasing, or loader-input contract and appropriate tests.
+8. **Body size and account size are distinct.** Generated overlays check their
+   body layout. Account storage also includes its selected header/discriminator
+   and any dynamic tail; `size_of::<T>()` is not a universal account-space formula.
+9. **Checked errors.** Public validation returns program errors. Unsafe raw
+   entrypoints require loader-valid input; malformed raw loader frames may trap.
+10. **Scoped runtime state.** Borrow and write-policy registries track the current
+    invocation. CPI, mutation, and lifecycle paths must honor those scopes and
+    release borrows at the appropriate boundaries.
 
 ---
 

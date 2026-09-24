@@ -1,256 +1,201 @@
-# Writing Token-2022 programs in Hopper
+# Token-2022: validate and initialize mints
 
-Anchor stable has a genuine zero-copy `AccountLoader<T>` path for user-defined
-accounts. Its Token-2022 extension constraints use the typed token-interface
-path instead. Hopper provides allocation-free TLV readers, a declarative
-subset of extension checks, and fail-closed policy helpers for the current
-official extension discriminators 0 through 28. Quasar's pinned release has
-base-layout token readers but no comparable TLV policy layer.
+Hopper provides zero-copy token readers, declarative extension constraints,
+and fail-closed TLV policies. These are distinct from mint creation: reading
+an extension never initializes it.
 
-This guide is the reference for using them.
+`MintPlan` and `InitializeMint2` below are workspace additions after the
+published 0.3.0 release. Use the matching workspace until the next registry
+release is verified.
 
-## Pin the token program first
+## Pin ownership and authority
 
-Before you touch an extension, constrain the account's owner program. Otherwise a caller could pass a legacy SPL Token account and every extension scan would miss (because legacy accounts have no TLV region).
+Use the Token-2022 program explicitly when the instruction requires its
+extension semantics. A token-program owner check alone does not authorize
+the caller to operate on a mint.
 
 ```rust
+use hopper::prelude::*;
+use hopper::token_2022::TOKEN_2022_PROGRAM_ID;
+
 #[derive(Accounts)]
 pub struct ConfigureMint<'info> {
     #[account(
         mut,
-        mint::authority = authority,
-        mint::token_program = ::hopper_runtime::token::TOKEN_2022_PROGRAM_ID,
+        mint::authority = *ctx.account(1)?.address(),
+        mint::token_program = TOKEN_2022_PROGRAM_ID,
     )]
     pub mint: UncheckedAccount<'info>,
-
     pub authority: Signer<'info>,
 }
 ```
 
-`token::token_program` and `mint::token_program` each emit a single `check_owned_by(program_id)` before any byte-level check runs. SPL Token is the default when the override is omitted.
+`mint::token_program` and `token::token_program` choose the required owner
+for the corresponding mint or token constraints. Without an override they
+use legacy SPL Token. In this workspace, every extension constraint also
+requires Token-2022 ownership before reading its bytes, even when a separate
+mint/token owner constraint is omitted. The published 0.3.0 release requires
+that explicit owner constraint; retain it in code that must support 0.3.0.
+Raw TLV reader functions do not establish ownership on their own.
 
-## The extension constraint vocabulary
+## Create a mint with an exact extension plan
 
-Every attribute below compiles to a TLV scan on the mint or token-account bytes. No Borsh, no heap, no deserialize pass.
-
-### Mint-side
-
-```rust
-#[account(
-    extensions::mint_close_authority::authority = close_authority,
-    extensions::permanent_delegate::delegate = permanent_delegate,
-    extensions::transfer_hook::authority = hook_authority,
-    extensions::transfer_hook::program_id = hook_program,
-    extensions::metadata_pointer::authority = metadata_authority,
-    extensions::metadata_pointer::metadata_address = metadata_address,
-    extensions::default_account_state::state = 2, // Frozen
-    extensions::interest_bearing::rate_authority = rate_authority,
-    extensions::transfer_fee_config::authority = fee_authority,
-    extensions::transfer_fee_config::withdraw_withheld_authority = withdraw_authority,
-    extensions::confidential_transfer::mint,
-    extensions::scaled_ui_amount::config,
-    extensions::non_transferable,
-)]
-pub mint: UncheckedAccount<'info>,
-```
-
-`default_account_state` takes the state byte directly: `0` Uninitialized, `1` Initialized, `2` Frozen.
-
-`non_transferable` is a flag; no value needed.
-
-### Token-account-side
-
-```rust
-#[account(
-    extensions::immutable_owner,
-    extensions::cpi_guard,
-    extensions::confidential_transfer::account,
-)]
-pub ata: UncheckedAccount<'info>,
-```
-
-The token-account side now covers immutable owner, CPI guard, and confidential transfer account presence. `TransferHookAccount` (the per-account companion to the mint's `TransferHook`) is reachable through the raw TLV reader if you need it.
-
-## Policy matrix checks
-
-For low-level programs, use the no-alloc policy helper directly over a TLV region:
-
-```rust
-use hopper_runtime::token_2022_ext::{
-    validate_extension_policy, ExtensionPolicy,
-    EXT_CONFIDENTIAL_TRANSFER_MINT, EXT_SCALED_UI_AMOUNT_CONFIG,
-    EXT_TRANSFER_HOOK,
-};
-
-validate_extension_policy(
-    tlv,
-    &ExtensionPolicy::new(
-        &[EXT_CONFIDENTIAL_TRANSFER_MINT, EXT_SCALED_UI_AMOUNT_CONFIG],
-        &[EXT_TRANSFER_HOOK],
-    ),
-)?;
-```
-
-This is useful for generated policy packs and devnet probes. The required and
-forbidden policy first validates TLV structure, so truncated bytes cannot make
-a forbidden extension look absent.
-
-Custody and settlement code should normally use an explicit allowlist:
-
-```rust
-use hopper_runtime::token_2022_ext::validate_extension_allowlist;
-
-// Empty means this program has accepted no extension semantics.
-validate_extension_allowlist(tlv, &[])?;
-```
-
-The allowlist rejects unknown future discriminators, duplicate entries,
-truncation, and every extension not explicitly named by the program.
-
-## The raw TLV reader
-
-For an extension outside the declarative constraint set, use the reader directly:
-
-```rust
-use hopper_runtime::token_2022_ext::{
-    find_extension, mint_tlv_region, EXT_GROUP_POINTER,
-};
-
-let data = mint.as_account().try_borrow()?;
-let tlv = mint_tlv_region(&data)
-    .ok_or(ProgramError::InvalidAccountData)?;
-let group = find_extension(tlv, EXT_GROUP_POINTER)
-    .ok_or(ProgramError::InvalidAccountData)?;
-// `group` is the raw extension payload. Layout for GroupPointer:
-// [authority: 32][group_address: 32]
-let authority: [u8; 32] = group[0..32].try_into().unwrap();
-let group_address: [u8; 32] = group[32..64].try_into().unwrap();
-```
-
-The presence reader is intentionally best-effort and works on any extension
-type. Do not interpret `None` as a complete safety decision. Validate TLV
-structure or an explicit allowlist first. Current extension-code constants are
-in `hopper_runtime::token_2022_ext` with `EXT_*` names.
-
-## End-to-end: a capped-supply mint program
+This helper creates a signer mint with a close authority and metadata
+pointer. The pointer identifies an account; it does not create or populate
+metadata in that account.
 
 ```rust
 use hopper::prelude::*;
+use hopper::token_2022::{MintConfig, MintExtension, MintPlan, MintProgram};
 
-#[account]
-#[repr(C)]
-pub struct Config {
-    pub admin: [u8; 32],
-    pub max_supply: WireU64,
-    pub bump: u8,
+pub fn create_mint<'info>(
+    payer: &Signer<'info>,
+    mint: &Signer<'info>,
+    authority: &Address,
+) -> ProgramResult {
+    let extensions = [
+        MintExtension::MintCloseAuthority(Some(authority)),
+        MintExtension::MetadataPointer {
+            authority: Some(authority),
+            metadata_address: Some(mint.address()),
+        },
+    ];
+    let plan = MintPlan::new(
+        MintProgram::Token2022,
+        MintConfig {
+            decimals: 9,
+            mint_authority: authority,
+            freeze_authority: None,
+        },
+        &extensions,
+    )?;
+    // Include System and Token-2022 program accounts in the instruction.
+    // Both payer and mint must be writable and sign this creation.
+    plan.create(payer.as_account(), mint.as_account(), &[])
 }
+```
+
+For a PDA mint, pass the executing program's `Signer` seeds to `create`.
+A signature authorizes the creation; it does not prove that an application
+selected a canonical PDA. Validate the address policy separately.
+
+The plan supports these six fixed-size mint extensions:
+
+| Variant | Initialization configuration |
+| --- | --- |
+| `TransferFeeConfig` | Configuration and withdrawal authorities, basis points, maximum fee |
+| `MintCloseAuthority` | Optional close authority |
+| `NonTransferable` | Non-transferability marker |
+| `PermanentDelegate` | Delegate address |
+| `TransferHook` | Optional authority and hook program |
+| `MetadataPointer` | Optional authority and metadata account |
+
+`plan.space()` includes the base state, Token-2022 padding and TLV headers.
+`plan.check_space(requested)` rejects both undersized and oversized allocations.
+The token processor requires the size to match the extensions actually
+initialized; arbitrary spare space is not accepted by this plan.
+
+`MintPlan::new` rejects duplicate extensions, fees above 10,000 basis points,
+and zero addresses in optional fields where zero encodes absence. A legacy
+`MintProgram::Legacy` plan accepts an empty extension list and uses 82 bytes.
+
+`create` uses the live Rent sysvar, funds only the shortfall on a prefunded
+System-owned empty mint, initializes the listed extensions, and initializes
+the base mint last. It uses `CreateAccountAllowPrefund`, so the target cluster
+must support that System instruction. `initialize` accepts an already
+allocated, correctly owned, rent-exempt, entirely zeroed account of exactly
+the planned size. Neither operation creates token accounts or mints supply.
+
+Propagate errors from these multi-CPI operations so the enclosing instruction
+rolls back earlier CPIs. Catching an error and returning success can retain
+partial work. The low-level `InitializeMint2` builder is also available when
+you manage allocation and extension initialization yourself.
+
+Variable-length token metadata, confidential extensions, and automatic
+extension inference are outside this API. Initialize unsupported extensions
+through their own reviewed instruction builders, then validate the result.
+
+## Extension constraints
+
+Mint-side constraints include close authority, permanent delegate, transfer
+hook authority/program, metadata pointer authority/address, default account
+state, interest-bearing rate authority, transfer-fee authorities, and presence
+checks for non-transferability, confidential transfer, and scaled UI amounts.
+For example, add these to a Token-2022 mint field:
+
+```rust
+use hopper::prelude::*;
+use hopper::token_2022::TOKEN_2022_PROGRAM_ID;
 
 #[derive(Accounts)]
-pub struct Configure<'info> {
+#[instruction(close_authority: Address)]
+pub struct InspectMint<'info> {
     #[account(
-        init,
-        payer = admin,
-        space = Config::INIT_SPACE,
-        seeds = [b"config", mint.key().as_ref()],
-        bump,
-    )]
-    pub config: InitAccount<'info, Config>,
-
-    #[account(
-        mut,
-        mint::authority = admin,
-        mint::token_program = ::hopper_runtime::token::TOKEN_2022_PROGRAM_ID,
-        extensions::mint_close_authority::authority = admin,
+        mint::token_program = TOKEN_2022_PROGRAM_ID,
+        extensions::mint_close_authority::authority = close_authority,
         extensions::non_transferable,
     )]
     pub mint: UncheckedAccount<'info>,
-
-    #[account(mut)]
-    pub admin: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-#[program]
-mod capped_mint {
-    use super::*;
-
-    #[instruction(0)]
-    pub fn configure(ctx: Ctx<Configure>, max_supply: u64) -> ProgramResult {
-        let mut config = ctx.accounts.config.get_mut_after_init()?;
-        config.set_inner(*ctx.accounts.admin.key(), max_supply, ctx.bumps.config)
-    }
 }
 ```
 
-The zero-copy path carries these extension checks without a whole-account
-deserialize pass. CU claims belong to the pinned benchmark suite; this guide
-does not infer a universal cost ranking from implementation style.
+Token-account constraints include `extensions::immutable_owner`,
+`extensions::cpi_guard`, and `extensions::confidential_transfer::account`.
+Presence does not mean that the program supports an extension's behavior.
+`default_account_state::state` compares a raw byte: 1 is Initialized and 2 is
+Frozen. A present extension with a matching field is not an allowlist of every
+other extension on the account.
 
-## What to reach for when
+## Apply a policy before interpreting TLV bytes
 
-| Goal | Hopper path |
-| --- | --- |
-| Reject accounts that are not Token-2022 | `token::token_program = TOKEN_2022_PROGRAM_ID` |
-| Enforce a specific transfer-hook program | `extensions::transfer_hook::program_id = X` |
-| Bind a mint to a metadata-pointer account | `extensions::metadata_pointer::metadata_address = X` |
-| Require a mint to be soulbound | `extensions::non_transferable` |
-| Verify the ATA is immutable-owner | `extensions::immutable_owner` |
-| Require CPI guard on a token account | `extensions::cpi_guard` |
-| Require confidential transfer mint support | `extensions::confidential_transfer::mint` |
-| Require confidential transfer account support | `extensions::confidential_transfer::account` |
-| Require scaled UI amount config | `extensions::scaled_ui_amount::config` |
-| Pin transfer-fee authorities | `extensions::transfer_fee_config::authority = X` |
-| Inspect an extension outside the declarative subset | validate policy first, then use `find_extension(tlv, EXT_<NAME>)` |
-
-## What still needs a separate CPI
-
-Hopper's `hopper-token-2022` crate ships the common operation builders
-(`Transfer`, `MintTo`, `Burn`, `CloseAccount`, `Approve`, `Revoke`,
-`InitializeAccount`). **Creating extensions** (e.g. `InitializeTransferHook`,
-`InitializeTransferFeeConfig`, `InitializeMetadataPointer`,
-`InitializeNonTransferableMint`) is not yet wrapped, build those instructions
-against the SPL Token-2022 program directly with a raw `InstructionView` /
-`invoke`, then validate the result with Hopper's `extensions::*` constraints
-and the `check_*`/`find_extension` TLV readers, which **are** shipped.
-
-Wrapping the extension initializers is tracked future work; the validation
-and screening surface is the part Hopper owns today.
-
-## Resolving transfer-hook extra accounts
-
-When a mint carries the `TransferHook` extension, a transfer must append the
-extra accounts the hook program declares in its `ExtraAccountMetaList` PDA.
-Hopper ships a `no_std`, zero-alloc resolver so you do not need
-`spl-tlv-account-resolution`:
+For custody or settlement, start with an explicit allowlist of extension
+semantics the application supports:
 
 ```rust
-use hopper_token_2022::{extra_account_metas_pda, ExtraAccountMetaList, HookAccountBuf};
+use hopper::token_2022::validate_extension_allowlist;
 
-// PDA holding the list: ["extra-account-metas", mint] under the hook program.
-let (metas_pda, _bump) = extra_account_metas_pda(mint.key(), hook_program.key());
-
-let data = metas_account.try_borrow()?;
-let list = ExtraAccountMetaList::unpack(&data)?;
-
-let mut resolved = HookAccountBuf::<16>::new();
-list.resolve_into(&mut resolved, instruction_data, hook_program.key(), &known_keys)?;
-// `resolved.as_slice()` is the (address, is_signer, is_writable) set to append.
+// `tlv` is the TLV region of an owner-checked account.
+// An empty allowlist rejects every extension.
+validate_extension_allowlist(tlv, &[])?;
 ```
 
-It resolves literal-pubkey (disc `0`), this-program PDA (disc `1`), and
-external-program PDA (disc `≥128`) entries with `Literal`, `InstructionData`,
-and `AccountKey` seeds. Seed kinds that need another account's bytes return
-`HookError::UnsupportedSeed` so they are resolved explicitly rather than
-silently mis-built.
+The allowlist rejects unknown IDs, duplicate entries, truncation, and entries
+outside the list. The required/forbidden `ExtensionPolicy` helper validates
+TLV structure too, but does not reject every unlisted known extension.
+Use the strict mint screening helpers when checking a complete finalized
+mint envelope; a raw TLV policy alone does not prove owner, mint identity,
+initialization, authority, or every extension's payload semantics.
 
-## Gotchas
+The current constants cover official discriminators through PermissionedBurn
+(28). A raw presence reader can inspect an unknown ID; that does not grant
+permission to accept its behavior. Never treat `find_extension(...) == None`
+as a complete safety decision on unvalidated input. Check payload lengths
+before slicing or interpreting bytes.
 
-1. Extension constraints fire BEFORE the TLV scan confirms the account is Token-2022. Always pair an `extensions::*` check with a `token::token_program = TOKEN_2022_PROGRAM_ID` or `mint::token_program = TOKEN_2022_PROGRAM_ID` in the same field declaration, or the scan fails with `InvalidAccountData` when the account turns out to be legacy SPL.
-2. `default_account_state` is validated as an integer byte, not as a named enum. Use `0`, `1`, or `2` directly.
-3. Low-level presence readers accept an account-type byte of `0` during init sequencing. The strict mint safety gate requires the finalized `ACCOUNT_TYPE_MINT` (`0x01`) envelope.
-4. Hopper defines the current official extension IDs through `PermissionedBurn` (`28`). A future unknown ID is inspectable as raw TLV data but is rejected by fail-closed allowlists until Hopper and the application explicitly review it.
+## Resolve transfer-hook extra accounts
 
-## Worked example in the repo
+`extra_account_metas_pda`, `ExtraAccountMetaList`, and `HookAccountBuf<N>`
+resolve the hook's declared extra accounts without heap allocation. Use
+`.address()` on the resolver's account input for its address. The list supports literal
+addresses, this-program PDAs, external-program PDAs, and literal,
+instruction-data, or account-key seeds. Account-data seeds return
+`HookError::UnsupportedSeed` and require explicit handling.
 
-`examples/hopper-token-2022-vault` is a complete vault program that mints a Token-2022-backed share token, enforces `non_transferable` on the share mint, and uses `extensions::mint_close_authority` to bind the close path to an admin key. It is the canonical reference for how the constraints compose.
+The resolver computes account addresses and privileges. The caller must
+validate the metadata-list PDA and its owner, supply the resolved accounts,
+and choose a capacity that accommodates the list. It does not fetch accounts
+or run the transfer hook.
+
+## Working programs and executable checks
+
+- `examples/hopper-token-2022-vault` binds an existing mint and authority to a
+  reward vault, creates the vault ATA, mints rewards, and sweeps tokens. It does
+  not impose non-transferability or a mint-close-authority constraint.
+- `examples/hopper-token-2022-transfer-hook` demonstrates hook integration.
+- `bench/mint-plan/program` exercises mint creation and initialization against
+  canonical token processors, including PDA and prefunded mint creation.
+- `crates/hopper-spl/hopper-token-2022/tests/mint_plan.rs` compares allocation
+  sizes and emitted bytes with the canonical SPL interface.
+
+Mint initialization does not replace the token readers and authority checks
+needed by later instructions. Validate each operation's own contract.

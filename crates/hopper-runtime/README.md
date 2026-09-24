@@ -45,6 +45,12 @@ Rent-exemption helper: rent::check_rent_exempt(account) backing the #[account(re
 
 Token / Token-2022 readers: base-layout SplMint and SplTokenAccount external views, plus the token_2022_ext TLV scanner that powers the extensions::* constraints.
 
+New in 0.3.1: `token_mint` provides `InitializeMint2` and a
+checked, allocation-free `MintPlan` for legacy and Token-2022 mints. It ties exact
+space to explicit extension initialization, reads live rent, and supports PDA
+and prefunded creation. It does not initialize unsupported extensions or infer
+application authority policy. Propagate CPI errors to preserve rollback.
+
 Most users touch this crate transitively through hopper::prelude::*. Reach for hopper-runtime directly when writing a crate that needs the runtime surface without higher-level framework features.
 
 ## License
