@@ -20,7 +20,7 @@ connect program authoring, validation, and release inspection.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
-and post-CPI checks while still exposing low-level control. This is the 0.3.0
+and post-CPI checks while still exposing low-level control. This is the 0.3.1
 release source; registry availability is tracked on the
 [release status page](https://hopperzero.dev/docs/release-status). The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
@@ -30,7 +30,7 @@ Four measured facts, with provenance in [BENCHMARKS.md](https://github.com/Bluef
 
 - In the clean 2026-08-16 same-behavior vault matrix, Hopper measured 1,578 CU for deposit and 424 CU for withdraw. The run used eight samples and passed all 30 rollback gates.
 - That run produced a 9,032-byte Hopper binary. Quasar's pinned beta snapshot produced the smallest binary in the matrix, while Pinocchio measured lower on the separate missing-signature failure row.
-- Under pina's cross-framework fixtures, rebuilt with pina's recipe and a verifier that reproduces pina's published pinocchio numbers exactly (2026-09-22), the Hopper substrate hello world is 1,656 bytes at 116 CU, the smallest binary in that table. The Hopper macro counter is 8,376 bytes and initializes in 1,549 CU against Pina 3,301, Anchor v2 3,458, and Quasar 3,488; it increments in 358 against Pina 1,753, Anchor 2,117, and Quasar 330, with owner, header, and layout validation. The macro hello remains 138 CU against Anchor's 127 and Quasar's 115, and the like-for-like substrate counter is 6,728 bytes to pinocchio's 6,512. Account layouts, bump handling, and enabled checks differ as documented; competitor rows are pinned published results. See [bench/framework-comparison](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/framework-comparison).
+- Under pina's cross-framework fixtures, rebuilt with pina's recipe and a verifier that reproduces pina's published pinocchio numbers exactly (2026-09-24), the Hopper substrate hello world is 1,656 bytes at 116 CU, the smallest binary in that table. The Hopper macro counter is 8,312 bytes and initializes in 1,549 CU against Pina 3,301, Anchor v2 3,458, and Quasar 3,488; it increments in 349 against Pina 1,753, Anchor 2,117, and Quasar 330, with owner, header, and layout validation. The macro hello remains 138 CU against Anchor's 127 and Quasar's 115, and the like-for-like substrate counter is 6,728 bytes to pinocchio's 6,512. Account layouts, bump handling, and enabled checks differ as documented; competitor rows are pinned published results. See [bench/framework-comparison](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/framework-comparison).
 - The result is one locked contract under one toolchain, not a universal framework ranking. Exact source pins, artifact hashes, and the evidence archive are recorded below.
 
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.
@@ -38,10 +38,10 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 ## What's included
 
 The [2026-09-24 refinement](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-24.md)
-is being validated in the workspace after 0.3.0: exact-size mint creation plans,
+adds exact-size mint creation plans,
 automatic Token-2022 ownership checks for extension constraints, and retained
-bumps for more direct binding paths. The guide distinguishes these additions
-from the published 0.3.0 API until the next registry release is verified.
+bumps for more direct binding paths. These APIs require 0.3.1; see the
+[release status page](https://hopperzero.dev/docs/release-status) for registry availability.
 
 The [2026-09-23 review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-23.md)
 adds canonical literal-PDA derivation, correct canonical validation for
@@ -95,15 +95,15 @@ account state. Its local and deployed ELF matched before and after capture.
 See [the evidence record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DEVNET_RELEASE_EVIDENCE.md).
 This focused run covers the policy fixture, not every framework or Cicada path.
 
-Main framework: `hopper-lang` 0.3.0, imported as `hopper`. Keep the framework
+Main framework: `hopper-lang` 0.3.1, imported as `hopper`. Keep the framework
 and CLI on the same release line when using generated code and new APIs.
 [Docs at docs.rs](https://docs.rs/crate/hopper-lang).
 
 Install this release's CLI with `cargo install hopper-cli --version 0.3.1 --locked`.
-Install this checkout's 0.3.0 CLI with
+Install this checkout's CLI with
 `cargo install --path tools/hopper-cli --locked`.
 
-All companion crates are versioned 0.3.0 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
+The framework companion crates are versioned 0.3.1 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
 
 Benchmark snapshot: [BENCHMARKS.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
@@ -170,7 +170,7 @@ The exact dependency for this release is:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "=0.3.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.3.1", features = ["proc-macros"] }
 ```
 
 To develop against a checkout, use a local path:

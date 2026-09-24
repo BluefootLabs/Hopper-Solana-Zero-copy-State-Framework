@@ -79,3 +79,11 @@ Signature: 4v72Kp9ewbxFUkgEKDL16FcApuW87HTy9X2HkdFp4FjXZe4Pq3iyNuBXiPcmzEUiaUxBg
 `initialize` uses instruction data `[0]` and accounts `[vault(w), authority(s)]`. The vault account must already exist, be program-owned, and be exactly 41 bytes.
 
 `deposit` uses instruction data `[1][amount:u64-le]` and accounts `[vault(w), authority(s)]`. The authority signer must match the pubkey stored at byte offset `1`.
+
+The instruction changes the recorded balance; it does not transfer lamports.
+Registry helpers serialize and parse bytes locally. The dispatcher does not
+publish a registry PDA. Its manifest describes the raw account and argument ABI
+without claiming a typed policy pack, receipt, or account-creation CPI.
+
+Regenerate that manifest with
+`hopper compile --emit manifest --package hopper-compact-vault --out examples/hopper-compact-vault/hopper.manifest.json --force`.

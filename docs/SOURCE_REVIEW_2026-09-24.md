@@ -10,7 +10,7 @@ Hopper or a claim that every line of every competitor has been audited.
 | --- | --- | --- |
 | [Pina 3f04169](https://github.com/pina-rs/pina/commit/3f04169a2999fed45a93543a99223939ef93b512) | PDA macro's new `assert_stored_bump` and provenance-lint contract | Reuse a bump from the same validated account. Provenance, selected-address validity, canonicality, and the byte eventually persisted are distinct. |
 | [Anchor v2 b3b47d1](https://github.com/otter-sec/anchor/commit/b3b47d1fb9575218207c9f08f896b04750369611) | `anchor-next` interface mint creation, minimum space check, supplied allocation | A reader API is not mint initialization. Hopper adds an explicit extension plan, including the exact-size requirement imposed by Token-2022. This branch pin is distinct from default-branch `97e2d91`. |
-| [Quasar b0de7db](https://github.com/blueshift-gg/quasar/tree/b0de7db4cd271654a2dcf78807dd865e98e0b339) | Default head unchanged from the preceding PDA/account review | SHA-only verification of a selected bump does not establish canonicality. Quasar still has the lower increment in the dated comparison; no new peer benchmark is claimed here. |
+| [Quasar b0de7db](https://github.com/blueshift-gg/quasar/tree/b0de7db4cd271654a2dcf78807dd865e98e0b339) | Default head unchanged from the preceding PDA/account review | SHA-only verification of a selected bump does not establish canonicality. Quasar still has the lower increment in the dated comparison; peer rows remain pinned published measurements; the new Hopper and reference refresh is linked below. |
 | [Pinocchio adbd48d](https://github.com/anza-xyz/pinocchio/tree/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80) | Lazy entrypoint and its duplicate-account return type | Its caller manages duplicate markers. Hopper's resolving lazy parser and typed validators retain their own responsibilities. A lazy API alone is not novel. |
 | [Agave 9a06a94](https://github.com/anza-xyz/agave/tree/9a06a9426251a6c68547b9c52a75b5d713b0119c) | Feature-set keys and `invoke_context` compared with c17c596 | These two source files are unchanged across those pins. Cluster activation still needs observation; top-level callbacks alone are insufficient for complete nested CPI evidence. |
 | [SIMDs 8b157e1](https://github.com/solana-foundation/solana-improvement-documents/tree/8b157e1def5fb3b3779f0935ec71cd7cae271207) | 0449, 0500, 0512, and 0558 | Document status and live activation differ. 0558 remains a leader-info draft; its proposed pointer checks and charges are not a live Hopper API. |
@@ -60,6 +60,16 @@ They are observations from those endpoints, not authenticated ledger proofs.
 
 0558 remains Draft with no feature key in the reviewed proposal. A prototype
 must not introduce its syscall into a default deployable program.
+
+## Focused performance refresh
+
+The [clean comparison capture](../audit/framework-refinement-2026-09-24/comparison/)
+at `dfd1400` rebuilds Hopper and the pinned Pinocchio reference under Pina's
+release recipe. The macro counter uses 349 CU for increment (previously 358)
+and 8,312 ELF bytes (previously 8,376); initialization stays at 1,549 CU.
+Pinocchio reference values reproduce the published cross-check exactly.
+Quasar's pinned published increment remains lower at 330 CU. The peer source
+review and this dated execution comparison are separate evidence lanes.
 
 ## Documentation and product narrative
 

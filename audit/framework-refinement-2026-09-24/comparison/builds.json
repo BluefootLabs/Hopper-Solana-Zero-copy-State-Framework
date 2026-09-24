@@ -1,0 +1,204 @@
+{
+  "sourceCommit": "dfd140053a7827c0d651cbe3bb926070ce68f15c",
+  "sourceUnchangedAndClean": true,
+  "releaseProfile": {
+    "CARGO_PROFILE_RELEASE_LTO": "fat",
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "1",
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": "3",
+    "CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS": "false"
+  },
+  "records": [
+    {
+      "case": "hello",
+      "row": {
+        "directory": "hopper-substrate",
+        "label": "Hopper (substrate)",
+        "crate": "hello_hopper_substrate",
+        "data": {
+          "hello": ""
+        }
+      },
+      "argv": [
+        "cargo-build-sbf",
+        "--lto",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\hello\\hopper-substrate\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\comparison\\sbf",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "bytes": 1656,
+      "sha256": "4838bdf829905035c285f28334308d648452d0bc4024348be6f872e1649d8c59"
+    },
+    {
+      "case": "hello",
+      "row": {
+        "directory": "hopper",
+        "label": "Hopper (macro)",
+        "crate": "hello_hopper",
+        "data": {
+          "hello": "00"
+        }
+      },
+      "argv": [
+        "cargo-build-sbf",
+        "--lto",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\hello\\hopper\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\comparison\\sbf",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "bytes": 1792,
+      "sha256": "558c8cb951a3b8e0e49c8427843bf04724edd2ed00c042132c434f3a1e6999bd"
+    },
+    {
+      "case": "hello",
+      "row": {
+        "directory": "hello",
+        "label": "Pinocchio (pina reference, rebuilt here)",
+        "crate": "hello_pinocchio",
+        "data": {
+          "hello": ""
+        }
+      },
+      "argv": [
+        "cargo-build-sbf",
+        "--lto",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\reference\\hello\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\comparison\\sbf",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "bytes": 3160,
+      "sha256": "5d05e239a62e579ea8aa72f2f9658c7d3ac7e60e9321998ca4418f26fd790ed6"
+    },
+    {
+      "case": "counter",
+      "row": {
+        "directory": "hopper-substrate",
+        "label": "Hopper (substrate)",
+        "crate": "counter_hopper_substrate",
+        "data": {
+          "initialize": "00",
+          "increment": "01"
+        },
+        "initialize_takes_bump": true,
+        "counter_account": {
+          "size": 10,
+          "discriminator": "01",
+          "bump_offset": 1,
+          "count_offset": 2
+        }
+      },
+      "argv": [
+        "cargo-build-sbf",
+        "--lto",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\counter\\hopper-substrate\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\comparison\\sbf",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "bytes": 6728,
+      "sha256": "cabd592deb5fc67d43fc7efe4306cf12ab4f1425c0bac112e9a3c63b8bb6caae"
+    },
+    {
+      "case": "counter",
+      "row": {
+        "directory": "hopper",
+        "label": "Hopper (macro)",
+        "crate": "counter_hopper",
+        "data": {
+          "initialize": "00",
+          "increment": "01"
+        },
+        "initialize_takes_bump": true,
+        "counter_account": {
+          "size": 25,
+          "discriminator": "01",
+          "bump_offset": 16,
+          "count_offset": 17
+        }
+      },
+      "argv": [
+        "cargo-build-sbf",
+        "--lto",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\counter\\hopper\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\comparison\\sbf",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "bytes": 8312,
+      "sha256": "958f5c9a603a4fe479c3cab7f5579878327d3897c1774cd493e1fb0622d288be"
+    },
+    {
+      "case": "counter",
+      "row": {
+        "directory": "counter",
+        "label": "Pinocchio (pina reference, rebuilt here)",
+        "crate": "counter_pinocchio",
+        "data": {
+          "initialize": "00",
+          "increment": "01"
+        },
+        "initialize_takes_bump": true,
+        "counter_account": {
+          "size": 10,
+          "discriminator": "01",
+          "bump_offset": 1,
+          "count_offset": 2
+        }
+      },
+      "argv": [
+        "cargo-build-sbf",
+        "--lto",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\reference\\counter\\Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\refinement-release-2026-09-24\\comparison\\sbf",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "bytes": 6512,
+      "sha256": "040d6acf1a933535d5bf7a96cb089d70d8b8f817ff86ba6c8825058c582745f6"
+    }
+  ]
+}

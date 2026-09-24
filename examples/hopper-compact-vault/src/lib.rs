@@ -38,7 +38,7 @@ pub const VAULT_DISC: u8 = 1;
 /// Initialize a pre-created 41-byte compact vault account.
 pub const IX_INIT: u8 = 0;
 
-/// Deposit lamports into the compact vault balance field.
+/// Add to the compact vault's recorded balance; no lamports are transferred.
 pub const IX_DEPOSIT: u8 = 1;
 
 /// Tier-1 compact vault body: `[disc:u8][authority:32][balance:8]`.
@@ -140,8 +140,8 @@ fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) 
     authorized_deposit(vault, authority, amount)
 }
 
-/// This program's manifest profile. `onchain` means it publishes and
-/// reads the Tier-2 registry PDA.
+/// Registry format profile. These helpers serialize and read registry bytes;
+/// the dispatcher does not create or publish a registry PDA.
 pub const PROFILE: ManifestProfile = ManifestProfile::Onchain;
 
 /// Build the Tier-2 binary registry into `buf`, returning bytes written.
@@ -176,7 +176,8 @@ mod tests {
     use hopper_schema::clientgen::{KtAccounts, TsAccounts};
     use hopper_schema::codama::{IdlJsonFromManifest, ManifestJson};
     use hopper_schema::{
-        FieldDescriptor, FieldIntent, InstructionDescriptor, LayoutManifest, ProgramManifest,
+        AccountEntry, ArgDescriptor, ArgEncoding, FieldDescriptor, FieldIntent,
+        InstructionDescriptor, LayoutManifest, ProgramManifest,
     };
 
     static VAULT_FIELDS: [FieldDescriptor; 2] = [
@@ -207,15 +208,38 @@ mod tests {
         fields: &VAULT_FIELDS,
     }];
 
+    static ACCOUNTS: [AccountEntry; 2] = [
+        AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "Vault",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "authority",
+            writable: false,
+            signer: true,
+            layout_ref: "",
+            seeds: &[],
+        },
+    ];
+    static AMOUNT_ARGS: [ArgDescriptor; 1] = [ArgDescriptor {
+        name: "amount",
+        canonical_type: "u64",
+        size: 8,
+        encoding: ArgEncoding::Fixed,
+    }];
+
     static INIT_IX: InstructionDescriptor = InstructionDescriptor {
         name: "initialize",
         tag: IX_INIT,
         discriminator: &[IX_INIT],
         args: &[],
-        accounts: &[],
+        accounts: &ACCOUNTS,
         remaining_accounts: None,
-        capabilities: &["CreatesAccount", "MutatesState"],
-        policy_pack: "COMPACT_VAULT_WRITE",
+        capabilities: &[],
+        policy_pack: "",
         receipt_expected: false,
         strict_writes: false,
         write_ranges: &[],
@@ -229,11 +253,11 @@ mod tests {
         name: "deposit",
         tag: IX_DEPOSIT,
         discriminator: &[IX_DEPOSIT],
-        args: &[],
-        accounts: &[],
+        args: &AMOUNT_ARGS,
+        accounts: &ACCOUNTS,
         remaining_accounts: None,
-        capabilities: &["MutatesState"],
-        policy_pack: "COMPACT_VAULT_WRITE",
+        capabilities: &[],
+        policy_pack: "",
         receipt_expected: false,
         strict_writes: false,
         write_ranges: &[],
@@ -248,7 +272,7 @@ mod tests {
     fn manifest() -> ProgramManifest {
         ProgramManifest {
             name: "hopper_compact_vault",
-            version: "0.3.0",
+            version: env!("CARGO_PKG_VERSION"),
             description: "Devnet-ready proof for a 1-byte compact Hopper account.",
             layouts: &VAULT_LAYOUTS,
             layout_metadata: &[],
@@ -263,6 +287,22 @@ mod tests {
             ],
             contexts: &[],
         }
+    }
+
+    #[test]
+    fn __hopper_print_manifest() {
+        use hopper_schema::codama::{MANIFEST_EXPORT_BEGIN, MANIFEST_EXPORT_END};
+        println!(
+            "{MANIFEST_EXPORT_BEGIN}\n{}\n{MANIFEST_EXPORT_END}",
+            ManifestJson(&manifest())
+        );
+    }
+
+    #[test]
+    fn checked_in_manifest_matches_the_raw_dispatch_abi() {
+        let rendered = ManifestJson(&manifest()).to_string();
+        let checked_in = include_str!("../hopper.manifest.json").replace("\r\n", "\n");
+        assert_eq!(checked_in.trim_end(), rendered.trim_end());
     }
 
     #[test]

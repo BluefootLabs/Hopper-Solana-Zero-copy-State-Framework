@@ -110,6 +110,11 @@ mod escrow_program {
     }
 }
 
+hopper::program_manifest! {
+    program = escrow_program,
+    layouts = [Escrow],
+}
+
 impl<'info> Make<'info> {
     pub fn make(
         &self,

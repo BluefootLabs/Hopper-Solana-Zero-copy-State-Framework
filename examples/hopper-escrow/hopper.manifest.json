@@ -1,87 +1,172 @@
 {
-  "name": "hopper_escrow",
-  "version": "0.3.0",
-  "description": "Escrow-shaped state lifecycle example: initialize, has-one authority checks, and close. No token flow.",
+  "name": "hopper-escrow",
+  "version": "0.3.1",
+  "description": "",
   "layouts": [
     {
       "name": "Escrow",
       "disc": 2,
       "version": 1,
-      "layout_id": [0, 0, 0, 0, 0, 0, 0, 0],
-      "total_size": 161,
+      "layoutId": "16c7dfcd3f9045eb",
+      "totalSize": 161,
+      "hasDynamicTail": false,
+      "fieldCount": 7,
       "fields": [
-        {"name": "maker", "type": "Address", "size": 32, "offset": 16},
-        {"name": "maker_ta", "type": "Address", "size": 32, "offset": 48},
-        {"name": "mint_a", "type": "Address", "size": 32, "offset": 80},
-        {"name": "mint_b", "type": "Address", "size": 32, "offset": 112},
-        {"name": "amount_offered", "type": "WireU64", "size": 8, "offset": 144},
-        {"name": "amount_wanted", "type": "WireU64", "size": 8, "offset": 152},
-        {"name": "bump", "type": "u8", "size": 1, "offset": 160}
-      ]
+        { "name": "maker", "type": "TypedAddress<Authority>", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "maker_ta", "type": "TypedAddress<Token>", "size": 32, "offset": 48, "intent": "custom" },
+        { "name": "mint_a", "type": "TypedAddress<Mint>", "size": 32, "offset": 80, "intent": "custom" },
+        { "name": "mint_b", "type": "TypedAddress<Mint>", "size": 32, "offset": 112, "intent": "custom" },
+        { "name": "amount_offered", "type": "WireU64", "size": 8, "offset": 144, "intent": "custom" },
+        { "name": "amount_wanted", "type": "WireU64", "size": 8, "offset": 152, "intent": "custom" },
+        { "name": "bump", "type": "u8", "size": 1, "offset": 160, "intent": "custom" }
+      ],
+      "semanticFingerprint": "897be08f9bb75d40"
     }
   ],
   "instructions": [
     {
       "name": "make",
       "tag": 0,
+      "discriminatorBytes": [0],
       "args": [
-        {"name": "mint_a", "type": "Address", "size": 32},
-        {"name": "mint_b", "type": "Address", "size": 32},
-        {"name": "amount_offered", "type": "u64", "size": 8},
-        {"name": "amount_wanted", "type": "u64", "size": 8}
+        { "name": "mint_a", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "mint_b", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "amount_offered", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "amount_wanted", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
-        {"name": "maker", "writable": true, "signer": true, "layout_ref": ""},
-        {"name": "escrow", "writable": true, "signer": true, "layout_ref": "Escrow"},
-        {"name": "system_program", "writable": false, "signer": false, "layout_ref": ""}
+        { "name": "maker", "writable": true, "signer": true },
+        { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" },
+        { "name": "system_program", "writable": false, "signer": false }
       ],
-      "capabilities": ["MutatesState", "CreatesAccount"],
-      "policy_pack": "ESCROW_MAKE",
-      "receipt_expected": false
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "take",
       "tag": 1,
+      "discriminatorBytes": [1],
       "args": [],
       "accounts": [
-        {"name": "taker", "writable": false, "signer": true, "layout_ref": ""},
-        {"name": "escrow", "writable": true, "signer": false, "layout_ref": "Escrow"},
-        {"name": "maker", "writable": true, "signer": false, "layout_ref": ""}
+        { "name": "taker", "writable": false, "signer": true },
+        { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" },
+        { "name": "maker", "writable": true, "signer": false }
       ],
-      "capabilities": ["MutatesState", "ClosesAccount"],
-      "policy_pack": "ESCROW_TAKE",
-      "receipt_expected": false
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
       "name": "cancel",
       "tag": 2,
+      "discriminatorBytes": [2],
       "args": [],
       "accounts": [
-        {"name": "maker", "writable": true, "signer": true, "layout_ref": ""},
-        {"name": "escrow", "writable": true, "signer": false, "layout_ref": "Escrow"}
+        { "name": "maker", "writable": true, "signer": true },
+        { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" }
       ],
-      "capabilities": ["MutatesState", "ClosesAccount"],
-      "policy_pack": "ESCROW_CANCEL",
-      "receipt_expected": false
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     }
   ],
-  "contexts": [],
   "events": [],
-  "policies": [
+  "policies": [],
+  "layoutMetadata": [],
+  "contexts": [
     {
-      "name": "ESCROW_MAKE",
-      "capabilities": ["MutatesState", "CreatesAccount"],
-      "requirements": ["SignerAuthority"]
+      "name": "Make",
+      "accounts": [
+        { "name": "maker", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "escrow", "kind": "Escrow", "writable": true, "signer": false, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "init", "payer": "maker", "initSpace": 161, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "make"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
-      "name": "ESCROW_TAKE",
-      "capabilities": ["MutatesState", "ClosesAccount"],
-      "requirements": ["SignerAuthority"]
+      "name": "Take",
+      "accounts": [
+        { "name": "taker", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "escrow", "kind": "Escrow", "writable": true, "signer": false, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "maker"
+        ] },
+        { "name": "maker", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "take"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     },
     {
-      "name": "ESCROW_CANCEL",
-      "capabilities": ["MutatesState", "ClosesAccount"],
-      "requirements": ["SignerAuthority"]
+      "name": "Cancel",
+      "accounts": [
+        { "name": "maker", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "escrow", "kind": "Escrow", "writable": true, "signer": false, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "maker"
+        ] }
+      ],
+      "instructions": [
+        "cancel"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     }
-  ]
+  ],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
 }

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-22 22:22 UTC",
+  "generated": "2026-09-24 12:39 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -15,10 +15,12 @@
     "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
     "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
   },
-  "source_commit": "ad1e209daacc5fbee5fa1a9da58b6df561d6badd",
+  "source_commit": "dfd140053a7827c0d651cbe3bb926070ce68f15c",
   "source_tree_clean": true,
   "build_mode": "rebuilt",
-  "lockfile_sha256": "ee29c09c92651cc69e46e63128d0350ca0df15063956ca5e8f250170bd0b38a4",
+  "lockfile_sha256": "6f0bad5189142fd903ca71d42a7e50f45e9e80a88b5d94eac989759cc6e22fd0",
+  "verifierSha256": "2b9a2886852b1c8bf2789be30e740562c60e51e048808d559c69c7d3519218e3",
+  "verifierProfile": "dev; program ELFs use the recorded release recipe",
   "hello": [
     {
       "label": "Hopper (substrate)",
@@ -82,11 +84,11 @@
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 8376,
+      "bytes": 8312,
       "so": "counter_hopper.so",
-      "elf_sha256": "d921bf4ec1591113a21001d164779c56506df8855c0774236b2210d972b307d9",
+      "elf_sha256": "958f5c9a603a4fe479c3cab7f5579878327d3897c1774cd493e1fb0622d288be",
       "initialize": 1549,
-      "increment": 358,
+      "increment": 349,
       "account_size": 25,
       "source": "measured here"
     },

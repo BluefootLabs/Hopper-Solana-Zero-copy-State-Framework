@@ -684,6 +684,15 @@ mod tests {
     }
 
     #[test]
+    fn __hopper_print_manifest() {
+        use hopper::hopper_schema::codama::{MANIFEST_EXPORT_BEGIN, MANIFEST_EXPORT_END};
+        println!(
+            "{MANIFEST_EXPORT_BEGIN}\n{}\n{MANIFEST_EXPORT_END}",
+            ManifestJson(&PROGRAM_MANIFEST)
+        );
+    }
+
+    #[test]
     fn checked_in_manifest_is_the_source_manifest_rendering() {
         let rendered = ManifestJson(&PROGRAM_MANIFEST).to_string();
         let checked_in = include_str!("../hopper.manifest.json").replace("\r\n", "\n");
