@@ -175,8 +175,9 @@ Two structural notes, both disclosed wherever the feature is claimed:
   nested entrypoint), which every self-CPI event scheme pays, Anchor's
   `emit_cpi!` included. The log-based `emit_event` (240 CU) remains the
   cheap tier when log truncation is acceptable.
-- Hopper has no compile-time program id, so the event-authority PDA is
-  verified **at runtime** by the sha256 compare loop: ~148 CU per attempt
+- The generated event path verifies its event-authority PDA **at runtime**;
+  it does not automatically substitute a `canonical_pda!` constant. The dated
+  fixture below used a sha256 compare loop: ~148 CU per attempt
   (the 256-attempt exhaustion below ÷ 256), attempt count = 256 − bump.
   This smoke program's authority sits at the first attempt and its verify
   measures 171 CU. Anchor v0.31+ pins the authority against a compile-time

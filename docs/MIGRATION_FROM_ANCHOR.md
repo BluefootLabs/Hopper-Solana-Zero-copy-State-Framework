@@ -408,15 +408,15 @@ fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
 }
 ```
 
-Both append the same two trailing accounts (event-authority PDA + the program account) and both authenticate the self-CPI in the dispatcher, so ported clients pass the same account shape. Differences worth knowing: Hopper's wire is `[0xE0, 0x1E, tag, payload]`, 3 bytes of instruction-data overhead per event against Anchor's 16 (8-byte instruction tag + 8-byte event discriminator), and the event-authority seed is `b"__hopper_event_authority"` (not Anchor's `b"__event_authority"`), so indexers must derive the Hopper PDA. Anchor pins the authority against a compile-time constant; Hopper has no compile-time program id, so bind and the sink verify at runtime via a sha256-only compare loop (~200 CU at bump 255). The manual escape hatch `hopper_emit_cpi!` remains for raw handlers.
+Both append the same two trailing accounts (event-authority PDA + the program account) and both authenticate the self-CPI in the dispatcher, so ported clients pass the same account shape. Differences worth knowing: Hopper's wire is `[0xE0, 0x1E, tag, payload]`, 3 bytes of instruction-data overhead per event against Anchor's 16 (8-byte instruction tag + 8-byte event discriminator), and the event-authority seed is `b"__hopper_event_authority"` (not Anchor's `b"__event_authority"`), so indexers must derive the Hopper PDA. Hopper's generated event path still verifies its authority at runtime; the new literal-PDA macro is not automatically substituted into event binding or the sink. The dated event fixture records the cost of that runtime path. The manual escape hatch `hopper_emit_cpi!` remains for raw handlers.
 
 ## Token-2022
 
-This is where Hopper opens up space Anchor's zero-copy path does not cover.
+This comparison concerns stable Anchor 1.x's conventional deserialized token wrappers. Anchor v2 has separate Pod-based token interfaces; do not carry the 1.x serialization claim over to v2.
 
 Anchor's `InterfaceAccount<Mint>` and `Account<TokenAccount>` are Borsh-deserialized wrappers. Every `extensions::transfer_hook::*`, `extensions::metadata_pointer::*`, and friends constraint runs against those Borsh types, which means a zero-copy program pays a deserialize tax every time it touches a Token-2022 account.
 
-Hopper ships the same constraints on the zero-copy path. The lowering is a direct TLV byte scan, not a deserialize.
+Hopper's supported Token-2022 read constraints use direct TLV byte scans. This does not imply automatic extension initialization or parity with every Anchor token API.
 
 ```rust
 #[derive(Accounts)]

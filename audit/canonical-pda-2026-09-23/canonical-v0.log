@@ -1,0 +1,12 @@
+
+running 1 test
+canonical PDA mode=0, CU=1074, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+canonical PDA mode=1, CU=71, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+canonical PDA mode=2, CU=1061, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+canonical PDA mode=3, CU=2069, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+canonical PDA mode=4, CU=1080, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+canonical PDA mode=5, CU=1118, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+canonical PDA mode=6, CU=2120, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=8288
+test canonical_constant_matches_runtime_search_and_rejections ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s

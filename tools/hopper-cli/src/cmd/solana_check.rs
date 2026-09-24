@@ -167,6 +167,13 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
         return report;
     }
 
+    if let Err(error) = syn::parse_file(&source) {
+        report
+            .failures
+            .push(format!("invalid Rust source: {error}"));
+        return report;
+    }
+
     if !has_cdylib(&value) {
         report
             .failures
@@ -247,20 +254,47 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
 }
 
 fn source_has_hopper_entrypoint(source: &str) -> bool {
-    source.lines().any(|line| {
-        let trimmed = line.trim();
-        if trimmed.starts_with("//") || trimmed.starts_with("*") {
-            return false;
+    use syn::visit::Visit;
+
+    fn hopper_path(path: &syn::Path, names: &[&str]) -> bool {
+        let segments: Vec<_> = path.segments.iter().collect();
+        match segments.as_slice() {
+            [name] => names.iter().any(|candidate| name.ident == *candidate),
+            [namespace, name] if namespace.ident == "hopper" => {
+                names.iter().any(|candidate| name.ident == *candidate)
+            }
+            _ => false,
         }
-        if trimmed.contains("$crate::") {
-            return false;
+    }
+
+    struct Entrypoints(bool);
+    impl<'ast> Visit<'ast> for Entrypoints {
+        fn visit_attribute(&mut self, attribute: &'ast syn::Attribute) {
+            self.0 |= hopper_path(attribute.path(), &["program", "hopper_program"]);
         }
-        trimmed.starts_with("#[program")
-            || trimmed.starts_with("#[hopper::program")
-            || trimmed.starts_with("#[hopper_program")
-            || (trimmed.contains("fast_entrypoint!(") && !trimmed.starts_with("macro_rules!"))
-            || (trimmed.contains("program_entrypoint!(") && !trimmed.starts_with("macro_rules!"))
-    })
+
+        fn visit_macro(&mut self, mac: &'ast syn::Macro) {
+            self.0 |= hopper_path(
+                &mac.path,
+                &[
+                    "fast_entrypoint",
+                    "program_entrypoint",
+                    "hopper_exact_entrypoint",
+                ],
+            );
+            // Macro definitions and quoted tokens do not establish an active
+            // entrypoint. The visitor deliberately does not parse their bodies.
+        }
+    }
+
+    let Ok(file) = syn::parse_file(source) else {
+        // Surface malformed source through check_package rather than silently
+        // dropping a broken program from an --all release check.
+        return true;
+    };
+    let mut visitor = Entrypoints(false);
+    visitor.visit_file(&file);
+    visitor.0
 }
 
 fn has_cdylib(value: &toml::Value) -> bool {
@@ -477,6 +511,11 @@ crate-type = ["cdylib", "lib"]
 "#,
             "pub use hopper::program_entrypoint;\nmacro_rules! program_entrypoint { () => { $crate::program_entrypoint!(process); } }\n/// #[program]\npub fn helper() {}",
         );
+        write_package(
+            &root.join("pinocchio_reference"),
+            "[package]\nname = \"pinocchio_reference\"\nversion = \"0.0.0\"\n",
+            "pinocchio::program_entrypoint!(process);\npub fn process() {}",
+        );
 
         let manifests = collect_candidate_manifests(&root);
         let rendered = manifests
@@ -496,7 +535,50 @@ crate-type = ["cdylib", "lib"]
         assert!(!rendered
             .iter()
             .any(|path| path.contains("framework_facade")));
+        assert!(!rendered
+            .iter()
+            .any(|path| path.contains("pinocchio_reference")));
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn entrypoint_discovery_resolves_paths_and_ignores_quoted_code() {
+        for source in [
+            "hopper :: program_entrypoint ! (process);",
+            "mod nested { hopper::fast_entrypoint!(process, 1); }",
+            "hopper::hopper_exact_entrypoint! { (0, 1, dispatch) }",
+            "#[hopper::program(profile = \"tiny\")] mod counter {}",
+        ] {
+            assert!(source_has_hopper_entrypoint(source), "{source}");
+        }
+        for source in [
+            "pinocchio::program_entrypoint!(process);",
+            "quasar::program_entrypoint!(process);",
+            "#[other::program] mod counter {}",
+            "const EXAMPLE: &str = \"hopper::program_entrypoint!(process);\";",
+            "/* #[program] */ pub fn helper() {}",
+            "macro_rules! wrapper { () => { hopper::program_entrypoint!(process); } }",
+        ] {
+            assert!(!source_has_hopper_entrypoint(source), "{source}");
+        }
+    }
+
+    #[test]
+    fn all_mode_surfaces_malformed_source_as_a_failure() {
+        let root = unique_temp_dir();
+        write_package(
+            &root,
+            "[package]\nname = \"broken\"\nversion = \"0.0.0\"\n",
+            "#[hopper::program] mod broken {",
+        );
+        let manifests = collect_candidate_manifests(&root);
+        assert_eq!(manifests, [root.join("Cargo.toml")]);
+        let report = check_package(&manifests[0], false);
+        assert!(report
+            .failures
+            .iter()
+            .any(|error| error.starts_with("invalid Rust source:")));
         let _ = fs::remove_dir_all(root);
     }
 

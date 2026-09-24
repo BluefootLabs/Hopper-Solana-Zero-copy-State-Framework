@@ -1,0 +1,76 @@
+{
+  "blockTime": 1790211139,
+  "meta": {
+    "computeUnitsConsumed": 1064,
+    "costUnits": 2092,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidSeeds"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH invoke [1]",
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH consumed 1064 of 200000 compute units",
+      "Program 8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH failed: Provided seeds do not result in a valid address"
+    ],
+    "postBalances": [
+      3604929840,
+      0,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      3604934840,
+      0,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidSeeds"
+        ]
+      }
+    }
+  },
+  "slot": 503215041,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "8MqAVUitc8rQK4ub3tcLobEs1cQNHTGrr8zYvZhYsoRR",
+        "8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1
+          ],
+          "data": "15N",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "5cxAnYphGyhEhUFxsvTLYJLVMuhvnPdDBNd1Q2opa5Dk"
+    },
+    "signatures": [
+      "2eKVsyTWqdvsKkbUauV85D63dWcBjj1S1QX5aG3ayqZJEQfHz9rr26hVewku9GZipr4EcoRWqyBybYkbaMMCGNcS"
+    ]
+  },
+  "transactionIndex": 13,
+  "version": "legacy"
+}

@@ -19,8 +19,8 @@ touch evidence, safe grow and shrink migrations, and manifest-derived fuzzing.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
-and post-CPI checks while still exposing low-level control. This tree is the
-unpublished 0.3.0 development source. The independently runnable `grillo-*`
+and post-CPI checks while still exposing low-level control. This tree contains
+the 0.3.0 release source. The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
 means a separate recomputation boundary, not a third-party audit.
 
@@ -40,6 +40,13 @@ adds canonical literal-PDA derivation, correct canonical validation for
 inferred bumps, retained validated bumps during direct binding, and finalized
 CLI feature prerequisites. It records current peer source pins and cluster
 observations, plus the remaining Cicada artifact-policy and Grillo replay work.
+
+The [canonical-PDA evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/canonical-pda-2026-09-23)
+records 71 CU for a literal constant check versus 1,074 CU for runtime search
+in the same SBF v0 fixture. All 25 focused devnet transactions finalized with
+the expected results and unchanged account snapshots. Both SBF architectures
+also passed exhaustive bump refusal checks. These are fixture results, not
+whole-program or cross-framework performance claims.
 
 The [2026-09-22 source review](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-22.md)
 connects current peer changes to concrete Hopper fixes: signing-compatible

@@ -5,7 +5,7 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-23
 
 - **PDA search reference lifetimes.** Each native search iteration now stages
   an immutable bump seed before hashing instead of mutating a byte behind a
@@ -13,6 +13,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   selected-bump verification and compile-time address constants.
 
 ### Added
+
+- **Program discovery.** `solana-check --all` recognizes parsed Hopper macro
+  paths, ignores foreign framework entrypoints and quoted examples, and
+  reports malformed source instead of silently skipping it.
 
 - **Canonical literal PDAs.** `canonical_pda!` derives address bytes and the
   highest off-curve bump on the build host from explicit literal inputs.
@@ -400,9 +404,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - The Token-2022 vault's checked-in manifest now matches its source rendering
   (`hasDynamicTail`).
 
-## [0.3.0] - 2026-08-17
+### Earlier development work prepared 2026-08-17
 
-### Added
+#### Added
 
 - **Versioned release-interface binding.** `hopper::program_manifest!` now
   embeds a structured v1 SHA-256 commitment in release ELFs. The canonical,
@@ -775,7 +779,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   a two-program Mollusk runner). Measurement rows: 1/2/3-hop CU slope plus a
   mandatory min-out-violation rejection gate.
 
-### Fixed
+#### Fixed
 
 - **Anchor IDL export now follows the current v0.1.0 schema.** The exporter
   requires the deployment address, nests program identity under `metadata`,
@@ -968,11 +972,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - Closed the error-model parity gap: `#[hopper::error_code]` now derives `From<E> for ProgramError` lowering to `ProgramError::Custom(code)`, so handlers can `return Err(MyError::Foo.into())` exactly like Anchor's `#[error_code]`. Covered by `tests/error_derive_integration.rs`.
 - Added `COMPARISON.md` (feature-by-feature matrix vs Quasar / Anchor zero-copy / Pinocchio with the implementing file+symbol for every Hopper row) and `ROADMAP.md` (deferred capabilities with rationale: litesvm harness, kani proofs, `build-sbf` CI, compile-time segment disjointness).
 
-### Changed
+#### Changed
 
 - Corrected pervasive documentation that referred to the error attribute as `#[hopper::error]`; the canonical public spelling is `#[hopper::error_code]` (the `error` macro namespace is occupied by the runtime `error!` guard macro). Fixed across migration guides, crate READMEs, macro docs, and compile-error messages.
 
-### Fixed
+#### Fixed
 
 - **Hardened raw-input and cross-program soundness.** Replaced the remaining
   aligned scalar reads from the Solana BPF input buffer (`*(p as *const u64)`

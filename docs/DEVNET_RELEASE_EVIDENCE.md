@@ -5,7 +5,7 @@ check. An executable program account alone is not enough evidence because it
 may contain an older build.
 
 The lane uses only `https://api.devnet.solana.com` and requires the canonical
-devnet genesis hash. It also requires:
+devnet genesis hash. The example release-capture lanes require:
 
 - a clean, committed source tree;
 - a fresh program id controlled by an explicit devnet-only signer;
@@ -18,7 +18,7 @@ devnet genesis hash. It also requires:
 
 ## Receipt contract
 
-Every enforced live runner writes `hopper.devnet-evidence.v1` JSON. Common
+The example release runners write `hopper.devnet-evidence.v1` JSON. Common
 fields are:
 
 - `example` identifies the exact example lane;
@@ -33,6 +33,20 @@ fields are:
 Example-specific state fields record the assertions made by that runner. They
 are evidence for those named behaviors only. They are not evidence that every
 framework feature has been exercised on devnet.
+
+## Canonical PDA fixture, 2026-09-23
+
+The [focused PDA archive](../audit/canonical-pda-2026-09-23/README.md) uses
+`hopper.canonical-pda-devnet.v1`, with its own explicit assertion scope.
+Program `8RJxAyfAMnpb5ghwA4comPDJw6KqbDmZ28LDZHcccaVH` was deployed from
+source `3d18085` at slot 503214552. All 25 transactions finalized with the
+expected success or error and unchanged complete account snapshots. The
+8,288-byte SBF v0 ELF matched on-chain dumps before and after execution.
+
+The constant check used 71 CU; runtime canonical search used 1,074 CU.
+Generated unchecked binding used 1,061 CU. Typed modes were validated in the
+local SBF matrix, not this live run. The archive retains final loader metadata
+but does not assert that upgrade authority remained unchanged throughout.
 
 ## Artifact capture
 

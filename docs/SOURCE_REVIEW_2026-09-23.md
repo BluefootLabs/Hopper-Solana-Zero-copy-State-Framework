@@ -60,6 +60,22 @@ encoding and activation data. Reports retain network and slot identity;
 `--require` provides an exit status for deployment prerequisites. These remain
 RPC observations and do not authenticate a ledger.
 
+The full release check also exposed an entrypoint-discovery bug: substring
+matching classified Pinocchio's qualified macro calls in benchmark references
+as Hopper programs. Discovery now visits parsed Rust attribute and macro paths,
+ignores quoted examples and macro definitions, and surfaces malformed source
+as a failure. Regression cases cover foreign namespaces and nested Hopper calls.
+
+## Executed validation
+
+The [PDA evidence archive](../audit/canonical-pda-2026-09-23/README.md) retains
+both SBF architectures, the SDK differential matrix, seed-boundary results and
+25 finalized devnet transactions. The lifetime correction costs 16 ELF bytes
+and 10 CU on the v0 runtime-search row; the literal constant check remains
+71 CU. The 2,214-test host suite and warnings-denied workspace Clippy passed
+at the recorded source. CLI-only discovery changes have an additional complete
+CLI run with 262 passing tests, including its external-process integration.
+
 ## Observed network state
 
 The [raw responses and observations](../audit/network-features-2026-09-23/README.md)

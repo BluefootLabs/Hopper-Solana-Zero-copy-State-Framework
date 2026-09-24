@@ -1,0 +1,20 @@
+{
+  "schema": "hopper.feature-gates.v1",
+  "cluster": "devnet",
+  "rpc": "https://api.devnet.solana.com",
+  "genesis_hash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "commitment": "finalized",
+  "observed_slot": 503214773,
+  "required": [
+    "B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g"
+  ],
+  "requirements_met": false,
+  "gates": [
+    {
+      "name": "SIMD-0500",
+      "pubkey": "B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g",
+      "description": "disable deployment of SBPF v0/v1/v2",
+      "status": "not_present"
+    }
+  ]
+}

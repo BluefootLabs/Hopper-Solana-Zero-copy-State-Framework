@@ -1,0 +1,29 @@
+{
+  "schema": "hopper.feature-gates.v1",
+  "cluster": "devnet",
+  "rpc": "https://api.devnet.solana.com",
+  "genesis_hash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "commitment": "finalized",
+  "observed_slot": 503214770,
+  "required": [
+    "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL",
+    "5cC3foj77CWun58pC51ebHFUWavHWKarWyR5UUik7dnC"
+  ],
+  "requirements_met": true,
+  "gates": [
+    {
+      "name": "SIMD-0321",
+      "pubkey": "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL",
+      "description": "r2 instruction-data pointer",
+      "status": "active",
+      "activated_at": 446688000
+    },
+    {
+      "name": "SBPF-v3",
+      "pubkey": "5cC3foj77CWun58pC51ebHFUWavHWKarWyR5UUik7dnC",
+      "description": "SBPF v3 deployment and execution",
+      "status": "active",
+      "activated_at": 461808000
+    }
+  ]
+}

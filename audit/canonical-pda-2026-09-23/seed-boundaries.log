@@ -1,0 +1,12 @@
+
+running 1 test
+empty base seeds: all 12 public PDA paths matched SDK seed limits
+32-byte seed: all 12 public PDA paths matched SDK seed limits
+15 base seeds plus bump: all 12 public PDA paths matched SDK seed limits
+16 base seeds plus bump, hash-equivalent: all 12 public PDA paths matched SDK seed limits
+17 base seeds, truncated suffix: all 12 public PDA paths matched SDK seed limits
+nonempty suffix must never be ignored: all 12 public PDA paths matched SDK seed limits
+33-byte seed, hash-equivalent: all 12 public PDA paths matched SDK seed limits
+test pda_helpers_match_the_signing_seed_domain_in_sbf ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s

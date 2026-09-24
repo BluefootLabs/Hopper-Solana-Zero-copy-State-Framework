@@ -1,0 +1,36 @@
+{
+  "schema": "hopper.canonical-pda-local.v1",
+  "sourceCommit": "3d18085cbf92fa374df9cdd61e96a7891694ffab",
+  "baselineSourceCommit": "dc2274cdb0b52cf2f2b23595417f36043c9931f4",
+  "cargoBuildSbf": "4.1.0",
+  "platformTools": "v1.54",
+  "sbfRustc": "1.89.0",
+  "hostRustc": "1.96.0",
+  "mollusk": "0.15.1",
+  "architectures": {
+    "v0": {
+      "bytes": 8288,
+      "sha256": "5c77cb7423ee85976d2f3c02da7ec38461945e2fa20d383941d45a771e569ccf"
+    },
+    "v3": {
+      "bytes": 7784,
+      "sha256": "d2d29ddc86f34bcc645df5577f2bbb468b191e0e35f4dc7065b0359bf2fa43dd"
+    }
+  },
+  "exhaustiveModes": 7,
+  "checks": [
+    "canonical acceptance",
+    "all 255 other bumps refused",
+    "every off-curve noncanonical address refused",
+    "unrelated address refused",
+    "complete account snapshots unchanged"
+  ],
+  "seedBoundaryCases": 7,
+  "seedBoundaryApisPerCase": 12,
+  "hostSuite": {
+    "passed": 2214,
+    "failed": 0,
+    "ignored": 225
+  },
+  "clippyWarningsDenied": true
+}
