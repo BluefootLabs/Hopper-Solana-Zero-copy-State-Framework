@@ -9,7 +9,7 @@ offline by default, with optional RPC connectivity for live account fetching.
 
 ## Install
 
-Install the 0.3.0 release:
+Install the 0.3.1 release:
 
 ```bash
 cargo install hopper-cli --version 0.3.1 --locked
