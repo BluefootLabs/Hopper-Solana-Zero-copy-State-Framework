@@ -412,9 +412,14 @@ def validate_train(
 
 
 def package_archive_path(
-    target_directory: pathlib.Path, record: dict[str, Any]
+    target_directory: pathlib.Path, record: dict[str, Any], *, publish: bool = False
 ) -> pathlib.Path:
-    return target_directory / "package" / f"{record['name']}-{record['version']}.crate"
+    directory = target_directory / "package"
+    # Pinned Cargo 1.96 stages publish archives separately from cargo package.
+    # The latter can retain an earlier generated dependency lockfile.
+    if publish:
+        directory /= "tmp-crate"
+    return directory / f"{record['name']}-{record['version']}.crate"
 
 
 def package_args(package: str, allow_dirty: bool, *, list_only: bool) -> list[str]:
@@ -447,8 +452,10 @@ def require_archive(
     root: pathlib.Path,
     target_directory: pathlib.Path,
     record: dict[str, Any],
+    *,
+    publish: bool = False,
 ) -> dict[str, Any]:
-    archive = package_archive_path(target_directory, record)
+    archive = package_archive_path(target_directory, record, publish=publish)
     if not archive.is_file():
         raise RuntimeError(
             f"cargo did not produce the expected archive for {record['name']}: {archive}"
@@ -561,6 +568,11 @@ def registry_dry_run(
         }
     for record in selected:
         args = registry_dry_run_args(record["name"], allow_dirty)
+        archive = package_archive_path(target_directory, record, publish=True)
+        if archive.exists():
+            if not archive.is_file():
+                raise RuntimeError(f"expected publish archive path is not a file: {archive}")
+            archive.unlink()
         print(f"registry dry-run: {record['name']}")
         result = run(args, root)
         if result.stdout:
@@ -580,7 +592,7 @@ def registry_dry_run(
         record["registryDryRun"] = {
             "status": "passed",
             "command": command_evidence(args, result),
-            "archive": require_archive(root, target_directory, record),
+            "archive": require_archive(root, target_directory, record, publish=True),
         }
     return {
         "requested": True,
@@ -763,6 +775,41 @@ def run_self_tests() -> None:
             self.assertEqual(
                 evidence["sha256"], hashlib.sha256(b"crate archive bytes").hexdigest()
             )
+
+        def test_registry_dry_run_requires_fresh_publish_archive(self) -> None:
+            root = pathlib.Path(self.temp.name)
+            target = root / "target"
+            record = {"name": "hopper-runtime", "version": "1.2.3"}
+            packaged = package_archive_path(target, record)
+            packaged.parent.mkdir(parents=True)
+            packaged.write_bytes(b"older package lockfile")
+            staged = package_archive_path(target, record, publish=True)
+            staged.parent.mkdir(parents=True)
+            staged.write_bytes(b"stale publish archive")
+
+            def fake_run(args: list[str], cwd: pathlib.Path) -> subprocess.CompletedProcess[str]:
+                self.assertFalse(staged.exists())
+                self.assertEqual(packaged.read_bytes(), b"older package lockfile")
+                staged.write_bytes(b"fresh registry lockfile")
+                return subprocess.CompletedProcess(args, 0, "", "")
+
+            with mock.patch.object(sys.modules[__name__], "run", side_effect=fake_run):
+                registry_dry_run(root, target, [record], False, None)
+            evidence = record["registryDryRun"]["archive"]
+            self.assertEqual(evidence["path"], "target/package/tmp-crate/hopper-runtime-1.2.3.crate")
+            self.assertEqual(evidence["sha256"], hashlib.sha256(b"fresh registry lockfile").hexdigest())
+
+        def test_registry_dry_run_refuses_old_package_when_publish_output_missing(self) -> None:
+            root = pathlib.Path(self.temp.name)
+            target = root / "target"
+            record = {"name": "hopper-runtime", "version": "1.2.3"}
+            packaged = package_archive_path(target, record)
+            packaged.parent.mkdir(parents=True)
+            packaged.write_bytes(b"old package output must not satisfy this gate")
+            result = subprocess.CompletedProcess(["cargo"], 0, "", "")
+            with mock.patch.object(sys.modules[__name__], "run", return_value=result):
+                with self.assertRaisesRegex(RuntimeError, "did not produce the expected archive"):
+                    registry_dry_run(root, target, [record], False, None)
 
         def test_command_evidence_binds_both_streams_and_exit_code(self) -> None:
             result = subprocess.CompletedProcess(

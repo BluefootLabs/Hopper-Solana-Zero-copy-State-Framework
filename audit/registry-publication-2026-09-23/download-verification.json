@@ -1,0 +1,498 @@
+{
+  "schema": "hopper.registry-download-verification.v1",
+  "allPassed": true,
+  "packages": [
+    {
+      "name": "grillo-manifest",
+      "version": "0.1.0",
+      "sha256": "0159c94a908cfb94448f3e2225967cfaabf94fab021af07d9b74f7159657eb37",
+      "bytes": 52809,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/grillo-manifest"
+      },
+      "releaseDependencyChecksumsVerified": []
+    },
+    {
+      "name": "hopper-builtins",
+      "version": "0.3.0",
+      "sha256": "a10e183d92e94266ad9f53a274d3b81efe8d18cd6e75e4834b90a827e6606e1f",
+      "bytes": 6740,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-builtins"
+      },
+      "releaseDependencyChecksumsVerified": []
+    },
+    {
+      "name": "hopper-derive",
+      "version": "0.3.0",
+      "sha256": "5bb9f04a8fbcb094d7553dcf595a02f089d50f99e1f37bc6d0172367a73edd0c",
+      "bytes": 209536,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-macros-proc"
+      },
+      "releaseDependencyChecksumsVerified": []
+    },
+    {
+      "name": "hopper-native",
+      "version": "0.3.0",
+      "sha256": "fcb624f7d060dac35bb4a4433b3f6910fcf3f5d9962c194d8ed06d5081e34028",
+      "bytes": 137838,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-native"
+      },
+      "releaseDependencyChecksumsVerified": []
+    },
+    {
+      "name": "hopper-topology",
+      "version": "0.1.0",
+      "sha256": "5cf30465dc174cc09639b883eca2ae089b7dab30220a3d5fea08ff413e3535ff",
+      "bytes": 18925,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-topology"
+      },
+      "releaseDependencyChecksumsVerified": []
+    },
+    {
+      "name": "hopper-runtime",
+      "version": "0.3.0",
+      "sha256": "155746caa4b949d55d9a03b665d99c6c28864f36edd4c0561ad373ac86e84411",
+      "bytes": 298604,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-runtime"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native"
+      ]
+    },
+    {
+      "name": "hopper-anchor",
+      "version": "0.3.0",
+      "sha256": "dc4ca53275d0e789a631204d2f077fcfdcef189daccb4c76547df658f2708b3f",
+      "bytes": 4094,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-anchor"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-system",
+      "version": "0.3.0",
+      "sha256": "8529b8d0da08ed2d3860a0e3a29ec108819328f369e45d15452ce2bcb45592bd",
+      "bytes": 2176,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-system"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-systems",
+      "version": "0.3.0",
+      "sha256": "9303773a3d9efd45c79982013c4a7d5ac56611d70f95034f9d03da985dd53669",
+      "bytes": 198253,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-core"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-token",
+      "version": "0.3.0",
+      "sha256": "4d2c059b2f3847193e2c86c4a0094c089519f9d82113c9c9770d42921df00cb7",
+      "bytes": 9523,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-token"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-distribute",
+      "version": "0.3.0",
+      "sha256": "fc79d834c1184200b0950f0af2655f9a6df81788e26677ae64c1a65330cdb389",
+      "bytes": 4949,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-distribute"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-lending",
+      "version": "0.3.0",
+      "sha256": "65db74e7f12d368f5348f1a77ebe38050aa87af8972f55a61b755d6199933d9b",
+      "bytes": 3708,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-lending"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-memo",
+      "version": "0.3.0",
+      "sha256": "5d7eb61ba567c56ed968a03d9f7bea23d3f7d975eb724f46a0ad7f3aa6b48685",
+      "bytes": 4314,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-memo"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-metaplex",
+      "version": "0.3.0",
+      "sha256": "4d67aa967c9005580c4d1b57c7721d3f4243e691f180d38bbe5279465c662f8d",
+      "bytes": 12148,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-metaplex"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-multisig",
+      "version": "0.3.0",
+      "sha256": "d38ad79a075a415753cee1fef8c9499f974af0bcfd68c4d4077e5b1623a14ed8",
+      "bytes": 2617,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-multisig"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-staking",
+      "version": "0.3.0",
+      "sha256": "14685ddf96c4740c90638f7ee5a33032a2ad7c2f20e7e9d43de56460c25129ec",
+      "bytes": 3974,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-staking"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-svm",
+      "version": "0.3.0",
+      "sha256": "f49138627aeb860367ccf5a90faec48cf7e81bc36a22d43a494fb4c039ced7b0",
+      "bytes": 4576,
+      "vcs": {
+        "git": {
+          "sha1": "e47a4d5bac9dcea36d89ce554282a3a79e14aa5f"
+        },
+        "path_in_vcs": "crates/hopper-svm"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-vesting",
+      "version": "0.3.0",
+      "sha256": "c08a5b5b79a33ef6c47b5814f3b05684fb5e1adb19c56742a8a4c7145bfcc516",
+      "bytes": 3891,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-vesting"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime"
+      ]
+    },
+    {
+      "name": "hopper-finance",
+      "version": "0.3.0",
+      "sha256": "b693f788d50d3e24a9f1d70c527964fe0bab12a81f620d4f0dc0007b119bfaed",
+      "bytes": 6647,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-finance"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-systems"
+      ]
+    },
+    {
+      "name": "hopper-schema",
+      "version": "0.3.0",
+      "sha256": "9c92920bfa9011b2cc5ae1bcbce1f9df80271907bff5e70bd6ff75e883c0eaee",
+      "bytes": 137050,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-schema"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-systems"
+      ]
+    },
+    {
+      "name": "hopper-macros",
+      "version": "0.3.0",
+      "sha256": "3c3f4d22cd456f577e2a27f4600699f36695053e35c2f06523fd421a6906c970",
+      "bytes": 17518,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-macros"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-schema",
+        "hopper-system",
+        "hopper-systems"
+      ]
+    },
+    {
+      "name": "hopper-solana",
+      "version": "0.3.0",
+      "sha256": "8a42019ea21ebf7861f198423ba5ca9842160af6c8d736868cc46803b68172d4",
+      "bytes": 33363,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-solana"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-system",
+        "hopper-systems",
+        "hopper-token"
+      ]
+    },
+    {
+      "name": "hopper-associated-token",
+      "version": "0.3.0",
+      "sha256": "4b07daa03d365d46ed275cee0542b79b332862dedae4ee157f04dec2c47d652c",
+      "bytes": 3828,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-associated-token"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-solana",
+        "hopper-system",
+        "hopper-systems",
+        "hopper-token"
+      ]
+    },
+    {
+      "name": "hopper-token-2022",
+      "version": "0.3.0",
+      "sha256": "6f4b6081ed922a99eed7018ee1c4d467c0e44aaa8407764319b2b2877f9ff642",
+      "bytes": 10550,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-spl/hopper-token-2022"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-solana",
+        "hopper-system",
+        "hopper-systems",
+        "hopper-token"
+      ]
+    },
+    {
+      "name": "hopper-manager",
+      "version": "0.3.0",
+      "sha256": "8e94b4719b35337112772bcbc8f91aa5085e9419c61697dbb1c65528e556ebe9",
+      "bytes": 9126,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-manager"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-schema",
+        "hopper-systems"
+      ]
+    },
+    {
+      "name": "hopper-sdk",
+      "version": "0.3.0",
+      "sha256": "7c820ff312c11881256ba76b466796236ccc3f15970b80b1642ca46ea9654366",
+      "bytes": 18892,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/hopper-sdk"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-schema",
+        "hopper-systems"
+      ]
+    },
+    {
+      "name": "hopper-lang",
+      "version": "0.3.0",
+      "sha256": "241eea943197cc008fc5598086b8f5ff61118c5078323c828326a80a8a05cada",
+      "bytes": 754268,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": ""
+      },
+      "releaseDependencyChecksumsVerified": [
+        "hopper-anchor",
+        "hopper-associated-token",
+        "hopper-builtins",
+        "hopper-derive",
+        "hopper-distribute",
+        "hopper-finance",
+        "hopper-lending",
+        "hopper-macros",
+        "hopper-memo",
+        "hopper-metaplex",
+        "hopper-multisig",
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-schema",
+        "hopper-solana",
+        "hopper-staking",
+        "hopper-svm",
+        "hopper-system",
+        "hopper-systems",
+        "hopper-token",
+        "hopper-token-2022",
+        "hopper-vesting"
+      ]
+    },
+    {
+      "name": "grillo-verifier",
+      "version": "0.1.0",
+      "sha256": "463d167142ccf1ad669b3c463920f6bac6ced619f3d6d0ae38ab6972a23e1b79",
+      "bytes": 45395,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "crates/grillo-verifier"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "grillo-manifest"
+      ]
+    },
+    {
+      "name": "hopper-cli",
+      "version": "0.3.0",
+      "sha256": "b54560efe2206e205c8b94f110af1a0e4b7634f1f1584898bd2f34636e76daec",
+      "bytes": 354109,
+      "vcs": {
+        "git": {
+          "sha1": "471fc5abb7b0eeb2d40cdaa66fd3d95d17a487c0"
+        },
+        "path_in_vcs": "tools/hopper-cli"
+      },
+      "releaseDependencyChecksumsVerified": [
+        "grillo-manifest",
+        "grillo-verifier",
+        "hopper-manager",
+        "hopper-native",
+        "hopper-runtime",
+        "hopper-schema",
+        "hopper-systems"
+      ]
+    }
+  ]
+}

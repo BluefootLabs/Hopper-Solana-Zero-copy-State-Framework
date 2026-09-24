@@ -7,7 +7,7 @@
 > - `hopper client gen --c <manifest.json>` -> C header-only client
 > - `hopper compile --emit rust-client <manifest.json>` -> Rust off-chain SDK
 
-The unpublished Hopper `0.3.0` workspace generates TypeScript, Kotlin, Python,
+Hopper `0.3.0` generates TypeScript, Kotlin, Python,
 Go, C header-only, and off-chain Rust clients, plus Hopper public IDL, Codama
 JSON, and a lossless-only Solana IDL v0.1.0 projection. `compile --emit idl`
 emits Hopper's public subset; Solana IDL is the separate `schema export

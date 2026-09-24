@@ -160,6 +160,12 @@ not require an alternate feature-built program.
 
 ## Publication train evidence
 
+The [September 23 publication archive](../audit/registry-publication-2026-09-23/README.md)
+records all 29 indexed packages, downloaded archive checksums, per-package
+clean source commits, registry dry runs, and compiled execution of a fresh
+registry-only consumer. The included final-source Cicada attestation reproduces
+the 157,672-byte executable described above.
+
 [`release/publish-order.toml`](../release/publish-order.toml) is the
 machine-readable order and version map for all 29 public packages. Validate it
 without uploading anything:
@@ -178,7 +184,13 @@ registry.
 
 After each earlier dependency has been uploaded and indexed, add
 `--registry-dry-run`. This invokes only `cargo publish --dry-run`; it never
-uploads a crate. If the registry is still missing an earlier dependency, resume
+uploads a crate. Under pinned Cargo 1.96, publish dry runs stage their archive
+in `target/package/tmp-crate`; this is separate from `cargo package` output.
+The verifier removes the expected staged file before the command and hashes
+the newly produced archive, preventing stale package-preflight bytes from
+being recorded as registry dry-run evidence.
+
+If the registry is still missing an earlier dependency, resume
 later with `--start-at <package>`.
 
 ## Cross-framework benchmark evidence

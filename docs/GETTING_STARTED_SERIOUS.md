@@ -16,11 +16,10 @@ but they are not where a new Hopper program should begin.
 
 ## Install Hopper
 
-The registry release observed on 2026-09-06 is 0.2.1. Install that exact CLI
-when following published 0.2.1 APIs:
+Install the published 0.3.0 CLI and use the matching framework release:
 
 ```bash
-cargo install hopper-cli --version 0.2.1 --locked
+cargo install hopper-cli --version 0.3.0 --locked
 hopper init my-vault --template minimal --yes
 cd my-vault
 ```
@@ -30,7 +29,7 @@ crate `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "=0.2.1", default-features = false, features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.3.0", default-features = false, features = ["proc-macros"] }
 ```
 
 The package is named `hopper-lang` on crates.io because the `hopper` package
@@ -41,9 +40,8 @@ name is already occupied by an unrelated crate. The library crate is still
 use hopper::prelude::*;
 ```
 
-This repository contains unpublished 0.3.0 development source. Use the
-local-path form below for 0.3-only APIs; do not combine a 0.2.1 registry
-dependency with examples written for this checkout.
+These examples target Hopper 0.3.0. Keep the CLI and framework on the same
+release line.
 
 When developing against a local framework checkout, use the CLI flag instead of
 editing the generated file by hand:

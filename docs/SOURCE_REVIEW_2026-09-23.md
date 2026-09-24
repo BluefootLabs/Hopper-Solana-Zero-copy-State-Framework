@@ -84,9 +84,13 @@ build-attestation milestone; it does not establish a hosted CI result or a
 third-party route integration.
 
 All 29 release packages pass metadata, dependency-order and package-closure
-checks. The first crate also passes the registry dry run. Publication remains
-pending; 0.2.1 is still the observed `hopper-lang` and `hopper-cli` registry
-release. No successful upload is included in this evidence.
+checks. The subsequent [registry publication archive](../audit/registry-publication-2026-09-23/README.md)
+records all 29 successful dry runs and uploads, exact downloaded archive
+checksums, clean source commits and a compiled registry-only consumer.
+Hopper and its CLI are published as 0.3.0; Grillo and hopper-topology are 0.1.0.
+Publication timestamps are September 24 UTC, September 23 America/Chicago.
+GitHub hosted jobs could not start because of an account billing lock; local
+passing checks are not reported as hosted CI success.
 
 ## Observed network state
 
