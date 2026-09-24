@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-token-2022 v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+    Updating crates.io index
+    Packaged 8 files, 39.8KiB (10.3KiB compressed)
+   Verifying hopper-token-2022 v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-token-2022 v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-token-2022-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 1.23s
+   Uploading hopper-token-2022 v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+warning: aborting upload due to dry run

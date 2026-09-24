@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-derive v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+    Updating crates.io index
+    Packaged 21 files, 908.4KiB (204.6KiB compressed)
+   Verifying hopper-derive v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+   Compiling hopper-derive v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-derive-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 7.72s
+   Uploading hopper-derive v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+    Uploaded hopper-derive v0.3.0 to registry `crates-io`
+note: waiting for hopper-derive v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-derive v0.3.0 at registry `crates-io`

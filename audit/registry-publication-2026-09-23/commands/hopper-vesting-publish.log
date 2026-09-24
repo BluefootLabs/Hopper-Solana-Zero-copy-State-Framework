@@ -1,0 +1,14 @@
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Packaging hopper-vesting v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-vesting)
+    Updating crates.io index
+    Packaged 8 files, 11.0KiB (3.8KiB compressed)
+   Verifying hopper-vesting v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-vesting)
+   Compiling hopper-vesting v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-vesting-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.83s
+   Uploading hopper-vesting v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-vesting)
+    Uploaded hopper-vesting v0.3.0 to registry `crates-io`
+note: waiting for hopper-vesting v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-vesting v0.3.0 at registry `crates-io`

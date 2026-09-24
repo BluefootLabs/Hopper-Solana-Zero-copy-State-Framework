@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+    Updating crates.io index
+    Packaged 6 files, 79.5KiB (17.1KiB compressed)
+   Verifying hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-macros-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.73s
+   Uploading hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+    Uploaded hopper-macros v0.3.0 to registry `crates-io`
+note: waiting for hopper-macros v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-macros v0.3.0 at registry `crates-io`

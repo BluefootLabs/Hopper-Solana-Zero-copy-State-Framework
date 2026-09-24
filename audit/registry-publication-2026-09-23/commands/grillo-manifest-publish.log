@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging grillo-manifest v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\grillo-manifest)
+    Updating crates.io index
+    Packaged 18 files, 267.9KiB (51.6KiB compressed)
+   Verifying grillo-manifest v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\grillo-manifest)
+   Compiling grillo-manifest v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\grillo-manifest-0.1.0)
+    Finished `dev` profile [unoptimized] target(s) in 2.44s
+   Uploading grillo-manifest v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\grillo-manifest)
+    Uploaded grillo-manifest v0.1.0 to registry `crates-io`
+note: waiting for grillo-manifest v0.1.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published grillo-manifest v0.1.0 at registry `crates-io`

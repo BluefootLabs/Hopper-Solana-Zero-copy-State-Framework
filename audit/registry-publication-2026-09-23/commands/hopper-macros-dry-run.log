@@ -1,0 +1,14 @@
+    Updating crates.io index
+   Packaging hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+    Updating crates.io index
+    Packaged 6 files, 79.5KiB (17.1KiB compressed)
+   Verifying hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+ Downloading crates ...
+  Downloaded hopper-system v0.3.0
+  Downloaded hopper-schema v0.3.0
+   Compiling hopper-schema v0.3.0
+   Compiling hopper-system v0.3.0
+   Compiling hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-macros-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 2.94s
+   Uploading hopper-macros v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+warning: aborting upload due to dry run

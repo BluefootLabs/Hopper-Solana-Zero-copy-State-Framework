@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-metaplex v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+    Updating crates.io index
+    Packaged 10 files, 45.3KiB (11.9KiB compressed)
+   Verifying hopper-metaplex v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+   Compiling hopper-metaplex v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-metaplex-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.67s
+   Uploading hopper-metaplex v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+    Uploaded hopper-metaplex v0.3.0 to registry `crates-io`
+note: waiting for hopper-metaplex v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-metaplex v0.3.0 at registry `crates-io`

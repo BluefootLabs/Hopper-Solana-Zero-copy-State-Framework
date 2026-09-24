@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-system v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+    Updating crates.io index
+    Packaged 6 files, 4.3KiB (2.1KiB compressed)
+   Verifying hopper-system v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-system v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-system-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 4.08s
+   Uploading hopper-system v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+    Uploaded hopper-system v0.3.0 to registry `crates-io`
+note: waiting for hopper-system v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-system v0.3.0 at registry `crates-io`

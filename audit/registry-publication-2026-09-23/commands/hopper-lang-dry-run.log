@@ -1,0 +1,19 @@
+    Updating crates.io index
+   Packaging hopper-lang v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+warning: ignoring test `dx_parity_docs` as `tests\dx_parity_docs.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 485 files, 2.5MiB (736.6KiB compressed)
+   Verifying hopper-lang v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+ Downloading crates ...
+  Downloaded hopper-token-2022 v0.3.0
+  Downloaded hopper-memo v0.3.0
+  Downloaded hopper-macros v0.3.0
+  Downloaded hopper-associated-token v0.3.0
+   Compiling hopper-macros v0.3.0
+   Compiling hopper-token-2022 v0.3.0
+   Compiling hopper-associated-token v0.3.0
+   Compiling hopper-memo v0.3.0
+   Compiling hopper-lang v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-lang-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 12.21s
+   Uploading hopper-lang v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+warning: aborting upload due to dry run

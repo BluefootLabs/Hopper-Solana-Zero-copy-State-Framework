@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-distribute v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-distribute)
+    Updating crates.io index
+    Packaged 8 files, 14.3KiB (4.8KiB compressed)
+   Verifying hopper-distribute v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-distribute)
+   Compiling hopper-distribute v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-distribute-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 1.13s
+   Uploading hopper-distribute v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-distribute)
+    Uploaded hopper-distribute v0.3.0 to registry `crates-io`
+note: waiting for hopper-distribute v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-distribute v0.3.0 at registry `crates-io`

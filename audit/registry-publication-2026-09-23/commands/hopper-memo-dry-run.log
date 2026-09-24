@@ -1,0 +1,11 @@
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Packaging hopper-memo v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+    Updating crates.io index
+    Packaged 6 files, 11.0KiB (4.2KiB compressed)
+   Verifying hopper-memo v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-memo v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-memo-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 1.96s
+   Uploading hopper-memo v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+warning: aborting upload due to dry run

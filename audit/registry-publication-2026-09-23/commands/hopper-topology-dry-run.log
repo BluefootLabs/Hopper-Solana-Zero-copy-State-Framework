@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-topology v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-topology)
+    Updating crates.io index
+    Packaged 11 files, 75.8KiB (18.5KiB compressed)
+   Verifying hopper-topology v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-topology)
+   Compiling hopper-topology v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-topology-0.1.0)
+    Finished `dev` profile [unoptimized] target(s) in 14.41s
+   Uploading hopper-topology v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-topology)
+warning: aborting upload due to dry run

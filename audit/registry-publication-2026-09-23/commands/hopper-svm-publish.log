@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-svm v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+    Updating crates.io index
+    Packaged 6 files, 12.8KiB (4.5KiB compressed)
+   Verifying hopper-svm v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+   Compiling hopper-svm v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-svm-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.93s
+   Uploading hopper-svm v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+    Uploaded hopper-svm v0.3.0 to registry `crates-io`
+note: waiting for hopper-svm v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-svm v0.3.0 at registry `crates-io`

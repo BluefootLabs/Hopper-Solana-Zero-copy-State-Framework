@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-cli v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+    Updating crates.io index
+    Packaged 52 files, 1.4MiB (345.8KiB compressed)
+   Verifying hopper-cli v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+   Compiling hopper-cli v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-cli-0.3.0)
+    Finished `dev` profile [unoptimized] target(s) in 33.86s
+   Uploading hopper-cli v0.3.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+    Uploaded hopper-cli v0.3.0 to registry `crates-io`
+note: waiting for hopper-cli v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-cli v0.3.0 at registry `crates-io`

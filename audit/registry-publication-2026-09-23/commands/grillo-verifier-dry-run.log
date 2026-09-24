@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging grillo-verifier v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\grillo-verifier)
+    Updating crates.io index
+    Packaged 18 files, 222.7KiB (44.3KiB compressed)
+   Verifying grillo-verifier v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\grillo-verifier)
+ Downloading crates ...
+  Downloaded grillo-manifest v0.1.0
+   Compiling grillo-manifest v0.1.0
+   Compiling grillo-verifier v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\grillo-verifier-0.1.0)
+    Finished `dev` profile [unoptimized] target(s) in 31.75s
+   Uploading grillo-verifier v0.1.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\grillo-verifier)
+warning: aborting upload due to dry run
