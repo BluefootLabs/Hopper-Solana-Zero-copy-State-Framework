@@ -141,6 +141,8 @@ pub const fn program_address_const(seeds: &[&[u8]], bump: u8, program_id: &Addre
 /// Verify that an expected address matches the PDA hash for the provided seeds.
 ///
 /// The seeds slice must already include the bump byte.
+/// This checks hash equality only. It does not establish curve membership,
+/// canonicality, account ownership, or an account's initialization history.
 #[inline(always)]
 pub fn verify_program_address(
     seeds: &[&[u8]],
@@ -224,24 +226,24 @@ pub fn based_try_find_program_address(
             slice_ptr.add(n + 2).write(PDA_MARKER_BYTES.as_slice());
         }
 
-        let mut bump_seed = [u8::MAX];
-        let bump_ptr = bump_seed.as_mut_ptr();
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe {
-            slice_ptr
-                .add(n)
-                .write(core::slice::from_raw_parts(bump_ptr, 1))
-        };
-
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
         let mut bump: u64 = u8::MAX as u64;
 
         loop {
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            unsafe { bump_ptr.write(bump as u8) };
+            let bump_seed = [bump as u8];
+            // SAFETY: n <= MAX_SEEDS - 1. Install this iteration's immutable
+            // seed before constructing the initialized prefix. The syscall
+            // consumes it synchronously; no shared seed reference is reused
+            // after the next iteration rewrites the descriptor array.
+            unsafe {
+                slice_ptr
+                    .add(n)
+                    .write(core::slice::from_raw_parts(bump_seed.as_ptr(), 1))
+            };
+            let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
 
+            // SAFETY: All n + 3 descriptors are initialized, every referenced
+            // byte is live for the call, and hash has space for its 32-byte output.
             unsafe {
                 crate::syscalls::sol_sha256(
                     input as *const _ as *const u8,
@@ -372,11 +374,11 @@ pub fn verify_pda_strict(
 
 /// Find the bump seed for a known PDA address, skipping curve validation.
 ///
-/// When you already know the expected address (e.g. from a transaction
-/// account), there is no need to validate the derived hash is off-curve.
-/// If the hash matches `expected` and the account exists on-chain, it
-/// must be a valid PDA. This saves ~90 CU per attempt compared to
-/// `based_try_find_program_address` which calls `sol_curve_validate_point`.
+/// This is a hash-match search, not canonical derivation or an off-curve
+/// proof. Mere presence in a transaction or existence on chain does not
+/// establish either property. The caller must establish the required PDA
+/// provenance separately. Use [`based_try_find_program_address`] and compare
+/// its result when a canonical address is required.
 ///
 /// Returns the bump seed, or `Err(InvalidSeeds)` if no bump produces a match.
 #[inline(always)]
@@ -405,24 +407,23 @@ pub fn find_bump_for_address(
             slice_ptr.add(n + 2).write(PDA_MARKER_BYTES.as_slice());
         }
 
-        let mut bump_seed = [u8::MAX];
-        let bump_ptr = bump_seed.as_mut_ptr();
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe {
-            slice_ptr
-                .add(n)
-                .write(core::slice::from_raw_parts(bump_ptr, 1))
-        };
-
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
         let mut bump: u64 = u8::MAX as u64;
 
         loop {
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            unsafe { bump_ptr.write(bump as u8) };
+            let bump_seed = [bump as u8];
+            // SAFETY: n <= MAX_SEEDS - 1. Install this iteration's immutable
+            // seed before constructing the initialized prefix. No shared
+            // seed reference is reused after its backing byte changes.
+            unsafe {
+                slice_ptr
+                    .add(n)
+                    .write(core::slice::from_raw_parts(bump_seed.as_ptr(), 1))
+            };
+            let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
 
+            // SAFETY: All descriptors and input bytes remain live through the
+            // synchronous call, which fills the 32-byte hash output.
             unsafe {
                 crate::syscalls::sol_sha256(
                     input as *const _ as *const u8,
@@ -432,8 +433,8 @@ pub fn find_bump_for_address(
             }
 
             // Address-match shortcut: skip curve check entirely.
-            // If the hash matches the expected address and that address
-            // exists on-chain, it is guaranteed to be a valid PDA.
+            // Matching this address does not establish canonicality or
+            // curve membership; those are separate caller obligations.
             // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let derived = unsafe { &*(hash.as_ptr() as *const Address) };
             if derived == expected {

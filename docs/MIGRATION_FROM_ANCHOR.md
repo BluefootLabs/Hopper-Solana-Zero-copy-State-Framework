@@ -314,25 +314,30 @@ Two things to know:
 
 Use `ctx.bumps.field_name`, the same shape Anchor users expect. Hopper also retains `ctx.bumps().field_name` for older code.
 
-For a PDA whose seeds are all literals (a global config, a vault keyed by
-the program id), Anchor still hashes on every instruction. Hopper hashes it
-once at compile time:
+Bare `bump` constraints and `seeds_fn` helpers search for the canonical
+off-curve address. Explicit and stored bumps verify a selected address;
+establish canonicality at initialization if the application requires it.
+
+For literal seeds, derive the address and canonical bump during compilation:
 
 ```rust
 hopper::declare_id!("F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy");
-pub const CONFIG: Address = hopper::const_pda!(ID, [b"config"], 254);
+pub const CONFIG: (Address, u8) = hopper::canonical_pda!(
+    "F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy", [b"config"]
+);
 
 #[derive(Accounts)]
 pub struct Touch<'info> {
-    #[account(mut, address = CONFIG)]
+    #[account(mut, address = CONFIG.0)]
     pub config: Account<'info, Config>,
 }
 ```
 
-The bump is the canonical one your client derives (`find_program_address`);
-the compile-time hash does not curve-check it. The check on chain is a
-32-byte compare, and the account is still owner- and layout-validated, so
-the soundness argument is the same as for the one-hash verifier.
+`canonical_pda!` searches descending bumps and curve-checks on the build
+host. It emits address bytes and the bump, so the on-chain address check
+needs no derivation. The typed account still verifies ownership and layout.
+The lower-level `const_pda!(ID, seeds, bump)` hashes a caller-selected bump;
+it performs neither canonical search nor curve validation.
 
 ## Errors
 

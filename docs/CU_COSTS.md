@@ -219,9 +219,13 @@ discs for them, do not budget from this page:
   `bump = <arg>` costs no hash at all: the creation CPI signed with the
   seeds is the check, since the System Program requires the created account
   to sign (the hash runs only for a signer or a non-empty account). Seeds
-  that are all literals cost nothing either: `hopper::const_pda!` hashes
-  them at compile time and `#[account(address = CONST)]` is a 32-byte
-  compare.
+  that are all literals can use `hopper::canonical_pda!` to search and
+  curve-check on the build host, then compare the emitted address on chain.
+  `const_pda!` only hashes a supplied bump; it does not prove canonicality
+  or curve membership. Bare `bump` and `seeds_fn` perform canonical search
+  at runtime, including for typed accounts. An address comparison still
+  executes instructions; removing derivation does not make the instruction
+  cost zero CU.
 - **Logging macro variants** (`hopper_log!`, `msg!` with formatting,
   `hopper_emit_cpi!`). The measured anchor points from this run: one
   log-class syscall bills 100 CU base (the empty bracket measures 101 CU),

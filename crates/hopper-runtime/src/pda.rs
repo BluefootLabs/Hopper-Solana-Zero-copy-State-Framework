@@ -61,23 +61,12 @@ pub fn derive(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
 /// touches the account. [`crate::const_pda!`] is the same call with the
 /// seed list spelled inline.
 ///
-/// `bump` must be the canonical bump `find_program_address` returns (the
-/// one every client derives); the hash is not curve-checked here, exactly
-/// like [`verify_pda_address`], and the soundness argument is the same:
-/// an owner- and layout-validated account at a hash output is a PDA, and
-/// no key-holder can produce a program-owned account at one. For a raw or
-/// system-owned account keep the curve-checked runtime derivation.
-///
-/// ```ignore
-/// hopper::declare_id!("F4Um7PWsnZfN7y8WFzu1aPYJwqGduJTa4zuCGY9EUqMy");
-/// pub const CONFIG: Address = hopper::const_pda!(ID, [b"config"], 254);
-///
-/// #[derive(Accounts)]
-/// pub struct Touch<'info> {
-///     #[account(mut, address = CONFIG)]
-///     pub config: Account<'info, Config>,
-/// }
-/// ```
+/// This computes the hash for the selected bump. It does not search for the
+/// canonical bump or check that the result is off-curve. Establish those
+/// properties separately before using the result as a PDA. For literal inputs,
+/// the facade's `hopper::canonical_pda!` macro derives a canonical address and
+/// bump on the build host. Account ownership, layout and privilege checks are
+/// still separate application obligations.
 pub const fn const_program_address(program_id: &Address, seeds: &[&[u8]], bump: u8) -> Address {
     let backend = hopper_native::address::Address::new_from_array(*program_id.as_array());
     Address::new_from_array(

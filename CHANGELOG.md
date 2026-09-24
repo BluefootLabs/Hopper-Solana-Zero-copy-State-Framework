@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## [Unreleased]
 
+- **PDA search reference lifetimes.** Each native search iteration now stages
+  an immutable bump seed before hashing instead of mutating a byte behind a
+  reused shared reference. Documentation distinguishes canonical search,
+  selected-bump verification and compile-time address constants.
+
 ### Added
 
 - **Canonical literal PDAs.** `canonical_pda!` derives address bytes and the

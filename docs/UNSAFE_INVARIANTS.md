@@ -721,9 +721,10 @@ auditors.
 
 | Entry point | Kind | Invariant | Test coverage |
 |---|---|---|---|
-| Inline `unsafe` in `verify_program_address` | Bounded seed array construction from `MaybeUninit` | All `MaybeUninit` slots are written before the slice is exposed to `sol_sha256`; `assume_init_ref` is called only after every slot is initialized | `pda_tests.rs::verify_program_address_sha256_only` |
-| Inline `unsafe` in `based_try_find_program_address` (3 blocks) | Bump iteration with per-iteration seed mutation | Each iteration writes a fresh bump byte into the last seed slot before the sha256 call. Safety comment at the top of the loop documents that the slot is always overwritten | `pda_tests.rs::bump_iteration_exhaustive` |
-| Inline `unsafe` in `find_bump_for_address` (3 blocks) | Same pattern as `based_try_find_program_address` but skips `sol_curve_validate_point`. Safe because PDAs are off-curve by construction and the check compares the resulting address to a known-on-chain PDA | `pda_tests.rs::find_bump_skips_curve_validate` |
+| `create_program_address` syscall | Seed-slice ABI and output buffer | Seed count/length bounds are checked; SBF slice descriptors have the asserted 16-byte layout; the output has space for 32 bytes | `bench/framework-comparison/verifier/tests/pda_boundaries_sbf.rs` |
+| Inline `unsafe` in `verify_program_address` | Bounded descriptor array and hash output | Only the initialized descriptor prefix is exposed to the synchronous SHA-256 syscall; inputs remain live and the valid call fills the 32-byte output before it is read | `bench/framework-comparison/verifier/tests/pda_boundaries_sbf.rs` |
+| Inline `unsafe` in `based_try_find_program_address` | Canonical descending bump search | Each iteration creates an immutable bump byte, writes its descriptor, then borrows the initialized prefix for hashing. No shared bump reference is reused after mutation. The hash is initialized before curve validation or return | `bench/framework-comparison/verifier/tests/canonical_pda_sbf.rs` and `pda_boundaries_sbf.rs` |
+| Inline `unsafe` in `find_bump_for_address` | Hash-match search without curve validation | Uses the same per-iteration descriptor lifetime. Address equality alone proves neither off-curve membership nor canonicality; the caller must establish the required provenance separately | `bench/framework-comparison/verifier/tests/pda_boundaries_sbf.rs` |
 
 ### `hopper-native/src/mem.rs`
 

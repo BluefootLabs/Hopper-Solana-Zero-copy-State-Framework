@@ -51,7 +51,7 @@ package-specific API details live with each companion crate.
 - Direct Hopper account access. No serialize/deserialize boundary.
 - `#[account]`, `#[derive(Accounts)]`, `#[program]`, `Ctx<T>`, `Account<'info, T>`, `InitAccount<'info, T>`, `Signer<'info>`, `Program<'info, P>`, `UncheckedAccount<'info>`.
 - Zero-copy account loads guarded by owner, discriminator, version, layout ID, size, signer, writable, seed, and custom constraints.
-- PDA checks priced by what the account already proves: one `sol_sha256` for a typed program-owned account, no hash at all for an `init` account with a supplied bump (the creation CPI's signer check is the proof), and `hopper::const_pda!` for all-literal seeds, a compile-time address checked with a 32-byte compare.
+- PDA checks distinguish canonical search from selected-bump verification. Bare `bump` and `seeds_fn` search for the canonical off-curve address; typed accounts with an explicit or stored bump use one `sol_sha256`. Eligible empty, nonsigner `init` accounts defer supplied-bump verification to the signed creation CPI. `hopper::canonical_pda!` derives literal seeds and a canonical bump at build time, leaving an address comparison on chain.
 - External account adapters for non-Hopper accounts: typed views, checked lenses, proof tokens, snapshots, lazy remaining parsing, SPL Token adapters.
 - Checked CPI, signed CPI, stored instructions, Token and Token-2022 helpers, ATA, memo, and on-chain crypto.
 - Systems-mode APIs for segmented layouts, dynamic tails, receipt trails, policy checks, schema manifests, migrations.

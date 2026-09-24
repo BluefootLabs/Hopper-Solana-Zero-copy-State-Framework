@@ -47,6 +47,13 @@ curve on the build host, then emits only address bytes and the bump. It does
 not discover a program ID through the filesystem or environment. The macro
 does not replace account ownership, layout or privilege constraints.
 
+The native search loops now create an immutable bump seed per iteration,
+then construct the descriptor prefix borrowed by the synchronous hash call.
+This removes mutation through a raw pointer while reusing a shared seed
+reference. The native helper documentation and unsafe inventory now separate
+hash equality, off-curve membership and canonicality, and name the actual
+compiled regression fixtures rather than nonexistent test symbols.
+
 The CLI's PDA search now enforces the same seed domain. `feature-gate` now
 validates finalized RPC context, exact response cardinality, account ownership,
 encoding and activation data. Reports retain network and slot identity;
