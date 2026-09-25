@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-hopper = { workspace = true }
+hopper = { workspace = true, features = ["proc-macros"] }
 
 [lints]
 workspace = true

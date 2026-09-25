@@ -1,6 +1,6 @@
 {
   "name": "hopper-cicada",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Cicada transport-neutral execution intents with Hopper byte-scoped state authority.",
   "layouts": [
     {

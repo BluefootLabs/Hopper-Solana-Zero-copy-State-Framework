@@ -614,15 +614,11 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                     options.event_cpi = true;
                     Ok(())
                 } else if meta.path.is_ident("lamports") {
-                    let mut fields = Vec::new();
-                    meta.parse_nested_meta(|inner| match inner.path.get_ident() {
-                        Some(ident) => {
-                            fields.push(ident.clone());
-                            Ok(())
-                        }
-                        None => Err(inner.error("`lamports(...)` takes field names")),
-                    })?;
-                    merge_lamports_fields(&mut options, fields);
+                    let content;
+                    syn::parenthesized!(content in meta.input);
+                    let fields: Punctuated<Ident, Comma> =
+                        content.parse_terminated(Ident::parse, Token![,])?;
+                    merge_lamports_fields(&mut options, fields.into_iter().collect());
                     Ok(())
                 } else {
                     Err(meta.error(
@@ -650,15 +646,11 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                     options.event_cpi = true;
                     Ok(())
                 } else if meta.path.is_ident("lamports") {
-                    let mut fields = Vec::new();
-                    meta.parse_nested_meta(|inner| match inner.path.get_ident() {
-                        Some(ident) => {
-                            fields.push(ident.clone());
-                            Ok(())
-                        }
-                        None => Err(inner.error("`lamports(...)` takes field names")),
-                    })?;
-                    merge_lamports_fields(&mut options, fields);
+                    let content;
+                    syn::parenthesized!(content in meta.input);
+                    let fields: Punctuated<Ident, Comma> =
+                        content.parse_terminated(Ident::parse, Token![,])?;
+                    merge_lamports_fields(&mut options, fields.into_iter().collect());
                     Ok(())
                 } else {
                     only_context_options = false;
@@ -4507,6 +4499,58 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 let assoc_abs_offset = format_ident!("{}_ABS_OFFSET", segment_upper);
                 let assoc_element_size = format_ident!("{}_ELEMENT_SIZE", segment_upper);
                 let assoc_element_count = format_ident!("{}_ELEMENT_COUNT", segment_upper);
+                let field_name = &cf.name;
+                let type_upper = to_screaming_snake(&type_ident(&field_ty)?.to_string());
+                let column_type = format_ident!("{}_{}_TYPE", type_upper, segment_upper);
+                let element_type = quote! {
+                    <#column_type as ::core::ops::Index<usize>>::Output
+                };
+                let cell_mut_fn = format_ident!("{}_{}_cell_mut", field_name, segment);
+                let cell_ref_fn = format_ident!("{}_{}_cell_ref", field_name, segment);
+                let selector_index = argument_index as usize;
+                let slot = slot_abs(cf.index);
+                let cell_offset = quote! {
+                    let selected = self.__hopper_cell_selectors[#selector_index];
+                    if selected >= <#field_ty>::#assoc_element_count {
+                        return ::core::result::Result::Err(
+                            ::hopper::__runtime::ProgramError::InvalidInstructionData,
+                        );
+                    }
+                    let offset = selected
+                        .checked_mul(<#field_ty>::#assoc_element_size)
+                        .and_then(|relative| <#field_ty>::#assoc_abs_offset.checked_add(relative))
+                        .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                };
+                accessors.push(quote! {
+                    /// Mutably borrow the array element selected when this context was bound.
+                    /// The selector, column type, and offset come from `cells(...)`; callers
+                    /// cannot accidentally select a different cell through this accessor.
+                    /// The ordinary byte policy and borrow registry still govern the acquire.
+                    #[inline(always)]
+                    #vis fn #cell_mut_fn(
+                        &mut self,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::SegRefMut<'_, #element_type>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        #cell_offset
+                        self.ctx.segment_mut::<#element_type>(#slot, offset)
+                    }
+
+                    /// Read the array element selected when this context was bound.
+                    /// This is a convenient selected-cell read, not a restriction on other
+                    /// reads from the account. Out-of-range selectors are refused.
+                    #[inline(always)]
+                    #vis fn #cell_ref_fn(
+                        &mut self,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::SegRef<'_, #element_type>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        #cell_offset
+                        self.ctx.segment_ref::<#element_type>(#slot, offset)
+                    }
+                });
                 parametric_range_exprs.push(quote! {
                     ::hopper::__runtime::write_policy::ParametricWriteRange::new(
                         #idx_u8,
@@ -5114,6 +5158,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             }
         })
         .collect();
+    // Retain the same selectors used by the policy for the generated typed
+    // cell accessors. No storage is added to contexts without cells(...).
+    let cell_selector_count = parametric_selectors.len();
+    let cell_selectors_field_decl = has_parametric_writes.then(|| {
+        quote! {
+            __hopper_cell_selectors: [u32; #cell_selector_count],
+        }
+    });
+    let cell_selectors_bound_field = has_parametric_writes.then(|| {
+        quote! {
+            __hopper_cell_selectors: [#(#parametric_arg_values),*],
+        }
+    });
     let write_policy_install_stmt: TokenStream = if mutation_complete && has_parametric_writes {
         quote! {
             static __HOPPER_WRITE_POLICY:
@@ -5601,6 +5658,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx,
                     #accounts_bound_field
                     #lamport_gate_bound_field
+                    #cell_selectors_bound_field
                     bumps: __hopper_bumps,
                 };
                 #(#auto_lifecycle_stmts)*
@@ -5651,6 +5709,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx,
                     #accounts_bound_field
                     #lamport_gate_bound_field
+                    #cell_selectors_bound_field
                     bumps: __hopper_bumps,
                 })
             }
@@ -5702,6 +5761,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx,
                     #accounts_bound_field
                     #lamport_gate_bound_field
+                    #cell_selectors_bound_field
                     bumps: __hopper_bumps,
                 };
                 #(#auto_lifecycle_stmts)*
@@ -5771,6 +5831,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
             #accounts_field_decl
             #lamport_gate_field_decl
+            #cell_selectors_field_decl
             pub bumps: #bumps_name,
         }
 
@@ -8031,6 +8092,32 @@ mod instruction_arg_tests {
     use super::*;
     use quote::ToTokens;
     use syn::{parse_quote, ItemStruct};
+
+    #[test]
+    fn empty_lamport_declarations_survive_both_helper_attribute_forms() {
+        for mut input in [
+            parse_quote! {
+                #[accounts(strict_writes, lamports())]
+                pub struct NoLamports {}
+            },
+            parse_quote! {
+                #[account(strict_writes, lamports())]
+                pub struct NoLamports {}
+            },
+        ] as [ItemStruct; 2]
+        {
+            let options = parse_context_options(TokenStream::new(), &mut input.attrs).unwrap();
+            assert!(options.strict_writes);
+            assert_eq!(options.lamports, Some(Vec::new()));
+            assert!(input.attrs.is_empty());
+        }
+
+        let mut input: ItemStruct = parse_quote! {
+            #[accounts(lamports())]
+            pub struct MissingStrict {}
+        };
+        assert!(parse_context_options(TokenStream::new(), &mut input.attrs).is_err());
+    }
 
     fn args_of(mut s: ItemStruct) -> Vec<(String, String)> {
         let decls = parse_instruction_attr(&mut s.attrs).expect("parse ok");

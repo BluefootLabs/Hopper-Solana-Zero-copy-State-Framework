@@ -1,6 +1,6 @@
 [package]
 name = "hopper-vesting"
-version = "0.3.1"
+version = "0.3.2"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Token vesting schedule calculations for Hopper. Linear with cliff, stepped/periodic unlocks, safe claimable amounts."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-vesting/0.3.1"
+documentation = "https://docs.rs/crate/hopper-vesting/0.3.2"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "vesting", "token", "defi"]
 categories = ["no-std"]

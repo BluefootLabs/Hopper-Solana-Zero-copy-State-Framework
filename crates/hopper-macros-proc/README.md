@@ -1,5 +1,14 @@
 # hopper-derive
 
+In 0.3.2, `#[account(cells(slot; spent, revisions))]` generates
+`book_spent_cell_mut()` and `book_spent_cell_ref()` on the bound context for an
+account named `book`. The accessor captures the instruction selector, infers
+the array element type, and refuses an out-of-range index. Existing byte
+policy and borrow checks still apply. Explicit
+`#[accounts(strict_writes, lamports())]` now works through `derive(Accounts)`
+as well as the direct context attribute. See the repository's on-chain quota
+example and byte-policy guide.
+
 [![Crates.io](https://img.shields.io/crates/v/hopper-derive.svg)](https://crates.io/crates/hopper-derive)
 [![Docs.rs](https://img.shields.io/docsrs/hopper-derive)](https://docs.rs/hopper-derive)
 
@@ -140,7 +149,7 @@ initialization when the application requires a unique address per seed set.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.3.1", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.3.2", features = ["proc-macros"] }
 ```
 
 Docs: <https://docs.rs/crate/hopper-derive>

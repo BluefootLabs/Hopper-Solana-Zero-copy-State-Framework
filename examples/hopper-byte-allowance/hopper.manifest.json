@@ -1,0 +1,207 @@
+{
+  "name": "hopper-byte-allowance",
+  "version": "0.3.2",
+  "description": "On-chain quotas with authenticated, revision-checked byte-cell updates.",
+  "layouts": [
+    {
+      "name": "AllowanceBook",
+      "disc": 92,
+      "version": 1,
+      "layoutId": "7a6ee6c48cc8cff4",
+      "totalSize": 272,
+      "hasDynamicTail": false,
+      "fieldCount": 5,
+      "fields": [
+        { "name": "authority", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "delegates", "type": "[Address;CELLS]", "size": 128, "offset": 48, "intent": "custom" },
+        { "name": "limits", "type": "[WireU64;CELLS]", "size": 32, "offset": 176, "intent": "custom" },
+        { "name": "spent", "type": "[WireU64;CELLS]", "size": 32, "offset": 208, "intent": "custom" },
+        { "name": "revisions", "type": "[WireU64;CELLS]", "size": 32, "offset": 240, "intent": "custom" }
+      ],
+      "semanticFingerprint": "0b5eddfc005f2163"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize",
+      "tag": 0,
+      "discriminatorBytes": [0],
+      "args": [
+        { "name": "delegate0", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "delegate1", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "delegate2", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "delegate3", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "limit", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "book", "writable": true, "signer": false, "layoutRef": "AllowanceBook" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "consume",
+      "tag": 1,
+      "discriminatorBytes": [1],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" },
+        { "name": "expected_revision", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "delegate", "writable": false, "signer": true },
+        { "name": "book", "writable": true, "signer": false, "layoutRef": "AllowanceBook" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 208, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 208, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "spent" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "set_limit",
+      "tag": 2,
+      "discriminatorBytes": [2],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" },
+        { "name": "expected_revision", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "limit", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "book", "writable": true, "signer": false, "layoutRef": "AllowanceBook" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 176, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 176, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "limits" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    }
+  ],
+  "events": [],
+  "policies": [],
+  "layoutMetadata": [],
+  "contexts": [
+    {
+      "name": "Initialize",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "book", "kind": "AllowanceBook", "writable": true, "signer": false, "layoutRef": "AllowanceBook", "seeds": [], "optional": false, "lifecycle": "init", "payer": "authority", "initSpace": 272, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "initialize"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "Consume",
+      "accounts": [
+        { "name": "delegate", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "book", "kind": "AllowanceBook", "writable": true, "signer": false, "layoutRef": "AllowanceBook", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "consume"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 208, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 208, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "spent" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "SetLimit",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "book", "kind": "AllowanceBook", "writable": true, "signer": false, "layoutRef": "AllowanceBook", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "authority"
+        ] }
+      ],
+      "instructions": [
+        "set_limit"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 176, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 176, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "limits" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    }
+  ],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
+}

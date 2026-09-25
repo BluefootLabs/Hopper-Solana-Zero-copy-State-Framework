@@ -4,6 +4,15 @@
 Creates two 32-byte test accounts, then submits positive and deliberately
 rejected instructions. Keypairs stay in the ignored output directory.
 No global Solana configuration is read or changed.
+
+Pass --typed-header-hex to also exercise generated cell-accessor cases 10-16.
+The value is the 16-byte Hopper header, encoded as 32 hexadecimal characters.
+Get it from the same source used to build the deployed fixture:
+  cargo test --manifest-path bench/framework-comparison/verifier/Cargo.toml \
+    --test ambient_gate_sbf typed_cell_probe_header -- --nocapture
+Copy the value printed after "typed-header-hex:". The script verifies those
+exact bytes against initialization on devnet; it does not trust the supplied
+value as evidence that the program wrote them.
 """
 from __future__ import annotations
 
@@ -78,8 +87,17 @@ def main() -> None:
     parser.add_argument("--payer", type=Path, required=True)
     parser.add_argument("--hopper", type=Path, required=True)
     parser.add_argument("--elf", type=Path, required=True)
+    parser.add_argument(
+        "--typed-header-hex",
+        help="16-byte typed fixture header as 32 hex characters; enables cases 10-16",
+    )
     parser.add_argument("--out", type=Path, default=REPO / "target/hopper/runtime-gate-devnet")
     args = parser.parse_args()
+    typed_header = None
+    if args.typed_header_hex is not None:
+        if re.fullmatch(r"[0-9a-fA-F]{32}", args.typed_header_hex) is None:
+            parser.error("--typed-header-hex must contain exactly 32 hexadecimal characters")
+        typed_header = bytes.fromhex(args.typed_header_hex)
     args.out = args.out.resolve()
     if not args.out.is_relative_to(REPO / "target"):
         raise RuntimeError("output must stay under the ignored repository target directory")
@@ -141,6 +159,48 @@ def main() -> None:
             raise RuntimeError("test account creation failed")
         print(f"created {name}: {address}", flush=True)
 
+    # Typed cases run before the original raw cases because initialization
+    # requires the newly created state account to contain exactly zero bytes.
+    # The raw cases subsequently operate on these same two 32-byte accounts.
+    if typed_header is not None:
+        cases = [
+            ("case-16", 16, None, (0, 16, typed_header)),
+            ("case-16-reinit", 16, "AccountAlreadyInitialized", None),
+            ("case-10", 10, None, (26, 27, bytes([7]))),
+            ("case-11", 11, {"Custom": 0xD000}, None),
+            ("case-12", 12, {"Custom": 0xD000}, None),
+            ("case-13", 13, {"Custom": 0xD000}, None),
+            ("case-14", 14, {"Custom": 0xD000}, None),
+            ("case-15", 15, "InvalidInstructionData", None),
+        ]
+        for name, case, error, edit in cases:
+            before = snapshot(addresses, transactions[-1]["slot"])
+            if name == "case-16" and any(
+                base64.b64decode(account["data"][0]) != bytes(32) for account in before
+            ):
+                raise RuntimeError("typed initialization requires two fresh zeroed 32-byte accounts")
+            expected = copy.deepcopy(before)
+            if edit is not None:
+                start, end, replacement = edit
+                account_data = bytearray(base64.b64decode(expected[0]["data"][0]))
+                account_data[start:end] = replacement
+                expected[0]["data"][0] = base64.b64encode(account_data).decode()
+            record = send(name, args.program, [f"{a}:w" for a in addresses], bytes([case]),
+                          allow_failure=error is not None)
+            expected_error = {"InstructionError": [0, error]} if error is not None else None
+            if record["error"] != expected_error:
+                raise RuntimeError(f"{name}: unexpected program result {record['error']}")
+            after = snapshot(addresses, record["slot"])
+            if after != expected:
+                raise RuntimeError(f"{name}: unexpected account mutation")
+            (args.out / f"{name}.snapshots.json").write_text(
+                json.dumps({"addresses": addresses, "before": before, "after": after}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            record.update({"preSnapshotSha256": digest(before), "postSnapshotSha256": digest(after),
+                           "expectedStateVerified": True})
+            print(f"{name}: finalized, {record['computeUnits']} CU, exact state verified", flush=True)
+
     for case in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]:
         before = snapshot(addresses, transactions[-1]["slot"])
         expected = copy.deepcopy(before)
@@ -173,6 +233,8 @@ def main() -> None:
     receipt = {"schema": "hopper.runtime-gate-devnet.v1", "sourceCommit": source_commit,
                "rpcEndpoint": RPC, "genesisHash": GENESIS, "programId": args.program,
                "elfSha256": hashlib.sha256(elf).hexdigest(), "deployedElfMatchesBeforeAndAfter": True,
+               "typedHeaderHex": typed_header.hex() if typed_header is not None else None,
+               "typedCellCasesVerified": typed_header is not None,
                "accounts": addresses, "commitment": "finalized", "transactions": transactions}
     (args.out / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print("all runtime gate devnet cases passed", flush=True)

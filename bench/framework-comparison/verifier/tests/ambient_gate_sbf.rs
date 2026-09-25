@@ -5,6 +5,33 @@ use solana_instruction::{AccountMeta, Instruction};
 use solana_instruction_error::InstructionError;
 use solana_pubkey::Pubkey;
 
+#[allow(dead_code)]
+#[path = "../../../runtime-gate/program/src/lib.rs"]
+mod fixture;
+
+fn typed_header_hex() -> String {
+    let mut bytes = [0u8; 16];
+    hopper::layout::write_header(
+        &mut bytes,
+        fixture::CellProbe::DISC,
+        fixture::CellProbe::VERSION,
+        &fixture::CellProbe::LAYOUT_ID,
+    )
+    .unwrap();
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// Export the exact header for scripts/test-runtime-gate-devnet.py without
+/// loading an ELF. The integration test below verifies its on-chain bytes.
+#[test]
+fn typed_cell_probe_header() {
+    assert_eq!(fixture::CellProbe::LEN, 32);
+    assert_eq!(fixture::CellProbe::PROTECTED_ABS_OFFSET, 16);
+    assert_eq!(fixture::CellProbe::VALUES_ABS_OFFSET, 24);
+    assert_eq!(fixture::CellProbe::VALUES_ELEMENT_COUNT, 8);
+    println!("typed-header-hex: {}", typed_header_hex());
+}
+
 #[test]
 #[ignore = "requires HOPPER_GATE_SBF pointing to the compiled runtime-gate fixture"]
 fn ambient_gate_enforces_public_surfaces_in_sbf() {
@@ -73,6 +100,66 @@ fn ambient_gate_enforces_public_surfaces_in_sbf() {
         }
         println!(
             "case {case}: {} CU, expected result verified",
+            result.compute_units_consumed
+        );
+    }
+
+    // Build the real typed fixture on-chain, then exercise generated bound
+    // cell accessors and all surrounding refusal boundaries against it.
+    let instruction = |case| {
+        Instruction::new_with_bytes(
+            program_id,
+            &[case],
+            vec![
+                AccountMeta::new(state, false),
+                AccountMeta::new(foreign, false),
+            ],
+        )
+    };
+    let mut typed_initial = initial.clone();
+    hopper::layout::write_header(
+        &mut typed_initial[0].1.data,
+        fixture::CellProbe::DISC,
+        fixture::CellProbe::VERSION,
+        &fixture::CellProbe::LAYOUT_ID,
+    )
+    .unwrap();
+    println!("typed-header-hex: {}", typed_header_hex());
+    let initialized = svm.process_instruction(&instruction(16), &initial);
+    assert_eq!(initialized.raw_result, Ok(()));
+    assert_eq!(initialized.resulting_accounts, typed_initial);
+    println!(
+        "case 16: {} CU, typed initialization verified",
+        initialized.compute_units_consumed
+    );
+    let reinitialized = svm.process_instruction(&instruction(16), &typed_initial);
+    assert_eq!(
+        reinitialized.raw_result,
+        Err(InstructionError::AccountAlreadyInitialized)
+    );
+    assert_eq!(reinitialized.resulting_accounts, typed_initial);
+
+    for case in 10..=15 {
+        let result = svm.process_instruction(&instruction(case), &typed_initial);
+        let mut expected = typed_initial.clone();
+        match case {
+            10 => {
+                assert_eq!(result.raw_result, Ok(()));
+                expected[0].1.data[fixture::CellProbe::VALUES_ABS_OFFSET as usize + 2] = 7;
+            }
+            11..=14 => assert_eq!(result.raw_result, Err(InstructionError::Custom(0xD000))),
+            15 => assert_eq!(
+                result.raw_result,
+                Err(InstructionError::InvalidInstructionData)
+            ),
+            _ => unreachable!(),
+        }
+        assert_eq!(
+            result.resulting_accounts, expected,
+            "typed case {case}: incorrect footprint"
+        );
+        println!(
+            "case {case}: {} CU, expected typed result verified",
             result.compute_units_consumed
         );
     }

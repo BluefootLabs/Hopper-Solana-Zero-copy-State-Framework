@@ -1,0 +1,16 @@
+[package]
+name = "hopper-byte-allowance"
+version = "0.3.2"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "On-chain quotas with authenticated, revision-checked byte-cell updates."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+
+[lints]
+workspace = true

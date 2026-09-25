@@ -5,6 +5,20 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
+## [0.3.2] - 2026-09-25
+
+- Generated selected-cell readers/writers capture the context-bound selector
+  and infer the element type, eliminating repeated offset arithmetic.
+- `derive(Accounts)` accepts explicit empty `lamports()` policies, closing a
+  forwarding/parser discrepancy with the direct context attribute.
+- Added the on-chain byte-allowance example, compiled lifecycle/refusal tests,
+  and a finalized-devnet test runner.
+- Corrected orderbook initialization, authority checks, layout/counter
+  validation and event-ring behavior. Its documentation now describes its
+  storage scope without unsupported exchange or performance claims.
+- Refreshed source and network observations, including Alpenglow on testnet
+  only in the September 25 snapshot.
+
 ## [0.3.0] - 2026-09-23
 
 - **PDA search reference lifetimes.** Each native search iteration now stages

@@ -123,11 +123,11 @@ impl<'a> Context<'a> {
     ///
     /// `#[hopper::context(strict_writes)]` compiles the context's
     /// `mut` / `mut(seg, ...)` declarations into a `static` policy
-    /// and installs it during `bind()`; calling this by hand is the raw
-    /// equivalent. Direct substrate access on the raw
-    /// [`AccountView`] (via
-    /// [`account`](Self::account)) is outside the governed surface, like
-    /// every other documented escape hatch.
+    /// and installs it during `bind()`. Macro binding also installs the
+    /// ambient gate, which governs supported direct [`AccountView`] mutation
+    /// APIs. Calling only this setter by hand governs Context-mediated
+    /// acquisitions; it does not install that ambient gate. Unsafe raw-memory
+    /// writes remain the caller's responsibility.
     #[inline(always)]
     pub fn set_write_policy(&mut self, policy: &'static crate::write_policy::WritePolicy) {
         self.write_policy = Some(policy);

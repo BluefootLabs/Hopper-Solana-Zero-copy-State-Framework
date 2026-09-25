@@ -6,7 +6,24 @@ use hopper::hopper_runtime::write_policy::{
     try_install_ambient_gate_with_args as install, ParametricWriteRange, WritePolicy, WriteRange,
     LAMPORT_GATE_DEPTH_EXCEEDED,
 };
-use hopper::prelude::{AccountView, Address, ProgramError, ProgramResult};
+use hopper::prelude::*;
+
+/// Exactly 32 bytes including the Hopper header, matching the raw fixture.
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 82, version = 1)]
+pub struct CellProbe {
+    pub protected: [u8; 8],
+    pub values: [u8; 8],
+}
+
+#[derive(Accounts)]
+#[accounts(strict_writes, lamports())]
+#[instruction(slot: u8)]
+pub struct SelectedCell<'info> {
+    #[account(cells(slot; values))]
+    pub state: Account<'info, CellProbe>,
+}
 
 #[cfg(target_os = "solana")]
 mod entry {
@@ -98,6 +115,39 @@ pub fn process_instruction(
         [9] => {
             let _guard = install(governed, &NARROW, &[])?;
             foreign.close()
+        }
+        [case @ 10..=15] => {
+            let mut raw = Context::new(program_id, accounts, data);
+            let mut ctx = SelectedCell::bind_with_args(&mut raw, if *case == 15 { 8 } else { 2 })?;
+            match case {
+                10 | 15 => {
+                    *ctx.state_values_cell_mut()? = 7;
+                    Ok(())
+                }
+                11 => ctx
+                    .raw()
+                    .segment_mut::<u8>(0, CellProbe::VALUES_ABS_OFFSET + 3)
+                    .map(|_| ()),
+                12 => ctx
+                    .raw()
+                    .segment_mut::<u8>(0, CellProbe::PROTECTED_ABS_OFFSET)
+                    .map(|_| ()),
+                13 => ctx.state_values_mut().map(|_| ()),
+                14 => state.try_set_lamports(state.lamports()),
+                _ => unreachable!(),
+            }
+        }
+        [16] => {
+            let mut bytes = state.try_borrow_mut()?;
+            if bytes.len() != CellProbe::LEN || bytes.iter().any(|byte| *byte != 0) {
+                return Err(ProgramError::AccountAlreadyInitialized);
+            }
+            hopper::layout::write_header(
+                &mut bytes,
+                CellProbe::DISC,
+                CellProbe::VERSION,
+                &CellProbe::LAYOUT_ID,
+            )
         }
         _ => Err(ProgramError::InvalidInstructionData),
     }

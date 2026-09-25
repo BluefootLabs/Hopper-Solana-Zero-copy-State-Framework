@@ -1,6 +1,6 @@
 [package]
 name = "hopper-builtins"
-version = "0.3.1"
+version = "0.3.2"
 publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Tuned memory-intrinsic overrides for Solana SBF programs. memcmp/bcmp/memcpy/memset dispatch: inline word loops at or below 32 bytes, sol_* syscalls above. no_std, no_alloc, zero dependencies."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-builtins/0.3.1"
+documentation = "https://docs.rs/crate/hopper-builtins/0.3.2"
 readme = "README.md"
 keywords = ["solana", "sbf", "intrinsics", "memcmp", "no-std"]
 categories = ["no-std", "embedded"]

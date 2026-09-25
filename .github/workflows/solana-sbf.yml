@@ -333,6 +333,19 @@ jobs:
           done
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
+      - name: Verify on-chain allowance cells on SBF v0 and v3
+        run: |
+          set -euo pipefail
+          for arch in v0 v3; do
+            "$HOME/.cargo/bin/cargo-build-sbf" \
+              --tools-version v1.54 --arch "$arch" \
+              --manifest-path examples/hopper-byte-allowance/Cargo.toml \
+              --sbf-out-dir "${SBF_RELEASE_DIR}/byte-allowance-$arch" \
+              -- --locked
+            HOPPER_BYTE_ALLOWANCE_SBF="$PWD/${SBF_RELEASE_DIR}/byte-allowance-$arch/hopper_byte_allowance.so" \
+              cargo test -p hopper-framework-verifier --test byte_allowance_sbf --locked -- --ignored --nocapture \
+              2>&1 | tee "${SBF_RELEASE_DIR}/byte-allowance-$arch/tests.log"
+          done
       - name: Build, verify, and attest isolated Cicada with the forward builder
         run: |
           python3 scripts/attest-sbf-release.py \
@@ -379,6 +392,8 @@ jobs:
               canonical-pda-v*/tests.log \
               mint-plan-v*/hopper_mint_plan_fixture.so \
               mint-plan-v*/tests.log \
+              byte-allowance-v*/hopper_byte_allowance.so \
+              byte-allowance-v*/tests.log \
               > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
@@ -401,4 +416,6 @@ jobs:
             target/hopper/release/agave-v4.2.1/canonical-pda-v*/tests.log
             target/hopper/release/agave-v4.2.1/mint-plan-v*/*.so
             target/hopper/release/agave-v4.2.1/mint-plan-v*/tests.log
+            target/hopper/release/agave-v4.2.1/byte-allowance-v*/*.so
+            target/hopper/release/agave-v4.2.1/byte-allowance-v*/tests.log
           retention-days: 90

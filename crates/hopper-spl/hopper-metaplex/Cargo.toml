@@ -1,6 +1,6 @@
 [package]
 name = "hopper-metaplex"
-version = "0.3.1"
+version = "0.3.2"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Hopper-owned Metaplex Token Metadata program builders, PDA helpers, and account read helpers. Powers the metadata::* / master_edition::* field keywords on #[derive(Accounts)] and #[hopper::context]."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-metaplex/0.3.1"
+documentation = "https://docs.rs/crate/hopper-metaplex/0.3.2"
 readme = "README.md"
 keywords = ["solana", "metaplex", "nft", "zero-copy", "no-std"]
 categories = ["no-std", "embedded"]

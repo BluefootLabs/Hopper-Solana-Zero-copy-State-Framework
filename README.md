@@ -20,7 +20,7 @@ connect program authoring, validation, and release inspection.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
-and post-CPI checks while still exposing low-level control. This is the 0.3.1
+and post-CPI checks while still exposing low-level control. This is the 0.3.2
 release source; registry availability is tracked on the
 [release status page](https://hopperzero.dev/docs/release-status). The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
@@ -44,6 +44,13 @@ persistence and rollback after successful nested mint CPIs. See the
 and [publication receipts](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/registry-publication-2026-09-24).
 
 ## What's included
+
+The September 25 source adds [captured-selector cell accessors](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ONCHAIN_BYTE_POLICIES.md)
+and an on-chain quota example. A handler uses `ctx.book_spent_cell_mut()` to
+acquire the element selected during binding, with its type and byte offset
+inferred. The policy enforces the write in the program; Grillo and other
+off-chain tools are optional inspection layers. These accessors require 0.3.2;
+consult release status for publication evidence.
 
 The [2026-09-24 refinement](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-24.md)
 adds exact-size mint creation plans,
@@ -103,15 +110,15 @@ account state. Its local and deployed ELF matched before and after capture.
 See [the evidence record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DEVNET_RELEASE_EVIDENCE.md).
 This focused run covers the policy fixture, not every framework or Cicada path.
 
-Main framework: `hopper-lang` 0.3.1, imported as `hopper`. Keep the framework
+Main framework: `hopper-lang` 0.3.2, imported as `hopper`. Keep the framework
 and CLI on the same release line when using generated code and new APIs.
 [Docs at docs.rs](https://docs.rs/crate/hopper-lang).
 
-Install this release's CLI with `cargo install hopper-cli --version 0.3.1 --locked`.
+Install this release's CLI with `cargo install hopper-cli --version 0.3.2 --locked`.
 Install this checkout's CLI with
 `cargo install --path tools/hopper-cli --locked`.
 
-The framework companion crates are versioned 0.3.1 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
+The framework companion crates are versioned 0.3.2 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
 
 Benchmark snapshot: [BENCHMARKS.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
@@ -171,14 +178,14 @@ See [docs/cli/](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Fr
 ### Add to an existing crate
 
 ```sh
-cargo add hopper-lang@0.3.1 --rename hopper --features proc-macros
+cargo add hopper-lang@0.3.2 --rename hopper --features proc-macros
 ```
 
 The exact dependency for this release is:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "=0.3.1", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.3.2", features = ["proc-macros"] }
 ```
 
 To develop against a checkout, use a local path:
