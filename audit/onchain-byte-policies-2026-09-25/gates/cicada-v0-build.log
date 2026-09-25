@@ -1,0 +1,3 @@
+[2026-09-25T07:13:03.719012400Z WARN  cargo_build_sbf] Package 'hopper-cicada' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+   Compiling hopper-cicada v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-cicada)
+    Finished `release` profile [optimized] target(s) in 7.63s

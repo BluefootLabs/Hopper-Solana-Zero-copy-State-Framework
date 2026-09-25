@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-anchor)
+    Updating crates.io index
+    Packaged 7 files, 12.3KiB (4.0KiB compressed)
+   Verifying hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-anchor)
+   Compiling hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-anchor-0.3.2)
+    Finished `dev` profile [unoptimized] target(s) in 0.63s
+   Uploading hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-anchor)
+    Uploaded hopper-anchor v0.3.2 to registry `crates-io`
+note: waiting for hopper-anchor v0.3.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-anchor v0.3.2 at registry `crates-io`

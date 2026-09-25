@@ -1,0 +1,6 @@
+argv: ["cargo-build-sbf", "--lto", "--arch", "v0", "--tools-version", "v1.54", "--manifest-path", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\counter\\hopper\\Cargo.toml", "--sbf-out-dir", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf", "--", "--locked", "--offline"]
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling counter-hopper v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\programs\counter\hopper)
+    Finished `release` profile [optimized] target(s) in 1.08s

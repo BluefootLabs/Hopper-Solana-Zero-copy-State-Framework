@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-runtime v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Updating crates.io index
+    Packaged 58 files, 1.2MiB (295.0KiB compressed)
+   Verifying hopper-runtime v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-runtime v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-runtime-0.3.2)
+    Finished `dev` profile [unoptimized] target(s) in 3.58s
+   Uploading hopper-runtime v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Uploaded hopper-runtime v0.3.2 to registry `crates-io`
+note: waiting for hopper-runtime v0.3.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-runtime v0.3.2 at registry `crates-io`

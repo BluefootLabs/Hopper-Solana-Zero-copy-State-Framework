@@ -1,0 +1,180 @@
+{
+  "schema": "hopper.source-lineage.v1",
+  "gatesSourceCommit": "2bb9d52221a101b76b88ce935983be5f50066c1e",
+  "publicationSourceCommit": "5f5053d34526c86724ca2289030447cdc55cae06",
+  "allPassed": true,
+  "devnetTransactions": 62,
+  "allowedChangedPaths": [
+    "README.md",
+    "crates/hopper-runtime/src/policy.rs",
+    "docs/ARCHITECTURE.md",
+    "docs/CU_COSTS.md",
+    "docs/DYNAMIC_TAILS_FROM_QUASAR.md",
+    "docs/MIGRATION_FROM_ANCHOR.md",
+    "docs/ONCHAIN_BYTE_POLICIES.md",
+    "docs/POLICY_GUARANTEES.md",
+    "docs/UNSAFE_INVARIANTS.md",
+    "scripts/test-byte-allowance-devnet.py"
+  ],
+  "sourceTransitions": [
+    {
+      "fromCommit": "2bb9d52221a101b76b88ce935983be5f50066c1e",
+      "toCommit": "15cc750c97fd1b08a4724dd4864e0f3fac7263ad",
+      "ancestorVerified": true,
+      "changedPaths": [
+        "crates/hopper-runtime/src/policy.rs",
+        "docs/POLICY_GUARANTEES.md",
+        "scripts/test-byte-allowance-devnet.py"
+      ],
+      "files": [
+        {
+          "path": "crates/hopper-runtime/src/policy.rs",
+          "category": "full-line policy comments",
+          "beforeSha256": "78329ec219dac194dacc847753e2ad31274fc40ae2a606c3ae6371eb3380a681",
+          "afterSha256": "84b3a0bd135321e4dda871652d19fc562bbd66a5ac2530468eefd417fb382876"
+        },
+        {
+          "path": "docs/POLICY_GUARANTEES.md",
+          "category": "documentation",
+          "beforeSha256": "789d36ac542a274cc59d61488c82ebf8804c80b5ae1a6b1ccec770d8bd64e93c",
+          "afterSha256": "81d838b2939b1b59342590d1b0d941e655a77295316d0c5b83b34d29d35a54a1"
+        },
+        {
+          "path": "scripts/test-byte-allowance-devnet.py",
+          "category": "readonly CLI-flag correction",
+          "beforeSha256": "c1e95aad259eda48e579a143de468e98f81b92808db95e278c34d391b1186899",
+          "afterSha256": "e5a973ae53ff932fe811af32f06dd6a730dee0bd3bb79c914bc2940831b7beac"
+        }
+      ],
+      "allOtherTrackedFilesIdentical": true,
+      "policyNonCommentBytesIdentical": true,
+      "policyStrippedCodeSha256Before": "ca8550ccd8bd395bd84af88ee32d82f7c31bd1e332a17bf1f6eefab193a7c39c",
+      "policyStrippedCodeSha256After": "ca8550ccd8bd395bd84af88ee32d82f7c31bd1e332a17bf1f6eefab193a7c39c",
+      "policyNormalization": "CRLF normalized to LF; remove only lines whose lstrip() begins with //; preserve every other byte",
+      "harnessUnchangedOrExactReadonlyCliFix": true
+    },
+    {
+      "fromCommit": "2bb9d52221a101b76b88ce935983be5f50066c1e",
+      "toCommit": "5f5053d34526c86724ca2289030447cdc55cae06",
+      "ancestorVerified": true,
+      "changedPaths": [
+        "README.md",
+        "crates/hopper-runtime/src/policy.rs",
+        "docs/ARCHITECTURE.md",
+        "docs/CU_COSTS.md",
+        "docs/DYNAMIC_TAILS_FROM_QUASAR.md",
+        "docs/MIGRATION_FROM_ANCHOR.md",
+        "docs/POLICY_GUARANTEES.md",
+        "docs/UNSAFE_INVARIANTS.md",
+        "scripts/test-byte-allowance-devnet.py"
+      ],
+      "files": [
+        {
+          "path": "README.md",
+          "category": "documentation",
+          "beforeSha256": "8540bb3ef9b542092fdc90f2b13df50c811b21b2f182082adff9f401ce07185b",
+          "afterSha256": "d189182b078fa1159268c3707ad9dc114d09a14b1df20abd308b4a86f814f26f"
+        },
+        {
+          "path": "crates/hopper-runtime/src/policy.rs",
+          "category": "full-line policy comments",
+          "beforeSha256": "78329ec219dac194dacc847753e2ad31274fc40ae2a606c3ae6371eb3380a681",
+          "afterSha256": "84b3a0bd135321e4dda871652d19fc562bbd66a5ac2530468eefd417fb382876"
+        },
+        {
+          "path": "docs/ARCHITECTURE.md",
+          "category": "documentation",
+          "beforeSha256": "e0279c8846494140c161c21f2d41347ad085b9ea8b26ad0807fb603b549a9e9f",
+          "afterSha256": "78ee945c22010f6d24c070f89a13f268fe5e2d3024b1144915fd36ce09d6842b"
+        },
+        {
+          "path": "docs/CU_COSTS.md",
+          "category": "documentation",
+          "beforeSha256": "3a0c344f9319e86477f863e7ce66560105485775bf02c5f71225d2594127c959",
+          "afterSha256": "18ccaf70b59e7abc953fd43b99a4e1da8176f584257e83f8ff7a9616ed05ba5e"
+        },
+        {
+          "path": "docs/DYNAMIC_TAILS_FROM_QUASAR.md",
+          "category": "documentation",
+          "beforeSha256": "c06bd2a7deed68437b0ea4b413fc9c3938eb22f26a7f3a21ede6300b131c729f",
+          "afterSha256": "699f510666cbeaef833763c87fbe01bd87fee790ce4886b4d53f67b486b378f1"
+        },
+        {
+          "path": "docs/MIGRATION_FROM_ANCHOR.md",
+          "category": "documentation",
+          "beforeSha256": "7f2c8dab3b460cce93472dd9138385712af80ab6356d6f82a5b935aded553644",
+          "afterSha256": "5b0483349dcc66f1986ee82a0ebb18937594c7079b3ca9491b1c4bdbe77f534e"
+        },
+        {
+          "path": "docs/POLICY_GUARANTEES.md",
+          "category": "documentation",
+          "beforeSha256": "789d36ac542a274cc59d61488c82ebf8804c80b5ae1a6b1ccec770d8bd64e93c",
+          "afterSha256": "81d838b2939b1b59342590d1b0d941e655a77295316d0c5b83b34d29d35a54a1"
+        },
+        {
+          "path": "docs/UNSAFE_INVARIANTS.md",
+          "category": "documentation",
+          "beforeSha256": "886af0ba0e1d4e5f73208d34fd0e9f899fb6331d078aeb642e9b6c1f076d14f1",
+          "afterSha256": "64e765983a77c2ffeb44d9394ce4dc54ab02f1939017a903c744e8afa545e764"
+        },
+        {
+          "path": "scripts/test-byte-allowance-devnet.py",
+          "category": "readonly CLI-flag correction",
+          "beforeSha256": "c1e95aad259eda48e579a143de468e98f81b92808db95e278c34d391b1186899",
+          "afterSha256": "e5a973ae53ff932fe811af32f06dd6a730dee0bd3bb79c914bc2940831b7beac"
+        }
+      ],
+      "allOtherTrackedFilesIdentical": true,
+      "policyNonCommentBytesIdentical": true,
+      "policyStrippedCodeSha256Before": "ca8550ccd8bd395bd84af88ee32d82f7c31bd1e332a17bf1f6eefab193a7c39c",
+      "policyStrippedCodeSha256After": "ca8550ccd8bd395bd84af88ee32d82f7c31bd1e332a17bf1f6eefab193a7c39c",
+      "policyNormalization": "CRLF normalized to LF; remove only lines whose lstrip() begins with //; preserve every other byte",
+      "harnessUnchangedOrExactReadonlyCliFix": true
+    }
+  ],
+  "gatesReceipt": {
+    "path": "gates-final/receipt.json",
+    "sha256": "4fb86c8f17b49699e4ca91e260b8141d2ca2f7d1ae5396bd484c842089ba2444"
+  },
+  "originalGatedPublishTrain": {
+    "path": "gates-final/publish-train.json",
+    "sha256": "91379aecdbfe290204a401c9178a8d85dece45d064231cba719d86e9e392cac7"
+  },
+  "refreshedPublishTrain": {
+    "path": "prepublication/publish-train.json",
+    "sha256": "ba13ed678b2281128166ed35add07cd4a97c3a220e0954fb8a37f8ba4496a54b"
+  },
+  "refreshedPublishTrainLog": {
+    "path": "prepublication/publish-train.log",
+    "sha256": "fa2c5bcaacd563fa237f36fdc2dbd75981fab84664b46d46b67a4a53303e9cf4"
+  },
+  "targetedPolicyTests": {
+    "path": "prepublication/policy-tests.log",
+    "sha256": "9488f39b2acf03bbed3dbda941703be0ada48890c017734e646b86035544544e",
+    "passed": 33
+  },
+  "devnet": {
+    "byte-allowance-devnet": {
+      "path": "byte-allowance-devnet/receipt.json",
+      "sha256": "c2c6c892d3a8866cd7670bedbe8af29a0f04e017b7845f7871a54c548841304f",
+      "transactions": 40,
+      "elfSha256": "504467ff81d231ac5659bafcc7a2e2df36ad98862c8e6d343ff53f79c26f4f27"
+    },
+    "runtime-gate-devnet": {
+      "path": "runtime-gate-devnet/receipt.json",
+      "sha256": "fa7d40a0bc0554b66178c2e624286c0d34b1f16f1dcd70f5dab5efdfe18fa505",
+      "transactions": 20,
+      "elfSha256": "18f440e49c8f67b0b7639c8b6bfbfc886a9a7883b0ff120b543635818e696911"
+    },
+    "orderbook-devnet": {
+      "path": "orderbook-devnet/lifecycle-receipt.json",
+      "sha256": "94be7eef66cfcbb00f36245406685888c70eefe36aeac1d723e274f5e0b9d6f0",
+      "artifactReceipt": {
+        "path": "orderbook-devnet/artifact-receipt.json",
+        "sha256": "60b17b5bde3d067c05943792dc96abb04a06e506d706bd50b31799e17b865486"
+      },
+      "transactions": 2,
+      "elfSha256": "903ca07c95441b45b0888bf35dbd2bcf860734c3e831dab9b2538901ffaa0f5b"
+    }
+  }
+}

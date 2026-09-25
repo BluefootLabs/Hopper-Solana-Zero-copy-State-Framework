@@ -1,0 +1,135 @@
+{
+  "generated": "2026-09-25 06:50 UTC",
+  "toolchain": {
+    "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
+  },
+  "mollusk": "0.15.1",
+  "release_profile": {
+    "CARGO_PROFILE_RELEASE_LTO": "fat",
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": "1",
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": "3",
+    "CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS": "false"
+  },
+  "program_ids": {
+    "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
+    "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
+  },
+  "source_commit": "38a247851dacb24c6b7aac1d54523637268a2026",
+  "source_tree_clean": true,
+  "build_mode": "rebuilt",
+  "lockfile_sha256": "aa8fa89663adaf037637b7c05541e2db9aef2fd3fade6b6aa382c9065664b56b",
+  "verifierSha256": "8f9530484305f685c86bb46ff801d7db56befd06f1149f4ab4422b0bb55662dd",
+  "verifierProfile": "dev; program ELFs use the recorded Pina release recipe",
+  "peerScope": "Pina, Quasar, and Anchor rows remain the pinned published measurements, not fresh source-head executions.",
+  "hello": [
+    {
+      "label": "Hopper (substrate)",
+      "bytes": 1656,
+      "so": "hello_hopper_substrate.so",
+      "elf_sha256": "4838bdf829905035c285f28334308d648452d0bc4024348be6f872e1649d8c59",
+      "hello": 116,
+      "source": "measured here"
+    },
+    {
+      "label": "Hopper (macro)",
+      "bytes": 1792,
+      "so": "hello_hopper.so",
+      "elf_sha256": "558c8cb951a3b8e0e49c8427843bf04724edd2ed00c042132c434f3a1e6999bd",
+      "hello": 138,
+      "source": "measured here"
+    },
+    {
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "bytes": 3160,
+      "so": "hello_pinocchio.so",
+      "elf_sha256": "5d05e239a62e579ea8aa72f2f9658c7d3ac7e60e9321998ca4418f26fd790ed6",
+      "hello": 111,
+      "source": "measured here (cross-check)"
+    },
+    {
+      "label": "Pina",
+      "bytes": 4680,
+      "hello": 145,
+      "source": "pina published"
+    },
+    {
+      "label": "Pinocchio (hand-written)",
+      "bytes": 3160,
+      "hello": 111,
+      "source": "pina published"
+    },
+    {
+      "label": "Quasar",
+      "bytes": 2520,
+      "hello": 115,
+      "source": "pina published"
+    },
+    {
+      "label": "Anchor v2 (lang-v2, rc.1)",
+      "bytes": 1880,
+      "hello": 127,
+      "source": "pina published"
+    }
+  ],
+  "counter": [
+    {
+      "label": "Hopper (substrate)",
+      "bytes": 6728,
+      "so": "counter_hopper_substrate.so",
+      "elf_sha256": "cabd592deb5fc67d43fc7efe4306cf12ab4f1425c0bac112e9a3c63b8bb6caae",
+      "initialize": 1606,
+      "increment": 1742,
+      "account_size": 10,
+      "source": "measured here"
+    },
+    {
+      "label": "Hopper (macro)",
+      "bytes": 8312,
+      "so": "counter_hopper.so",
+      "elf_sha256": "958f5c9a603a4fe479c3cab7f5579878327d3897c1774cd493e1fb0622d288be",
+      "initialize": 1549,
+      "increment": 349,
+      "account_size": 25,
+      "source": "measured here"
+    },
+    {
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "bytes": 6512,
+      "so": "counter_pinocchio.so",
+      "elf_sha256": "040d6acf1a933535d5bf7a96cb089d70d8b8f817ff86ba6c8825058c582745f6",
+      "initialize": 1490,
+      "increment": 1721,
+      "account_size": 10,
+      "source": "measured here (cross-check)"
+    },
+    {
+      "label": "Pina",
+      "bytes": 13024,
+      "initialize": 3301,
+      "increment": 1753,
+      "source": "pina published"
+    },
+    {
+      "label": "Pinocchio (hand-written)",
+      "bytes": 6512,
+      "initialize": 1490,
+      "increment": 1721,
+      "source": "pina published"
+    },
+    {
+      "label": "Quasar",
+      "bytes": 7808,
+      "initialize": 3488,
+      "increment": 330,
+      "source": "pina published"
+    },
+    {
+      "label": "Anchor v2 (lang-v2, rc.1)",
+      "bytes": 8696,
+      "initialize": 3458,
+      "increment": 2117,
+      "source": "pina published"
+    }
+  ]
+}

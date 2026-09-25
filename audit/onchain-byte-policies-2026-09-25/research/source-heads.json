@@ -1,0 +1,38 @@
+{
+  "quasar": {
+    "repo": "blueshift-gg/quasar",
+    "ref": "HEAD",
+    "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+    "observed_at": "2026-09-25T06:23:50.082360+00:00"
+  },
+  "pina": {
+    "repo": "pina-rs/pina",
+    "ref": "HEAD",
+    "commit": "535c423f97a6155710e765192d314f192870f9b8",
+    "observed_at": "2026-09-25T06:23:50.080359+00:00"
+  },
+  "anchor-v2": {
+    "repo": "otter-sec/anchor",
+    "ref": "refs/heads/anchor-next",
+    "commit": "e271abf2977f32d59cf2af959b0d8bb4d687441d",
+    "observed_at": "2026-09-25T06:23:50.147973+00:00"
+  },
+  "pinocchio": {
+    "repo": "anza-xyz/pinocchio",
+    "ref": "HEAD",
+    "commit": "adbd48d12229ffa30d6fb3d3a8ff777fdb053b80",
+    "observed_at": "2026-09-25T06:23:50.056208+00:00"
+  },
+  "agave": {
+    "repo": "anza-xyz/agave",
+    "ref": "HEAD",
+    "commit": "c9e429ef8db5ba67bf3a02c9cd40e55f5164e99f",
+    "observed_at": "2026-09-25T06:23:50.222861+00:00"
+  },
+  "simds": {
+    "repo": "solana-foundation/solana-improvement-documents",
+    "ref": "HEAD",
+    "commit": "f1afd941b9fa5061ea80a5401feb72172121ebb5",
+    "observed_at": "2026-09-25T06:23:50.075854+00:00"
+  }
+}

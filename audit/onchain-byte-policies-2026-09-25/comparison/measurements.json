@@ -1,0 +1,137 @@
+[
+  {
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\framework-verifier.exe",
+      "--so",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf\\hello_hopper_substrate.so",
+      "--program-id",
+      "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
+      "--case",
+      "hello",
+      "--hello-data",
+      "",
+      "--expect-log",
+      "Hello, Solana!"
+    ],
+    "exitCode": 0,
+    "stdout": "measure-hello-hopper-substrate.stdout.json",
+    "stderr": "measure-hello-hopper-substrate.stderr.log"
+  },
+  {
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\framework-verifier.exe",
+      "--so",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf\\hello_hopper.so",
+      "--program-id",
+      "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
+      "--case",
+      "hello",
+      "--hello-data",
+      "00",
+      "--expect-log",
+      "Hello, Solana!"
+    ],
+    "exitCode": 0,
+    "stdout": "measure-hello-hopper.stdout.json",
+    "stderr": "measure-hello-hopper.stderr.log"
+  },
+  {
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\framework-verifier.exe",
+      "--so",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf\\hello_pinocchio.so",
+      "--program-id",
+      "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
+      "--case",
+      "hello",
+      "--hello-data",
+      "",
+      "--expect-log",
+      "Hello, Solana!"
+    ],
+    "exitCode": 0,
+    "stdout": "measure-hello-hello.stdout.json",
+    "stderr": "measure-hello-hello.stderr.log"
+  },
+  {
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\framework-verifier.exe",
+      "--so",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf\\counter_hopper_substrate.so",
+      "--program-id",
+      "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS",
+      "--case",
+      "counter",
+      "--initialize-data",
+      "00",
+      "--increment-data",
+      "01",
+      "--account-size",
+      "10",
+      "--account-discriminator",
+      "01",
+      "--bump-offset",
+      "1",
+      "--count-offset",
+      "2",
+      "--initialize-takes-bump"
+    ],
+    "exitCode": 0,
+    "stdout": "measure-counter-hopper-substrate.stdout.json",
+    "stderr": "measure-counter-hopper-substrate.stderr.log"
+  },
+  {
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\framework-verifier.exe",
+      "--so",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf\\counter_hopper.so",
+      "--program-id",
+      "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS",
+      "--case",
+      "counter",
+      "--initialize-data",
+      "00",
+      "--increment-data",
+      "01",
+      "--account-size",
+      "25",
+      "--account-discriminator",
+      "01",
+      "--bump-offset",
+      "16",
+      "--count-offset",
+      "17",
+      "--initialize-takes-bump"
+    ],
+    "exitCode": 0,
+    "stdout": "measure-counter-hopper.stdout.json",
+    "stderr": "measure-counter-hopper.stderr.log"
+  },
+  {
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\framework-verifier.exe",
+      "--so",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf\\counter_pinocchio.so",
+      "--program-id",
+      "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS",
+      "--case",
+      "counter",
+      "--initialize-data",
+      "00",
+      "--increment-data",
+      "01",
+      "--account-size",
+      "10",
+      "--account-discriminator",
+      "01",
+      "--bump-offset",
+      "1",
+      "--count-offset",
+      "2",
+      "--initialize-takes-bump"
+    ],
+    "exitCode": 0,
+    "stdout": "measure-counter-counter.stdout.json",
+    "stderr": "measure-counter-counter.stderr.log"
+  }
+]

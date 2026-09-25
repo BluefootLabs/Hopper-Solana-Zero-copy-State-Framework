@@ -1,0 +1,1559 @@
+{
+  "pina": {
+    "url": "https://api.github.com/repos/pina-rs/pina/compare/3f04169a2999fed45a93543a99223939ef93b512...535c423f97a6155710e765192d314f192870f9b8",
+    "sha256": "bd5a0c434ec36ae08f3a8edbd72e8aa700b857e108afbc22605e3f64b1beb064",
+    "captured_at": "2026-09-25T06:25:27.589738+00:00",
+    "status": "ahead",
+    "commits": [
+      {
+        "sha": "f5cccdba10c3658c5065d06e440b386677fad925",
+        "message": "perf(pina): compare accounts cursor aliases by account identity (#526)\n\nDuplicate account slots produced by the entrypoint deserializer are copies\nof the original AccountView, so pointer equality is exact account identity.\nReplacing the writable-flag load and 32-byte address comparison in the\ncursor's alias scans saves compute units on 59 of 100 measured example\ninstructions (969 CU in total) and regresses none.\n\nDocument the cursor's forward-looking alias rules, including why a readonly\nslot followed by a mutable slot for the same account (an authority that also\npays) stays valid, and pin them with adversarial tests built from a\nruntime-shaped duplicate layout.\n\nRefs #513"
+      },
+      {
+        "sha": "4d0e623ae20d51cd9a653fb11f072068abb2bbf2",
+        "message": "fix(privacy_pool): let the host e2e suite build without the prover feature (#523)\n\nThe SBF end-to-end suite imports the host-only `prover` module and names\n`ark_groth16` types, both of which exist only with the `prover` feature.\nA plain `cargo test -p privacy_pool_program` therefore failed to compile\n`tests/e2e.rs`. The workspace sweep never noticed because the privacy\npool's Surfpool crate enables `prover`, and feature unification turns it\non for every `--workspace` build.\n\nDeclare the `e2e` test target with `required-features = [\"prover\"]` so a\nplain host run skips it, and make the documented `SBF_OUT_DIR` absolute:\ncargo runs test binaries from the package directory, so the relative\npath never found the artifact.\n\nCloses #518"
+      },
+      {
+        "sha": "33dfc2fd5cfa6190a22e4275c1e9e9e9f6689abf",
+        "message": "fix(scripts): tolerate surfpool teardown panics once every case is measured (#521)\n\n* fix(scripts): tolerate surfpool teardown exits once every case is measured\n\nA Surfpool batch that exits nonzero after every test binary printed\n`test result: ok` and every instruction case it owns has samples died\nwhile the runtime shut down, not while measuring. Record that batch under\nthe report's new `incompleteTeardowns` field instead of `testFailures`, so\nthe instruction compute-unit gate no longer fails on it.\n\n`classifyBatchExit` makes the decision from the batch's exit status, its\nstdout, and the recorded sample counts. A failed test, a binary that died\nbefore printing its summary, a build error, or a case without samples\nstill fails exactly as before, and `--allow-incomplete` is unchanged.\n\n`commandAsync` now tees the batch's stdout so the libtest summaries can be\nread, and `compare-compute-units.ts` surfaces tolerated exits as runtime\nmeasurement notes in the summary line, the markdown details, and the JSON\nreport.\n\n* fix(pina_test): retry an aborted surfpool start once with fresh ports\n\nSurfpool's SDK picks each RPC port by binding `127.0.0.1:0` and releasing\nthe listener before its runloop rebinds it. A start can lose that port to\nanother socket and abort with `Failed to start WebSocket RPC server:\nAddrInUse`, which is what failed `initialize_creates_the_registry_config`\nin the instruction compute-unit job cited by #519.\n\n`OfflineSurfnet::start` now retries exactly once when the SDK reports an\naborted runloop or a port-allocation failure. Both leave no running\ninstance behind, and a fresh attempt draws fresh ports. The first failure\nis printed to stderr so flaky starts stay visible. `Startup` errors are not\nretried because their airdrop-visibility timeout can leave a live runloop\nthe SDK returns no handle to stop, and `Runtime` errors are deterministic.\nDeployment, transactions, and assertions are never retried.\n\nThe decision lives in `is_retryable_startup_failure` and the bounded loop\nin `start_with_one_retry`, both unit-tested with scripted outcomes."
+      },
+      {
+        "sha": "2bba6b18b205171f31b59c9c1614968d8138a8f5",
+        "message": "feat(pina_macros)!: reject error discriminants in the reserved framework range (#525)\n\n* feat(pina_macros)!: reject error discriminants in the reserved framework range\n\nThe `#[error]` macro now emits a `const _` assertion per variant that its\ndiscriminant (explicit, constant-expression, or implicit auto-increment) is\nbelow `pina::RESERVED_ERROR_CODE_START` (`0xFFFF_0000`). A variant in the\nrange reserved for `PinaProgramError` fails to compile with a diagnostic\nspanned at the variant, so clients can always tell a program error from a\nframework error. The assertion carries the variant's `cfg` and allows\ndeprecated variants; it emits no code, so program bytes are unchanged.\n\nCloses #514\n\n* fix(pina_macros): carry cfg_attr variant conditions onto the reserved-range assertion\n\nA variant removed through `#[cfg_attr(pred, cfg(...))]` kept an assertion\nthat named it, so the crate failed to compile. The assertion now carries\neach `cfg_attr` that can produce a `cfg`, reduced to only its `cfg` parts and\nrebuilt recursively for nested `cfg_attr`, so unrelated attributes such as\n`serde(..)` or `doc` never reach the generated `const`."
+      },
+      {
+        "sha": "5cf730f56011ace9dc9a4bca3e526a6754a46398",
+        "message": "fix(ci): repair the main-branch test job and the nightly walkthrough (#527)\n\nTwo failures were live on `main`. Neither was a product bug: both were\ngaps in the machinery that gates the workspace.\n\nThe `test` job failed in `build_driver_never_falls_back_to_an_unmatched_bundle`\nwith `Text file busy`. The fixture already retries that spawn, because\ncopying the CLI and immediately executing it transiently loses to kernel\ntiming on Linux runners \u2014 but the retry lived in `run()`, and this one test\nreached for the raw `command()` instead, so it never got the guard. That is\nthe same ETXTBSY flake the retry was added for, and it is the only call site\nthat bypassed it. The guard now takes the extra arguments, and every spawn of\nthe copied CLI goes through it.\n\nThe nightly `migrations-walkthrough` workflow has failed every run since it\nlanded, because it invokes `walkthrough:migrations` and no such devenv task\never existed. The task now wraps `pnpm walkthrough:migrations`: it seeds the\npinned v1.54 platform-tools cache the walkthrough's SBF builds need, installs\nthe workspace renderers so `pina generate` can resolve them, and forwards its\narguments to the script."
+      },
+      {
+        "sha": "0dd4c0e7c8d895f475a07021ef00cfd308052077",
+        "message": "fix(pina_lints): require full-balance drain guards to propagate a checked result (#522)\n\n* fix(pina_lints): require full-balance drain guards to propagate a checked result\n\n`require_guarded_full_balance_drain` accepted any preceding call whose\nname contained a guard fragment, so a discarded `check_limits()` or a\nzero-argument name coincidence satisfied a lint whose help presents the\ngate as a security property.\n\nA call now counts as the guard only when it behaves like one: its\nfailure stops the handler before the drain (`?`, `unwrap`/`expect`\nthrough `map_err`/`inspect_err`, a returned value, or an `if`, `match`,\nor `let ... else` whose failure side diverges), and it reads the state it\nchecks through a receiver or an argument that refers to a local binding.\n\nThe pause/cap name stays the signal for what kind of check a call is,\nbecause behavior alone cannot tell a withdrawal cap from\n`assert_signer()?`. A differently named local wrapper is accepted when\nits own body enforces such a guard on every path, followed up to three\nwrappers deep with its own typeck results; free-function guards are now\nrecognized as well as methods.\n\nCloses #517\n\n* fix(pina_lints): check guard polarity, divergence, and trait resolution in the drain lint\n\nReview of the behavioral guard rule found soundness holes and regressions:\n\n- A wrapper counted when any branch diverged, so `if guard().is_err() {\n  return Ok(()) }`, `let Ok(()) = guard() else { return Ok(()) }`, and\n  a `match` whose `Err` arm returns `Ok` were accepted while the drain\n  ran. Enforcement now tracks polarity: a failing branch must return\n  `Err`/`None` or panic, a `bool` guard's failing side must be the one\n  that leaves, and `bool` wrappers are no longer followed.\n- Divergence came from `expr_ty(..).is_never()`, which misses a tail\n  `return Err(..)` or `panic!` coerced to `()`. Exits are now classified\n  structurally, restoring `assert!`, tail returns, and block match arms.\n- Trait calls were judged by the default body even when the impl\n  overrides it. Calls now resolve through `Instance::try_resolve`; an\n  unresolvable call falls back to the name rule. Arguments are checked\n  against the definition's generics first, because the `for`-loop\n  `Iterator::next` call carries none and resolving it panicked.\n- Guards bound to a local, `pina::assert(..)?`, `== false`, else-branch\n  failures, `assert_eq!`, and `or(Err(..))`/`and_then` adapters are\n  recognized again. The input check follows provenance to a parameter,\n  so `let zero = 0; check(zero)?` no longer counts.\n- A wrapper's guard must precede any non-error `return`, a local callee\n  that can only return a constant success is not a guard, and the right\n  operand of `&&`/`||` is a conditional scope, closing the\n  `bypass || { guard()?; true }` hole.\n\nEvery probe case is pinned by a UI fixture, flagged and accepted.\n\n* fix(pina_lints): stop the drain lint crashing on trait adapters and close review gaps\n\nA re-review of the behavioral guard rule found one crash and several\nremaining holes:\n\n- Chaining a core trait method onto a guard's `Result` (`clone()`,\n  `into()`, `eq(..)`) crashed the driver: the method's parent is the\n  trait, which has no `type_of`. Inherent methods are now found through\n  `inherent_impl_of_assoc`, and `clone`, `into`, `From::from`, and\n  `eq`/`ne(&Ok(..))` are followed as failure-preserving adapters.\n  Instance arguments are normalized before `Instance::try_resolve`.\n- `assert_eq!`/`assert_ne!` ignored a flag's known polarity, so\n  `assert_eq!(guard().is_err(), true)` passed. They now continue only on\n  the asserted value, which must be the passing one.\n- A labeled block that can `break` with a success no longer carries its\n  tail guard out, and is visited as a conditional scope.\n- The constant-success test follows never-reassigned `let` bindings and\n  skips branches behind a literal `if true`/`if false`.\n- Calls through closures, fn pointers, and generic callables no longer\n  count as guards by their binding's name.\n- Match arms are read in order, so `_` after an unguarded `Err(_)` arm\n  receives only success, and returning the scrutinee's own binding\n  propagates the failure. `return reject()` counts as a failing branch\n  when the local helper can only fail, or when it cannot be analyzed.\n- The `pina::assert` match now requires the resolved `pina::assert` or\n  `pina::utils::assert` path.\n\nEvery probe is pinned by a UI fixture, including a new\n`guard_trait_adapters.rs` for the crash.\n\n* fix(pina_lints): judge drain-guard wrappers by the code their caller runs\n\nThird review of the behavioral guard rule:\n\n- Inside a wrapper, a `return` whose value the lint cannot see into\n  (`Ok(()).into()`, `identity(Ok(()))`, `Ok(()).map(..)`, a `dyn` or\n  generic `finish()`) was treated as a failure, so a wrapper could\n  swallow the guard's failure. Only the handler keeps that leniency,\n  where any `return` skips the drain; in a wrapper it is unknown.\n- A generic wrapper was judged by the trait method's name. Wrappers are\n  now instantiated with the caller's resolved arguments, so their trait\n  calls resolve to the impl that runs; a trait call that still cannot be\n  resolved inside a wrapper is unknown, not a guard by name.\n- `into()`/`From::from` into `Option<Result<..>>` hid the failure. A\n  conversion keeps the failure only into a `Result` or the same type.\n- `guard() == Ok(..)`/`!=` are read with the same polarity as `eq`/`ne`,\n  `or_else` with a fallback that can only fail keeps the failure, and a\n  guard-named local unit method whose body can panic (an `assert!`-style\n  guard) counts where it is called.\n\nPinned by `guard_wrapper_soundness.rs` and new trait-adapter and\ndivergence cases.\n\n* docs(pina_lints): list the drain-guard shapes that still warn conservatively"
+      },
+      {
+        "sha": "3a64c8ed332f5560ba26c792f7fc51b6e2d254a0",
+        "message": "fix(pina_lints)!: require post-CPI balance reloads for every token CPI destination (#520)\n\n* fix(pina_lints): require post-CPI balance reloads for every token CPI destination\n\n`require_post_cpi_balance_reload` only inspected destinations whose name\ncontained `vault`, `custody`, `reserve`, or `pool`, so a `user_stake_ata`,\n`treasury`, or `fee_receiver` whose pre-CPI balance was trusted after a\ntransfer got no diagnostic.\n\nAdd a snapshot tier keyed on the flow rather than the name: when an integer\nlocal bound from the destination's `amount()` before a `Transfer`,\n`TransferChecked`, `MintTo`, or `MintToChecked` CPI is used after it, the\ndestination must be re-read after the CPI and before the next one. The\ncustody-name tier keeps its stricter before-and-after rule on top.\n\nBuilders are now classified by the resolved type their constructor\nreturns, which covers aliases, re-exports, `with_multisig_signers`, and\nfour-argument `Transfer::new`. The static `invoke()` exemption now requires\nthe builder's program parameter to be `pinocchio_token::TokenProgram`, so\nPina's `token_2022` aliases stay covered.\n\nCloses #516\n\n* fix(pina_lints)!: track stale balance snapshots by flow and restore builder coverage\n\nAddress review of the first revision.\n\nBuilder recognition regressed against main on suffix-named builders,\nfallible constructors, and five-argument `TransferChecked::new`. Builders\nare now matched by the resolved constructor type after unwrapping\n`Result`/`Option`, by a name ending in a token instruction name, and by\ncounting leading account arguments to locate the destination. Lamport\ntransfers are excluded by their defining system-program crate.\n\nThe snapshot tier now:\n- resolves Token-2022 `.base.amount()` reads and `Type::amount(account)`\n  back to the account, and follows copies, tuple destructuring, and\n  assignments;\n- accepts only a reload that follows the CPI, precedes the use, has its\n  value used, and runs on every path to the use;\n- ignores uses the CPI cannot reach (diverging blocks, sibling arms) and\n  comparisons of the snapshot against constants;\n- requires the reload before the stale use rather than before the next\n  CPI, so two deposits with one reload and unrelated CPIs in between are\n  accepted.\n\nThe custody tier keeps its before-and-after rule with no intervening CPI,\nnow over alias-resolved reads. The static-`invoke()` exemption for\nbuilders bound to `pinocchio_token::TokenProgram` is documented as a\nwidening: the legacy program cannot charge a transfer fee.\n\n* fix(pina_lints)!: key balance reloads by full account path and require combined deltas\n\nAddress the second review of the post-CPI balance-reload lint.\n\n- Accounts are keyed by root binding plus full field path. Only let\n  aliases, `&`, `*`, `?`, Pina's token-view loaders, the `.base` field of\n  a loaded Token-2022 view, and type-preserving methods with constant\n  arguments are looked through. Wrapper-typed fields no longer collapse\n  onto their parent, `get(2)` and `get(3)` stay distinct, and anything\n  else names no account.\n- A builder needs the token builder signature: at least three leading\n  reference parameters followed by an integer amount. Non-token\n  `*Transfer` types such as `AuthorityTransfer` are ignored.\n- A pre-CPI snapshot may only be used in the same statement as a\n  dominating post-CPI reload, or in a comparison against a constant\n  (looking through `as` casts). A reload used only for a check no longer\n  clears a snapshot credited elsewhere.\n- A reload in the same loop iteration as the use dominates it, for plain\n  `loop` bodies as well as `for` bodies.\n- The legacy static-invoke exemption applies only when `invoke` is called\n  on the legacy builder itself, not on a wrapper.\n- Reads inside closures count for neither tier.\n\n* fix(pina_lints)!: key accounts by binding and accept snapshots only beside reloads\n\nAddress the third review of the post-CPI balance-reload lint.\n\n- Every local is keyed by its binding HirId, never its name, so\n  shadowed and let-else/if-let/match bindings stay distinct. A\n  `&mut self` method such as `Iterator::next` yields a key unique to its\n  call site, so successive `it.next()` accounts never collide.\n- The token crates' `from_account_view`-style state loaders are looked\n  through, keyed by their first argument. Where the typed identity names\n  no custody destination or read, the custody tier falls back to the\n  name-based check main runs, so it does not newly reject code main\n  accepted for that reason alone.\n- A pre-CPI snapshot is accepted only as a direct operand of arithmetic,\n  a comparison, or a checked/saturating/wrapping/overflowing method whose\n  other operand is a dominating post-CPI reload (or arithmetic over one,\n  including a two-step `delta`), or in a comparison against a constant.\n  Tuples, struct fields, and call arguments are stale uses.\n- A builder outside a token crate must name the mint to count as a\n  transfer, so lamport transfers with three accounts no longer trip the\n  custody rule; token-crate builders are recognised by provenance.\n- The legacy static-invoke exemption checks the receiver's full type,\n  including the `TokenProgram` parameter, so an expression yielding a\n  Token-2022 builder is not exempt.\n\n* fix(pina_lints)!: classify snapshot flows as verification or deltas and key accessors stably\n\nAddress the fourth review of the post-CPI balance-reload lint.\n\n- Only cursor methods (`Iterator::{next, nth}`,\n  `DoubleEndedIterator::{next_back, nth_back}`, Pina's\n  `AccountsCursor::next*`) get a key unique to their call site. Every\n  other method with constant arguments, including `&mut self` accessors,\n  is keyed by receiver, resolved method, and arguments, so\n  `ctx.vault_mut()` names one account on every call.\n- Replace the operand heuristic with value tracking. A snapshot-derived\n  value (a pre-CPI read, or any local, cast, or arithmetic result from\n  one) may only be compared with a reload-derived value or a constant,\n  subtracted with a reload to form a delta (including `abs_diff` and\n  `u64::checked_sub(a, b)`), or added to a delta. Anything else, including\n  addition with a bare reload and arithmetic that cancels the reload, is\n  a stale use.\n\n* fix(pina_lints)!: see through integer conversions and give cursor bindings their own identity\n\nAddress the fifth review of the post-CPI balance-reload lint.\n\n- Integer-to-integer `From::from`, `Into::into`, `TryFrom::try_from`,\n  and `TryInto::try_into` (resolved through their traits, with `?` and\n  unwrapping after the fallible forms) carry a snapshot or reload\n  unchanged, so `u128::from(after).checked_sub(u128::from(before))`,\n  `i128::from(after) - i128::from(before)`, and\n  `let before: u128 = ata.amount().into()` are accepted.\n- A `let` binding initialized from a `&mut self` method call names its\n  own account, so a hand-written cursor's `take()` results never collide.\n  Repeated inline accessor calls keep their shared key.\n- Comparison operands are read through `&`, so `before.cmp(&after)` is\n  verification.\n- A delta requires the reload as the minuend (`abs_diff` is symmetric),\n  so a reverse-sign `before - after` stays snapshot-derived.\n\n* fix(pina_lints)!: key rebound accessor bindings by call and name and defer custody to main's verdict\n\nAddress the sixth review of the post-CPI balance-reload lint.\n\nA `let` bound to a non-cursor `&mut self` method result is now keyed by\nthat call's key plus the binding name. Rebinding the same accessor under\nthe same name (`let vault = ctx.vault_mut();` before and after the\ntransfer) names one account in both tiers, as the name-based check on\n`main` treats it, while a hand-written cursor's `let fee = c.take()?;\nlet vault = c.take()?;` stay distinct.\n\nWhen the custody destination or any balance read passes through such a\nbinding, the typed identity is uncertain, so the custody tier defers to\nmain's name-based verdict and never rejects code main accepts; the\ncursor case main flags stays flagged. A read through a bound accessor\npaired with a transfer into a separate inline call is documented as a\nsnapshot-tier limit.\n\n* docs(pina_lints): spell out the same-name cursor rebinding limit"
+      },
+      {
+        "sha": "736a2c34d553f1726273799ad742c644f246326f",
+        "message": "fix(pina_lints)!: point zeroed-before-close at the real zeroing API and track aliased receivers (#524)\n\n* fix(pina_lints): point zeroed-before-close at the real zeroing API and track aliased receivers\n\n`require_zeroed_before_close` told users to call `account.zeroed()?`, a\nmethod that exists nowhere in Pina or upstream, and accepted only that\nphantom call matched by receiver text, so an aliased receiver bypassed it.\n\nThe help text now names the zeroing paths Pina ships:\n`close_account_zeroed()` / `CloseAccountZeroed`, or\n`account.try_borrow_mut()?.fill(0);` before a separate close. The\nseparate step is accepted only as a core slice `fill(0)` over the whole\n`try_borrow_mut()?` buffer. Receivers resolve through the shared fact\ncollector's alias chains via a new `CallInfo::receiver_binding`, and\nbindings reassigned after their `let` never prove anything.\n\nDocs, the token-escrow tutorial, close guidance, and the CLI lint\nreference no longer mention `zeroed()`.\n\nCloses #515\n\n* fix(pina_lints): resolve zeroed-before-close receivers by place, not alias chains\n\nReview of the first revision found that the shared collector's aliases\nlook through method calls to their receiver and function calls to their\nfirst argument, so distinct accounts drawn from one iterator, getters on\none context, and a function's result were all treated as the zeroed\naccount; indexed receivers collapsed to their base; and shadowed,\nreassigned, swapped, or indirectly retargeted bindings still resolved.\n\nThe lint now resolves receivers itself: a `let` is an alias only when\nits initializer is a plain place, keys are a root binding plus a field\npath, and indexing, calls, and bindings that are assigned, lent as a\nslot, or captured by a closure have no identity. The zeroing must match\n`solana_account_view`'s `try_borrow_mut`, hold on every branch that\nreaches the close, and stay the last write before it. `[..]` counts as\nthe whole buffer. The shared collector is left unchanged.\n\nEvery review probe is now a UI fixture, against an auxiliary shaped like\nthe real `RefMut<[u8]>` borrow, plus a check-pass fixture for the exact\nforms the help text recommends.\n\n* fix(pina_lints): void zeroed-before-close proofs on breaks and mutable lends\n\nA second review found closes still accepted after a `break` skipped the\nzeroing, after a `&mut` root or field was lent to code that could swap\nthe zeroed account out (a helper, a `&mut self` method, a default-binding\nor `ref mut` pattern, a reborrow), and after a rewrite through a call\nthat borrowed the account. Lending any field also voided proofs for\nunrelated sibling fields.\n\nLoop bodies and labeled blocks are now branches. Every place built on a\nlocal path is classified where it is used: a mutable borrow, a `ref mut`\nbinding (explicit or by default binding mode), a `&mut` argument, or a\n`&mut self` method outside the account crates records a lend of that\nplace, which voids proofs for the place and everything under it before\nthe close. Sibling fields are unaffected, and let-alias reborrows are\nfollowed rather than treated as lends.\n\nEvery new review probe is a UI fixture, and the docs and changeset list\nthe remaining limits: writes through trusted account-crate methods such\nas `as_account_mut()`, CPI writes, lends after the close inside a loop,\nand zeroing inside closures.\n\n* fix(pina_lints): close the remaining zeroed-before-close bypasses\n\nA third review found five paths the lint still accepted:\n\n- a zero fill inside a `let ... else` block;\n- a lend through an alias whose own value may have changed, which the\n  resolver dropped as unresolvable;\n- a closure capturing an alias of the root mutably;\n- a data rewrite through such an alias;\n- fully qualified closes (`AccountView::close(state)`), which were not\n  recognized at all, a regression against main.\n\nThe `else` block of `let ... else` is now a branch. Lends and data\nborrows resolve leniently: an alias whose value may have changed, or an\nexpression with no place, is assumed to reach every account, so a\nsignal that voids a proof is never dropped. Closures record their\nmutable captures, and by-value captures of a `&mut`, as lends where\nthey are created. Fully qualified `close`, `close_with_recipient`, and\n`try_borrow_mut` calls are recognized like their method forms, and\nhanding an account to its own close or to the account crates is not a\nlend.\n\nEvery probe from the review is a UI fixture, and the docs, lint doc, and\nchangeset list the separately-obtained-handle limit.\n\n* test(pina_lints): cover a field lend through a capture-destabilized alias\n\n* fix(pina_lints)!: stop trusting closes by name in zeroed-before-close\n\nA user function that only shares a close name, such as\n`fn close(slot: &mut &mut AccountView, ..)` swapping two slots, was\ntrusted like the real close: the `&mut` it received was never a lend, so\nthe real close after it could close a different, unzeroed account.\n\nOnly a close's own evaluation now skips its receiver or first argument.\nTo every other close, a close outside `solana_account_view`,\n`pinocchio`, and `pina` is an ordinary call whose `&mut` arguments are\nlends. Trusted account-crate methods and closes stay exempt.\n\nThe changeset is now `pina_lints: breaking`: the lint is deny-by-default,\nand code that passed with a user-defined `zeroed()` or with closes the\ntightened rules no longer prove now fails.\n\n* fix(pina_lints): state zeroed-before-close's real limits in its help\n\nThe shared control-flow help claimed the lint merges if/match branches,\nwhich stopped being true once the collector became branch-scoped. The\ndiagnostic now names its actual remaining limits instead: writes after\nthe fill through trusted account-crate methods, CPIs, separately\nobtained handles, and lends after the close inside a loop."
+      },
+      {
+        "sha": "74706ced61e28be0d8d2830fd5502a609c6bcd26",
+        "message": "fix(pina): source `fixed` through pinapod's re-export (#529)\n\n* fix(pina): source `fixed` through pinapod's re-export\n\nThe `fixed` feature carried a second exact pin of the `fixed` crate \u2014\n`=1.30.0`, duplicated from `pinapod`'s workspace table and held in lockstep\nby hand, because the root manifest's comment warned that mixed `fixed`\nversions can never be allowed to coexist. Pinapod 0.4.4 made that\nduplication unnecessary: its `fixed` feature re-exports the pinned crate,\nand Pina's own `fixed` feature already forwarded to `pinapod/fixed`.\n\n`pina::fixed` now forwards `pinapod::fixed`, and the `fixed`, workspace,\nand optional-dependency declarations are gone. The resolved crate is\nidentical \u2014 the same 1.30.0 instance, so `pina::fixed` names the same types\nand every existing schema compiles unchanged \u2014 but the pin exists in\nexactly one place instead of two, and a future `fixed` bump is pinapod's\nchange to make rather than a coordinated edit across both repositories.\n\nThe pinapod minimum moves to 0.4.4, the first release carrying the\nre-export.\n\n* fix(pina): refresh the fuzz lock files for pinapod 0.4.4\n\nThe coverage gate checks `crates/pina_fuzz/fuzz` with `--locked`, and both\nfuzz workspace lock files still resolved pinapod 0.4.3 \u2014 the release that\npredates the `pinapod::fixed` re-export this PR builds against. Refreshing\nthem moves pinapod and pinapod-derive to 0.4.4 and nothing else.\n\nThe two benchmark lock files under `benchmarks/framework-comparison` also\npin pinapod (0.4.0) but are deliberate reproducibility baselines for the\ncompute-unit gate and are not built with `--locked`; they are left alone."
+      },
+      {
+        "sha": "7dac7e12fd40af96031cc63a963761704594b70f",
+        "message": "chore(deps): bump monochange/actions/changeset-policy from 0.9.1 to 0.9.2 (#477)\n\nSigned-off-by: dependabot[bot] <support@github.com>"
+      },
+      {
+        "sha": "535c423f97a6155710e765192d314f192870f9b8",
+        "message": "fix(security)!: close the live 2026-09-22 audit findings and prove them with failing-then-passing regressions (#506)\n\n* test(security): add failing exploit regressions for the 2026-09-22 audit findings\n\nEach still-live finding has a test that fails at the exact exploit point\nand must pass once its fix lands. Escrow SEC-31 and staking SEC-26 have\nno runtime test (a missing instruction and a product decision). Canonical\ncopies of every edited file live under security/regressions/backups/.\n\n* fix(security)!: close the live 2026-09-22 audit findings\n\nCore: UpdateResizableAccount routes every feature combination through the\ngenerated account-level update contract, so a compact update on a stale\nmigration envelope is refused \u2014 and the envelope advanced \u2014 even without\nthe validation feature; the preflight-versus-commit length agreement is a\nrelease-mode error instead of a compiled-out debug_assert; pinapod is\nexact-pinned to =0.4.3 like fixed.\n\nMultisig: ConfigExecute enforces expiry and refunds closed spending-limit\nrent to the configured collector; creation and timelock/TTL changes reject\na nonzero TTL at or below the timelock; expired and stale proposals are\npermissionlessly closable with the configured collector refunded.\n\nStaking: SetRewardIndex receives the reward mint, token program, and\ncanonical vault, and refuses an index whose aggregate liability exceeds\nu64 capacity or the vault balance; InitializePool rejects extended\nToken-2022 mints.\n\nVesting: Initialize funds the schedule atomically from the admin ATA and\nrejects extended Token-2022 mints; Cancel reads the clock, settles the\nvested-but-unclaimed entitlement to the beneficiary, and refunds only the\nremainder to the admin.\n\nCLI: import URL credentials are redacted from every echoed and persisted\nsurface while the request keeps the full URL; exported verification\ntransactions must deserialize as structurally valid Solana transactions.\n\nEvery fix's failing exploit regression from the audit now passes. SEC-11,\nSEC-26, and SEC-12 are deferred to #501, #502, and #503; the CLI\nhost-boundary batch is #504. IDLs and clients regenerated; changesets\nrecorded.\n\n* chore(pina): make the pinapod and fixed pins a verified downstream contract\n\npinapod stays exact-pinned at =0.4.3 and fixed at the matching =1.30.0;\npina re-exports both (pina::pinapod unconditionally, pina::fixed behind\nthe fixed feature), so a downstream consumer derives fixed-point schemas\nwithout adding either dependency. security/regressions/\nsec33-downstream-reexport proves the contract by building a schema\nagainst pina alone. pinapod does not re-export fixed itself yet \u2014 the\nonly reason the direct fixed entry must exist \u2014 tracked upstream as\npina-rs/pinapod#41.\n\n* chore(examples): satisfy the workspace security lints and changeset format\n\napply_config_actions carries the documented too-many-arguments allow, the\nstaking liability division and the vesting settlement subtraction use\nchecked arithmetic, vesting Initialize collateralizes from the observed\nvault delta, and the changesets use the accepted fix type with headers\ninside the 60-character limit.\n\n* chore(codama): regenerate IDLs and clients for the remediated ABIs\n\nThe vesting admin_ata is mutable on Initialize (the transfer debits it),\nCancel and Claim expose the new settlement accounts, staking\nSetRewardIndex carries the reward mint, token program, and vault, and\nmultisig ConfigExecute carries the rent collector. All seven client\nlanguages regenerated; the hand-maintained client contract test follows\nthe new account counts.\n\n* test(pina_cpi_renderer): refresh the vesting instruction snapshots\n\nInitialize and Cancel gained accounts in the SEC-28/SEC-29 fixes; the\nsnapshots now pin the rendered CPI helpers with the admin ATA, clock, and\nbeneficiary ATA slots.\n\n* test(pina_cpi_renderer): refresh the Cancel snapshot for the settlement account\n\n* chore(codama): apply the dart formatter pass to generated clients\n\n* test(pina_cli): give the export fixtures a real transaction envelope\n\nThe export path now validates the decoded payload as a Solana\ntransaction, so the fixture bytes must deserialize: both export\njourneys use a structurally valid legacy envelope instead of repeated\narbitrary bytes.\n\n* chore(codama): reapply the dart formatter pass after test:all regeneration\n\n* chore(changeset): cover the pina_codama_nodes package\n\nThe generated node package's client contract test moved with the\nretired example ABIs, so the release note must reference it.\n\n* chore(review): let CodeRabbit review generated-client-scale changes\n\nAn example ABI change regenerates clients in seven languages, pushing a\nlegitimate PR past CodeRabbit's 100-file default so the review is skipped\nentirely. Raise the file cap and exclude the deterministic generated\noutput, which test:idl already verifies by regenerating and diffing.\n\n* chore(codama): commit the dart formatter output for generated clients\n\nThe generators emit code that dart format immediately reflows; committing\nthe formatted result keeps test:idl's format-then-diff check stable\ninstead of failing on every regeneration.\n\n* chore(codama): sync the vesting clients for the mutable admin_ata\n\n* test(vesting): cover the Cancel settlement destination binding\n\n* fix(vesting): record the observed funded amount and satisfy the delta lint\n\nInitialize now records the schedule's total as the observed vault delta\n(the vault is asserted empty before the funding transfer, so the delta is\nexactly what landed) instead of the requested amount \u2014 a transfer-fee\nmint can no longer make the schedule promise more than it holds. This\nalso satisfies require_post_cpi_balance_reload on the funding transfer.\n\n* chore(codama): commit the pipeline-canonical vesting client output\n\n* fix(pina_cli): correct the versioned transaction offset and pin wire tests\n\nThe message slice handed to the wire walk already begins after the\nversion byte, so the header read must start at zero \u2014 the extra offset\nskipped into the signature-required field and rejected every versioned\npayload. Unit tests now cover the versioned acceptance path and each\nstructural rejection branch.\n\n* test(pina_cli): cover every branch of the transaction wire validation\n\nBoundary fixtures for the versioned header, the header/account-table\ntruncations, the instruction count, the program-index bound, and the\ndata-length overrun. Also removes two provably unreachable overflow\nbranches (the signature count is bounded to 16 and a data length is a\nu8), so the remaining lines are exercised or cannot exist.\n\n* fix(pina_cli): drop the unused mut on the wire cursor\n\n* chore(codecov): ignore the standalone audit-regression crates\n\nThe sec02/sec33 regression crates are separate Cargo workspaces the\ncoverage job never instruments, so codecov counted their unchanged-by-CI\nsource as a 0% patch. Their own suites are their coverage.\n\n* chore: trigger CI for the codecov configuration change\n\n* chore(monochange): ignore codecov.yml in the affected-package computation\n\nCoverage tooling config changes how reports are scored; it never makes a\npackage release-relevant, so it belongs in ignored_paths rather than\nchanged_paths.\n\n* fix(pina_cli,staking): address review findings on redaction and SetRewardIndex CU\n\nRedaction strips URL userinfo as well as query and fragment, leaves\nclean URLs untouched, and fetch error paths report the redacted form.\nSetRewardIndex drops the unused reward-mint parse in favor of the cheap\nstored-address comparison, removing ~1,700 CU.\n\n* chore(codama): regenerate clients after the SetRewardIndex trim\n\n* fix(security)!: enforce outstanding-reward solvency and governed shrink refunds\n\nAddress the remaining 2026-09-22 audit findings and every verified\nCodeRabbit review point on PR #506.\n\nStaking: the pool tracks an outstanding_rewards liability \u2014 advanced by\neach index increment, reduced by each claim payout, holding banked\nrewards across withdrawals \u2014 so the reserve gate on SetRewardIndex\nmeasures what is actually owed instead of the lifetime promise. Claims\nreduce the counter; the migration, ABI layout, and clients are\nregenerated, and two surfpool regressions pin both directions\n(claims_reduce_the_liability_the_vault_must_back,\nbanked_pending_rewards_stay_reserved_until_claimed).\n\nMultisig: commit_multisig selects the resize rent account by direction.\nGrowth still charges the executing rent payer; member-tail shrinkage now\nrefunds the governed destination, so an executor cannot pocket a\ngoverned refund by removing members. ConfigAuthorityExecute gains the\nvalidated rent_collector account the governed path already had.\n\npina: the preflight-versus-commit length agreement in\nUpdateResizableAccount is a release-mode InvalidAccountData error again\n(the SEC-34 guard lost in rebase), with a MisPredictingState regression\nthat executes the branch and pins fail-closed rollback.\n\nCLI: the exported-transaction validator now parses the real Solana wire\nformat (short-u16 signature count, versioned prefix after signatures,\nbounds-checked instruction walks, full-consumption check), and the\nSEC-18 audit test is un-ignored against an arbitrary payload.\n\nExamples: vesting Cancel settles nothing before the cliff (new pre-cliff\nregression); sec02's TestAccount pins its header-then-data layout with\nrepr(C).\n\n* test(staking): pin the foreign-mint rejection on the SetRewardIndex reserve gate\n\nCodeRabbit follow-up on PR #506: the stored-mint binding fix landed\nwithout its adversarial test. A funded pool-owned ATA for a mint the\npool never configured must not satisfy the reserve gate; the update\nis refused with InvalidPool before the vault balance is read, and\nneither the index nor the outstanding liability moves.\n\n* chore(codama): regenerate all clients on the merged main line\n\nThe merged pina_macros error-range work and the current renderer emit a\ncanonical byte stream the committed clients no longer match; test:idl\nregenerates deterministically, so committing the pipeline output makes\nthe gate compare clean again. Bytes come from\nscripts/verify-pina-clients.sh's own regen plus dprint and dart format\npasses; no program source changed.\n\n* chore(codama): adopt the pipeline-canonical client formatting\n\nThe verify pipeline's own dart-format pass normalizes the generated\nclients to its canonical style; commit that output so the final\ndeterminism check compares clean. No source change.\n\n* fix(staking): checked asset arithmetic and measured CU ratchets\n\nMain's extended require_checked_asset_arithmetic lint rejects the raw\nu128 multiply in the SetRewardIndex increment; route it through\nchecked_mul like every other asset path.\n\nRatchet scripts/compute-unit-policy.json to the deterministic Surfpool\nmeasurements of the final binaries (reproduced identically locally and\nin CI): staking claim/deposit/initializePool rise by the liability\ncounter and reserve-gate reads, setRewardIndex gains its first approved\nentry, vesting initialize carries the atomic funding CPI, and the static\nvesting_program total absorbs the funding transfer and admission checks.\n\nExtend the SEC-34 wrapper regression to exercise the delegation surface\nthe builder path does not reach, keeping the patch fully covered.\n\n* test: make the SEC-34 guard regression reach the guard\n\nThe +1-byte over-prediction produced an invalid allocation size, so the\nsize gate rejected the update before the preflight-versus-commit guard\ncould run. Over-predict by a whole tail slot instead: the size gate\naccepts it, the commit fills only its own encoding, and the guard is\nwhat refuses the update \u2014 which is the branch the regression exists to\nexecute. Pin the grown allocation, exercise the wrapper's full\ndelegation surface, and add the unterminated compact-u16 rejection to\nthe wire-format suite so both patched files sit at full line coverage.\n\n* chore(policy): ratchet the multisig config-path CU totals\n\nThe governed-refund fixes add the collector account validation to the\nauthority path, the shrink-direction selection to both config paths,\nand collector address validation to ProposalClose. Ratchet the three\ndeterministic head measurements (3,768 / 13,772 / 4,060) the same way\nthe staking and vesting rows were ratcheted.\n\n* chore(policy): add multisigCreate and a noise margin to the session ratchets\n\nThe pinapod 0.4.4 layout shift moved multisigCreate by 4 CU over its\nunratcheted baseline, and observed run-to-run Surfpool variance is about\n16 CU. Enter multisigCreate at 4,431 and give every ratchet from this\nsession a +32 margin so formatter-level drift cannot fail a later run."
+      }
+    ],
+    "files": [
+      {
+        "filename": ".changeset/accounts-cursor-readonly-alias.md",
+        "status": "added",
+        "changes": 9
+      },
+      {
+        "filename": ".changeset/full-balance-drain-guard-behavior.md",
+        "status": "added",
+        "changes": 16
+      },
+      {
+        "filename": ".changeset/pinapod-fixed-reexport.md",
+        "status": "added",
+        "changes": 11
+      },
+      {
+        "filename": ".changeset/post-cpi-balance-reload-destinations.md",
+        "status": "added",
+        "changes": 43
+      },
+      {
+        "filename": ".changeset/privacy-pool-e2e-required-features.md",
+        "status": "added",
+        "changes": 9
+      },
+      {
+        "filename": ".changeset/reserved-error-code-range.md",
+        "status": "added",
+        "changes": 14
+      },
+      {
+        "filename": ".changeset/security-fixes-2026-09-22-audit.md",
+        "status": "added",
+        "changes": 15
+      },
+      {
+        "filename": ".changeset/security-fixes-examples-2026-09-22-audit.md",
+        "status": "added",
+        "changes": 17
+      },
+      {
+        "filename": ".changeset/surfnet-startup-retry.md",
+        "status": "added",
+        "changes": 9
+      },
+      {
+        "filename": ".changeset/zeroed-before-close-real-api.md",
+        "status": "added",
+        "changes": 19
+      },
+      {
+        "filename": ".coderabbit.yaml",
+        "status": "added",
+        "changes": 14
+      },
+      {
+        "filename": ".github/workflows/changeset-policy.yml",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "Cargo.lock",
+        "status": "modified",
+        "changes": 9
+      },
+      {
+        "filename": "Cargo.toml",
+        "status": "modified",
+        "changes": 9
+      },
+      {
+        "filename": "api-docs.t.md",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/multisig_program/commands/config_authority_execute.dart",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/multisig_program/commands/config_execute.dart",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/multisig_program/commands/proposal_close.dart",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/staking_rewards_program/commands/claim.dart",
+        "status": "modified",
+        "changes": 7
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/staking_rewards_program/commands/fetch.dart",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/staking_rewards_program/commands/set_reward_index.dart",
+        "status": "modified",
+        "changes": 31
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/vesting_program/commands/cancel.dart",
+        "status": "modified",
+        "changes": 19
+      },
+      {
+        "filename": "codama/clients/cli/dart/lib/src/vesting_program/commands/initialize.dart",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "codama/clients/cli/rust/multisig_program/src/commands/config_authority_execute.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/rust/multisig_program/src/commands/config_execute.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/rust/multisig_program/src/commands/proposal_close.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/rust/staking_rewards_program/src/commands/claim.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/cli/rust/staking_rewards_program/src/commands/set_reward_index.rs",
+        "status": "modified",
+        "changes": 20
+      },
+      {
+        "filename": "codama/clients/cli/rust/staking_rewards_program/src/context.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/cli/rust/staking_rewards_program/src/fetch.rs",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "codama/clients/cli/rust/vesting_program/src/commands/cancel.rs",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/cli/rust/vesting_program/src/commands/initialize.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/rust/vesting_program/src/context.rs",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "codama/clients/cli/ts/multisig_program/src/commands/config_authority_execute.ts",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/ts/multisig_program/src/commands/config_execute.ts",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/ts/multisig_program/src/commands/proposal_close.ts",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/ts/staking_rewards_program/src/commands/claim.ts",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cli/ts/staking_rewards_program/src/commands/set_reward_index.ts",
+        "status": "modified",
+        "changes": 15
+      },
+      {
+        "filename": "codama/clients/cli/ts/vesting_program/src/commands/cancel.ts",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/cli/ts/vesting_program/src/commands/initialize.ts",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/cpi/multisig_program/src/generated/instructions/config_authority_execute.rs",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "codama/clients/cpi/multisig_program/src/generated/instructions/config_execute.rs",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "codama/clients/cpi/multisig_program/src/generated/instructions/proposal_close.rs",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/cpi/staking_rewards_program/src/generated/accounts/pool_state.rs",
+        "status": "modified",
+        "changes": 7
+      },
+      {
+        "filename": "codama/clients/cpi/staking_rewards_program/src/generated/instructions/claim.rs",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "codama/clients/cpi/staking_rewards_program/src/generated/instructions/set_reward_index.rs",
+        "status": "modified",
+        "changes": 22
+      },
+      {
+        "filename": "codama/clients/cpi/vesting_program/src/generated/instructions/cancel.rs",
+        "status": "modified",
+        "changes": 17
+      },
+      {
+        "filename": "codama/clients/cpi/vesting_program/src/generated/instructions/initialize.rs",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/multisig_program/instructions/config_authority_execute.dart",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/multisig_program/instructions/config_execute.dart",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/multisig_program/instructions/proposal_close.dart",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/staking_rewards_program/accounts/pool_state.dart",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/staking_rewards_program/errors/staking_rewards_program.dart",
+        "status": "modified",
+        "changes": 14
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/staking_rewards_program/instructions/claim.dart",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/staking_rewards_program/instructions/set_reward_index.dart",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/vesting_program/errors/vesting_program.dart",
+        "status": "modified",
+        "changes": 7
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/vesting_program/instructions/cancel.dart",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "codama/clients/dart/lib/src/generated/vesting_program/instructions/initialize.dart",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "codama/clients/js/multisig_program/src/generated/instructions/configAuthorityExecute.ts",
+        "status": "modified",
+        "changes": 32
+      },
+      {
+        "filename": "codama/clients/js/multisig_program/src/generated/instructions/configExecute.ts",
+        "status": "modified",
+        "changes": 32
+      },
+      {
+        "filename": "codama/clients/js/multisig_program/src/generated/instructions/proposalClose.ts",
+        "status": "modified",
+        "changes": 33
+      },
+      {
+        "filename": "codama/clients/js/staking_rewards_program/src/generated/accounts/poolState.ts",
+        "status": "modified",
+        "changes": 18
+      },
+      {
+        "filename": "codama/clients/js/staking_rewards_program/src/generated/errors/stakingRewardsProgram.ts",
+        "status": "modified",
+        "changes": 16
+      },
+      {
+        "filename": "codama/clients/js/staking_rewards_program/src/generated/instructions/claim.ts",
+        "status": "modified",
+        "changes": 12
+      },
+      {
+        "filename": "codama/clients/js/staking_rewards_program/src/generated/instructions/setRewardIndex.ts",
+        "status": "modified",
+        "changes": 73
+      },
+      {
+        "filename": "codama/clients/js/vesting_program/src/generated/errors/vestingProgram.ts",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "codama/clients/js/vesting_program/src/generated/instructions/cancel.ts",
+        "status": "modified",
+        "changes": 55
+      },
+      {
+        "filename": "codama/clients/js/vesting_program/src/generated/instructions/initialize.ts",
+        "status": "modified",
+        "changes": 49
+      },
+      {
+        "filename": "codama/clients/rust/multisig_program/src/generated/instructions/config_authority_execute.rs",
+        "status": "modified",
+        "changes": 13
+      },
+      {
+        "filename": "codama/clients/rust/multisig_program/src/generated/instructions/config_execute.rs",
+        "status": "modified",
+        "changes": 13
+      },
+      {
+        "filename": "codama/clients/rust/multisig_program/src/generated/instructions/proposal_close.rs",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "codama/clients/rust/staking_rewards_program/src/generated/accounts/pool_state.rs",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "codama/clients/rust/staking_rewards_program/src/generated/errors/staking_rewards_program.rs",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/rust/staking_rewards_program/src/generated/instructions/claim.rs",
+        "status": "modified",
+        "changes": 7
+      },
+      {
+        "filename": "codama/clients/rust/staking_rewards_program/src/generated/instructions/set_reward_index.rs",
+        "status": "modified",
+        "changes": 38
+      },
+      {
+        "filename": "codama/clients/rust/vesting_program/src/generated/errors/vesting_program.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "codama/clients/rust/vesting_program/src/generated/instructions/cancel.rs",
+        "status": "modified",
+        "changes": 20
+      },
+      {
+        "filename": "codama/clients/rust/vesting_program/src/generated/instructions/initialize.rs",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "codama/clients/rust/vesting_program/tests/contract.rs",
+        "status": "modified",
+        "changes": 23
+      },
+      {
+        "filename": "codama/idls/multisig_program.json",
+        "status": "modified",
+        "changes": 38
+      },
+      {
+        "filename": "codama/idls/staking_rewards_program.json",
+        "status": "modified",
+        "changes": 76
+      },
+      {
+        "filename": "codama/idls/vesting_program.json",
+        "status": "modified",
+        "changes": 46
+      },
+      {
+        "filename": "codecov.yml",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "crates/pina/Cargo.toml",
+        "status": "modified",
+        "changes": 3
+      },
+      {
+        "filename": "crates/pina/src/cpi.rs",
+        "status": "modified",
+        "changes": 198
+      },
+      {
+        "filename": "crates/pina/src/error.rs",
+        "status": "modified",
+        "changes": 14
+      },
+      {
+        "filename": "crates/pina/src/lib.rs",
+        "status": "modified",
+        "changes": 16
+      },
+      {
+        "filename": "crates/pina/src/traits.rs",
+        "status": "modified",
+        "changes": 80
+      },
+      {
+        "filename": "crates/pina/tests/adversarial_invariants.rs",
+        "status": "modified",
+        "changes": 163
+      },
+      {
+        "filename": "crates/pina/tests/error_types.rs",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "crates/pina/tests/integration.rs",
+        "status": "modified",
+        "changes": 56
+      },
+      {
+        "filename": "crates/pina_cli/src/import_idl.rs",
+        "status": "modified",
+        "changes": 44
+      },
+      {
+        "filename": "crates/pina_cli/src/lint_reference.rs",
+        "status": "modified",
+        "changes": 49
+      },
+      {
+        "filename": "crates/pina_cli/src/verification.rs",
+        "status": "modified",
+        "changes": 270
+      },
+      {
+        "filename": "crates/pina_cli/templates/pina-overview.md",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "crates/pina_cli/tests/deploy_command.rs",
+        "status": "modified",
+        "changes": 49
+      },
+      {
+        "filename": "crates/pina_cli/tests/import_command.rs",
+        "status": "modified",
+        "changes": 112
+      },
+      {
+        "filename": "crates/pina_cli/tests/lint_command.rs",
+        "status": "modified",
+        "changes": 21
+      },
+      {
+        "filename": "crates/pina_cli/tests/verification_command.rs",
+        "status": "modified",
+        "changes": 81
+      },
+      {
+        "filename": "crates/pina_cpi_renderer/src/snapshots/pina_cpi_renderer____tests__vesting_cancel_instruction_snapshot.snap",
+        "status": "modified",
+        "changes": 17
+      },
+      {
+        "filename": "crates/pina_cpi_renderer/src/snapshots/pina_cpi_renderer____tests__vesting_initialize_instruction_snapshot.snap",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "crates/pina_fuzz/Cargo.lock",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "crates/pina_fuzz/fuzz/Cargo.lock",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "crates/pina_lints/readme.md",
+        "status": "modified",
+        "changes": 160
+      },
+      {
+        "filename": "crates/pina_lints/src/lints/require_guarded_full_balance_drain.rs",
+        "status": "modified",
+        "changes": 1777
+      },
+      {
+        "filename": "crates/pina_lints/src/lints/require_post_cpi_balance_reload.rs",
+        "status": "modified",
+        "changes": 1683
+      },
+      {
+        "filename": "crates/pina_lints/src/lints/require_zeroed_before_close.rs",
+        "status": "modified",
+        "changes": 973
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/auxiliary/pina.rs",
+        "status": "added",
+        "changes": 9
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/full_balance_drain.rs",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/full_balance_drain.stderr",
+        "status": "modified",
+        "changes": 36
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_behavior.rs",
+        "status": "added",
+        "changes": 286
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_behavior.stderr",
+        "status": "added",
+        "changes": 110
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_divergence.rs",
+        "status": "added",
+        "changes": 343
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_divergence.stderr",
+        "status": "added",
+        "changes": 74
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_polarity.rs",
+        "status": "added",
+        "changes": 478
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_polarity.stderr",
+        "status": "added",
+        "changes": 266
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_resolution.rs",
+        "status": "added",
+        "changes": 481
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_resolution.stderr",
+        "status": "added",
+        "changes": 182
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_trait_adapters.rs",
+        "status": "added",
+        "changes": 220
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_trait_adapters.stderr",
+        "status": "added",
+        "changes": 74
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_value_flow.rs",
+        "status": "added",
+        "changes": 269
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_value_flow.stderr",
+        "status": "added",
+        "changes": 110
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_wrapper_soundness.rs",
+        "status": "added",
+        "changes": 230
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_guarded_full_balance_drain/guard_wrapper_soundness.stderr",
+        "status": "added",
+        "changes": 86
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_post_cpi_balance_reload/auxiliary/pinocchio_system.rs",
+        "status": "added",
+        "changes": 18
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_post_cpi_balance_reload/auxiliary/pinocchio_token.rs",
+        "status": "modified",
+        "changes": 69
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_post_cpi_balance_reload/builders.rs",
+        "status": "added",
+        "changes": 442
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_post_cpi_balance_reload/builders.stderr",
+        "status": "added",
+        "changes": 85
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_post_cpi_balance_reload/destinations.rs",
+        "status": "added",
+        "changes": 1133
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_post_cpi_balance_reload/destinations.stderr",
+        "status": "added",
+        "changes": 498
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_zeroed_before_close/account_close.rs",
+        "status": "modified",
+        "changes": 1239
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_zeroed_before_close/account_close.stderr",
+        "status": "modified",
+        "changes": 704
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_zeroed_before_close/auxiliary/solana_account_view.rs",
+        "status": "added",
+        "changes": 49
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_zeroed_before_close/recommended_forms.rs",
+        "status": "added",
+        "changes": 59
+      },
+      {
+        "filename": "crates/pina_lints/tests/ui/require_zeroed_before_close/recommended_forms.stderr",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "crates/pina_macros/readme.md",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "crates/pina_macros/src/error.rs",
+        "status": "modified",
+        "changes": 234
+      },
+      {
+        "filename": "crates/pina_macros/src/lib.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "crates/pina_test/readme.md",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "crates/pina_test/src/lib.rs",
+        "status": "modified",
+        "changes": 140
+      },
+      {
+        "filename": "devenv.nix",
+        "status": "modified",
+        "changes": 67
+      },
+      {
+        "filename": "docs/src/compute-unit-performance.md",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "docs/src/core-concepts.md",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "docs/src/lint-reference.md",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "docs/src/security-model.md",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "docs/src/tutorials/token-escrow.md",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "examples/multisig_program/migrations/manifest.json",
+        "status": "modified",
+        "changes": 24
+      },
+      {
+        "filename": "examples/multisig_program/src/lib.rs",
+        "status": "modified",
+        "changes": 139
+      },
+      {
+        "filename": "examples/multisig_program/tests/abi_layout.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "examples/multisig_program/tests/e2e.rs",
+        "status": "modified",
+        "changes": 14
+      },
+      {
+        "filename": "examples/multisig_program/tests/surfpool/src/lib.rs",
+        "status": "modified",
+        "changes": 706
+      },
+      {
+        "filename": "examples/privacy_pool_program/Cargo.toml",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "examples/privacy_pool_program/tests/e2e.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "examples/prop_amm_program/tests/surfpool/src/lib.rs",
+        "status": "modified",
+        "changes": 70
+      },
+      {
+        "filename": "examples/staking_rewards_program/migrations/manifest.json",
+        "status": "modified",
+        "changes": 30
+      },
+      {
+        "filename": "examples/staking_rewards_program/src/lib.rs",
+        "status": "modified",
+        "changes": 107
+      },
+      {
+        "filename": "examples/staking_rewards_program/tests/abi_layout.rs",
+        "status": "modified",
+        "changes": 13
+      },
+      {
+        "filename": "examples/staking_rewards_program/tests/surfpool/src/lib.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "examples/vesting_program/migrations/manifest.json",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "examples/vesting_program/src/lib.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "examples/vesting_program/tests/abi_layout.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "examples/vesting_program/tests/e2e.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "examples/vesting_program/tests/surfpool/src/lib.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "monochange.toml",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "packages/nodes-from-pina/test/generatedClientsCodec.test.ts",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "packages/nodes-from-pina/test/generatedClientsContract.test.ts",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "readme.md",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "scripts/compare-compute-units.ts",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "scripts/compute-unit-policy.json",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "scripts/measure-example-compute-units.ts",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "scripts/tests/compare-compute-units.test.ts",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "scripts/tests/measure-example-compute-units.test.ts",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "security/09-closing-accounts/readme.md",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "security/deep-audit-2026-09-22.md",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/multisig-surfpool-lib.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/pina-cli-deploy-command.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/pina-cli-import-command.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/pina-cli-verification-command.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/prop-amm-surfpool-lib.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/staking-surfpool-lib.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/backups/vesting-surfpool-lib.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/sec02-compact-no-validation/Cargo.toml",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/sec02-compact-no-validation/migrations/manifest.json",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/sec02-compact-no-validation/migrations/transitions/account_1_01/v0_to_v1.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/sec02-compact-no-validation/src/lib.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/sec33-downstream-reexport/Cargo.toml",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "security/regressions/sec33-downstream-reexport/src/lib.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "templates/pina-overview.t.md",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "tests/expand/error.expanded.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui.rs",
+        "status": "modified",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/fail/error_reserved_range_boundary.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/fail/error_reserved_range_boundary.stderr",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/fail/error_reserved_range_framework_code.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/fail/error_reserved_range_framework_code.stderr",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/fail/error_reserved_range_implicit.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/fail/error_reserved_range_implicit.stderr",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/pass/error_below_reserved_range.rs",
+        "status": "added",
+        "changes": 0
+      },
+      {
+        "filename": "tests/ui/pass/error_cfg_attr_removed_variant.rs",
+        "status": "added",
+        "changes": 0
+      }
+    ]
+  },
+  "anchor-v2": {
+    "url": "https://api.github.com/repos/otter-sec/anchor/compare/b3b47d1fb9575218207c9f08f896b04750369611...e271abf2977f32d59cf2af959b0d8bb4d687441d",
+    "sha256": "1b4613607ab61814cdf18e9af0c078a6e8e58b6ce02ce1366472d6010b41d915",
+    "captured_at": "2026-09-25T06:24:52.538512+00:00",
+    "status": "ahead",
+    "commits": [
+      {
+        "sha": "bee1ca669ddca97ca451b1b87d9aa0afa9cb8705",
+        "message": "feat(lang-v2): restore AnchorDeserialize/AnchorSerialize traits to stop wincode's SchemaRead leaking into user code (#5078)"
+      },
+      {
+        "sha": "bd3cae9a519d2f5252b78ef6b66af4286221fa03",
+        "message": "test(macros): add missing test attribite for offsets requiring repr(C) (#5090)"
+      },
+      {
+        "sha": "e271abf2977f32d59cf2af959b0d8bb4d687441d",
+        "message": "feat(legacy): preserve generics in legacy IDL type definitions and add corresponding tests (#5093)"
+      }
+    ],
+    "files": [
+      {
+        "filename": "CHANGELOG.md",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "Cargo.lock",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "asm-v2/macros/src/lib.rs",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "client/src/blocking.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "client/src/lib.rs",
+        "status": "modified",
+        "changes": 116
+      },
+      {
+        "filename": "client/src/nonblocking.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "idl/src/convert.rs",
+        "status": "modified",
+        "changes": 61
+      },
+      {
+        "filename": "lang-v2/README.md",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "lang-v2/derive/src/lib.rs",
+        "status": "modified",
+        "changes": 16
+      },
+      {
+        "filename": "lang-v2/src/accounts/borsh_account.rs",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "lang-v2/src/event.rs",
+        "status": "modified",
+        "changes": 3
+      },
+      {
+        "filename": "lang-v2/src/lib.rs",
+        "status": "modified",
+        "changes": 29
+      },
+      {
+        "filename": "lang-v2/tests/anchor_serde_traits.rs",
+        "status": "added",
+        "changes": 110
+      },
+      {
+        "filename": "tests-v2/Cargo.toml",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "tests-v2/programs/derives/src/lib.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "tests-v2/src/declare-program/serialization.rs",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "tests-v2/tests/derives.rs",
+        "status": "modified",
+        "changes": 27
+      }
+    ]
+  },
+  "agave": {
+    "url": "https://api.github.com/repos/anza-xyz/agave/compare/9a06a9426251a6c68547b9c52a75b5d713b0119c...c9e429ef8db5ba67bf3a02c9cd40e55f5164e99f",
+    "sha256": "e92d58bd49d5157499e06b0be213b93d428a948a186315dd846b8d88cde8077b",
+    "captured_at": "2026-09-25T06:24:45.883480+00:00",
+    "status": "ahead",
+    "commits": [
+      {
+        "sha": "c6a6891281f5de0b5b64159f8428ff8bd2365c39",
+        "message": "chore(deps): bump solana-nonce from 3.3.0 to 3.4.0 (#15499)\n\n* chore(deps): bump solana-nonce from 3.3.0 to 3.4.0\n\nBumps [solana-nonce](https://github.com/anza-xyz/solana-sdk) from 3.3.0 to 3.4.0.\n- [Release notes](https://github.com/anza-xyz/solana-sdk/releases)\n- [Commits](https://github.com/anza-xyz/solana-sdk/compare/nonce@v3.3.0...nonce@v3.4.0)\n\n---\nupdated-dependencies:\n- dependency-name: solana-nonce\n  dependency-version: 3.4.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\n\n* Update all workspaces\n\n---------\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+      },
+      {
+        "sha": "7999a5700a065a887d29d9c6c07ab671c4d78da9",
+        "message": "gossip: read failed_inserts size outside the crds lock (#15492)"
+      },
+      {
+        "sha": "318d1e66d40db2845d9ba9e10cc66165a436d7d1",
+        "message": "gossip: replace RecycledPacketBatch with BytesPacketBatch (#15455)"
+      },
+      {
+        "sha": "db6a08f82cc7de82ad0d51bba226ca1a56cfe5a7",
+        "message": "chore(deps): bump solana-program from 5.0.0 to 5.1.0 (#15497)\n\n* chore(deps): bump solana-program from 5.0.0 to 5.1.0\n\nBumps [solana-program](https://github.com/anza-xyz/solana-sdk) from 5.0.0 to 5.1.0.\n- [Release notes](https://github.com/anza-xyz/solana-sdk/releases)\n- [Commits](https://github.com/anza-xyz/solana-sdk/compare/sdk@v5.0.0...account@v5.1.0)\n\n---\nupdated-dependencies:\n- dependency-name: solana-program\n  dependency-version: 5.1.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\n\n* Update all workspaces\n\n---------\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+      },
+      {
+        "sha": "770300532c91b7e0e3f5c396cf97c00f22e96de9",
+        "message": "repair: reduce bufferbloat (#15495)"
+      },
+      {
+        "sha": "14ed336b777df5ef61efd077e840e0565e373915",
+        "message": "`ConsensusPool` cleanup and docs (#15453)\n\n* doc: document ParentReadyTracker::block_production_parent()\n\n* chore(consensus_pool): rename finalize-related methods\n\n* doc: document ParentReadyStatus.notar_fallbacks field"
+      },
+      {
+        "sha": "bd42b67cbb16bff8639db9952301496c45102910",
+        "message": "Don't compile malicious repair handler in production builds (#15480)\n\nchore: don't compile malicious repair handler in production builds"
+      },
+      {
+        "sha": "18e6f660fe4b298b8d5c1411ea519b300eeaf5e8",
+        "message": "Implements VotePools to avoid reallocations (#15254)\n\nImplements VotePools to avoid reallocations when storing and purging votes in VotePool"
+      },
+      {
+        "sha": "0bf8a24173cb04b7c7047035d74b20d8160dac8d",
+        "message": "refactor(rpc-client): migrate fee queries to VersionedMessage (#15310)\n\n* feat(rpc-client): add VersionedMessage fee API\n\n* refactor: migrate fee queries to VersionedMessage\n\n* 4.5.0"
+      },
+      {
+        "sha": "54da50c86a327777db1410ccfa2b3e29c768a6bb",
+        "message": "gossip: build pull-request bloom filters outside the crds lock (#15503)\n\nbuild_crds_filters held the crds read lock for the whole filter build:\nallocating the bloom filters, adding failed-insert hashes, and adding\nevery crds value and purged hash, so the hold grew with table size.\n\nRead the table sizes under a short read lock, then allocate the filters\nand add failed-insert hashes without it. Scan the table and purged list\nin chunks of 128 entries, taking the read lock per chunk to copy only\nthe hashes that fall in a bucket with an active filter, and add each\nchunk's hashes to the filters after releasing it.\n\nMeasured in a release build with 147k values and 253k purged hashes,\na value chunk holds the lock for 1.0us at p50 and 1.4us at p99, and a\npurged chunk for 0.4us at p50 and 0.5us at p99.\n\nValues removed from the table between chunks can cause other values to\nbe skipped, which only results in redundant pull responses. The purged\nlist is only trimmed by purge(), which runs on the same thread."
+      },
+      {
+        "sha": "00000bb80a4f6d5eb17c4c1750deb43e2a834437",
+        "message": "Move mergify steps up in the list (#15445)"
+      },
+      {
+        "sha": "d2dac9cc9a41ebdc4a9346762e6ac7ac8fa6e5bc",
+        "message": "chore(deps): bump solana-stake-interface from 5.0.0 to 5.1.0 (#15514)\n\n* chore(deps): bump solana-stake-interface in /programs/sbf\n\nBumps [solana-stake-interface](https://github.com/solana-program/stake) from 5.0.0 to 5.1.0.\n- [Release notes](https://github.com/solana-program/stake/releases)\n- [Commits](https://github.com/solana-program/stake/compare/program@v5.0.0...program@v5.1.0)\n\n---\nupdated-dependencies:\n- dependency-name: solana-stake-interface\n  dependency-version: 5.1.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\n\n* Update all workspaces\n\n---------\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+      },
+      {
+        "sha": "cca7fbd72922b064a2d48242db6f0910b248beed",
+        "message": "Cleaning up votor-messages crate (#15414)"
+      },
+      {
+        "sha": "9d08bfc3d67592f86eafb9e8adca11dc93238e4b",
+        "message": "Moves sig-verified-messages out of votor-messages crate (#15461)"
+      },
+      {
+        "sha": "94593f20a70e4b639d5e499235d77ee38ed2a9b9",
+        "message": "fix(remote-wallet): accept a longer Ledger app-configuration vector (#15100)\n\n* fix(remote-wallet): accept a longer Ledger app-configuration vector\n\nSolana app 1.16.0 answers GET_APP_CONFIGURATION with a 7-byte vector; the strict\nconfig.len() != 5 rejected it, so update_devices() failed with \"Version packet\nsize mismatch\" and list_devices() returned nothing, on a device that was\nunlocked, running the Solana app and answering BOLOS dashboard commands.\n\nThe five bytes that are read are all present and unchanged: blind-signing flag,\npubkey display mode, then 1, 16, 0. The app simply appended two trailing fields\nthat this crate does not read. get_settings and get_firmware_version index\n0..=4 explicitly, so accepting a longer vector costs nothing.\n\nNot device-specific: the vector comes from the app, so every model running\n1.16.0 is affected, separately from the Nano Gen5 product-id support added in\n4.1.\n\nVerified on hardware (Nano Gen5, BOLOS 1.1.1, Solana app 1.16.0, macOS): with\nthis change the device enumerates, derives a pubkey, signs transactions and\noff-chain messages, and survives 20 consecutive reconnect cycles. Without it,\nnone of that is reachable.\n\nFixes #15099\n\n* fix(remote-wallet): keep is_last_part's comment attached\n\nMove is_parsable_app_config below is_last_part so the bare // comment above it\nstays with the function it belongs to."
+      },
+      {
+        "sha": "f5bd9eca04ca78e5f6526d114477370d693caa38",
+        "message": "gossip: use stack scratch for build_crds_filters chunks (#15518)\n\nEach chunk of value or purged hashes copied under the crds read lock\nwent into a freshly allocated Vec, which was then chained into the\nbloom-filter pass. Copy each chunk into a fixed-size stack array of\nLOCK_CHUNK_SIZE hashes (4 KiB) instead, and add the chunk's hashes to\nthe filters right after releasing the lock. This removes one heap\nallocation per chunk, about 3,100 for 147k values and 253k purged\nhashes."
+      },
+      {
+        "sha": "a6fe8ebe1035b6ef77157c1f502f7ae376b3aac8",
+        "message": "chore(deps): bump cfg-if from 1.0.4 to 1.0.5 (#15496)\n\n* chore(deps): bump cfg-if from 1.0.4 to 1.0.5\n\nBumps [cfg-if](https://github.com/rust-lang/cfg-if) from 1.0.4 to 1.0.5.\n- [Release notes](https://github.com/rust-lang/cfg-if/releases)\n- [Changelog](https://github.com/rust-lang/cfg-if/blob/main/CHANGELOG.md)\n- [Commits](https://github.com/rust-lang/cfg-if/compare/v1.0.4...v1.0.5)\n\n---\nupdated-dependencies:\n- dependency-name: cfg-if\n  dependency-version: 1.0.5\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\n\n* Update all workspaces\n\n---------\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+      },
+      {
+        "sha": "c9e429ef8db5ba67bf3a02c9cd40e55f5164e99f",
+        "message": "chore(deps): align programs/sbf deps with root workspace (#15536)\n\n* bump solana-program to 5.1.0 in prgorams/sbf\n\n* bump solana-clock to 4.0.0\n\n* bump solana-vote-interface to 7.1.0 in programs/sbf\n\n* bump solana-instruction-sysvar to 5.0.0 in programs/sbf\n\n* bump solana-sysvar to 5.0.0 in programs/sbf"
+      }
+    ],
+    "files": [
+      {
+        "filename": "Cargo.lock",
+        "status": "modified",
+        "changes": 109
+      },
+      {
+        "filename": "Cargo.toml",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "RELEASE.md",
+        "status": "modified",
+        "changes": 10
+      },
+      {
+        "filename": "accounts-cluster-bench/src/main.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "bls-cert-verify/src/cert_verify.rs",
+        "status": "modified",
+        "changes": 38
+      },
+      {
+        "filename": "bls-sigverify/src/bls_cert_sigverify.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "bls-sigverify/src/bls_sigverifier.rs",
+        "status": "modified",
+        "changes": 60
+      },
+      {
+        "filename": "bls-sigverify/src/lib.rs",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "bls-sigverify/src/rewards.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "bls-sigverify/src/sig_verified_messages.rs",
+        "status": "renamed",
+        "changes": 2
+      },
+      {
+        "filename": "bls-sigverify/src/unverified_votes_batch.rs",
+        "status": "modified",
+        "changes": 7
+      },
+      {
+        "filename": "bls-sigverify/src/utils.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "bls-sigverify/src/verified_batch.rs",
+        "status": "modified",
+        "changes": 8
+      },
+      {
+        "filename": "ci/xtask/Cargo.lock",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "cli/src/checks.rs",
+        "status": "modified",
+        "changes": 27
+      },
+      {
+        "filename": "cli/src/nonce.rs",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "cli/src/program.rs",
+        "status": "modified",
+        "changes": 59
+      },
+      {
+        "filename": "cli/src/spend_utils.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "cli/src/stake.rs",
+        "status": "modified",
+        "changes": 23
+      },
+      {
+        "filename": "cli/src/vote.rs",
+        "status": "modified",
+        "changes": 13
+      },
+      {
+        "filename": "cli/tests/program.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "cli/tests/transfer.rs",
+        "status": "modified",
+        "changes": 11
+      },
+      {
+        "filename": "client-test/Cargo.toml",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "client-test/tests/client.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "client-test/tests/send_and_confirm_transactions_in_parallel.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "core/src/block_creation_loop/rewards/certs_builder/entry.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "core/src/block_creation_loop/rewards/certs_builder/entry/notar_entry.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "core/src/block_creation_loop/rewards/certs_builder/entry/partial_cert.rs",
+        "status": "modified",
+        "changes": 3
+      },
+      {
+        "filename": "core/src/repair/mod.rs",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "core/src/repair/repair_handler.rs",
+        "status": "modified",
+        "changes": 6
+      },
+      {
+        "filename": "core/src/shred_fetch_stage.rs",
+        "status": "modified",
+        "changes": 12
+      },
+      {
+        "filename": "dev-bins/Cargo.lock",
+        "status": "modified",
+        "changes": 193
+      },
+      {
+        "filename": "dev-bins/Cargo.toml",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "gossip/src/cluster_info.rs",
+        "status": "modified",
+        "changes": 100
+      },
+      {
+        "filename": "gossip/src/cluster_info_metrics.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "gossip/src/crds.rs",
+        "status": "modified",
+        "changes": 18
+      },
+      {
+        "filename": "gossip/src/crds_gossip_pull.rs",
+        "status": "modified",
+        "changes": 80
+      },
+      {
+        "filename": "gossip/src/protocol.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "perf/src/packet.rs",
+        "status": "modified",
+        "changes": 20
+      },
+      {
+        "filename": "programs/sbf/Cargo.lock",
+        "status": "modified",
+        "changes": 411
+      },
+      {
+        "filename": "programs/sbf/Cargo.toml",
+        "status": "modified",
+        "changes": 12
+      },
+      {
+        "filename": "remote-wallet/src/ledger.rs",
+        "status": "modified",
+        "changes": 37
+      },
+      {
+        "filename": "rpc-client/src/nonblocking/rpc_client.rs",
+        "status": "modified",
+        "changes": 31
+      },
+      {
+        "filename": "rpc-client/src/rpc_client.rs",
+        "status": "modified",
+        "changes": 81
+      },
+      {
+        "filename": "streamer/src/packet.rs",
+        "status": "modified",
+        "changes": 29
+      },
+      {
+        "filename": "tokens/src/commands.rs",
+        "status": "modified",
+        "changes": 24
+      },
+      {
+        "filename": "votor-messages/Cargo.toml",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "votor-messages/src/certificate.rs",
+        "status": "modified",
+        "changes": 63
+      },
+      {
+        "filename": "votor-messages/src/consensus_message.rs",
+        "status": "modified",
+        "changes": 49
+      },
+      {
+        "filename": "votor-messages/src/lib.rs",
+        "status": "modified",
+        "changes": 1
+      },
+      {
+        "filename": "votor-messages/src/vote.rs",
+        "status": "modified",
+        "changes": 89
+      },
+      {
+        "filename": "votor/src/aggregate_accumulator.rs",
+        "status": "modified",
+        "changes": 2
+      },
+      {
+        "filename": "votor/src/consensus_pool.rs",
+        "status": "modified",
+        "changes": 58
+      },
+      {
+        "filename": "votor/src/consensus_pool/parent_ready_tracker.rs",
+        "status": "modified",
+        "changes": 29
+      },
+      {
+        "filename": "votor/src/consensus_pool/stats.rs",
+        "status": "modified",
+        "changes": 22
+      },
+      {
+        "filename": "votor/src/consensus_pool/vote_pool.rs",
+        "status": "modified",
+        "changes": 280
+      },
+      {
+        "filename": "votor/src/consensus_pool_service.rs",
+        "status": "modified",
+        "changes": 94
+      },
+      {
+        "filename": "votor/src/consensus_pool_service/stats.rs",
+        "status": "modified",
+        "changes": 4
+      },
+      {
+        "filename": "votor/src/event_handler/stats.rs",
+        "status": "modified",
+        "changes": 27
+      },
+      {
+        "filename": "votor/src/lib.rs",
+        "status": "modified",
+        "changes": 5
+      },
+      {
+        "filename": "votor/src/votor.rs",
+        "status": "modified",
+        "changes": 6
+      }
+    ]
+  },
+  "simds": {
+    "url": "https://api.github.com/repos/solana-foundation/solana-improvement-documents/compare/8b157e1def5fb3b3779f0935ec71cd7cae271207...f1afd941b9fa5061ea80a5401feb72172121ebb5",
+    "sha256": "6a0e92c31576f20861ad2bc0f8901fce72c7e3ef13d3e41a51769024a3d77e79",
+    "captured_at": "2026-09-25T06:24:45.495381+00:00",
+    "status": "ahead",
+    "commits": [
+      {
+        "sha": "f1afd941b9fa5061ea80a5401feb72172121ebb5",
+        "message": "SIMD-0215: clarify LtHash security considerations (#669)"
+      }
+    ],
+    "files": [
+      {
+        "filename": "proposals/0215-accounts-lattice-hash.md",
+        "status": "modified",
+        "changes": 28
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-token-2022 v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+    Updating crates.io index
+    Packaged 9 files, 79.2KiB (20.3KiB compressed)
+   Verifying hopper-token-2022 v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-token-2022 v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-token-2022-0.3.2)
+    Finished `dev` profile [unoptimized] target(s) in 0.97s
+   Uploading hopper-token-2022 v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+    Uploaded hopper-token-2022 v0.3.2 to registry `crates-io`
+note: waiting for hopper-token-2022 v0.3.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-token-2022 v0.3.2 at registry `crates-io`

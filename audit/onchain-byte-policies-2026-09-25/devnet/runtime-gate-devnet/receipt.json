@@ -1,0 +1,292 @@
+{
+  "schema": "hopper.runtime-gate-devnet.v1",
+  "sourceCommit": "15cc750c97fd1b08a4724dd4864e0f3fac7263ad",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programId": "Ffi71DTgJS4ptoyKjPTQrjPCgdATyDNxG2xCxN6ptwCU",
+  "elfSha256": "18f440e49c8f67b0b7639c8b6bfbfc886a9a7883b0ff120b543635818e696911",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "typedHeaderHex": "5201000040f1d31e9ea36a9a01000000",
+  "typedCellCasesVerified": true,
+  "accounts": [
+    "9buiZoofp7XYavU8TNyA3RgpHTyrVqS7hoLCpTqVNBwM",
+    "78fV6izFJpxitWZkqj7z9LyppYaUuqCA5yZVvrZXaYHd"
+  ],
+  "commitment": "finalized",
+  "transactions": [
+    {
+      "name": "create-state",
+      "signature": "3ENQgVq785PyWGkbYLs71CQfRSddzE57pMJ3i79b6TohtGf3BShEvjdbADZY9hYYit3QKGPTBvjTy2y6T4fDDcJi",
+      "slot": 503878431,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "create-foreign",
+      "signature": "wDqseVEDoTdRjGCqpChgLecnHcBC8RCWqajswg65K2bKRg1doviMeJcqaZbBR3oywifQDv56xBvmcT7WAj8KDvM",
+      "slot": 503878474,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "case-16",
+      "signature": "5KYgrLABxVPxnoPFBWm361N1ixMkBpjekUCubofdhBQVT8hoSxHHyexjT6WNQuzCYZG31hF7SMZxA96yky6Q7qrj",
+      "slot": 503878522,
+      "error": null,
+      "computeUnits": 186,
+      "preSnapshotSha256": "c873917b02651e2e13efc5ad9600ec988b25a206ccf8d0fa5b7430b9e91f065a",
+      "postSnapshotSha256": "04d2a1ce762d3a12682868b1d1b68952e73dd3b61f01f7fd65005df35f49b7a7",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-16-reinit",
+      "signature": "8cS9Qhd3aFsEFp9k7KHrjtpbaCAQsJDP7AdFdNSLPtQJdLYnsLk4kbmKGB3tQ9bGBrYv1q9S1PXU7gj3k7zFqmK",
+      "slot": 503878561,
+      "error": {
+        "InstructionError": [
+          0,
+          "AccountAlreadyInitialized"
+        ]
+      },
+      "computeUnits": 93,
+      "preSnapshotSha256": "04d2a1ce762d3a12682868b1d1b68952e73dd3b61f01f7fd65005df35f49b7a7",
+      "postSnapshotSha256": "04d2a1ce762d3a12682868b1d1b68952e73dd3b61f01f7fd65005df35f49b7a7",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-10",
+      "signature": "2ypXTQUut5V8x6LQQMExNarMTRz9DA9ZzoKpZAoxoTx3VPBqnJEbqBhJ16kcARA4WY8Y5dAgrpVQPgfYjGE2yTje",
+      "slot": 503878608,
+      "error": null,
+      "computeUnits": 624,
+      "preSnapshotSha256": "04d2a1ce762d3a12682868b1d1b68952e73dd3b61f01f7fd65005df35f49b7a7",
+      "postSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-11",
+      "signature": "5VXUvMhVn8mcV1b29Gz7jfAFk6uA2W15nw5h8ejQ9hrb3osrvnQB47pSwfFKBKzQjsova3kJWGv6HUGbVeYU31Zp",
+      "slot": 503878660,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 474,
+      "preSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "postSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-12",
+      "signature": "5v5CuLghUdqvGzuxN8p3JHyfbvwpDiDR1PzMKjWgw1mcs1p1K89kmFqbZjN8LVrXBZLugABbrcsN3p1Coz1Nh1vv",
+      "slot": 503878705,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 470,
+      "preSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "postSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-13",
+      "signature": "2oXJiJHXtKLxu2wJaGxKG1SwRh57nRCcNqyLXxDFXrRmoKp3hYSJtvwKw3UcScdz1bRe9jiGoJMyGTESmioNk4M5",
+      "slot": 503878752,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 470,
+      "preSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "postSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-14",
+      "signature": "5gHaozFx4ZcQNUEE5BSWDb7CqKtFqwkXqnQFTsUSWEP3bE8EpHQVgay7cdZwEYiXiePoepJ2cEfbecXCbx81BCu2",
+      "slot": 503878806,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 516,
+      "preSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "postSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-15",
+      "signature": "3jHy1UZhgNfYvXkLYFySz4R3hf78EGvhjnYVbwHy7672osmQRJGXDdrFw2aCnJDxKPutc3w3R2qPx1mHkFX99ms4",
+      "slot": 503878850,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 428,
+      "preSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "postSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-1",
+      "signature": "3xJqzDHvjLhtQHSHDTe7RzwWhAVMPVsJ6J9o2C8m3gJaypHYWAHSj3uPu6SGiN8XvszJrNTY9HGYaVM5c4c78nPW",
+      "slot": 503878899,
+      "error": null,
+      "computeUnits": 406,
+      "preSnapshotSha256": "9b557a7bb8c6d780cc380c997e936631abc716c19c1407c3efc5971daf4bef02",
+      "postSnapshotSha256": "f56112f7d66c2f3fe5db4ae654126c523bcb3f47030c0934774bdb8dc47e1e18",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-2",
+      "signature": "2EwqR3fWFFafhMqKijJX8qC57H3if7REkWoGvQpDXmU8Jcih2Rt6YhE8gfA8yzt7gVmx9jkZ393a8MZMmThYxSGR",
+      "slot": 503878949,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 405,
+      "preSnapshotSha256": "f56112f7d66c2f3fe5db4ae654126c523bcb3f47030c0934774bdb8dc47e1e18",
+      "postSnapshotSha256": "f56112f7d66c2f3fe5db4ae654126c523bcb3f47030c0934774bdb8dc47e1e18",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-3",
+      "signature": "615wb8MQtnfmww21qiRWAMduwHh8kAUnnKPwvXQxTgosRJArfJTu15nF8p2GSfgDo1QRQWUsZNWx3jmYQuyrb6VY",
+      "slot": 503879018,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53503
+          }
+        ]
+      },
+      "computeUnits": 384,
+      "preSnapshotSha256": "f56112f7d66c2f3fe5db4ae654126c523bcb3f47030c0934774bdb8dc47e1e18",
+      "postSnapshotSha256": "f56112f7d66c2f3fe5db4ae654126c523bcb3f47030c0934774bdb8dc47e1e18",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-4",
+      "signature": "2qeL5nJ3CncnsZUwZYsh6WbiyLs9oM566ipru6o4fcRKmDVQFoo5C5U6iNZpHEesnkJAFdYD8sUbdfmj4UCGxSpo",
+      "slot": 503879065,
+      "error": null,
+      "computeUnits": 1070,
+      "preSnapshotSha256": "f56112f7d66c2f3fe5db4ae654126c523bcb3f47030c0934774bdb8dc47e1e18",
+      "postSnapshotSha256": "04795d7c675a5be2040e8e3fefbc40b59b01e7ea30cd9042a22f52809655b7bd",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-5",
+      "signature": "PwKtsmE1nrtHNnT519f6TySpF1RTm8mdFz39hfcUwmC7snUVyz7CNbaCJBwDCMQCj7QBBSSs2KmGrotRMru7tEZ",
+      "slot": 503879104,
+      "error": null,
+      "computeUnits": 441,
+      "preSnapshotSha256": "04795d7c675a5be2040e8e3fefbc40b59b01e7ea30cd9042a22f52809655b7bd",
+      "postSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-6",
+      "signature": "5auCDvRSNmW481pi2uXBPoLJGhWQRm8VrsqnyQbnCa5aASiFG7m3kdryYJipiB4sjD9W675Da1KcDTxyqYHC4oxq",
+      "slot": 503879142,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 432,
+      "preSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "postSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-7",
+      "signature": "39eCUns6eTPCYwApUf9vgP2wjZbtJmGxZZRHvZYoUNTZhBQCCkfWs58rAokahWrs6YHnB6TrtFe3G1LD9Hp9tTM7",
+      "slot": 503879188,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53248
+          }
+        ]
+      },
+      "computeUnits": 325,
+      "preSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "postSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-8",
+      "signature": "2h4Js33W1HP8g2KEyqjf641ni5WkB21Fnw32PmUEHanoCrH8ewy8oMVBAsEczpr36sVL9oHprvPyqyUTtQc2Cxwf",
+      "slot": 503879234,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53503
+          }
+        ]
+      },
+      "computeUnits": 382,
+      "preSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "postSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-9",
+      "signature": "5y124Ys5rdVJPSbVsT6KQH6sxabMvyB8M937LaruEmnYZniBQAfu3sT9fYwfzPmKWpwSiScQ9YeTL48126MpKsXm",
+      "slot": 503879281,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 53503
+          }
+        ]
+      },
+      "computeUnits": 348,
+      "preSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "postSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "expectedStateVerified": true
+    },
+    {
+      "name": "case-0",
+      "signature": "4LJ58dgXTkgwvSvr1J3ysFXvsL1XqTt5oUyoWw4HtJoZhGe4dvd1APae6WEQtcsDp7v6otRww9WYnxymnTX5zKGt",
+      "slot": 503879332,
+      "error": null,
+      "computeUnits": 105,
+      "preSnapshotSha256": "9aac1dc40035a3381b92d7c0e873d1ea230b76ea7c3fdc392da25de02167c54d",
+      "postSnapshotSha256": "74c9f40cee6378cbd43786131b926cb6f2de12ff021ae2b3d1220ccfe329c8aa",
+      "expectedStateVerified": true
+    }
+  ]
+}

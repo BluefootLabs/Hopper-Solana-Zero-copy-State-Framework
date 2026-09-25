@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "cargo",
+    "+1.96.0",
+    "build",
+    "--manifest-path",
+    "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\verifier\\Cargo.toml",
+    "--bin",
+    "framework-verifier",
+    "--locked",
+    "--offline"
+  ],
+  "startedAt": "2026-09-25T06:48:27.445128+00:00",
+  "exitCode": 0,
+  "log": "build-verifier.log",
+  "logSha256": "d4a439d57faaad5c12d0054a651a6b661dc26b70a3e17550c7797235f84b5560",
+  "sha256": "8f9530484305f685c86bb46ff801d7db56befd06f1149f4ab4422b0bb55662dd",
+  "profile": "dev"
+}

@@ -1,0 +1,38 @@
+{
+  "Mainnet Beta": {
+    "current": {
+      "Agave": "v4.2.2",
+      "FD": "v26.08.0",
+      "FRD": "v0.1106.40201"
+    },
+    "next": {
+      "Agave": "",
+      "FD": "",
+      "FRD": ""
+    }
+  },
+  "Devnet": {
+    "current": {
+      "Agave": "v4.2.2",
+      "FD": "v26.08.0",
+      "FRD": "v0.1106.40201"
+    },
+    "next": {
+      "Agave": "v4.3.0",
+      "FD": "",
+      "FRD": ""
+    }
+  },
+  "Testnet": {
+    "current": {
+      "Agave": "v4.3.0",
+      "FD": "v26.08.0",
+      "FRD": "v0.1106.40201"
+    },
+    "next": {
+      "Agave": "",
+      "FD": "",
+      "FRD": ""
+    }
+  }
+}

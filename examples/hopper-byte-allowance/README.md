@@ -32,3 +32,10 @@ Read the [on-chain byte-policy guide](../../docs/ONCHAIN_BYTE_POLICIES.md) for
 the API, enforcement boundaries, and build/test commands. Compiled verification
 is in `bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs`; public
 devnet verification is in `scripts/test-byte-allowance-devnet.py`.
+
+The [September 25 release evidence](../../audit/onchain-byte-policies-2026-09-25/README.md)
+records three compiled suites on both v0 and v3 and 40 finalized devnet
+transactions. The deployed v0 ELF is 24,920 bytes; ordinary consume and limit
+updates measured 889 and 831 CU respectively. A fresh registry-only build
+reproduces that ELF exactly and passes all three compiled suites. These figures
+describe this fixture and toolchain, not a universal accessor cost.

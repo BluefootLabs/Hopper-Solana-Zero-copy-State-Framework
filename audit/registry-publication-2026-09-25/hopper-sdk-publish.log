@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-sdk v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-sdk)
+    Updating crates.io index
+    Packaged 11 files, 71.4KiB (18.5KiB compressed)
+   Verifying hopper-sdk v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-sdk)
+   Compiling hopper-sdk v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-sdk-0.3.2)
+    Finished `dev` profile [unoptimized] target(s) in 0.74s
+   Uploading hopper-sdk v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-sdk)
+    Uploaded hopper-sdk v0.3.2 to registry `crates-io`
+note: waiting for hopper-sdk v0.3.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-sdk v0.3.2 at registry `crates-io`

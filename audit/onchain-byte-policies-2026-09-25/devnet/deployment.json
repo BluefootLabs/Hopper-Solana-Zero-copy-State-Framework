@@ -1,0 +1,54 @@
+{
+  "sourceCommit": "2bb9d52221a101b76b88ce935983be5f50066c1e",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "payer": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "payerBefore": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 503874308
+    },
+    "value": 3392112117
+  },
+  "programs": [
+    {
+      "name": "byte-allowance",
+      "programId": "6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o",
+      "elf": "target\\hopper\\onchain-2026-09-25\\gates-final\\byte-allowance-v0\\hopper_byte_allowance.so",
+      "elfSha256": "504467ff81d231ac5659bafcc7a2e2df36ad98862c8e6d343ff53f79c26f4f27",
+      "elfBytes": 24920,
+      "deployment": {
+        "programId": "6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o",
+        "signature": "4jovTBDXko7qjUgNPged2QXhvBM46B2C24tga22tYxPULkYX1dpHoPnWbMbfEAom9weswqF8bRAZn6jgJ6pssTZG"
+      }
+    },
+    {
+      "name": "runtime-gate",
+      "programId": "Ffi71DTgJS4ptoyKjPTQrjPCgdATyDNxG2xCxN6ptwCU",
+      "elf": "target\\hopper\\onchain-2026-09-25\\gates-final\\runtime-gate-v0\\hopper_runtime_gate_fixture.so",
+      "elfSha256": "18f440e49c8f67b0b7639c8b6bfbfc886a9a7883b0ff120b543635818e696911",
+      "elfBytes": 21320,
+      "deployment": {
+        "programId": "Ffi71DTgJS4ptoyKjPTQrjPCgdATyDNxG2xCxN6ptwCU",
+        "signature": "49Vw7WCYkLAJKbGFXgNYAoVsVJ5V15wnNd5KyP93WGSctu7FxK5JLvVKzQJUN14qJDvBmduC8yBfjaEDcdWWzuBX"
+      }
+    },
+    {
+      "name": "orderbook",
+      "programId": "E3V1wqv5pmE2WbYJ1NkBdQtkAwDgxE2nYQdGw9RGJqNw",
+      "elf": "target\\hopper\\onchain-2026-09-25\\gates-final\\orderbook-v0\\hopper_orderbook.so",
+      "elfSha256": "903ca07c95441b45b0888bf35dbd2bcf860734c3e831dab9b2538901ffaa0f5b",
+      "elfBytes": 14568,
+      "deployment": {
+        "programId": "E3V1wqv5pmE2WbYJ1NkBdQtkAwDgxE2nYQdGw9RGJqNw",
+        "signature": "5x7tXFfgbb6FGYRWiCCy3k5ii8oDqGj4SgzB1RNgd9bYgziF7rWd1s7PiP8w4A2Q26XZKj9KE68TQXH7EELPUnwz"
+      }
+    }
+  ],
+  "payerAfter": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 503874940
+    },
+    "value": 3077701597
+  }
+}

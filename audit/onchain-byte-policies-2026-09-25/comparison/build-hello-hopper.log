@@ -1,0 +1,11 @@
+argv: ["cargo-build-sbf", "--lto", "--arch", "v0", "--tools-version", "v1.54", "--manifest-path", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\hello\\hopper\\Cargo.toml", "--sbf-out-dir", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf", "--", "--locked", "--offline"]
+   Compiling hopper-systems v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-solana v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-derive v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+   Compiling hopper-macros v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-associated-token v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-token-2022 v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-lang v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hello-hopper v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\programs\hello\hopper)
+    Finished `release` profile [optimized] target(s) in 33.58s

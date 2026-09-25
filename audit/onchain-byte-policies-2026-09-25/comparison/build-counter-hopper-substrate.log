@@ -1,0 +1,3 @@
+argv: ["cargo-build-sbf", "--lto", "--arch", "v0", "--tools-version", "v1.54", "--manifest-path", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\programs\\counter\\hopper-substrate\\Cargo.toml", "--sbf-out-dir", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\onchain-2026-09-25\\comparison\\sbf", "--", "--locked", "--offline"]
+   Compiling counter-hopper-substrate v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\programs\counter\hopper-substrate)
+    Finished `release` profile [optimized] target(s) in 0.65s

@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-anchor)
+    Updating crates.io index
+    Packaged 7 files, 12.3KiB (4.0KiB compressed)
+   Verifying hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-anchor)
+ Downloading crates ...
+  Downloaded hopper-runtime v0.3.2
+   Compiling hopper-runtime v0.3.2
+   Compiling hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-anchor-0.3.2)
+    Finished `dev` profile [unoptimized] target(s) in 2.81s
+   Uploading hopper-anchor v0.3.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-anchor)
+warning: aborting upload due to dry run

@@ -35,8 +35,8 @@ pub struct Consume<'info> {
 *ctx.book_revisions_cell_mut()? = WireU64::new(next_revision);
 ```
 
-The generated accessors arrive in the 0.3.2 source. Until its publication is
-verified, use a local checkout for this example. The accessor captures the
+The generated accessors are available in the published 0.3.2 framework.
+The accessor captures the
 selector during context binding, infers the column's element type, checks the
 array bound and offset arithmetic, and acquires the normal policy-checked
 segment lease. Callers do not repeat a byte offset or provide a second selector.
@@ -94,6 +94,24 @@ full resulting accounts, all four selectors, failed authentication, stale
 revisions, quota failures, overflow, malformed accounts, and reinitialization.
 `scripts/test-byte-allowance-devnet.py` exercises a deployed ELF on public
 devnet and records finalized transactions and exact account snapshots.
+
+## Verified 0.3.2 release
+
+The September 25 capture passed 40 finalized allowance transactions, 20
+runtime-gate transactions, and two orderbook transactions. It includes successful
+updates, expected refusals, exact account-state checks, and exact deployed ELF
+checks before and after each lane. A prior harness attempt stopped at CLI account
+parsing after two delegate-funding transactions; those are outside the 62-case
+completed capture.
+
+The v0 allowance ELF is 24,920 bytes. On devnet, ordinary consumption used 889 CU
+and a limit update used 831 CU. These are whole-instruction measurements for
+this program and input shape, not intrinsic accessor costs or a framework ranking.
+Fresh programs using only crates.io dependencies reproduce the allowance and
+runtime-gate ELFs exactly and pass all four compiled suites.
+
+See the [on-chain evidence](../audit/onchain-byte-policies-2026-09-25/README.md)
+and [registry verification](../audit/registry-publication-2026-09-25/README.md).
 
 For current network boundaries, see the [September 25 source and activation
 review](SOURCE_REVIEW_2026-09-25.md). Alpenglow is a consensus change, not a

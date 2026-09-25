@@ -1,0 +1,1 @@
+{"case":"counter","program_id":"GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS","bytes":6512,"instructions":[{"name":"initialize","compute_units":1490,"ok":true},{"name":"increment","compute_units":1721,"ok":true}]}

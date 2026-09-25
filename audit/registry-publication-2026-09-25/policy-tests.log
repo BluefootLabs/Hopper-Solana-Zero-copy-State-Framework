@@ -1,0 +1,42 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized] target(s) in 0.49s
+     Running unittests src\lib.rs (target\debug\deps\hopper_runtime-0de67e2cbc1e7545.exe)
+
+running 33 tests
+test policy::tests::default_policy_is_strict ... ok
+test policy::tests::instruction_inherit_zeroes_every_lever ... ok
+test policy::tests::instruction_ctx_args_round_trips ... ok
+test policy::tests::named_modes_differ_on_every_lever ... ok
+test write_policy::tests::containment_oracle_resolves_parametric_cells_and_static_unions ... ok
+test write_policy::gate_store_layout_tests::initial_gate_store_is_all_zero_bytes ... ok
+test write_policy::tests::empty_policy_denies_all_writes ... ok
+test write_policy::gate_store_layout_tests::issued_counter_hands_out_nonzero_monotonic_tokens ... ok
+test write_policy::tests::declared_lamport_dimension_permits_only_members ... ok
+test write_policy::tests::data_only_policy_governs_data_but_passes_the_lamport_dimension ... ok
+test write_policy::tests::fallback_tier_second_install_is_refused_fail_closed ... ok
+test write_policy::tests::depth_exhaustion_fails_closed_loudly ... ok
+test write_policy::tests::duplicate_addresses_share_one_merged_permission ... ok
+test write_policy::tests::open_ended_tail_range_allows_tail_refuses_head_and_is_not_whole_account ... ok
+test write_policy::gate_store_layout_tests::zeroed_sbf_state_has_no_evaluator ... ok
+test write_policy::tests::gate_refuses_undeclared_and_allows_declared_lamport_mutation ... ok
+test write_policy::tests::sbf_dispatch_preserves_byte_ranges_and_data_only_lamport_passthrough ... ok
+test write_policy::tests::undeclared_lamport_dimension_permits_everything_and_is_incomplete ... ok
+test write_policy::tests::sbf_dispatch_preserves_nested_and_failed_install_enforcement ... ok
+test write_policy::tests::undeclared_ranges_are_refused_with_indexed_error ... ok
+test write_policy::tests::mutation_complete_policy_still_governs_delegation ... ok
+test write_policy::tests::out_of_order_guard_drops_cannot_corrupt_other_gates ... ok
+test policy::tests::program_profiles_are_stable ... ok
+test write_policy::tests::parametric_column_allows_only_the_selected_cell ... ok
+test write_policy::tests::containment_survives_u32_boundary_arithmetic ... ok
+test write_policy::tests::public_raw_surfaces_are_governed_by_the_ambient_gate ... ok
+test write_policy::tests::gate_delegation_requires_both_dimensions ... ok
+test write_policy::tests::whole_account_allowance_contains_any_request ... ok
+test write_policy::tests::declared_ranges_allow_exact_and_contained_writes ... ok
+test write_policy::tests::whole_account_grant_is_required_for_delegation ... ok
+test write_policy::tests::forgotten_guard_leaves_stale_value_policy_never_ub ... ok
+test write_policy::tests::nested_gates_shadow_and_resume_like_a_stack ... ok
+test write_policy::tests::install_fails_closed_when_accounts_exceed_capacity ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 279 filtered out; finished in 0.00s
+

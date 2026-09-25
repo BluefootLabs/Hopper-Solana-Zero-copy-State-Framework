@@ -1,0 +1,58 @@
+argv: ["cargo", "+1.96.0", "build", "--manifest-path", "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\framework-comparison\\verifier\\Cargo.toml", "--bin", "framework-verifier", "--locked", "--offline"]
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling solana-address v2.6.1
+   Compiling solana-pubkey v4.2.1
+   Compiling solana-sdk-ids v3.1.0
+   Compiling solana-sysvar-id v3.1.0
+   Compiling solana-instruction v3.4.0
+   Compiling solana-sdk-macro v3.0.1
+   Compiling solana-get-sysvar v1.0.0
+   Compiling solana-account-info v3.1.1
+   Compiling solana-clock v3.1.1
+   Compiling solana-program-entrypoint v3.1.1
+   Compiling solana-slot-history v3.0.1
+   Compiling solana-epoch-rewards v3.1.0
+   Compiling solana-slot-hashes v3.1.0
+   Compiling solana-epoch-schedule v3.2.0
+   Compiling solana-rent v4.3.0
+   Compiling solana-last-restart-slot v3.0.1
+   Compiling solana-sysvar v4.0.0
+   Compiling generic-array v0.14.7
+   Compiling solana-account v4.3.1
+   Compiling digest v0.9.0
+   Compiling solana-serialize-utils v3.1.2
+   Compiling libsecp256k1-core v0.3.0
+   Compiling solana-message v4.4.1
+   Compiling solana-system-interface v3.2.0
+   Compiling solana-transaction v4.1.4
+   Compiling solana-instructions-sysvar v4.0.0
+   Compiling solana-cpi v3.1.0
+   Compiling solana-svm-timings v4.2.1
+   Compiling solana-svm-callback v4.2.1
+   Compiling solana-stake-interface v4.3.0
+   Compiling solana-transaction-context v4.2.1
+   Compiling solana-svm-transaction v4.2.0
+   Compiling libsecp256k1-gen-ecmult v0.3.0
+   Compiling libsecp256k1-gen-genmult v0.3.0
+   Compiling solana-loader-v3-interface v7.0.0
+   Compiling solana-stable-layout v3.0.1
+   Compiling solana-program-runtime v4.2.1
+   Compiling libsecp256k1 v0.7.2
+   Compiling solana-packet v4.1.0
+   Compiling solana-nonce v3.2.1
+   Compiling solana-address v1.1.0
+   Compiling solana-syscalls v4.2.1
+   Compiling solana-pubkey v3.0.0
+   Compiling solana-nonce-account v4.1.1
+   Compiling solana-system-program v4.2.1
+   Compiling solana-instructions-sysvar v3.0.0
+   Compiling solana-bpf-loader-program v4.2.1
+   Compiling solana-compute-budget v4.2.1
+   Compiling mollusk-svm-result v0.15.1
+   Compiling solana-stake-history v1.0.0
+   Compiling mollusk-svm-error v0.15.1
+   Compiling mollusk-svm v0.15.1
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `dev` profile [unoptimized] target(s) in 1m 32s

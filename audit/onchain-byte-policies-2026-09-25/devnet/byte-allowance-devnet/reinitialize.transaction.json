@@ -1,0 +1,82 @@
+{
+  "blockTime": 1790321155,
+  "meta": {
+    "computeUnitsConsumed": 384,
+    "costUnits": 2466,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountAlreadyInitialized"
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o invoke [1]",
+      "Program 6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o consumed 384 of 200000 compute units",
+      "Program 6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o failed: instruction requires an uninitialized account"
+    ],
+    "postBalances": [
+      3071324597,
+      2032000,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      3071334597,
+      2032000,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountAlreadyInitialized"
+        ]
+      }
+    }
+  },
+  "slot": 503878385,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "EZfr8ukZhFkrnFCzZcWsLD3NnhbV5dNhyefNhZ5p6AYZ",
+        "11111111111111111111111111111111",
+        "6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2
+          ],
+          "data": "17mQEhscNVFkVt7prsEvug4Z2HF2cuuvDKuc4Scm73NbToQ8bnShBhnCqW6HKU2EsPaEFFp1T8VZtbeet58Ns8dcLYL1A88E6qisGuneMAyL7HJWgNrdtGHHfzoKjsg9DqQeEhoHkfSK86GcPCrU9AmnVUBJ4LrpsLfF6jrr2ambLSTf4Qm6NE416dM",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "DU5B1Lv7MD2qL3kLUfrZubqkvaCfKuxfJ325WJVfGn51"
+    },
+    "signatures": [
+      "GPjL4LmXPK3rSwFHY224W7ABvbwoRbBh76iv6tdD75gsNUQWjmhkuVZHNxp1h5zndrhK7hfzJNjKQVBdSd8TKUT",
+      "2LxPNGqFvNCNwMjyLK2ENBMC48vPvjoGMBLMTjqFDpafmcyh995G3j9gChhTVPv5WnowZ3h16d5E6P7cEZyzVkM1"
+    ]
+  },
+  "transactionIndex": 28,
+  "version": "legacy"
+}

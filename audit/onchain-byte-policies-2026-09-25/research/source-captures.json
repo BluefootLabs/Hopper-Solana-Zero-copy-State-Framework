@@ -1,0 +1,38 @@
+{
+  "agave-feature-set.rs": {
+    "url": "https://raw.githubusercontent.com/anza-xyz/agave/c9e429ef8db5ba67bf3a02c9cd40e55f5164e99f/feature-set/src/lib.rs",
+    "sha256": "91956131b8bd24c0e230df0b926f5bd59514ac4ed0589516885a3af3f6f9cff7",
+    "bytes": 96509,
+    "observed_at": "2026-09-25T06:23:50.580084+00:00"
+  },
+  "alpenglow.md": {
+    "url": "https://raw.githubusercontent.com/solana-foundation/solana-improvement-documents/f1afd941b9fa5061ea80a5401feb72172121ebb5/proposals/0326-alpenglow.md",
+    "sha256": "e1117f6fe945b574467cc06dd281e2d58ddc3a4d41fdd765555551312b353ea9",
+    "bytes": 10330,
+    "observed_at": "2026-09-25T06:23:50.591077+00:00"
+  },
+  "feature-gate-tracker-schedule.json": {
+    "url": "https://raw.githubusercontent.com/wiki/anza-xyz/agave/feature-gate-tracker-schedule.json",
+    "sha256": "e5d79b51cfcc746e0148f36035c1b26c673aae6a6df2d2ef9fe3d89b281e5d65",
+    "bytes": 126459,
+    "observed_at": "2026-09-25T06:23:50.649085+00:00"
+  },
+  "version-floor.json": {
+    "url": "https://raw.githubusercontent.com/wiki/anza-xyz/agave/version-floor.json",
+    "sha256": "79caf032824eda375284335388a55e91f97202356c52fd23a50ca54f148f5cb9",
+    "bytes": 592,
+    "observed_at": "2026-09-25T06:23:50.535307+00:00"
+  },
+  "v4.3-Release-Schedule.md": {
+    "url": "https://raw.githubusercontent.com/wiki/anza-xyz/agave/v4.3-Release-Schedule.md",
+    "sha256": "a4c7d1e0ba22955931ff21439c20e5cefcf647f93cc238821a94398dd0018a74",
+    "bytes": 1148,
+    "observed_at": "2026-09-25T06:23:50.510123+00:00"
+  },
+  "alpenglow-operator-docs.html": {
+    "url": "https://docs.anza.xyz/consensus/alpenglow",
+    "sha256": "677d1a8cb52fe10e53001deed2c542db2df706b5d0fb04e00d3d707ca4b16502",
+    "bytes": 29881,
+    "observed_at": "2026-09-25T06:23:50.700091+00:00"
+  }
+}

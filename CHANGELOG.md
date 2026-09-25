@@ -18,6 +18,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   storage scope without unsupported exchange or performance claims.
 - Refreshed source and network observations, including Alpenglow on testnet
   only in the September 25 snapshot.
+- Corrected policy, PDA, CPI-delegation, and performance documentation against
+  the implemented checks and dated measurement scope.
+
+## [0.3.1] - 2026-09-24
+
+- Added explicit Token-2022 mint creation plans for six supported fixed-size
+  extensions, with exact allocation, prefunding, PDA signing, and rollback tests.
+- Generated extension constraints require Token-2022 ownership before reading
+  extension data. Raw readers retain caller-owned validation responsibilities.
+- Retained validated bumps for more direct required binding paths, without
+  treating selected or stored bumps as proof of canonicality.
+- Published the 26 framework/CLI updates and verified fresh registry-only mint
+  and PDA programs alongside 45 focused finalized devnet transactions.
 
 ## [0.3.0] - 2026-09-23
 

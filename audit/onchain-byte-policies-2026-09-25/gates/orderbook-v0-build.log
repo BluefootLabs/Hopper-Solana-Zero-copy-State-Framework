@@ -1,0 +1,2 @@
+[2026-09-25T07:13:13.830167200Z WARN  cargo_build_sbf] Package 'hopper-orderbook' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+    Finished `release` profile [optimized] target(s) in 0.37s

@@ -1,0 +1,119 @@
+{
+  "baselineSource": "dfd140053a7827c0d651cbe3bb926070ce68f15c",
+  "sourceCommit": "38a247851dacb24c6b7aac1d54523637268a2026",
+  "allDimensionsUnchanged": true,
+  "rows": [
+    {
+      "case": "hello",
+      "label": "Hopper (substrate)",
+      "dimensionsEqual": {
+        "bytes": true,
+        "hello": true
+      },
+      "elfBytesIdentical": true,
+      "before": {
+        "bytes": 1656,
+        "hello": 116
+      },
+      "after": {
+        "bytes": 1656,
+        "hello": 116
+      }
+    },
+    {
+      "case": "hello",
+      "label": "Hopper (macro)",
+      "dimensionsEqual": {
+        "bytes": true,
+        "hello": true
+      },
+      "elfBytesIdentical": true,
+      "before": {
+        "bytes": 1792,
+        "hello": 138
+      },
+      "after": {
+        "bytes": 1792,
+        "hello": 138
+      }
+    },
+    {
+      "case": "hello",
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "dimensionsEqual": {
+        "bytes": true,
+        "hello": true
+      },
+      "elfBytesIdentical": true,
+      "before": {
+        "bytes": 3160,
+        "hello": 111
+      },
+      "after": {
+        "bytes": 3160,
+        "hello": 111
+      }
+    },
+    {
+      "case": "counter",
+      "label": "Hopper (substrate)",
+      "dimensionsEqual": {
+        "bytes": true,
+        "initialize": true,
+        "increment": true
+      },
+      "elfBytesIdentical": true,
+      "before": {
+        "bytes": 6728,
+        "initialize": 1606,
+        "increment": 1742
+      },
+      "after": {
+        "bytes": 6728,
+        "initialize": 1606,
+        "increment": 1742
+      }
+    },
+    {
+      "case": "counter",
+      "label": "Hopper (macro)",
+      "dimensionsEqual": {
+        "bytes": true,
+        "initialize": true,
+        "increment": true
+      },
+      "elfBytesIdentical": true,
+      "before": {
+        "bytes": 8312,
+        "initialize": 1549,
+        "increment": 349
+      },
+      "after": {
+        "bytes": 8312,
+        "initialize": 1549,
+        "increment": 349
+      }
+    },
+    {
+      "case": "counter",
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "dimensionsEqual": {
+        "bytes": true,
+        "initialize": true,
+        "increment": true
+      },
+      "elfBytesIdentical": true,
+      "before": {
+        "bytes": 6512,
+        "initialize": 1490,
+        "increment": 1721
+      },
+      "after": {
+        "bytes": 6512,
+        "initialize": 1490,
+        "increment": 1721
+      }
+    }
+  ],
+  "sourceUnchangedAndClean": true
+}

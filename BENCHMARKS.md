@@ -34,6 +34,22 @@ numbers only within one provenance block. A primitive-lab refresh on the
 Agave 4.2.1 / Mollusk 0.15 stack is still required before those historical
 primitive rows can be called current.
 
+## Release cross-check (2026-09-25)
+
+The [September 25 capture](audit/onchain-byte-policies-2026-09-25/comparison/RESULTS.md)
+at clean source `38a2478` rebuilt all six local fixtures using Pina's recorded
+recipe. Their ELFs are byte-identical to the September 24 capture. The current
+macro counter is **8,312 bytes**, initializes in **1,549 CU**, and increments in
+**349 CU**. The substrate hello remains 1,656 bytes at 116 CU; its counter is
+6,728 bytes at 1,606/1,742 CU. The rebuilt Pinocchio reference again matches the
+pinned published numbers. These program fixtures do not use the new selected-cell
+accessors or measure their cost.
+
+Peer rows remain dated published results, including Quasar's lower 330-CU
+increment. They are not fresh measurements of the latest peer source heads.
+The September 22 table below preserves the earlier 8,376-byte/358-CU macro
+counter snapshot; use the linked September 25 results for this release's values.
+
 ## pina cross-framework fixtures (2026-09-22)
 
 pina (`pina-rs/pina`, commit `aa81c8d1`) publishes a hello-world and a

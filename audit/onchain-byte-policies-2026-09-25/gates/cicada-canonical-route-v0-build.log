@@ -1,0 +1,2 @@
+[2026-09-25T07:13:12.901860800Z WARN  cargo_build_sbf] Package 'hopper-cicada-canonical-route-fixture' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+    Finished `release` profile [optimized] target(s) in 0.32s

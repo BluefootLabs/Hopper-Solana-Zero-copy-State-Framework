@@ -1,0 +1,27 @@
+    Finished `test` profile [unoptimized] target(s) in 0.49s
+     Running tests\ambient_gate_sbf.rs (target\debug\deps\ambient_gate_sbf-31a63972f82086f2.exe)
+
+running 1 test
+case 0: 105 CU, expected result verified
+case 1: 405 CU, expected result verified
+case 2: 404 CU, expected result verified
+case 3: 385 CU, expected result verified
+case 4: 1067 CU, expected result verified
+case 5: 439 CU, expected result verified
+case 6: 430 CU, expected result verified
+case 7: 324 CU, expected result verified
+case 0: 105 CU, expected result verified
+case 8: 383 CU, expected result verified
+case 9: 347 CU, expected result verified
+typed-header-hex: 5201000040f1d31e9ea36a9a01000000
+case 16: 186 CU, typed initialization verified
+case 10: 623 CU, expected typed result verified
+case 11: 473 CU, expected typed result verified
+case 12: 469 CU, expected typed result verified
+case 13: 469 CU, expected typed result verified
+case 14: 515 CU, expected typed result verified
+case 15: 427 CU, expected typed result verified
+test ambient_gate_enforces_public_surfaces_in_sbf ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.02s
+

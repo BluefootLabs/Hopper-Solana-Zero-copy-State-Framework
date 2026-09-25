@@ -20,8 +20,8 @@ connect program authoring, validation, and release inspection.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
-and post-CPI checks while still exposing low-level control. This is the 0.3.2
-release source; registry availability is tracked on the
+and post-CPI checks while still exposing low-level control. Version 0.3.2 is
+published on crates.io; registry evidence is tracked on the
 [release status page](https://hopperzero.dev/docs/release-status). The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
 means a separate recomputation boundary, not a third-party audit.
@@ -35,22 +35,28 @@ Four measured facts, with provenance in [BENCHMARKS.md](https://github.com/Bluef
 
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.
 
-The 0.3.1 registry train contains 26 framework/CLI updates plus three unchanged
-0.1.0 support packages. Fresh registry-only mint and PDA programs pass all eight
-compiled suites and reproduce the tested compiler ELFs. The September 24
-devnet run finalized 45 focused transactions, including canonical bump
-persistence and rollback after successful nested mint CPIs. See the
-[release evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/framework-refinement-2026-09-24)
-and [publication receipts](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/registry-publication-2026-09-24).
+The 0.3.2 registry train contains 26 framework/CLI updates plus three unchanged
+0.1.0 support packages. Fresh registry-only allowance and policy-probe programs
+pass four compiled suites and exactly reproduce the tested, deployed v0 ELFs.
+The September 25 devnet capture finalized 62 focused transactions: 40 allowance,
+20 runtime-gate, and two orderbook transactions. Allowance consumption measured
+889 CU and a limit update 831 CU, with complete expected account-state checks.
+See the [on-chain evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/onchain-byte-policies-2026-09-25)
+and [publication receipts](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/registry-publication-2026-09-25).
+
+The preceding [0.3.1 evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/framework-refinement-2026-09-24)
+retains 45 focused devnet transactions for mint plans, canonical bump persistence,
+and rollback after successful nested mint CPIs. Its mint and PDA compiled suites
+also pass on v0 and v3 in the 0.3.2 release gates.
 
 ## What's included
 
-The September 25 source adds [captured-selector cell accessors](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ONCHAIN_BYTE_POLICIES.md)
+Version 0.3.2 adds [captured-selector cell accessors](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ONCHAIN_BYTE_POLICIES.md)
 and an on-chain quota example. A handler uses `ctx.book_spent_cell_mut()` to
 acquire the element selected during binding, with its type and byte offset
 inferred. The policy enforces the write in the program; Grillo and other
-off-chain tools are optional inspection layers. These accessors require 0.3.2;
-consult release status for publication evidence.
+off-chain tools are optional inspection layers. These accessors are available
+from the published 0.3.2 framework.
 
 The [2026-09-24 refinement](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SOURCE_REVIEW_2026-09-24.md)
 adds exact-size mint creation plans,
@@ -104,11 +110,11 @@ package-specific API details live with each companion crate.
 
 ## Versioning
 
-The runtime policy fixture completed 12 finalized devnet transactions on
-2026-09-22 at source `ad1e209`, including six expected refusals with unchanged
-account state. Its local and deployed ELF matched before and after capture.
-See [the evidence record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DEVNET_RELEASE_EVIDENCE.md).
-This focused run covers the policy fixture, not every framework or Cicada path.
+The September 25 runtime-policy fixture completed 20 finalized devnet
+transactions, including typed selected-cell checks and the original ambient
+gate cases. Its tested and deployed ELF matched before and after capture.
+This focused proof covers the policy fixture; Cicada's current evidence is
+23 local compiled lifecycle tests and 698 host semantic adapter cases.
 
 Main framework: `hopper-lang` 0.3.2, imported as `hopper`. Keep the framework
 and CLI on the same release line when using generated code and new APIs.

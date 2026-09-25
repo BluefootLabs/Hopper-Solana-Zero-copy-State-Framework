@@ -126,6 +126,7 @@ that another framework cannot implement equivalent application checks.
 
 These priorities are inferred from the reviewed source and runtime contracts;
 they are not a Solana Foundation endorsement or a universal framework ranking.
-The capture script, exact source heads, source diffs, checksums, public RPC
-responses, and decoded observations are saved under
-`target/hopper/onchain-2026-09-25/research/` for the release evidence archive.
+The release archive preserves the [reviewed source summary, exact heads,
+checksums, public RPC responses, and decoded observations](../audit/onchain-byte-policies-2026-09-25/README.md).
+Full third-party source and compare patches remain in the ignored local capture;
+the public archive records the scoped findings and their source pins.

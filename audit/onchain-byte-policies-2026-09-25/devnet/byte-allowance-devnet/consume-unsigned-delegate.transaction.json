@@ -1,0 +1,80 @@
+{
+  "blockTime": 1790321104,
+  "meta": {
+    "computeUnitsConsumed": 91,
+    "costUnits": 1423,
+    "err": {
+      "InstructionError": [
+        0,
+        "MissingRequiredSignature"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o invoke [1]",
+      "Program 6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o consumed 91 of 200000 compute units",
+      "Program 6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o failed: missing required signature for instruction"
+    ],
+    "postBalances": [
+      3071379597,
+      2032000,
+      833120,
+      1000000
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      3071384597,
+      2032000,
+      833120,
+      1000000
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      }
+    }
+  },
+  "slot": 503878080,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "EZfr8ukZhFkrnFCzZcWsLD3NnhbV5dNhyefNhZ5p6AYZ",
+        "6tAGU577AdurNkpm5aW7oJPZLorPdRmvjH7EcRGYKy7o",
+        "72aj1hUniEp9FStfAXtsmSs5uHBFqjLzSqf7EFJbnfo9"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1
+          ],
+          "data": "BcrMXaed5JZZuajv2ooP69fg3",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "GdH9MxkATPaX3LDiyME6ZeTjdW19j6AQk7LrsUFsGfqv"
+    },
+    "signatures": [
+      "5hCqkeobAT942mTZ9rGPmbHz3paske1JhkTuQksVwpDyqJ8USkAHYwDJFh624P63degAJPbL7GxBbhCgZJ2aQBYQ"
+    ]
+  },
+  "transactionIndex": 11,
+  "version": "legacy"
+}
