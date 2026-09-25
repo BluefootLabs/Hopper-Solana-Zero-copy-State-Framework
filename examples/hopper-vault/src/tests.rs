@@ -14,10 +14,14 @@ fn process_instruction(
     instruction_data: &[u8],
     accounts: &[AccountFixture],
 ) -> ProcessResult {
+    let mut accounts = accounts.to_vec();
+    if instruction_data.first() == Some(&1) {
+        accounts.push(AccountFixture::new(system_program(), system_program(), 1, 0).executable());
+    }
     HopperSvm::new().process_instruction(
         program_id,
         instruction_data,
-        accounts,
+        &accounts,
         super::__hopper_process_instruction_vault_program,
     )
 }
@@ -65,6 +69,51 @@ fn seeded_vault_account(
     vault.balance = WireU64::new(balance);
     vault.bump = 0;
     AccountFixture::with_data(address, program_id, lamports, data).writable()
+}
+
+#[test]
+fn dsl_custody_round_trip_and_authority_refusal() {
+    let program = address(39);
+    let authority = address(31);
+    let accounts = vec![
+        seeded_user_account(authority, 1_000_000_000, true),
+        seeded_vault_account(address(32), program, authority, 1_000_000, 0),
+        AccountFixture::new(system_program(), system_program(), 1, 0).executable(),
+    ];
+    let svm = HopperSvm::new();
+    let deposited = svm.process_instruction(
+        program,
+        &321u64.to_le_bytes(),
+        &accounts,
+        super::dsl::process_deposit_dsl,
+    );
+    assert_eq!(deposited.program_result, Ok(()));
+    assert_eq!(
+        deposited.resulting_accounts[0].lamports,
+        accounts[0].lamports - 321
+    );
+    let withdrawn = svm.process_instruction(
+        program,
+        &321u64.to_le_bytes(),
+        &deposited.resulting_accounts[..2],
+        super::dsl::process_withdraw_dsl,
+    );
+    assert_eq!(withdrawn.program_result, Ok(()));
+    for (before, after) in accounts[..2].iter().zip(&withdrawn.resulting_accounts) {
+        assert_eq!(before.data, after.data);
+        assert_eq!(before.lamports, after.lamports);
+    }
+    let mut wrong = accounts.clone();
+    wrong[0].address = address(33);
+    let refused = svm.process_instruction(
+        program,
+        &321u64.to_le_bytes(),
+        &wrong,
+        super::dsl::process_deposit_dsl,
+    );
+    assert!(refused.program_result.is_err());
+    assert_eq!(refused.resulting_accounts[1].data, wrong[1].data);
+    assert_eq!(refused.resulting_accounts[0].lamports, wrong[0].lamports);
 }
 
 #[test]

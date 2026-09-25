@@ -28,7 +28,7 @@ access only when the program has a measured reason.
 | `Program<T>` | `Program<'info, T>` |
 | `Interface<T>` | `Interface<'info, T>` |
 | `InterfaceAccount<T>` | `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set |
-| `set_inner()` | generated `set_inner(...)` |
+| `set_inner()` | generated `set_fields(StateFields { ... })` or positional `set_inner(...)` |
 | `String<'a, N>` | `String<'a, N>` in `#[hopper::account]`, or `#[tail(string<N>)]` in systems-mode spelling |
 | `Vec<'a, T, N>` | `Vec<'a, T, N>` in `#[hopper::account]`, or `#[tail(vec<T, N>)]` where `T: TailElement` |
 | `ctx.bumps.foo` | `ctx.bumps.foo` |

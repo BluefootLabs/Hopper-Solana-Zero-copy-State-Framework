@@ -27,14 +27,8 @@ mod tests;
 
 // --- State ----------------------------------------------------------
 
-#[derive(Clone, Copy)]
-#[repr(C)]
-#[account(discriminator = 1, version = 1)]
-pub struct Vault {
-    pub authority: Address,
-    pub balance: WireU64,
-    pub bump: u8,
-}
+mod state;
+pub use state::{Vault, VaultFields};
 
 // --- Errors ---------------------------------------------------------
 
@@ -65,6 +59,8 @@ pub struct Deposit<'info> {
 
     #[account(mut, has_one = authority)]
     pub vault: Account<'info, Vault>,
+
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -82,8 +78,11 @@ mod vault_program {
 
     #[instruction(0)]
     pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult {
-        ctx.init_vault()?;
-        ctx.accounts.initialize()
+        ctx.init_vault_with(VaultFields {
+            authority: *ctx.accounts.payer.key(),
+            balance: 0,
+            bump: 0,
+        })
     }
 
     #[instruction(1)]
@@ -100,7 +99,11 @@ mod vault_program {
 impl<'info> Initialize<'info> {
     pub fn initialize(&self) -> ProgramResult {
         let mut vault = self.vault.get_mut_after_init()?;
-        vault.set_inner(*self.payer.key(), 0, 0)
+        vault.set_fields(VaultFields {
+            authority: *self.payer.key(),
+            balance: 0,
+            bump: 0,
+        })
     }
 }
 
@@ -117,9 +120,8 @@ impl<'info> Deposit<'info> {
         }
         .invoke()?;
 
-        let mut vault = self.vault.get_mut()?;
-        vault.balance.checked_add_assign(amount)?;
-        Ok(())
+        self.vault
+            .with_mut(|vault| vault.balance.checked_add_assign(amount))
     }
 }
 
@@ -139,19 +141,6 @@ impl<'info> Withdraw<'info> {
 
         // The vault is program-owned, so withdraw debits lamports directly
         // after Hopper has validated authority and account layout.
-        vault_account.set_lamports(
-            vault_account
-                .lamports()
-                .checked_sub(amount)
-                .ok_or(ProgramError::InsufficientFunds)?,
-        )?;
-        authority.set_lamports(
-            authority
-                .lamports()
-                .checked_add(amount)
-                .ok_or(ProgramError::ArithmeticOverflow)?,
-        )?;
-
-        Ok(())
+        transfer_lamports(vault_account, authority, amount)
     }
 }

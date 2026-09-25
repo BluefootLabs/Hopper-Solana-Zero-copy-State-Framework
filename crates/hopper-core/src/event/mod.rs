@@ -15,6 +15,7 @@ use hopper_runtime::error::ProgramError;
 /// or known layout. Costs ~100 CU, zero allocation.
 #[inline(always)]
 pub fn emit_event<T: Pod + FixedLayout>(value: &T) -> Result<(), ProgramError> {
+    const { crate::account::assert_fixed_layout::<T>() };
     // SAFETY: T: Pod guarantees all bit patterns valid and no padding invariants.
     // The resulting slice covers exactly T::SIZE bytes from a valid reference.
     let bytes = unsafe { core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE) };
@@ -27,6 +28,7 @@ pub fn emit_event<T: Pod + FixedLayout>(value: &T) -> Result<(), ProgramError> {
 /// Layout: `[event_disc: u8][event_data: T::SIZE bytes]`
 #[inline]
 pub fn emit_event_tagged<T: Pod + FixedLayout>(disc: u8, value: &T) -> Result<(), ProgramError> {
+    const { crate::account::assert_fixed_layout::<T>() };
     // SAFETY: T: Pod guarantees all bit patterns valid. Slice covers T::SIZE bytes.
     let value_bytes =
         unsafe { core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE) };

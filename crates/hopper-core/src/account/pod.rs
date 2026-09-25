@@ -26,30 +26,34 @@ pub use hopper_runtime::pod::{Pod, Zeroable};
 /// it: conforming types implement `FixedLayout` with an empty body and
 /// get the correct size for free.
 ///
-/// The value is not merely defaulted, it is *proven*.
-/// [`_SIZE_IS_HONEST`](Self::_SIZE_IS_HONEST) is a compile-time assertion
-/// that `SIZE == size_of::<Self>()`; every consumer that trusts `SIZE`
-/// in unsafe pointer arithmetic references it, so an impl that overrides
-/// `SIZE` with a wrong value is a **build error the moment the type is
-/// used**; not a latent out-of-bounds waiting for a fuzzer. This
-/// replaces the hand-written `const _: () = assert!(size_of == N)` that
-/// each overlay type previously had to remember to write next to its
-/// `SIZE`. The framework owns the invariant now, not the author.
+/// Hopper's checked overlays, events, frames, and collections evaluate a
+/// framework-owned assertion before trusting this size in pointer arithmetic.
+/// A mismatched size is rejected during monomorphization. The compatibility
+/// constant `_SIZE_IS_HONEST` is not itself a proof: safe implementations can
+/// override associated constants, so internal checks do not trust it.
 pub trait FixedLayout: Sized {
     /// Total byte size on the wire. Defaults to `size_of::<Self>()`,
     /// which is correct for every align-1, no-padding `Pod` overlay;
     /// override only if you have a genuine reason (and it must still
-    /// equal `size_of::<Self>()`, enforced by [`Self::_SIZE_IS_HONEST`]).
+    /// equal `size_of::<Self>()`, checked by the framework's consumers).
     const SIZE: usize = core::mem::size_of::<Self>();
 
-    /// Compile-time proof that [`SIZE`](Self::SIZE) is the true byte
-    /// size of `Self`. Consumers that feed `SIZE` into unsafe pointer
-    /// arithmetic touch this const so a dishonest override cannot reach
-    /// runtime. Not intended to be referenced by name in user code.
+    /// Compatibility assertion. Internal safety checks use a separate,
+    /// non-overridable assertion. Not intended for user code.
     #[doc(hidden)]
     const _SIZE_IS_HONEST: () = assert!(
         Self::SIZE == core::mem::size_of::<Self>(),
         "FixedLayout::SIZE must equal size_of::<Self>()",
+    );
+}
+
+/// Do not replace this with a trait-associated assertion: an implementation
+/// can override both SIZE and that assertion using entirely safe Rust.
+#[inline(always)]
+pub(crate) const fn assert_fixed_layout<T: FixedLayout>() {
+    assert!(
+        T::SIZE == core::mem::size_of::<T>(),
+        "FixedLayout::SIZE must equal size_of::<Self>()"
     );
 }
 
@@ -61,6 +65,7 @@ pub trait FixedLayout: Sized {
 /// overlapping mutable references to the same memory.
 #[inline(always)]
 pub fn pod_from_bytes<T: Pod + FixedLayout>(data: &[u8]) -> Result<&T, ProgramError> {
+    const { assert_fixed_layout::<T>() };
     if data.len() < T::SIZE {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -78,6 +83,7 @@ pub fn pod_from_bytes<T: Pod + FixedLayout>(data: &[u8]) -> Result<&T, ProgramEr
 /// create overlapping references (mutable or immutable) to the same memory.
 #[inline(always)]
 pub fn pod_from_bytes_mut<T: Pod + FixedLayout>(data: &mut [u8]) -> Result<&mut T, ProgramError> {
+    const { assert_fixed_layout::<T>() };
     if data.len() < T::SIZE {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -88,6 +94,7 @@ pub fn pod_from_bytes_mut<T: Pod + FixedLayout>(data: &mut [u8]) -> Result<&mut 
 /// Copy a Pod value from bytes (alignment-safe).
 #[inline(always)]
 pub fn pod_read<T: Pod + FixedLayout>(data: &[u8]) -> Result<T, ProgramError> {
+    const { assert_fixed_layout::<T>() };
     if data.len() < T::SIZE {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -98,6 +105,7 @@ pub fn pod_read<T: Pod + FixedLayout>(data: &[u8]) -> Result<T, ProgramError> {
 /// Write a Pod value to bytes (alignment-safe).
 #[inline(always)]
 pub fn pod_write<T: Pod + FixedLayout>(data: &mut [u8], value: &T) -> Result<(), ProgramError> {
+    const { assert_fixed_layout::<T>() };
     if data.len() < T::SIZE {
         return Err(ProgramError::InvalidAccountData);
     }

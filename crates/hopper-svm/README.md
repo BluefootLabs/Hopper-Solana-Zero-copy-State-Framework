@@ -25,6 +25,11 @@ assert!(result.program_result.is_ok());
 fixtures. It does not meter compute: `compute_units_consumed` is always `0`,
 so use an SBF runtime for CU measurements.
 
+This is a direct host call, not a transactional Solana VM. Returned fixtures
+include writes made before an error; the harness does not roll those writes
+back or reproduce every CPI account-presence and runtime ownership rule. Use
+compiled SBF tests and devnet for transaction rollback and custody validation.
+
 Docs: <https://docs.rs/crate/hopper-svm>
 
 License: Apache-2.0.

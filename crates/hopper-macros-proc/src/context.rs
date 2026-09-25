@@ -3484,6 +3484,38 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     #body
                 }
             });
+
+            // Initialization values are an open trait on the input, not a new
+            // requirement on every hand-written layout. Do not offer a helper
+            // that could silently reset existing init_if_needed/auto-init data.
+            if cf.attr.init && !context_options.auto_lifecycle && !cf.attr.auto_lifecycle {
+                let init_with_fn = format_ident!("init_{}_with", field_name);
+                let call_args = if has_instruction_args && cf.attr.seeds.is_some() {
+                    quote! { #(#arg_names),* }
+                } else {
+                    TokenStream::new()
+                };
+                accessors.push(quote! {
+                    /// Create a fresh account, acquire a checked mutable layout,
+                    /// and apply named values or an application-defined initializer.
+                    /// Dynamic tails require separate initialization. Propagate
+                    /// errors to the instruction boundary for transaction rollback;
+                    /// this helper does not undo a successful CPI locally.
+                    #[inline]
+                    #vis fn #init_with_fn<__HopperFields>(
+                        &self,
+                        __hopper_fields: __HopperFields
+                        #init_arg_fragment
+                    ) -> ::hopper::__runtime::ProgramResult
+                    where
+                        __HopperFields: ::hopper::__runtime::AccountFields<Layout = #field_ty>,
+                    {
+                        self.#init_fn(#call_args)?;
+                        let mut __hopper_layout = self.ctx.account(#slot)?.load_mut::<#field_ty>()?;
+                        ::hopper::__runtime::AccountFields::write(__hopper_fields, &mut __hopper_layout)
+                    }
+                });
+            }
         }
 
         if let (

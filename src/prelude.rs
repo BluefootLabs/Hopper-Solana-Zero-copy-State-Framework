@@ -13,6 +13,7 @@ pub use crate::account::{
 };
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
+pub use hopper_runtime::layout::AccountFields;
 pub use hopper_runtime::{
     transfer_lamports, AccountView, Address, HopperString, HopperVec, LazyContext, Pod,
     ProgramError, ProgramResult, Ref, ScopedContext, TailBytes, TailCodec, TailElement, TailStr,

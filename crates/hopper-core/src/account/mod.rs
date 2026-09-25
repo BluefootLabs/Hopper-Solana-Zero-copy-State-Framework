@@ -38,6 +38,7 @@ pub use lifecycle::{
     safe_realloc, safe_realloc_bounded, safe_realloc_unchecked, zero_init, CLOSE_SENTINEL,
 };
 pub use overlay::{overlay, overlay_mut};
+pub(crate) use pod::assert_fixed_layout;
 pub use pod::{
     cast_unchecked, cast_unchecked_mut, pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write,
     FixedLayout, Pod, Zeroable,

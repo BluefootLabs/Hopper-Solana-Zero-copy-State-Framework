@@ -62,12 +62,8 @@ pub use compact_tail::{CompactTail, TailBitSet, TailRing, TailSlab, TailVec};
 pub(crate) const fn assert_zero_copy_element<
     T: crate::account::Pod + crate::account::FixedLayout,
 >() {
-    // The `SIZE == size_of` half now lives in the trait itself
-    // (`FixedLayout::_SIZE_IS_HONEST`); touching it here forces that
-    // trait-level proof to be evaluated for `T`. A dishonest `SIZE`
-    // override is a build error at this point, for every collection and
-    // every element type, without each author re-writing the assertion.
-    let () = <T as crate::account::FixedLayout>::_SIZE_IS_HONEST;
+    // A trait-associated assertion can itself be overridden in safe Rust.
+    crate::account::assert_fixed_layout::<T>();
     // The trait proof allows a zero-sized honest type (`SIZE == 0`); the
     // collections additionally forbid it, since `capacity() = len / SIZE`
     // divides by it.

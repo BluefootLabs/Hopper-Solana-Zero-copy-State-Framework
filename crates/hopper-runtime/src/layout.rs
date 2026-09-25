@@ -12,6 +12,21 @@ use crate::error::ProgramError;
 use crate::field_map::{FieldInfo, FieldMap};
 use crate::ProgramResult;
 
+/// Values that can populate a layout through an existing mutable borrow.
+///
+/// Generated `<State>Fields` types implement this trait. Application crates may
+/// also implement it for their own inputs, including fallible validation before
+/// writing. This trait grants no account access: ownership, layout, write policy,
+/// and borrow checks belong to the caller acquiring the mutable layout.
+///
+/// An error does not undo writes already made by an implementation. Propagate
+/// errors to the instruction boundary to obtain transaction rollback on Solana.
+pub trait AccountFields {
+    type Layout;
+
+    fn write(self, layout: &mut Self::Layout) -> ProgramResult;
+}
+
 // ══════════════════════════════════════════════════════════════════════
 //  HopperHeader -- the 16-byte on-chain header used by headered Hopper
 //  accounts. Compact accounts use `[disc][body]` without this header.

@@ -1,6 +1,6 @@
 [package]
 name = "hopper-schema"
-version = "0.3.2"
+version = "0.4.0"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Schema export and ABI fingerprinting for Hopper zero-copy state framework. Layout manifests, schema diff, migration checks."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-schema/0.3.2"
+documentation = "https://docs.rs/crate/hopper-schema/0.4.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "schema", "idl", "abi"]
 categories = ["no-std"]

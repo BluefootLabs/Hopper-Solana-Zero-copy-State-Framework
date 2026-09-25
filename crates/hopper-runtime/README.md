@@ -7,7 +7,18 @@ Canonical low-level runtime surface for [Hopper](https://hopperzero.dev). This i
 
 ## What's here
 
+`layout::AccountFields` is an open input trait for generated or application-defined
+initialization values. It writes through an existing mutable layout and grants
+no ownership, signer, or write-policy authority. Propagate failures from a
+composed initialization helper to the instruction boundary for transaction
+rollback; the input trait does not undo earlier writes locally.
+
 Typed AccountView with checked and unchecked borrow paths.
+
+Safe headered, compact, and compact-dynamic typed loads independently check the
+actual Rust type's byte range. Custom validation and reported-size methods cannot
+bypass this memory bound. Compact-tail initialization also rejects overlapping
+and overflowing tail-prefix offsets before writing.
 
 Context<'a>: the canonical execution object for typed and raw handlers. The
 separate LazyContext surface defers loader parsing for lazy programs.

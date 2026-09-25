@@ -1,6 +1,6 @@
 {
   "name": "hopper_compact_vault",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Devnet-ready proof for a 1-byte compact Hopper account.",
   "layouts": [
     {

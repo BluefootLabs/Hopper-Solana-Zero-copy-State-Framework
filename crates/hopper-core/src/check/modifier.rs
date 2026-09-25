@@ -158,7 +158,8 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for Account<'a, T>
         let data = account.try_borrow()?;
         crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
         check::check_size(&data, T::LEN_WITH_HEADER)?;
-        let verified = VerifiedAccount::from_ref(data)?;
+        let length = data.len().saturating_sub(T::OVERLAY_OFFSET);
+        let verified = VerifiedAccount::from_ref(data.slice(T::OVERLAY_OFFSET, length)?)?;
         Ok(Self {
             view: account,
             verified,
@@ -178,7 +179,8 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for AccountMut<'a,
         let data = account.try_borrow_mut()?;
         crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
         check::check_size(&data, T::LEN_WITH_HEADER)?;
-        let verified = VerifiedAccountMut::from_ref_mut(data)?;
+        let length = data.len().saturating_sub(T::OVERLAY_OFFSET);
+        let verified = VerifiedAccountMut::from_ref_mut(data.slice(T::OVERLAY_OFFSET, length)?)?;
         Ok(Self {
             view: account,
             verified,
@@ -254,4 +256,8 @@ pub trait HopperLayout: Pod + FixedLayout {
     const VERSION: u8;
     const LAYOUT_ID: [u8; 8];
     const LEN_WITH_HEADER: usize;
+    /// Offset of the Rust overlay within the complete account bytes.
+    /// Declarative `hopper_layout!` structs include their header (offset 0).
+    /// Proc-macro state structs contain only the body (offset `HEADER_LEN`).
+    const OVERLAY_OFFSET: usize = 0;
 }

@@ -1,0 +1,17 @@
+[package]
+name = "hopper-fixed-layout-rejections"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+hopper = { package = "hopper-lang", path = "../../..", features = ["collections"] }
+
+[features]
+default = []
+pod = []
+verified = []
+collection = []
+event = []

@@ -1,6 +1,6 @@
 [package]
 name = "hopper-associated-token"
-version = "0.3.2"
+version = "0.4.0"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Hopper-owned associated token account helpers and CPI builders. Thin, no_std instruction builders over Hopper Runtime."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-associated-token/0.3.2"
+documentation = "https://docs.rs/crate/hopper-associated-token/0.4.0"
 readme = "README.md"
 keywords = ["solana", "associated-token", "cpi", "zero-copy", "hopper"]
 categories = ["no-std"]

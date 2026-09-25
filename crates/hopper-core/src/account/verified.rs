@@ -1,13 +1,15 @@
-//! Verified account wrappers -- type-safe proof of validation.
+//! Size-checked, borrow-scoped account overlays.
 //!
-//! `VerifiedAccount<T>` and `VerifiedAccountMut<T>` can only be constructed
-//! through validated loading paths (tiered loading). Holding one is proof
-//! that the account passed the required checks.
+//! `VerifiedAccount<T>` and `VerifiedAccountMut<T>` check the byte length needed
+//! by an alignment-1 `Pod` layout. Their public constructors do not check owner,
+//! discriminator, layout fingerprint, PDA derivation, signer, or write policy.
+//! Tiered loaders perform their own checks before constructing these wrappers;
+//! possession of the wrapper alone is not proof of authorization.
 //!
 //! These wrappers intentionally expose whole-layout `&T` / `&mut T` overlays,
 //! but the references are tied to `&self` / `&mut self`: they cannot outlive
 //! the wrapper, and the wrapper owns either a Hopper borrow guard or a
-//! pre-validated raw slice. This is the proof-wrapper exception to Hopper's
+//! size-checked raw slice. This is the overlay-wrapper exception to Hopper's
 //! usual "no naked raw reference from account access" rule. Field-level hot
 //! paths should still prefer generated accessors or segment leases.
 
@@ -31,18 +33,18 @@ impl<'a> VerifiedBytes<'a> {
     }
 }
 
-/// Immutable verified account -- proof that validation passed.
+/// Immutable, size-checked overlay. Account authorization is the caller's responsibility.
 pub struct VerifiedAccount<'a, T: Pod + FixedLayout> {
     data: VerifiedBytes<'a>,
     _phantom: core::marker::PhantomData<T>,
 }
 
 impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
-    /// Construct from pre-validated data.
-    ///
-    /// Only tiered loading functions should create these.
+    /// Construct from body bytes, checking length only. No account metadata or
+    /// authorization is checked; this function has no access to either.
     #[inline(always)]
     pub fn new(data: &'a [u8]) -> Result<Self, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -52,9 +54,10 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
         })
     }
 
-    /// Construct from a Hopper borrow guard.
+    /// Construct from a Hopper borrow guard, checking length only.
     #[inline(always)]
     pub fn from_ref(data: Ref<'a, [u8]>) -> Result<Self, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -108,7 +111,7 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     ///
     /// The closure receives the typed overlay and returns a reference into it.
     /// The returned reference carries the lifetime of the verified data,
-    /// preserving proof-of-validation provenance.
+    /// preserving the underlying borrow's lifetime.
     ///
     /// ```ignore
     /// let vault = Vault::load(account, program_id)?;
@@ -145,6 +148,7 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     /// where the outer account has already been validated.
     #[inline]
     pub fn overlay_at<U: Pod + FixedLayout>(&self, offset: usize) -> Result<&U, ProgramError> {
+        const { super::assert_fixed_layout::<U>() };
         let end = offset
             .checked_add(U::SIZE)
             .ok_or(ProgramError::ArithmeticOverflow)?;
@@ -179,16 +183,18 @@ impl VerifiedBytesMut<'_> {
     }
 }
 
-/// Mutable verified account -- proof that validation passed, with write access.
+/// Mutable, size-checked overlay. Account authorization is the caller's responsibility.
 pub struct VerifiedAccountMut<'a, T: Pod + FixedLayout> {
     data: VerifiedBytesMut<'a>,
     _phantom: core::marker::PhantomData<T>,
 }
 
 impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
-    /// Construct from pre-validated mutable data.
+    /// Construct from mutable body bytes, checking length only. The exclusive
+    /// slice supplies memory access, not proof of account authorization.
     #[inline(always)]
     pub fn new(data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -198,9 +204,10 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
         })
     }
 
-    /// Construct from a Hopper mutable borrow guard.
+    /// Construct from a Hopper mutable borrow guard, checking length only.
     #[inline(always)]
     pub fn from_ref_mut(data: RefMut<'a, [u8]>) -> Result<Self, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -290,6 +297,7 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
     /// Overlay a second Pod type at a given offset (immutable).
     #[inline]
     pub fn overlay_at<U: Pod + FixedLayout>(&self, offset: usize) -> Result<&U, ProgramError> {
+        const { super::assert_fixed_layout::<U>() };
         let end = offset
             .checked_add(U::SIZE)
             .ok_or(ProgramError::ArithmeticOverflow)?;
@@ -306,6 +314,7 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
         &mut self,
         offset: usize,
     ) -> Result<&mut U, ProgramError> {
+        const { super::assert_fixed_layout::<U>() };
         let end = offset
             .checked_add(U::SIZE)
             .ok_or(ProgramError::ArithmeticOverflow)?;

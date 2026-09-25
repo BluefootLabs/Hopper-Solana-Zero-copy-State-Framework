@@ -1,6 +1,6 @@
 [package]
 name = "hopper-svm"
-version = "0.3.2"
+version = "0.4.0"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Hopper-owned host execution harness for Hopper programs."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-svm/0.3.2"
+documentation = "https://docs.rs/crate/hopper-svm/0.4.0"
 readme = "README.md"
 keywords = ["solana", "testing", "svm", "hopper", "zero-copy"]
 categories = ["development-tools::testing"]

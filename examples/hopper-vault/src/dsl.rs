@@ -13,6 +13,7 @@ hopper_accounts! {
     pub struct DepositContext {
         depositor: (mut signer),
         vault: (mut account<Vault>),
+        system_program: (program),
     }
 }
 
@@ -32,7 +33,7 @@ impl<'a> HopperIx<'a> for DslDepositIx {
     type Args = u64;
 
     fn parse_args(data: &'a [u8]) -> Result<u64, ProgramError> {
-        if data.len() < 8 {
+        if data.len() != 8 {
             return Err(ProgramError::InvalidInstructionData);
         }
         Ok(u64::from_le_bytes([
@@ -43,11 +44,11 @@ impl<'a> HopperIx<'a> for DslDepositIx {
 
 /// Process deposit via the typed Account DSL entry model.
 ///
-/// Equivalent to `process_deposit` in lib.rs but with typed context
-/// construction, automatic signer/writable/owner validation, and
-/// schema introspection.
+/// Standalone alternative, not a dispatched instruction in the example ELF.
+/// Includes explicit authority and System Program checks alongside the DSL's
+/// signer/writable/owner validation.
 #[allow(dead_code)]
-fn process_deposit_dsl(
+pub(crate) fn process_deposit_dsl(
     program_id: &Address,
     accounts: &[AccountView],
     data: &[u8],
@@ -55,21 +56,24 @@ fn process_deposit_dsl(
     hopper_entry::<DslDepositIx, _>(program_id, accounts, data, |ctx, amount| {
         hopper_require!(amount > 0, super::ZeroAmount);
 
-        // Transfer SOL: depositor -> vault
+        let vault = ctx.accounts.vault.read()?;
+        if &vault.get().authority != ctx.accounts.depositor.to_account_view().address() {
+            return Err(super::Unauthorized.into());
+        }
+        drop(vault);
+        if ctx.accounts.system_program.to_account_view().address() != &System::ID {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+
+        // A program cannot directly debit a system-owned depositor.
         let dep_view = ctx.accounts.depositor.to_account_view();
         let vault_view = ctx.accounts.vault.to_account_view();
-        let dep_lamports = dep_view.lamports();
-        dep_view.set_lamports(
-            dep_lamports
-                .checked_sub(amount)
-                .ok_or(ProgramError::InsufficientFunds)?,
-        )?;
-        let vault_lamports = vault_view.lamports();
-        vault_view.set_lamports(
-            vault_lamports
-                .checked_add(amount)
-                .ok_or(ProgramError::ArithmeticOverflow)?,
-        )?;
+        hopper::system::Transfer {
+            from: dep_view,
+            to: vault_view,
+            lamports: amount,
+        }
+        .invoke()?;
 
         // Update balance in layout
         let mut vault = ctx.accounts.vault.write()?;
@@ -89,7 +93,7 @@ impl<'a> HopperIx<'a> for DslWithdrawIx {
     type Args = u64;
 
     fn parse_args(data: &'a [u8]) -> Result<u64, ProgramError> {
-        if data.len() < 8 {
+        if data.len() != 8 {
             return Err(ProgramError::InvalidInstructionData);
         }
         Ok(u64::from_le_bytes([
@@ -100,7 +104,7 @@ impl<'a> HopperIx<'a> for DslWithdrawIx {
 
 /// Process withdraw via the typed Account DSL entry model.
 #[allow(dead_code)]
-fn process_withdraw_dsl(
+pub(crate) fn process_withdraw_dsl(
     program_id: &Address,
     accounts: &[AccountView],
     data: &[u8],
@@ -120,28 +124,17 @@ fn process_withdraw_dsl(
         if balance < amount {
             return Err(super::InsufficientBalance.into());
         }
+        drop(vault);
 
         // Update balance
         let mut vault_mut = ctx.accounts.vault.write()?;
         let vm = vault_mut.get_mut();
         vm.balance.checked_sub_assign(amount)?;
+        drop(vault_mut);
 
         // Transfer SOL: vault -> authority
         let vault_view = ctx.accounts.vault.to_account_view();
         let auth_view = ctx.accounts.authority.to_account_view();
-        let vault_lamports = vault_view.lamports();
-        vault_view.set_lamports(
-            vault_lamports
-                .checked_sub(amount)
-                .ok_or(ProgramError::InsufficientFunds)?,
-        )?;
-        let auth_lamports = auth_view.lamports();
-        auth_view.set_lamports(
-            auth_lamports
-                .checked_add(amount)
-                .ok_or(ProgramError::ArithmeticOverflow)?,
-        )?;
-
-        Ok(())
+        transfer_lamports(vault_view, auth_view, amount)
     })
 }

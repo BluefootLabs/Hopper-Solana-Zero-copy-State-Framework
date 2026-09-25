@@ -5,6 +5,27 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
+## [0.4.0] - 2026-09-25
+
+- Harden safe fixed-layout overlays, events, frames, registries, and collections
+  against incorrect `SIZE` declarations, including an overridden assertion
+  constant. The framework checks the size independently at compile time.
+- Reject malformed segment counts, capacities, element sizes, and overflowing
+  geometry before exposing typed elements.
+- Independently bound runtime typed projections even when custom layout traits
+  override validation and size methods; check compact-tail initialization bounds.
+
+- Generate named fixed-field inputs, `from_fields`, and `set_fields` without
+  changing the wire ABI or removing positional constructors.
+- Compose explicit fresh initialization with checked mutable access through
+  `init_<account>_with`; allow application-defined `AccountFields` inputs.
+- Fix body-only proc-macro layout projection in headered DSL, modifier, and
+  migration wrappers while preserving declarative header-inclusive layouts.
+- Fix the SOL vault's missing System Program account and legacy DSL custody,
+  authority, and borrow-scope errors. Synchronize the getting-started example.
+- Correct `VerifiedAccount` authorization claims and document host-harness
+  limits. Add compiled vault and finalized-devnet regression runners.
+
 ## [0.3.2] - 2026-09-25
 
 - Generated selected-cell readers/writers capture the context-bound selector

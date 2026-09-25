@@ -240,10 +240,18 @@ back to the same Hopper account access model.
 
 ### Verified Accounts (`account/verified.rs`)
 
-`VerifiedAccount<'a, T>` and `VerifiedAccountMut<'a, T>` are proof-of-validation
-wrappers. If you hold a `VerifiedAccount`, the account has passed load validation.
+Headered DSL, modifier, and migration wrappers project through
+`HopperLayout::OVERLAY_OFFSET`. Declarative layouts include the header at offset
+zero; proc-macro states contain only the body and use offset 16. Projection
+retains the original borrow guard and checks its bounds.
+
+`VerifiedAccount<'a, T>` and `VerifiedAccountMut<'a, T>` are size-checked overlay
+wrappers. Their public constructors check byte length only; they do not check
+ownership, headers, PDA derivation, signer authority, or write policy. Tiered
+loaders perform their own validation before constructing these wrappers. Holding
+one alone does not prove authorization.
 They can expose `&T` / `&mut T`, but those references are tied to the wrapper,
-and the wrapper owns the borrow guard or validated slice. Use `with()` /
+and the wrapper owns the borrow guard or size-checked slice. Use `with()` /
 `with_mut()` when you want closure-shaped guard access; use generated segment
 accessors for the default hot path. Methods: `get()`, `get_mut()`, `with()`,
 `with_mut()`, `map()`, `overlay_at()`.

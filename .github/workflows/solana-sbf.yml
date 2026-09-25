@@ -346,6 +346,19 @@ jobs:
               cargo test -p hopper-framework-verifier --test byte_allowance_sbf --locked -- --ignored --nocapture \
               2>&1 | tee "${SBF_RELEASE_DIR}/byte-allowance-$arch/tests.log"
           done
+      - name: Verify named initialization and SOL custody on SBF v0 and v3
+        run: |
+          set -euo pipefail
+          for arch in v0 v3; do
+            "$HOME/.cargo/bin/cargo-build-sbf" \
+              --tools-version v1.54 --arch "$arch" \
+              --manifest-path examples/hopper-vault/Cargo.toml \
+              --sbf-out-dir "${SBF_RELEASE_DIR}/named-vault-$arch" \
+              -- --locked
+            HOPPER_NAMED_VAULT_SBF="$PWD/${SBF_RELEASE_DIR}/named-vault-$arch/hopper_vault.so" \
+              cargo test -p hopper-framework-verifier --test named_vault_sbf --locked -- --ignored --nocapture \
+              2>&1 | tee "${SBF_RELEASE_DIR}/named-vault-$arch/tests.log"
+          done
       - name: Verify segmented orderbook initialization and byte isolation
         run: |
           set -euo pipefail
@@ -405,6 +418,8 @@ jobs:
               mint-plan-v*/tests.log \
               byte-allowance-v*/hopper_byte_allowance.so \
               byte-allowance-v*/tests.log \
+              named-vault-v*/hopper_vault.so \
+              named-vault-v*/tests.log \
               orderbook-v0/hopper_orderbook.so \
               orderbook-v0/tests.log \
               > SHA256SUMS
@@ -431,6 +446,8 @@ jobs:
             target/hopper/release/agave-v4.2.1/mint-plan-v*/tests.log
             target/hopper/release/agave-v4.2.1/byte-allowance-v*/*.so
             target/hopper/release/agave-v4.2.1/byte-allowance-v*/tests.log
+            target/hopper/release/agave-v4.2.1/named-vault-v*/*.so
+            target/hopper/release/agave-v4.2.1/named-vault-v*/tests.log
             target/hopper/release/agave-v4.2.1/orderbook-v0/*.so
             target/hopper/release/agave-v4.2.1/orderbook-v0/tests.log
           retention-days: 90

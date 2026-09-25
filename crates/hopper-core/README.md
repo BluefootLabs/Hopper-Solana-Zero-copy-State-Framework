@@ -21,6 +21,17 @@ ABI types: Wire-safe primitives (WireU64, WireI64, WireU128, TypedAddress, WireB
 
 Overlay system: Map #[repr(C)] structs directly onto account bytes. No copy, no deserialization.
 
+Headered DSL, modifier, and migration wrappers use `HopperLayout::OVERLAY_OFFSET`:
+declarative layouts include the header at offset zero, while proc-macro state
+structs begin after the 16-byte header. Borrow guards remain alive across the
+projection. `VerifiedAccount` constructors themselves check length only;
+ownership, layout, and authorization checks belong to the loader or caller.
+
+Checked fixed-layout casts use a framework-owned compile-time size assertion;
+overriding both `SIZE` and the compatibility assertion cannot bypass it. Typed
+segment slices reject inconsistent count/capacity/element-size metadata and
+out-of-bounds regions before constructing a view.
+
 Loading: Validated, trusted, observational, and explicit unsafe overlay paths
 make each caller's trust boundary visible.
 

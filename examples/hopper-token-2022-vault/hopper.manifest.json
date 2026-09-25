@@ -1,6 +1,6 @@
 {
   "name": "hopper-token-2022-vault",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Hopper-authored Token-2022 vault example with package-local manifest tooling",
   "layouts": [
     {

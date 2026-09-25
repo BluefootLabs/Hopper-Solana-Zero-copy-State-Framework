@@ -230,14 +230,22 @@ impl<'a, T: Pod + FixedLayout> SegmentSlice<'a, T> {
         account_data: &'a [u8],
         desc: &SegmentDescriptor,
     ) -> Result<Self, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         let offset = desc.offset() as usize;
         let count = desc.count() as usize;
-        let needed = offset + count * T::SIZE;
+        let capacity = desc.capacity() as usize;
+        if count > capacity || desc.element_size() as usize != T::SIZE {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let needed = capacity
+            .checked_mul(T::SIZE)
+            .and_then(|n| offset.checked_add(n))
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if needed > account_data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
         Ok(Self {
-            data: &account_data[offset..],
+            data: &account_data[offset..needed],
             count,
             _phantom: core::marker::PhantomData,
         })
@@ -293,15 +301,22 @@ impl<'a, T: Pod + FixedLayout> SegmentSliceMut<'a, T> {
         account_data: &'a mut [u8],
         desc: &SegmentDescriptor,
     ) -> Result<Self, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         let offset = desc.offset() as usize;
         let count = desc.count() as usize;
         let capacity = desc.capacity() as usize;
-        let needed = offset + capacity * T::SIZE;
+        if count > capacity || desc.element_size() as usize != T::SIZE {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let needed = capacity
+            .checked_mul(T::SIZE)
+            .and_then(|n| offset.checked_add(n))
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if needed > account_data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
         Ok(Self {
-            data: &mut account_data[offset..],
+            data: &mut account_data[offset..needed],
             count,
             capacity,
             _phantom: core::marker::PhantomData,

@@ -78,6 +78,10 @@ pub struct ProcessResult {
 }
 
 /// Minimal Hopper-owned execution harness.
+///
+/// Direct host invocation, without transaction rollback or complete Solana
+/// runtime/CPI validation. Returned fixtures include writes preceding an error.
+/// Use a compiled SBF runtime to test custody, rollback, and compute costs.
 #[derive(Clone, Debug, Default)]
 pub struct HopperSvm;
 

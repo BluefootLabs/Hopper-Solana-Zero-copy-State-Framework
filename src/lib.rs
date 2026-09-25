@@ -1075,7 +1075,9 @@ pub use hopper_macros_proc::{
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]
 pub mod __runtime {
+    pub use hopper_runtime::layout::AccountFields;
     pub use hopper_runtime::token_2022_ext;
+    pub use hopper_runtime::ProgramResult;
     pub use hopper_runtime::{
         apply_pending_migrations, borrow_address_slice, borrow_bounded_str, read_tail,
         read_tail_len, seq_capacity_for, seq_region_bytes_for, tail_capacity, tail_payload,

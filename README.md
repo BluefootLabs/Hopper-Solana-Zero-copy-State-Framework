@@ -116,15 +116,18 @@ gate cases. Its tested and deployed ELF matched before and after capture.
 This focused proof covers the policy fixture; Cicada's current evidence is
 23 local compiled lifecycle tests and 698 host semantic adapter cases.
 
-Main framework: `hopper-lang` 0.3.2, imported as `hopper`. Keep the framework
+Main framework: `hopper-lang` 0.4.0, imported as `hopper`. Keep the framework
 and CLI on the same release line when using generated code and new APIs.
 [Docs at docs.rs](https://docs.rs/crate/hopper-lang).
+The facade pins its matching derive crate. See the
+[0.4 migration notes](https://hopperzero.dev/docs/migration-0-4) for new generated
+names, corrected body offsets, and stricter memory bounds; wire layouts are unchanged.
 
-Install this release's CLI with `cargo install hopper-cli --version 0.3.2 --locked`.
+Install this release's CLI with `cargo install hopper-cli --version 0.4.0 --locked`.
 Install this checkout's CLI with
 `cargo install --path tools/hopper-cli --locked`.
 
-The framework companion crates are versioned 0.3.2 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
+The framework companion crates are versioned 0.4.0 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
 
 Benchmark snapshot: [BENCHMARKS.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
@@ -184,14 +187,14 @@ See [docs/cli/](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Fr
 ### Add to an existing crate
 
 ```sh
-cargo add hopper-lang@0.3.2 --rename hopper --features proc-macros
+cargo add hopper-lang@0.4.0 --rename hopper --features proc-macros
 ```
 
 The exact dependency for this release is:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "=0.3.2", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.4.0", features = ["proc-macros"] }
 ```
 
 To develop against a checkout, use a local path:
@@ -241,13 +244,21 @@ mod counter_program {
 }
 ```
 
-Init uses the same surface. After ctx.init_vault(), mutate the fresh account:
+Initialize a fresh account with named values generated from its fixed fields:
 
 ```rust
-ctx.accounts
-    .vault
-    .with_mut_after_init(|vault| vault.set_inner(*ctx.accounts.payer.key(), 0, 0))?;
+ctx.init_vault_with(VaultFields {
+    authority: *ctx.accounts.payer.key(),
+    balance: 0,
+    bump: 0,
+})?;
 ```
+
+Explicit `init_vault()`, checked borrow guards, `with_mut` closures, positional
+`set_inner`, and low-level helpers remain available. The composed helper is for
+explicit fresh initialization; propagate errors for transaction rollback.
+Dynamic tails are initialized separately. See the
+[named initialization guide](https://hopperzero.dev/docs/named-initialization).
 
 ## Docs
 
@@ -365,7 +376,7 @@ cargo test -p hopper-lang --features proc-macros,metaplex --test constant_integr
 Framework examples:
 - [examples/hopper-cicada](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-cicada): protected-execution flagship with exact-cell write authority, route/custody boundaries, and 25 host + 23 compiled lifecycle tests. It is production-shaped, not audited or deployed as a current release.
 - [examples/hopper-counter](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-counter): minimal #[derive(Accounts)], Ctx<T>, ctx.accounts.* flow.
-- [examples/hopper-vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-vault): SOL vault using typed wrappers, set_inner, checked helpers, System transfer.
+- [examples/hopper-vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-vault): SOL vault using named initialization, scoped borrows, checked helpers, and System transfer.
 - [examples/hopper-escrow](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-escrow): state, `has_one`, and close lifecycle sketch. It does not execute SPL Token transfers.
 - [examples/quasar-port-20-min](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/quasar-port-20-min): Quasar-style bounded dynamic port with Hopper guarantees.
 - [examples/hopper-devnet-audit](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-devnet-audit): deployable devnet audit covering dynamic tails, contexts, segments, receipts, Token-2022 policy, field capabilities, substrate probes.

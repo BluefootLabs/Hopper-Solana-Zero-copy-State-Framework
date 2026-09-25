@@ -211,6 +211,20 @@ added and are intentionally not frozen here.
 
 ### `verified.rs`
 
+All checked core Pod casts and verified overlay constructors enforce
+`FixedLayout::SIZE == size_of::<T>()` using a framework-owned const assertion.
+The compatibility `_SIZE_IS_HONEST` associated constant is overridable in safe
+Rust and is not trusted by internal pointer arithmetic. Collections check the
+same equality independently and additionally reject zero-sized elements.
+Segment slices validate count against capacity, descriptor element size against
+the type, and checked region bounds before exposing elements.
+
+Runtime `AccountView` typed loads independently bound `offset + size_of::<T>()`
+with checked arithmetic. Safe custom layout implementations can override both
+validation and size methods, so neither is relied upon for pointer safety.
+Compact initialization checks the real head range before stamping the
+discriminator, and rejects overlapping or overflowing tail-prefix offsets.
+
 | Line | Construct | Invariant |
 |---|---|---|
 | 36 | `VerifiedAccount::get()`: `&*(data.as_ptr() as *const T)` | Size validated at construction (`data.len() >= T::SIZE`). T: Pod. Immutable. |
@@ -220,11 +234,13 @@ added and are intentionally not frozen here.
 | 180 | `overlay_at` (mut variant) | Bounds checked. |
 | 190 | `overlay_at_mut` | Bounds checked. Exclusive access via `&mut self`. |
 
-`VerifiedAccount` and `VerifiedAccountMut` are proof wrappers, not ordinary raw
-account accessors. They may return `&T` / `&mut T`, `&[u8]`, `&mut [u8]`, or
+`VerifiedAccount` and `VerifiedAccountMut` are size-checked overlay wrappers.
+Their public constructors establish sufficient byte length, not account
+ownership, header validity, signer authority, PDA derivation, or write policy.
+Those checks belong to the loader or caller. They may return `&T` / `&mut T`, `&[u8]`, `&mut [u8]`, or
 secondary overlays, but every returned reference is tied to `&self` or
 `&mut self`. The wrapper itself owns either the Hopper borrow guard or a
-pre-validated raw slice, so the reference cannot outlive the proof object and
+size-checked raw slice, so the reference cannot outlive the wrapper and
 cannot be held after the guard is dropped. This is intentionally distinct from
 the `HopperRefOnly` field-access path, where naked raw references are rejected
 at the macro boundary.

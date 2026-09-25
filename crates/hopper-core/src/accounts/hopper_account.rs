@@ -69,7 +69,8 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
     #[inline]
     pub fn read(&self) -> Result<VerifiedAccount<'a, T>, ProgramError> {
         let data = self.view.try_borrow()?;
-        VerifiedAccount::from_ref(data)
+        let length = data.len().saturating_sub(T::OVERLAY_OFFSET);
+        VerifiedAccount::from_ref(data.slice(T::OVERLAY_OFFSET, length)?)
     }
 
     /// Write to the typed layout overlay (mutable).
@@ -84,7 +85,8 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
     #[inline]
     pub fn write(&self) -> Result<VerifiedAccountMut<'a, T>, ProgramError> {
         let data = self.view.try_borrow_mut()?;
-        VerifiedAccountMut::from_ref_mut(data)
+        let length = data.len().saturating_sub(T::OVERLAY_OFFSET);
+        VerifiedAccountMut::from_ref_mut(data.slice(T::OVERLAY_OFFSET, length)?)
     }
 
     /// The account's address.

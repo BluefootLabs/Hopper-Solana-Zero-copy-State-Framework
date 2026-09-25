@@ -519,8 +519,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
     };
 
+    let (named_fields, named_methods) = named_field_model(&input, fields)?;
+
     let expanded = quote! {
         #input
+
+        #named_fields
 
         // ── Compile-time safety fence ──────────────────────────────────
         // Alignment, padding, discriminator, and size checks all fire at
@@ -549,6 +553,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         impl #name {
             #constructor_method
             #set_inner_method
+            #named_methods
 
             #(#inherent_items)*
 
@@ -837,6 +842,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             const VERSION: u8 = #name::VERSION;
             const LAYOUT_ID: [u8; 8] = #name::LAYOUT_ID;
             const LEN_WITH_HEADER: usize = #name::LEN;
+            const OVERLAY_OFFSET: usize = ::hopper::hopper_core::account::HEADER_LEN;
         }
 
         impl ::hopper::hopper_schema::SchemaExport for #name {
@@ -1331,8 +1337,11 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         quote! {}
     };
 
+    let (named_fields, named_methods) = named_field_model(&input, fields)?;
     let expanded = quote! {
         #input
+
+        #named_fields
 
         // ── Compile-time safety fence (compact) ────────────────────────
         const _: () = {
@@ -1357,6 +1366,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         #(#module_items)*
 
         impl #name {
+            #named_methods
             // One parameter per field mirrors the user's struct.
             #[allow(clippy::too_many_arguments)]
             #[inline(always)]
@@ -1707,6 +1717,67 @@ fn role_to_intent_tokens(role: &str, span: proc_macro2::Span) -> Result<TokenStr
     };
     let ident = syn::Ident::new(variant, span);
     Ok(quote! { ::hopper::hopper_schema::FieldIntent::#ident })
+}
+
+/// Use the same native input types and wire conversions as positional creation.
+/// The companion is an input value, never an account overlay or wire format.
+fn named_field_model(
+    input: &ItemStruct,
+    fields: &syn::punctuated::Punctuated<Field, syn::Token![,]>,
+) -> Result<(TokenStream, TokenStream)> {
+    let name = &input.ident;
+    let vis = &input.vis;
+    let values_name = format_ident!("{}Fields", name);
+    let names: Vec<_> = fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let params = fields
+        .iter()
+        .map(state_field_param_init)
+        .collect::<Result<Vec<_>>>()?;
+    let declarations = fields.iter().zip(&params).map(|(field, param)| {
+        let field_vis = &field.vis;
+        let declaration = &param.0;
+        quote! { #field_vis #declaration }
+    });
+    let inits = params.iter().map(|param| &param.1);
+    let assignments = params.iter().map(|param| &param.2);
+    Ok((
+        quote! {
+            /// Named input values for the fixed fields of this state.
+            ///
+            /// Scalar wire wrappers accept native scalars, as in `new`. This is
+            /// not a serialized layout. Dynamic tails must be initialized separately.
+            #vis struct #values_name {
+                #(#declarations),*
+            }
+
+            impl ::hopper::__runtime::AccountFields for #values_name {
+                type Layout = #name;
+
+                #[inline(always)]
+                fn write(self, layout: &mut #name) -> ::hopper::__runtime::ProgramResult {
+                    layout.set_fields(self)
+                }
+            }
+        },
+        quote! {
+            /// Construct the fixed body from named values; does not write a header
+            /// or initialize any dynamic tail.
+            #[inline(always)]
+            #vis const fn from_fields(values: #values_name) -> Self {
+                let #values_name { #(#names),* } = values;
+                Self { #(#inits),* }
+            }
+
+            /// Replace fixed fields through the caller's existing mutable borrow.
+            /// Does not change the header, tail, or the borrow's write permissions.
+            #[inline(always)]
+            #vis fn set_fields(&mut self, values: #values_name) -> ::hopper::__runtime::ProgramResult {
+                let #values_name { #(#names),* } = values;
+                #(#assignments)*
+                Ok(())
+            }
+        },
+    ))
 }
 
 fn state_field_param_init(field: &Field) -> Result<(TokenStream, TokenStream, TokenStream)> {

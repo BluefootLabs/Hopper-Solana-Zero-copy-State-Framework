@@ -76,17 +76,22 @@ mod vault_program {
 
 See [examples/hopper-vault/src/lib.rs](../examples/hopper-vault/src/lib.rs) for the complete SOL-vault flow.
 
-Initialization uses the same wrapper path. `set_inner(...)` is generated for
-default/headered `#[account]` layouts, accepts native values, and writes the
-wire fields:
+Initialize a fresh account with named values generated from its fixed fields:
 
 ```rust
-let mut vault = ctx.accounts.vault.get_mut_after_init()?;
-vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
+ctx.init_vault_with(VaultFields {
+    authority: *ctx.accounts.payer.key(),
+    balance: 0,
+    bump: 0,
+})?;
 ```
 
-When the initialized account uses PDA seeds, pass the generated bump field in
-the final slot instead of `0`.
+For PDA accounts, store the validated `ctx.bumps.vault` instead of `0`.
+Existing `init_vault()` followed by `load_init()` or `with_mut_after_init()`
+remains available, as do positional `set_inner(...)` and named `set_fields(...)`.
+The combined helper is for explicit fresh initialization, not `init_if_needed`
+or automatic lifecycle. Propagate errors for transaction rollback. See
+[named initialization](NAMED_INITIALIZATION.md) for custom inputs and tail limits.
 
 Mutability is declared on the account field with `#[account(mut)]`; Hopper does
 not use Quasar-style `&mut Account<T>` field types because writable

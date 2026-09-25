@@ -193,6 +193,8 @@ impl<'a> Frame<'a> {
         index: usize,
         offset: u32,
     ) -> Result<SegRef<'f, T>, ProgramError> {
+        const { crate::account::assert_fixed_layout::<T>() };
+        let size = u32::try_from(T::SIZE).map_err(|_| ProgramError::ArithmeticOverflow)?;
         let view = self
             .accounts
             .get(index)
@@ -203,17 +205,15 @@ impl<'a> Frame<'a> {
             .checked_add(offset)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         let end = abs_offset
-            .checked_add(T::SIZE as u32)
+            .checked_add(size)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if end as usize > data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        let borrow = self.segment_borrows.register_leased_read(
-            view.address(),
-            abs_offset,
-            T::SIZE as u32,
-        )?;
+        let borrow = self
+            .segment_borrows
+            .register_leased_read(view.address(), abs_offset, size)?;
 
         // SAFETY: T is Pod + FixedLayout (all bit patterns valid, align-1).
         // Bounds checked above. `Ref::project` consumes the byte-slice
@@ -271,6 +271,8 @@ impl<'a> Frame<'a> {
         index: usize,
         offset: u32,
     ) -> Result<SegRefMut<'f, T>, ProgramError> {
+        const { crate::account::assert_fixed_layout::<T>() };
+        let size = u32::try_from(T::SIZE).map_err(|_| ProgramError::ArithmeticOverflow)?;
         let view = self
             .accounts
             .get(index)
@@ -286,17 +288,15 @@ impl<'a> Frame<'a> {
             .checked_add(offset)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         let end = abs_offset
-            .checked_add(T::SIZE as u32)
+            .checked_add(size)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if end as usize > data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        let borrow = self.segment_borrows.register_leased_write(
-            view.address(),
-            abs_offset,
-            T::SIZE as u32,
-        )?;
+        let borrow =
+            self.segment_borrows
+                .register_leased_write(view.address(), abs_offset, size)?;
 
         // The write pointer must carry *mutable* provenance: derive it
         // through `as_bytes_mut_ptr` (a `&mut [u8]` reborrow), never by
@@ -335,6 +335,8 @@ impl<'a> Frame<'a> {
         index: usize,
         offset: u32,
     ) -> Result<RefMut<'_, T>, ProgramError> {
+        const { crate::account::assert_fixed_layout::<T>() };
+        let size = u32::try_from(T::SIZE).map_err(|_| ProgramError::ArithmeticOverflow)?;
         let view = self
             .accounts
             .get(index)
@@ -345,7 +347,7 @@ impl<'a> Frame<'a> {
             .checked_add(offset)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         let end = abs_offset
-            .checked_add(T::SIZE as u32)
+            .checked_add(size)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if end as usize > data.len() {
             return Err(ProgramError::AccountDataTooSmall);

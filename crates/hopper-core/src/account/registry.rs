@@ -288,6 +288,7 @@ impl<'a> SegmentRegistry<'a> {
         &self,
         id: &SegmentId,
     ) -> Result<&'a T, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         let data = self.segment_data(id)?;
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
@@ -548,6 +549,7 @@ impl<'a> SegmentRegistryMut<'a> {
         &mut self,
         id: &SegmentId,
     ) -> Result<&mut T, ProgramError> {
+        const { super::assert_fixed_layout::<T>() };
         let data = self.segment_data_mut(id)?;
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);

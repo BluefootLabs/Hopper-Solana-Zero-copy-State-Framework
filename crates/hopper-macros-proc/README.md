@@ -1,5 +1,13 @@
 # hopper-derive
 
+State macros also generate `<State>Fields`, `from_fields`, and `set_fields`
+from the fixed-field declaration, using the same native inputs as positional
+constructors. Explicit `init` contexts expose `init_<account>_with(values, ...args)`
+to combine creation, checked mutable loading, and value application. Existing
+constructors and lifecycle helpers remain available. Named inputs do not change
+wire layouts or initialize dynamic tails. See the
+[named initialization guide](https://hopperzero.dev/docs/named-initialization).
+
 In 0.3.2, `#[account(cells(slot; spent, revisions))]` generates
 `book_spent_cell_mut()` and `book_spent_cell_ref()` on the bound context for an
 account named `book`. The accessor captures the instruction selector, infers

@@ -23,6 +23,18 @@ use crate::native_boundary::{self, BackendAccountView};
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
+/// Memory bounds must not depend on overridable validation or sizing methods.
+#[inline(always)]
+fn check_typed_projection<T>(data_len: usize, offset: usize) -> Result<usize, ProgramError> {
+    let end = offset
+        .checked_add(core::mem::size_of::<T>())
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if end > data_len {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    Ok(end)
+}
+
 /// Release the first `count` registered borrows during a
 /// `split_segments_mut` rollback.
 ///
@@ -679,6 +691,7 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn load<T: LayoutContract + crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
+        check_typed_projection::<T>(data.len(), T::TYPE_OFFSET)?;
         T::validate_header(&data)?;
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
@@ -718,6 +731,7 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn load_mut<T: LayoutContract + crate::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
+        check_typed_projection::<T>(data.len(), T::TYPE_OFFSET)?;
         T::validate_header(&data)?;
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
@@ -771,6 +785,7 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn load_compact<T: crate::CompactLayout>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         T::validate_compact(&data)?;
         // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr =
@@ -783,6 +798,7 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn load_compact_mut<T: crate::CompactLayout>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         T::validate_compact(&data)?;
         // Same ambient stamp as `load_mut`: typed whole-account write.
         #[cfg(feature = "touch-map")]
@@ -832,6 +848,7 @@ impl<'info> AccountView<'info> {
     pub fn init_compact<T: crate::CompactLayout>(&self) -> ProgramResult {
         self.check_writable()?;
         let mut data = self.try_borrow_mut()?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         if data.len() < T::COMPACT_LEN {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -864,8 +881,9 @@ impl<'info> AccountView<'info> {
         &self,
     ) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         T::validate_compact_dynamic(&data)?;
-        // SAFETY: validate_compact_dynamic guarantees `data.len() >= 1 +
+        // SAFETY: the independent projection check guarantees `data.len() >= 1 +
         // size_of::<T>()`, `T` is Pod (align 1, all-bit-patterns valid), and
         // the fixed head begins at COMPACT_BODY_OFFSET. Trailing tail bytes are
         // never read through this `&T`.
@@ -882,6 +900,7 @@ impl<'info> AccountView<'info> {
         &self,
     ) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         T::validate_compact_dynamic(&data)?;
         // SAFETY: see `load_compact_dynamic`; the head window is exclusively
         // borrowed for the lifetime of the returned guard.
@@ -927,13 +946,21 @@ impl<'info> AccountView<'info> {
     pub fn init_compact_dynamic<T: crate::CompactDynamicLayout>(&self) -> ProgramResult {
         self.check_writable()?;
         let mut data = self.try_borrow_mut()?;
+        let head_end =
+            check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
+        if T::TAIL_OFFSET < head_end {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let tail_end = T::TAIL_OFFSET
+            .checked_add(4)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if data.len() < T::MIN_LEN {
             return Err(ProgramError::AccountDataTooSmall);
         }
         data[0] = T::DISC;
         // Stamp an empty-tail length prefix when the allocation has room for it.
-        if data.len() >= T::TAIL_OFFSET + 4 {
-            data[T::TAIL_OFFSET..T::TAIL_OFFSET + 4].copy_from_slice(&0u32.to_le_bytes());
+        if data.len() >= tail_end {
+            data[T::TAIL_OFFSET..tail_end].copy_from_slice(&0u32.to_le_bytes());
         }
         Ok(())
     }
@@ -1002,11 +1029,10 @@ impl<'info> AccountView<'info> {
         &self,
     ) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
+        check_typed_projection::<T>(data.len(), T::TYPE_OFFSET)?;
         T::validate_header(&data)?;
-        // Defense in depth: `validate_header`'s default impl already checks this,
-        // but a foreign `LayoutContract` could override it. Re-check the projection
-        // length explicitly so an overridden or mismatched contract can never
-        // produce an out-of-bounds typed view from another program's bytes.
+        // Retain the contract's declared minimum as well as the independent
+        // memory bound above: both validation and required_len are overridable.
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
@@ -1881,6 +1907,127 @@ mod tests {
         }
         let view = ok.load_cross_program::<LaxForeignLayout>().unwrap();
         assert_eq!(view.amount, [0u8; 8]);
+    }
+
+    #[repr(transparent)]
+    #[derive(Clone, Copy)]
+    struct ForgedProjection<const OFFSET: usize>([u8; 8]);
+    // SAFETY: Array wrapper is alignment-1, padding-free, and accepts all bits.
+    unsafe impl<const O: usize> crate::Zeroable for ForgedProjection<O> {}
+    // SAFETY: Array wrapper is alignment-1, padding-free, and accepts all bits.
+    unsafe impl<const O: usize> crate::Pod for ForgedProjection<O> {}
+    impl<const O: usize> crate::field_map::FieldMap for ForgedProjection<O> {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[];
+    }
+    impl<const O: usize> LayoutContract for ForgedProjection<O> {
+        const DISC: u8 = 1;
+        const VERSION: u8 = 1;
+        const LAYOUT_ID: [u8; 8] = [0; 8];
+        const SIZE: usize = 0;
+        const TYPE_OFFSET: usize = O;
+        fn required_len() -> usize {
+            0
+        }
+        fn validate_header(_: &[u8]) -> ProgramResult {
+            Ok(())
+        }
+    }
+    impl<const O: usize> crate::CompactLayout for ForgedProjection<O> {
+        const DISC: u8 = 1;
+        const BODY_SIZE: usize = 0;
+        const COMPACT_LEN: usize = 0;
+        fn validate_compact(_: &[u8]) -> ProgramResult {
+            Ok(())
+        }
+    }
+    impl<const O: usize> crate::CompactDynamicLayout for ForgedProjection<O> {
+        const DISC: u8 = 1;
+        const MIN_LEN: usize = 0;
+        const TAIL_OFFSET: usize = O;
+        fn validate_compact_dynamic(_: &[u8]) -> ProgramResult {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn typed_loads_do_not_trust_overridden_sizing_and_validation() {
+        for len in 0..24 {
+            let (_backing, view) = make_account(len, 81);
+            assert!(matches!(
+                view.load::<ForgedProjection<16>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+            assert!(matches!(
+                view.load_mut::<ForgedProjection<16>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+            assert!(matches!(
+                view.load_cross_program::<ForgedProjection<16>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+        }
+        let (_backing, view) = make_account(24, 82);
+        assert_eq!(view.load::<ForgedProjection<16>>().unwrap().0, [0; 8]);
+        assert!(matches!(
+            view.load::<ForgedProjection<{ usize::MAX }>>(),
+            Err(ProgramError::ArithmeticOverflow)
+        ));
+    }
+
+    #[test]
+    fn compact_loads_recheck_actual_body_bounds() {
+        for len in 0..9 {
+            let (_backing, view) = make_account(len, 83);
+            assert!(matches!(
+                view.load_compact::<ForgedProjection<9>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+            assert!(matches!(
+                view.load_compact_mut::<ForgedProjection<9>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+            assert!(matches!(
+                view.load_compact_dynamic::<ForgedProjection<9>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+            assert!(matches!(
+                view.load_compact_dynamic_mut::<ForgedProjection<9>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            ));
+            assert_eq!(
+                view.init_compact::<ForgedProjection<9>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            );
+            assert_eq!(
+                view.init_compact_dynamic::<ForgedProjection<9>>(),
+                Err(ProgramError::AccountDataTooSmall)
+            );
+        }
+        let (_backing, view) = make_account(9, 84);
+        assert_eq!(
+            view.load_compact::<ForgedProjection<9>>().unwrap().0,
+            [0; 8]
+        );
+        assert_eq!(
+            view.load_compact_dynamic::<ForgedProjection<9>>()
+                .unwrap()
+                .0,
+            [0; 8]
+        );
+    }
+
+    #[test]
+    fn compact_init_rejects_overlapping_or_overflowing_tail_before_writing() {
+        let (_backing, view) = make_account(16, 85);
+        assert_eq!(
+            view.init_compact_dynamic::<ForgedProjection<0>>(),
+            Err(ProgramError::InvalidAccountData)
+        );
+        assert_eq!(
+            view.init_compact_dynamic::<ForgedProjection<{ usize::MAX }>>(),
+            Err(ProgramError::ArithmeticOverflow)
+        );
+        assert_eq!(&*view.try_borrow().unwrap(), &[0; 16]);
     }
 
     fn make_account(

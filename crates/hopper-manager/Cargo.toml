@@ -1,6 +1,6 @@
 [package]
 name = "hopper-manager"
-version = "0.3.2"
+version = "0.4.0"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Schema-driven inspector for Hopper programs that renders reports from runtime, layout, and schema metadata."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-manager/0.3.2"
+documentation = "https://docs.rs/crate/hopper-manager/0.4.0"
 readme = "README.md"
 keywords = ["solana", "hopper", "inspector", "schema", "zero-copy"]
 categories = ["command-line-utilities"]

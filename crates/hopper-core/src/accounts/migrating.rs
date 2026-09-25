@@ -56,14 +56,16 @@ where
     #[inline]
     pub fn old(&self) -> Result<VerifiedAccount<'a, From>, ProgramError> {
         let data = self.view.try_borrow()?;
-        VerifiedAccount::from_ref(data)
+        let length = data.len().saturating_sub(From::OVERLAY_OFFSET);
+        VerifiedAccount::from_ref(data.slice(From::OVERLAY_OFFSET, length)?)
     }
 
     /// Read the old layout (mutable) for in-place transformation.
     #[inline]
     pub fn old_mut(&self) -> Result<VerifiedAccountMut<'a, From>, ProgramError> {
         let data = self.view.try_borrow_mut()?;
-        VerifiedAccountMut::from_ref_mut(data)
+        let length = data.len().saturating_sub(From::OVERLAY_OFFSET);
+        VerifiedAccountMut::from_ref_mut(data.slice(From::OVERLAY_OFFSET, length)?)
     }
 
     /// Access the new layout after migration has been applied.
@@ -75,7 +77,8 @@ where
         let data = self.view.try_borrow_mut()?;
         crate::account::check_header(&data, To::DISC, To::VERSION, &To::LAYOUT_ID)?;
         check::check_size(&data, To::LEN_WITH_HEADER)?;
-        VerifiedAccountMut::from_ref_mut(data)
+        let length = data.len().saturating_sub(To::OVERLAY_OFFSET);
+        VerifiedAccountMut::from_ref_mut(data.slice(To::OVERLAY_OFFSET, length)?)
     }
 
     /// Perform an append migration in-place using the existing migration helper.

@@ -1,6 +1,6 @@
 [package]
 name = "hopper-derive"
-version = "0.3.2"
+version = "0.4.0"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Proc macro layer for Hopper. Generates account layouts, typed context accessors, instruction dispatchers, schema metadata, and CPI builders."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-derive/0.3.2"
+documentation = "https://docs.rs/crate/hopper-derive/0.4.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "proc-macro", "codegen", "hopper"]
 categories = ["no-std", "development-tools::procedural-macro-helpers"]
