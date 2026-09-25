@@ -20,8 +20,8 @@ connect program authoring, validation, and release inspection.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,
-and post-CPI checks while still exposing low-level control. Version 0.3.2 is
-published on crates.io; registry evidence is tracked on the
+and post-CPI checks while still exposing low-level control. This is the 0.4.0
+release source; registry publication evidence is tracked on the
 [release status page](https://hopperzero.dev/docs/release-status). The independently runnable `grillo-*`
 and `hopper-topology` workspace packages are versioned 0.1.0; "independent"
 means a separate recomputation boundary, not a third-party audit.
@@ -48,6 +48,24 @@ The preceding [0.3.1 evidence](https://github.com/BluefootLabs/Hopper-Solana-Zer
 retains 45 focused devnet transactions for mint plans, canonical bump persistence,
 and rollback after successful nested mint CPIs. Its mint and PDA compiled suites
 also pass on v0 and v3 in the 0.3.2 release gates.
+
+## The 0.4.0 update
+
+Named fixed-field inputs and `init_<account>_with(values)` keep initialization
+in ordinary Rust. Existing constructors, explicit lifecycle calls, and borrowing
+APIs remain available. Wire layouts stay unchanged. The release also fixes
+header/body offsets in typed DSL wrappers, independently checks actual Rust
+type bounds before safe projections, and rejects malformed segment geometry.
+See [named initialization](https://hopperzero.dev/docs/named-initialization) and
+[the 0.4 migration guide](https://hopperzero.dev/docs/migration-0-4).
+
+The named SOL vault passed 19 finalized devnet transactions with complete
+expected account-state checks and identical deployed ELF bytes before and
+after testing. Deposit measured 1,602 CU and withdrawal 240 CU. Local gates
+passed host tests, clippy, forged-size rejection builds, SBF v0/v3 fixtures,
+and all 698 Cicada host semantic cases. These are scoped fixture results;
+the dated peer measurements above were not rerun for this release.
+See [the 0.4 evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/dx-memory-safety-2026-09-25).
 
 ## What's included
 
