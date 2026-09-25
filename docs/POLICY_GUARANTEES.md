@@ -1,6 +1,8 @@
 # Policy Guarantees Matrix
 
-Formal reference for what each `HopperProgramPolicy` lever guarantees and what it drops. Read this before flipping a lever from `STRICT` toward `RAW`.
+Reference for `HopperProgramPolicy` intent markers, handler unsafe-code lints,
+and the separate byte/lamport write policies. The intent markers do not insert
+account validation or token CPI checks by themselves.
 
 ## Named modes
 
@@ -14,24 +16,28 @@ Formal reference for what each `HopperProgramPolicy` lever guarantees and what i
 
 Naming is intentionally literal:
 
-- `STRICT` means validation and token-policy checks are enforced by default.
-	It still permits explicit `unsafe` blocks because some high-performance
-	programs need a reviewed escape hatch.
+- `STRICT` declares the author's intent to use typed account validation and
+	explicit token pre-checks. Handler types and helper calls determine which
+	checks execute. It permits explicit `unsafe` blocks.
 - `SEALED` means `STRICT` plus `allow_unsafe = false`; handler bodies cannot
 	contain unsafe code unless an instruction explicitly opts into
 	`unsafe_memory`.
 - `RAW` means Hopper's automatic validation/token envelope is not promised.
 	The author owns every signer, owner, layout, PDA, token, and aliasing check.
 
-In short: choose `STRICT` for normal audited Hopper programs, `SEALED` when a
-module must be unsafe-free by default, and `RAW` only for hand-validated expert
-paths.
+Choose `STRICT` for programs using typed validation, `SEALED` to deny unsafe
+code in handler items by default, and `RAW` to declare hand-validated paths.
+None of these labels establishes that a program has been audited.
 
 ## What each lever controls
 
 ### `strict`
 
-Documents that every normal handler in the module uses a typed context (`Ctx<MyAccounts>`), so `MyAccounts::bind(ctx)?` runs before the handler body. The bind call chains into the constraint check gauntlet:
+Declares the author's intent to use typed contexts (`Ctx<MyAccounts>`). The
+macro does not enforce that every handler is typed: a raw `&mut Context<'_>`
+handler remains raw even when `strict = true`. A typed handler always runs
+`MyAccounts::bind(ctx)?` before its body, regardless of this flag. Binding
+performs the checks declared by that context, including:
 
 1. signer
 2. mut / owner / executable / address
@@ -44,22 +50,31 @@ Flipping to `strict = false` is an intent marker: the author plans to use raw `&
 
 ### `enforce_token_checks`
 
-Author-maintained promise that every SPL token CPI in the module uses
-`*_strict` or `*_signed_strict` invoke variants. Those helpers pre-verify:
+Author-maintained token-check intent. The constant does not rewrite CPI code
+or insert checks. For `TransferChecked`, `BurnChecked`, and `ApproveChecked`,
+the explicit strict invocation methods provide these pre-checks:
 
-| Check | Helper | Where |
+| Invocation | Pre-check | Where |
 |---|---|---|
-| Authority is a transaction signer | `require_authority_signed_direct` | `crates/hopper-runtime/src/token.rs` |
-| Token account's `owner` field matches authority | `require_token_authority` | same file |
+| `invoke_strict()` | Authority has signer privilege, and the token account's `owner` field matches it | `require_authority_signed_direct` and `require_token_authority` in `crates/hopper-runtime/src/token.rs` |
+| `invoke_signed_strict(seeds)` | Token account's `owner` field matches authority | `require_token_authority`; Solana validates the supplied PDA signer seeds during CPI |
 
-The SPL Token program itself re-validates both checks. Hopper's pre-check surfaces a Hopper-branded `ProgramError::IncorrectAuthority` or `MissingRequiredSignature` before the CPI so a misrouted signer or mismatched owner fails with a specific error instead of an opaque SPL failure. This closes the exploit class "attacker passes correct pubkey but wrong signer".
+The signed strict path does not require the PDA authority to arrive with
+signer privilege. The direct strict path returns `MissingRequiredSignature`
+when that privilege is absent; both return `IncorrectAuthority` on owner-field
+mismatch. This field comparison does not establish token-program ownership or
+validate the complete token account layout. The invoked SPL Token program
+still validates the operation and its authorization. These owner-specific
+helpers do not cover every valid delegate or multisig operation.
 
 The policy constant does not rewrite or statically inspect arbitrary CPI code.
 Calls that bypass the strict helpers are outside this promise and require code
 review; `#[instruction(..., skip_token_checks)]` records an intentional
 per-handler exception.
 
-Flipping to `enforce_token_checks = false` drops the pre-check promise. The SPL program's checks still run. Only reach for this when the program has its own validation flow that makes the pre-check redundant.
+Flipping to `enforce_token_checks = false` changes the declared intent; it does
+not remove checks from explicit helper calls. The SPL program's checks still
+run whenever it is invoked.
 
 ### `allow_unsafe`
 
@@ -67,13 +82,18 @@ When true (default), handler bodies can contain `unsafe { ... }` blocks and the 
 
 When false, the program macro emits `#[deny(unsafe_code)]` on every handler that does not carry `#[instruction(N, unsafe_memory)]`. Any stray `unsafe { ... }` fails to compile. The per-instruction override restores unsafe for a single handler without affecting the rest of the module.
 
+The lint applies to the handler item. It does not audit called helpers,
+dependencies, or other module items, and `SEALED` is not a proof that the
+whole program contains no unsafe implementation. Ordinary Rust lint override
+rules still apply.
+
 ## What each policy drops
 
 | Policy | Dropped invariant | What this means |
 |---|---|---|
-| `strict = false` | Framework guarantee that handlers are all typed `Ctx<T>` paths | Author must call constraint checks manually on raw `&mut Context<'_>` paths. Typed-context handlers still bind. |
-| `enforce_token_checks = false` | Hopper-branded pre-check on token CPIs | Only the SPL program's checks run. Any Hopper-side ownership mismatch surfaces as a generic CPI failure. |
-| `allow_unsafe = false` | Raw pointer access in handler bodies | `unsafe { ... }` and `hopper_unsafe_region!` fail to compile unless the handler opts in via `#[instruction(N, unsafe_memory)]`. |
+| `strict = false` | Declared intent to use typed contexts throughout | Raw handlers own their validation under either flag value. Typed-context handlers still bind. |
+| `enforce_token_checks = false` | Declared token pre-check intent | Explicit helper checks remain unchanged; the flag does not remove or insert CPI validation. |
+| `allow_unsafe = false` | Default permission for unsafe code in handler items | The macro adds `#[deny(unsafe_code)]` unless the handler opts in via `#[instruction(N, unsafe_memory)]`. |
 | `#[instruction(N, unsafe_memory)]` | Program-level `#[deny(unsafe_code)]` for this handler only | Raw pointer access restored for this one handler. Other handlers stay sealed. |
 | `#[instruction(N, skip_token_checks)]` | Program-level token-check promise for this handler | Author documents why the checks are upheld elsewhere (or not needed). |
 
@@ -95,7 +115,9 @@ An auditor lands in the tree and wants a one-command inventory of every raw-poin
 grep -rn "hopper_unsafe_region!" crates/ examples/
 ```
 
-Every Hopper-authored unsafe segment surfaces. The macro expands to `unsafe { ... }`, so the actual codegen is unchanged; the name is the indexing hook.
+This finds named `hopper_unsafe_region!` calls. It does not enumerate ordinary
+unsafe blocks elsewhere. The macro expands to `unsafe { ... }`, so the name
+provides a review hook without changing that block's codegen.
 
 For the stricter "every unsafe region in the tree, Hopper or otherwise":
 
@@ -123,10 +145,10 @@ What this guarantees:
 
 | Property | Guarantee |
 |---|---|
-| Tail is writable and growable | Any write at or past `TAIL_PREFIX_OFFSET` is admitted, at any account length. `push`/`set`/`swap_remove` through the gated `ctx.tail_seq_mut::<T>(idx, off)` cursor pass the policy check; growth via `realloc` needs no re-declaration (the range is already open-ended). |
+| Tail is writable and growable | The policy permits writes within the allocated tail; ordinary bounds, writability, framing, and borrow checks still apply. `push`/`set`/`swap_remove` use the gated `ctx.tail_seq_mut::<T>(idx, off)` cursor. Growth via `realloc` needs no range re-declaration, but still follows resize and funding requirements. |
 | Fixed head stays byte-protected | The range starts *past* the head (`offset != 0`), so every head byte lies outside it. A write to any head field is refused at acquisition with `Custom(0xD000 \| idx)`. |
-| CPI writable-meta delegation stays refused | `allows_whole_account_write` requires a range containing `[0, u32::MAX)`. An open tail range anchored past the head fails that test, so handing the account writable to a CPI callee (unbounded both-dimension delegation) is refused, the same guard the byte-range policy uses everywhere. |
-| One touch record per acquire | Acquiring the cursor registers exactly ONE segment lease over the whole tail region (`[TAIL_PREFIX_OFFSET, region_len)`), not one per element, so overlap detection and the `touch-map` never overflow `MAX_TOUCH_RECORDS` on a large sequence. |
+| Writable CPI delegation under `strict_writes, lamports(...)` | With the lamport dimension declared, writable delegation through validated CPI helpers requires both a whole-account data grant and lamport permission. A tail-only range fails that test. Bare `strict_writes` intentionally leaves writable CPI delegation and direct lamport mutation ungoverned. |
+| One tail lease per acquire | Acquiring the cursor registers one segment lease over the whole tail region, not one per element. Large element counts therefore do not create per-element touch records. The instruction-wide touch log still has a finite capacity and can overflow from other distinct acquires. |
 
 Structural rules:
 

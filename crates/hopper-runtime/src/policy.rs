@@ -12,21 +12,24 @@
 //! | Mode | Levers |
 //! |---|---|
 //! | [`HopperProgramPolicy::STRICT`] | `strict`, `enforce_token_checks`, `allow_unsafe` all on. Recommended default. |
-//! | [`HopperProgramPolicy::SEALED`] | `strict` + `enforce_token_checks` on, `allow_unsafe` off. Zero-`unsafe`-in-handlers programs. |
-//! | [`HopperProgramPolicy::RAW`] | Every lever off. Native hot-path throughput. Responsibility shifts fully to the handler author. |
+//! | [`HopperProgramPolicy::SEALED`] | `strict` + `enforce_token_checks` on, `allow_unsafe` off. Adds a default unsafe-code denial on handler items. |
+//! | [`HopperProgramPolicy::RAW`] | Typed-validation and token-check intent off; unsafe code permitted. Typed handlers still bind. |
 //! | [`HopperProgramProfile::TINY`] | Binary-size profile for compact programs: one-byte instruction discriminators and no handler-level modifier instrumentation. |
 //!
 //! ## Zero runtime cost
 //!
 //! The policy is consumed by the program macro at compile time.
 //! `allow_unsafe = false` emits `#[deny(unsafe_code)]` on each
-//! handler so a stray `unsafe` block fails to compile. `strict`
-//! toggles auto-injection of `ContextSpec::bind(ctx)?` (which in turn
-//! calls `validate(ctx)?`). `enforce_token_checks` is a load-bearing
-//! promise read back by the author from
-//! `HOPPER_PROGRAM_POLICY.enforce_token_checks` to decide whether to
-//! invoke the `*Checked` token CPI pre-check helpers in handlers that
-//! reach outside the typed-context envelope.
+//! handler so unsafe code in that item is denied by default. Called helpers
+//! and dependencies are outside this lint's scope. The handler's parameter
+//! type determines whether `ContextSpec::bind(ctx)?` runs: typed handlers
+//! bind regardless of `strict`, and raw handlers receive the raw context.
+//! `strict` and `enforce_token_checks` are author intent markers, not checks
+//! automatically inserted into arbitrary handler code. Authors can consult
+//! the constants when selecting explicit token helpers such as
+//! `invoke_strict()` and `invoke_signed_strict()`. The `*Checked` builder
+//! names describe SPL Token's mint/decimals checks; they do not mean the
+//! program policy automatically inserted Hopper authority pre-checks.
 //!
 //! No runtime flag, no thread-local, no syscall. Users who need to
 //! branch on the policy inside a handler read the const directly:
@@ -58,7 +61,7 @@ pub struct HopperProgramPolicy {
     ///
     /// The actual per-handler behaviour is controlled by the
     /// handler's context parameter type. A handler typed as
-    /// `Context<MyAccounts>` always runs `MyAccounts::bind(ctx)?`
+    /// `Ctx<MyAccounts>` always runs `MyAccounts::bind(ctx)?`
     /// (which chains into `validate(ctx)?`) regardless of policy. A
     /// handler typed as `&mut Context<'_>` always receives the
     /// context raw. `strict = true` is the documentation contract
@@ -72,18 +75,18 @@ pub struct HopperProgramPolicy {
     /// depend on whether the enforcement envelope is active.
     pub strict: bool,
 
-    /// Token CPI authors must pair every raw invocation with the
-    /// matching `*Checked` builder (which carries the `decimals: u8`
-    /// byte the SPL Token program validates against the mint).
-    /// Handlers that do their own SPL plumbing read this back to
-    /// decide whether the signer + owner invariants are already
-    /// upheld elsewhere.
+    /// Author-maintained token-check intent. The macro records this flag
+    /// without inserting or removing checks from CPI calls. Explicit strict
+    /// methods on TransferChecked, BurnChecked, and ApproveChecked check the
+    /// token owner field; their direct variants also require signer privilege.
+    /// Signed strict variants accept PDA seeds, whose signing authority is
+    /// validated during CPI rather than requiring an incoming signer flag.
     pub enforce_token_checks: bool,
 
     /// Permit `unsafe { ... }` blocks inside handler bodies. When
     /// false the program macro wraps each handler in
-    /// `#[deny(unsafe_code)]` so the compiler rejects any raw pointer
-    /// detour.
+    /// `#[deny(unsafe_code)]`. The lint covers that handler item, not called
+    /// helpers or dependencies, and ordinary Rust lint override rules apply.
     pub allow_unsafe: bool,
 }
 
@@ -105,23 +108,24 @@ impl HopperProgramProfile {
 }
 
 impl HopperProgramPolicy {
-    /// Every safety lever engaged. The shipping default.
+    /// Typed-validation and token-check intent enabled; unsafe code permitted.
+    /// The shipping default. Handler types and helper calls determine checks.
     pub const STRICT: Self = Self {
         strict: true,
         enforce_token_checks: true,
         allow_unsafe: true,
     };
 
-    /// Strict + token checks + no `unsafe` in handlers. The zero-escape
-    /// mode for programs that never want to drop to raw pointers.
+    /// STRICT intent plus a default unsafe-code denial on handler items.
+    /// This does not audit unsafe implementations in called helpers.
     pub const SEALED: Self = Self {
         strict: true,
         enforce_token_checks: true,
         allow_unsafe: false,
     };
 
-    /// Every lever disengaged. Native hot-path throughput with
-    /// responsibility pushed to the handler author.
+    /// Typed-validation and token-check intent disabled; unsafe code permitted.
+    /// Typed handlers still bind. Raw handlers own their explicit validation.
     pub const RAW: Self = Self {
         strict: false,
         enforce_token_checks: false,
@@ -158,9 +162,9 @@ pub struct HopperInstructionPolicy {
     /// "fast path" handlers in an otherwise-sealed program.
     pub unsafe_memory: bool,
 
-    /// Skip the program-level token-check promise for this handler.
-    /// The handler still compiles, but authors must document why the
-    /// token invariants are upheld through some other mechanism.
+    /// Declare an exception to the program-level token-check intent.
+    /// This does not remove checks from helper calls; authors document how
+    /// the handler upholds its token invariants.
     pub skip_token_checks: bool,
 
     /// Marks a handler as intentionally able to invoke arbitrary external

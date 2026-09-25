@@ -121,14 +121,14 @@ def main():
         verify_snapshot(record["name"], before, expected, record)
 
     init_data = b"\0" + b"".join(pubkey_bytes(delegate) for delegate in delegates) + struct.pack("<Q", 100)
-    init_metas = ["payer:sw", f"{book}:sw", f"{SYSTEM}:r"]
+    init_metas = ["payer:sw", f"{book}:sw", SYSTEM]
     # All of these must leave the absent book absent and refund any attempted
     # rent debit, with the network transaction fee as the sole state change.
-    refuse("init-unsigned-authority", [f"{delegate0}:w", f"{book}:sw", f"{SYSTEM}:r"], init_data, [book_key], "MissingRequiredSignature")
-    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", f"{SYSTEM}:r"], init_data, error="MissingRequiredSignature")
-    refuse("init-readonly-book", ["payer:sw", f"{book}:s", f"{SYSTEM}:r"], init_data, [book_key])
-    refuse("init-wrong-system", ["payer:sw", f"{book}:sw", f"{delegate1}:r"], init_data, [book_key])
-    refuse("init-payer-book-alias", ["payer:sw", "payer:sw", f"{SYSTEM}:r"], init_data)
+    refuse("init-unsigned-authority", [f"{delegate0}:w", f"{book}:sw", SYSTEM], init_data, [book_key], "MissingRequiredSignature")
+    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", SYSTEM], init_data, error="MissingRequiredSignature")
+    refuse("init-readonly-book", ["payer:sw", f"{book}:s", SYSTEM], init_data, [book_key])
+    refuse("init-wrong-system", ["payer:sw", f"{book}:sw", delegate1], init_data, [book_key])
+    refuse("init-payer-book-alias", ["payer:sw", "payer:sw", SYSTEM], init_data)
     refuse("init-truncated", init_metas, init_data[:-1], [book_key], "InvalidInstructionData")
     refuse("init-trailing", init_metas, init_data + b"\0", [book_key], "InvalidInstructionData")
 
@@ -137,7 +137,7 @@ def main():
     rent = rpc("getMinimumBalanceForRentExemption", [LENGTH])
     # The bounded entrypoint ignores surplus metas; sealed does not promise an
     # exact account-count check. Prove the unused account stays unchanged.
-    record = send("initialize", args.program, init_metas + [f"{delegate0}:r"], init_data, [book_key])
+    record = send("initialize", args.program, init_metas + [delegate0], init_data, [book_key])
     payload = (expected_header + pubkey_bytes(payer)
                + b"".join(pubkey_bytes(delegate) for delegate in delegates)
                + struct.pack("<Q", 100) * 4 + bytes(64))
@@ -180,14 +180,14 @@ def main():
         verify_snapshot(name, before, expected, record)
 
     consume = struct.pack("<B H Q Q", 1, 0, 3, 1)
-    refuse("consume-unsigned-delegate", [f"{delegate0}:r", f"{book}:w"], consume, error="MissingRequiredSignature")
-    refuse("consume-readonly-book", [f"{delegate0}:s", f"{book}:r"], consume, [delegate0_key])
+    refuse("consume-unsigned-delegate", [delegate0, f"{book}:w"], consume, error="MissingRequiredSignature")
+    refuse("consume-readonly-book", [f"{delegate0}:s", book], consume, [delegate0_key])
     refuse("consume-delegate-book-alias", [f"{book}:s", f"{book}:w"], consume, [book_key])
     refuse("consume-truncated", [f"{delegate0}:s", f"{book}:w"], consume[:-1], [delegate0_key], "InvalidInstructionData")
     refuse("consume-trailing", [f"{delegate0}:s", f"{book}:w"], consume + b"\0", [delegate0_key], "InvalidInstructionData")
     before = snapshot(records[-1]["slot"])
     record = send("set-limit-extra-account", args.program,
-                  ["payer:s", f"{book}:w", f"{delegate1}:r"],
+                  ["payer:s", f"{book}:w", delegate1],
                   struct.pack("<B H Q Q", 2, 0, 3, 100))
     expected = copy.deepcopy(before)
     expected[0]["lamports"] -= record["fee"]
