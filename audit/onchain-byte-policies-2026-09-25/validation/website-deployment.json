@@ -1,0 +1,27 @@
+{
+    "schema":  "hopper.website-production.v1",
+    "site":  "https://hopperzero.dev",
+    "observedAt":  "2026-09-25T07:53:07.965126+00:00",
+    "websiteCommit":  "51abf05a2580c0e2e400f09c1541f647b6d4baa4",
+    "websiteTree":  "76fc0f2b58d4e5a31d71e455a7efe16a93a81961",
+    "publishedVersion":  "0.3.2",
+    "provider":  "Vercel",
+    "providerState":  "success",
+    "providerTargetUrl":  "https://vercel.com/bluefootlabs/hopper-website/2TzKQqj9uJxHofkgeCwaSihxKth4",
+    "deploymentId":  6656217825,
+    "deploymentCreatedAt":  "2026-09-25T07:51:00Z",
+    "environment":  "Production",
+    "deploymentState":  "success",
+    "deploymentEnvironmentUrl":  "https://hopper-website-qx69vf1qb-bluefootlabs.vercel.app",
+    "productionShaMatches":  true,
+    "buildPassed":  true,
+    "lintPassed":  true,
+    "localRouteChecks":  44,
+    "localInternalLinkChecks":  2956,
+    "liveRouteChecks":  44,
+    "liveInternalLinkChecks":  3622,
+    "liveFailures":  [
+
+                     ],
+    "browserVisualCheckPerformed":  false
+}

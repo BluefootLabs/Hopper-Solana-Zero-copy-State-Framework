@@ -1,0 +1,23 @@
+{
+    "schema":  "hopper.website-validation.v1",
+    "websiteBaseCommit":  "36a35b581ccb7f00527de3a9efda319e231f0c0a",
+    "publicationSourceCommit":  "5f5053d34526c86724ca2289030447cdc55cae06",
+    "publishedVersion":  "0.3.2",
+    "buildExitCode":  0,
+    "lintExitCode":  0,
+    "localRenderedQa":  {
+                            "base":  "http://127.0.0.1:3492",
+                            "pages":  44,
+                            "publishedVersion":  "0.3.2",
+                            "internalLinksChecked":  2956,
+                            "failures":  [
+
+                                         ],
+                            "scope":  "Rendered HTML, story order, release labels, policy boundaries, network observations, internal routes and heading targets; no visual browser inspection."
+                        },
+    "scope":  "Production build, lint, rendered HTML and internal-link checks ran on the exact content committed as websiteCommit; no website edits occurred after validation. No browser screenshot inspection or live deployment verification in this receipt.",
+    "websiteCommit":  "51abf05a2580c0e2e400f09c1541f647b6d4baa4",
+    "websiteTree":  "76fc0f2b58d4e5a31d71e455a7efe16a93a81961",
+    "noWebsiteEditsAfterValidation":  true,
+    "committedTreeClean":  true
+}

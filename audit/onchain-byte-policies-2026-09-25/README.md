@@ -73,3 +73,15 @@ Publication and registry-only consumer evidence is in
 No keypairs, recovery material, registry credentials, or build trees are included.
 Website validation is a separate final deployment capture; this archive helper
 does not assert visual browser QA or hosted CI success.
+
+The production website at commit `51abf05a2580c0e2e400f09c1541f647b6d4baa4`
+passed its build and lint checks. Local rendered checks passed 44 routes and
+2,956 internal links; the deployed site passed all 44 live routes and 3,622
+internal links/anchors. `validation/` records the production deployment bound
+to that commit, HTTP response hashes, and the exact verification scope.
+No browser visual inspection was performed.
+
+Hosted GitHub jobs for the framework release commit `7238343` did not start:
+the account remains locked because of a billing issue. The captured annotations
+are in `validation/hosted-ci-annotations.json`. The passing local gates above
+are separate from those unexecuted hosted jobs.

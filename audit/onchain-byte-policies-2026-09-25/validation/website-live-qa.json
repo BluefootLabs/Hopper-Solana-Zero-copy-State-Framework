@@ -1,0 +1,587 @@
+{
+  "schema": "hopper.website-live-validation.v1",
+  "observedAt": "2026-09-25T07:53:07.965126+00:00",
+  "base": "https://hopperzero.dev",
+  "websiteCommit": "51abf05a2580c0e2e400f09c1541f647b6d4baa4",
+  "deploymentId": 6656217825,
+  "deploymentUrl": "https://hopper-website-qx69vf1qb-bluefootlabs.vercel.app",
+  "pages": 44,
+  "publishedVersion": "0.3.2",
+  "internalLinksChecked": 3622,
+  "failures": [],
+  "scope": "Live HTTP200 responses, rendered HTML, story order, release labels, policy boundaries, network observations, internal routes and heading targets. GitHub Vercel production status binds deployment to websiteCommit. No browser screenshot inspection.",
+  "responses": [
+    {
+      "path": "/",
+      "url": "https://www.hopperzero.dev/",
+      "status": 200,
+      "htmlSha256": "3e06d6b5c8ee7bcf914cd8b3dda49bb014cd542267aeb11fa2f63c1a4b9969e7",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:00 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::b74rl-1790322780041-cb9359c0a218",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs",
+      "url": "https://www.hopperzero.dev/docs",
+      "status": 200,
+      "htmlSha256": "b25c3e00c01caf0c83ec4e51a90004355698a804aabaa792e61f28cf34da31d4",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:00 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::kmd7b-1790322780043-261a9111f120",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/byte-allowance",
+      "url": "https://www.hopperzero.dev/docs/byte-allowance",
+      "status": 200,
+      "htmlSha256": "728a7a9887f97649c1b044716f3831b37a96723ed92ba0c6f01284c1c7fea14b",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:01 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::6flwr-1790322780090-240b98342757",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/solana-network",
+      "url": "https://www.hopperzero.dev/docs/solana-network",
+      "status": 200,
+      "htmlSha256": "fc3ae73e2fec20208857220777d0cab9d764383c64f6e2619dfcb887698ef87f",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:01 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::9blw6-1790322780041-eb382f55d463",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/release-status",
+      "url": "https://www.hopperzero.dev/docs/release-status",
+      "status": 200,
+      "htmlSha256": "2788d4606ae5617a2d5cb54c7808fea70694261762705edb5c1ff16f04afc3b6",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:01 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::twrqf-1790322781130-c9587735a818",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/first-five",
+      "url": "https://www.hopperzero.dev/docs/first-five",
+      "status": 200,
+      "htmlSha256": "54bf6c0447233268899a37bb8aa6c67b1ab73a697368b3b65f01e9bc483f87ed",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:01 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::pglsj-1790322781437-3f1d070b8adf",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/start",
+      "url": "https://www.hopperzero.dev/docs/start",
+      "status": 200,
+      "htmlSha256": "4612c94acca73a05169767ffd7991f002d24f35e18f080fa9e123fe000d7c309",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:01 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::6dhj9-1790322781732-f1a5cfbea2c6",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/why-hopper",
+      "url": "https://www.hopperzero.dev/docs/why-hopper",
+      "status": 200,
+      "htmlSha256": "2d4e14d521423c24d5cbe4d1752619fe3895951676192727b80d23c95af48f62",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::hqwbn-1790322782110-afbd0af931b6",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/model",
+      "url": "https://www.hopperzero.dev/docs/model",
+      "status": 200,
+      "htmlSha256": "615c6ec3b1e6c7fd469f4d9c6f17ad4ebfcb6d16017400f21c0f94b0f869c8e7",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::frbrf-1790322782149-fff445ba4655",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/architecture",
+      "url": "https://www.hopperzero.dev/docs/architecture",
+      "status": 200,
+      "htmlSha256": "4e1f46d32089129eeffbd98b32a3c2a20a75bc93a9a6d555ddf7c230a7f6f08e",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::9pxcv-1790322782107-7601e5b91318",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/layers",
+      "url": "https://www.hopperzero.dev/docs/layers",
+      "status": 200,
+      "htmlSha256": "86b501d14f68eb6272b62694536aa8ae433b4fd82ecfe45db41585420bb8dd17",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::9jdvl-1790322782224-8d8b09951a98",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/writing",
+      "url": "https://www.hopperzero.dev/docs/writing",
+      "status": 200,
+      "htmlSha256": "500c5e4d436828921fe7568660a637a02cce053735b1eff4bb7a364e7571ca0d",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::5wh6w-1790322782575-46366ec998f3",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/memory-access",
+      "url": "https://www.hopperzero.dev/docs/memory-access",
+      "status": 200,
+      "htmlSha256": "5d8aecccd8f4ef8aea85e544eaecda93096e8d24bf3fcd78a4c11f72bdf4aea4",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::ldpp7-1790322782558-ccf2a9815e7d",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/policy",
+      "url": "https://www.hopperzero.dev/docs/policy",
+      "status": 200,
+      "htmlSha256": "298950316aea55ff3371872ab94b6e11884d29db12e2ffc3cce0535365e32841",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::rhjch-1790322782625-a5ab4dd74c8a",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/event-cpi",
+      "url": "https://www.hopperzero.dev/docs/event-cpi",
+      "status": 200,
+      "htmlSha256": "8745e069bf966b6e807a95abfce6085706fa23c1040d41fe26e9790a45b033e8",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:02 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::k4cxn-1790322782650-d573a5d333de",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/composite-contexts",
+      "url": "https://www.hopperzero.dev/docs/composite-contexts",
+      "status": 200,
+      "htmlSha256": "63509624285a60368c6a492fe728e7deb4823110fdb625283c887351d92fcbd3",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::r8tg5-1790322783089-88e1931ec58b",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/lazy-migration",
+      "url": "https://www.hopperzero.dev/docs/lazy-migration",
+      "status": 200,
+      "htmlSha256": "49a7fc3ae45919430a1b9393eee0e8d7d63384b44587432819dec9a0de36f7e5",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::cgvj7-1790322783108-ef83d85db2c9",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/self-describing-transactions",
+      "url": "https://www.hopperzero.dev/docs/self-describing-transactions",
+      "status": 200,
+      "htmlSha256": "0bd4b199ed45238cf0080a53ba6524b0a66649f1887c00b7df27de3f28f30565",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::kmd7b-1790322783164-956335a22c7a",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/tx-tooling",
+      "url": "https://www.hopperzero.dev/docs/tx-tooling",
+      "status": 200,
+      "htmlSha256": "92ce7accba562e427181762bd26d4b5f69f87369ba171cc5b17cbf4033e8a7d2",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::8p6ml-1790322783218-c9721b814ead",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/effect-verification",
+      "url": "https://www.hopperzero.dev/docs/effect-verification",
+      "status": 200,
+      "htmlSha256": "c90b22c83203a5ec4aa249623fc2427cde05c0ae95bd66dc8bc67bc59077a0f0",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::8p9vr-1790322783545-34ff9ef37b52",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/token-2022",
+      "url": "https://www.hopperzero.dev/docs/token-2022",
+      "status": 200,
+      "htmlSha256": "a09ba247af2aefa1dbe24c8372935e70b006d11735b2bfd833bfd8d31c189a38",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::fzzsc-1790322783612-1a108608e376",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/crypto-capabilities",
+      "url": "https://www.hopperzero.dev/docs/crypto-capabilities",
+      "status": 200,
+      "htmlSha256": "16cf3786c216a5334279fcc37a8b3f7dcafa59e6d8885aceb485601d7fbf172c",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::d4vr2-1790322783591-81c16ee0f1eb",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/schema",
+      "url": "https://www.hopperzero.dev/docs/schema",
+      "status": 200,
+      "htmlSha256": "e54c3334e97284ecc7975bd1a2d5f6537ffd092aba2962e6c28a4eb08d51ba59",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:03 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::kcd9v-1790322783709-64176d021b64",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/onchain-schema",
+      "url": "https://www.hopperzero.dev/docs/onchain-schema",
+      "status": 200,
+      "htmlSha256": "efc6afe5ff25002610540ead46126f3162abb8563b1b09d81c69caae1e3018fc",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:04 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::frbrf-1790322783977-ef703ff804a5",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/dynamic-fields",
+      "url": "https://www.hopperzero.dev/docs/dynamic-fields",
+      "status": 200,
+      "htmlSha256": "056c30b381dd91ad98f40c072c181580966b86afa938a7beee849354a6449cce",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:04 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::b829j-1790322784039-f356da787ab4",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/collections-resizing",
+      "url": "https://www.hopperzero.dev/docs/collections-resizing",
+      "status": 200,
+      "htmlSha256": "ceb009d56235915ee61e8d7d606ef8f2b394c6530c705f8400e28834cc089db5",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:04 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::lvvr6-1790322784075-40d0e10a20af",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/dynamic-tails",
+      "url": "https://www.hopperzero.dev/docs/dynamic-tails",
+      "status": 200,
+      "htmlSha256": "59544f92533ba92300b0518603a4b1ae2cd6ac093ba3046756099103046eebd2",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:04 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::kbh8m-1790322784134-bbf4de02f275",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/from-anchor",
+      "url": "https://www.hopperzero.dev/docs/from-anchor",
+      "status": 200,
+      "htmlSha256": "8a4a1fdc618bf5f6bdb011f15fae7e915883faf7612c3b3d71193581fa8f6ba5",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::8p9vr-1790322785060-5963fff7a795",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/from-quasar",
+      "url": "https://www.hopperzero.dev/docs/from-quasar",
+      "status": 200,
+      "htmlSha256": "18c8accb79be99672b1255667ebb7d84870b9dad8adfde860a1313cf1a734810",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::cggnh-1790322785082-71f2b46de3eb",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/hopper-vs-quasar",
+      "url": "https://www.hopperzero.dev/docs/hopper-vs-quasar",
+      "status": 200,
+      "htmlSha256": "3604c04efc42e3894f00a28adc09b4d60f3c0991bb7cbcafc85123a78e13d995",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::jrrqs-1790322785081-1d937dd86af1",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/quasar-port",
+      "url": "https://www.hopperzero.dev/docs/quasar-port",
+      "status": 200,
+      "htmlSha256": "bd7e4fd3334d8766c10fa5cbd02ef3e59c6a049442a0fb4bcb46d47626aebe30",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::5dpc5-1790322785349-d1bf8f4b68bf",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/tail-lab",
+      "url": "https://www.hopperzero.dev/docs/tail-lab",
+      "status": 200,
+      "htmlSha256": "2785b386ae71bfeedaeb496f06cb82899e74e74ad143d23d9256b82acbcf5917",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::7mhpm-1790322785472-67936d4ca055",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/styx-ferry-messaging",
+      "url": "https://www.hopperzero.dev/docs/styx-ferry-messaging",
+      "status": 200,
+      "htmlSha256": "d8d82dd3fd4e931592a38c39590b8110c7f9f87d86973957fabdd80facb0d0b8",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::k4cxn-1790322785496-50e86d02d0ad",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/cli",
+      "url": "https://www.hopperzero.dev/docs/cli",
+      "status": 200,
+      "htmlSha256": "1ede4d24770acd787b9af0426b360540b00fce95a0033e7ad855e60d83c09aee",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:05 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::d2dlt-1790322785511-4b75bad724c3",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/client-generation",
+      "url": "https://www.hopperzero.dev/docs/client-generation",
+      "status": 200,
+      "htmlSha256": "3e300411e086266a3821b21b3a978d6f54e1755d61c35f05cd6b8a1227489e28",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:06 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::mfjmx-1790322785988-9fd630b96e2b",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/manager",
+      "url": "https://www.hopperzero.dev/docs/manager",
+      "status": 200,
+      "htmlSha256": "3d5bccf2e9635f3fb48c62e65b3a1dae194abf530aa8d1d31780bbdf445bfb73",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:06 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::9srpn-1790322786041-eb701589df9d",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/native-backend",
+      "url": "https://www.hopperzero.dev/docs/native-backend",
+      "status": 200,
+      "htmlSha256": "916ce63a43406bd7cbb81553071a0b0254f314bf34740ca7d74321e4f78c929a",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:06 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::gwzs7-1790322786052-c02a35b6252b",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/native-enhancements",
+      "url": "https://www.hopperzero.dev/docs/native-enhancements",
+      "status": 200,
+      "htmlSha256": "65cdf6ca9e75fa5671674000282e5524e1ecdd3518f6f49a3fbc49ce77987580",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:06 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::x8bjc-1790322786079-13d826c3d41d",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/profiling",
+      "url": "https://www.hopperzero.dev/docs/profiling",
+      "status": 200,
+      "htmlSha256": "95e523040fed42298120895fbc7753c87afd28a1c426088d96302912e4a3d177",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:06 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::jsspr-1790322786466-24201e1ec5e4",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/cu-costs",
+      "url": "https://www.hopperzero.dev/docs/cu-costs",
+      "status": 200,
+      "htmlSha256": "414564294f60708c281c851396581cac33808e7c9d18f244764b1f5caae53347",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:07 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::98j8v-1790322786917-28e063013ee4",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/protocol-examples",
+      "url": "https://www.hopperzero.dev/docs/protocol-examples",
+      "status": 200,
+      "htmlSha256": "500055cc4664cd36650ef951a0095e27f18638b80c106ce7915d0550b79a4e4e",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:07 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::l2nl6-1790322786965-6d7afbc33899",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/proc-macros",
+      "url": "https://www.hopperzero.dev/docs/proc-macros",
+      "status": 200,
+      "htmlSha256": "f4683d59a853c7f87251503892334d3f2af1fe7f72dd56d808c08c0ea9830cf1",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:07 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::frbrf-1790322787491-608bb6c71fe0",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/unsafe",
+      "url": "https://www.hopperzero.dev/docs/unsafe",
+      "status": 200,
+      "htmlSha256": "1a28eca5f75f552b8ee2a284d482c9a6ecec4ad92c1e2f0fb8b99e96b38be2cc",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:07 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::7lmj9-1790322787545-f65471e62da1",
+        "X-Vercel-Cache": "MISS"
+      }
+    },
+    {
+      "path": "/docs/benchmarks",
+      "url": "https://www.hopperzero.dev/docs/benchmarks",
+      "status": 200,
+      "htmlSha256": "28f7e2efc1a352afc9f4f0be7ce8f0dc4ac98af8b65bfbfeebee07654d288ac3",
+      "headers": {
+        "Date": "Fri, 25 Sep 2026 07:53:07 GMT",
+        "Server": "Vercel",
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "X-Vercel-Id": "cle1::iad1::5kp8d-1790322787632-4ef7395c3d98",
+        "X-Vercel-Cache": "MISS"
+      }
+    }
+  ]
+}
