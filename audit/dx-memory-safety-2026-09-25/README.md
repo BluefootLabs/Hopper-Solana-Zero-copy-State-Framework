@@ -24,3 +24,18 @@ The placement compiler and broad wrapper-extension model remain proposals.
 This archive is reproducible development evidence, not an independent audit.
 Every public artifact is sealed in SHA256SUMS; private keys and package archives
 are excluded.
+
+## Production deployment and hosted checks
+
+The production website deployed commit
+4d327a2d8274fcd3cfe03a677d2adb931891deaa successfully. The live crawl returned
+HTTP 200 for all 47 routes and checked 3,974 internal links/heading targets with
+zero failures. Production host links account for the higher count than the
+local crawl. Release labels and the new named-initialization guide are live.
+
+GitHub checks for framework commit 764af32b20a900c5f2e519a5095a65385000b667
+could not start: the annotations report that the account is locked due to a
+billing issue. Local passes do not establish hosted Linux/Windows, Kani, or
+RustSec success. The exact check URLs and annotations are archived. Hosted
+0.4.0 docs.rs pages still returned 404 at the final check; local rustdoc and
+published crate source are verified separately.
