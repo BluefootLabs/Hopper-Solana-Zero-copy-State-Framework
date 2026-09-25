@@ -7,7 +7,7 @@ publish = false
 description = "On-chain quotas with authenticated, revision-checked byte-cell updates."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { workspace = true, features = ["proc-macros"] }

@@ -1123,14 +1123,56 @@ pub mod cicada_program {
             now,
         )?;
 
-        *ctx.shard_statuses_cell_mut()? = STATUS_SETTLED;
-        *ctx.shard_claimants_cell_mut()? = executor;
-        *ctx.shard_settled_inputs_cell_mut()? = WireU64::new(spent);
-        *ctx.shard_settled_outputs_cell_mut()? = WireU64::new(received);
-        *ctx.shard_settlement_hashes_cell_mut()? = settlement_hash;
-        *ctx.shard_claim_expiries_cell_mut()? = WireU64::new(0);
-        *ctx.shard_revisions_cell_mut()? = WireU64::new(next_revision);
-        Ok(())
+        let mut raw = ctx.raw();
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::STATUSES_ABS_OFFSET,
+            slot,
+            STATUS_SETTLED,
+        )?;
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::CLAIMANTS_ABS_OFFSET,
+            slot,
+            executor,
+        )?;
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::SETTLED_INPUTS_ABS_OFFSET,
+            slot,
+            WireU64::new(spent),
+        )?;
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::SETTLED_OUTPUTS_ABS_OFFSET,
+            slot,
+            WireU64::new(received),
+        )?;
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::SETTLEMENT_HASHES_ABS_OFFSET,
+            slot,
+            settlement_hash,
+        )?;
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::CLAIM_EXPIRIES_ABS_OFFSET,
+            slot,
+            WireU64::new(0),
+        )?;
+        write_cell(
+            &mut raw,
+            ExecuteIntent::SHARD_INDEX,
+            IntentShard::REVISIONS_ABS_OFFSET,
+            slot,
+            WireU64::new(next_revision),
+        )
     }
 
     #[instruction(7, ctx_args = 1)]

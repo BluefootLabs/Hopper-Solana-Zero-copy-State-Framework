@@ -6,6 +6,10 @@ checks. It uses no off-chain policy service. Units are application quotas, not
 tokens or SOL. The 272-byte account contains four cells; Solana still locks the
 whole account for each writable transaction.
 
+The program builds as `cdylib` only so the workspace's fat-LTO profile applies
+to its deployed ELF. The verifier includes the source as a host module for
+layout checks; it does not require a second library output.
+
 | Opcode | Accounts in order | Arguments after the one-byte opcode |
 |---|---|---|
 | 0 initialize | authority signer+writable, new book signer+writable, System Program | four delegate addresses, u64 initial limit |

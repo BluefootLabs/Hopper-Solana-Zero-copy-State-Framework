@@ -346,6 +346,17 @@ jobs:
               cargo test -p hopper-framework-verifier --test byte_allowance_sbf --locked -- --ignored --nocapture \
               2>&1 | tee "${SBF_RELEASE_DIR}/byte-allowance-$arch/tests.log"
           done
+      - name: Verify segmented orderbook initialization and byte isolation
+        run: |
+          set -euo pipefail
+          "$HOME/.cargo/bin/cargo-build-sbf" \
+            --tools-version v1.54 --arch v0 \
+            --manifest-path examples/hopper-orderbook/Cargo.toml \
+            --sbf-out-dir "${SBF_RELEASE_DIR}/orderbook-v0" \
+            -- --locked
+          HOPPER_ORDERBOOK_SBF="$PWD/${SBF_RELEASE_DIR}/orderbook-v0/hopper_orderbook.so" \
+            cargo test -p hopper-framework-verifier --test orderbook_sbf --locked -- --ignored --nocapture \
+            2>&1 | tee "${SBF_RELEASE_DIR}/orderbook-v0/tests.log"
       - name: Build, verify, and attest isolated Cicada with the forward builder
         run: |
           python3 scripts/attest-sbf-release.py \
@@ -394,6 +405,8 @@ jobs:
               mint-plan-v*/tests.log \
               byte-allowance-v*/hopper_byte_allowance.so \
               byte-allowance-v*/tests.log \
+              orderbook-v0/hopper_orderbook.so \
+              orderbook-v0/tests.log \
               > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
@@ -418,4 +431,6 @@ jobs:
             target/hopper/release/agave-v4.2.1/mint-plan-v*/tests.log
             target/hopper/release/agave-v4.2.1/byte-allowance-v*/*.so
             target/hopper/release/agave-v4.2.1/byte-allowance-v*/tests.log
+            target/hopper/release/agave-v4.2.1/orderbook-v0/*.so
+            target/hopper/release/agave-v4.2.1/orderbook-v0/tests.log
           retention-days: 90
