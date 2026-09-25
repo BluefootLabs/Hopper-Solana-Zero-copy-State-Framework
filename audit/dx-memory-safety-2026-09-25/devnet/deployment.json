@@ -1,0 +1,27 @@
+{
+  "sourceCommit": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "payer": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "payerBefore": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 504144509
+    },
+    "value": 2360995277
+  },
+  "programId": "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5",
+  "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\named-vault-v0\\hopper_vault.so",
+  "elfSha256": "15a3fdfc21cecc094e5e7fd88c1edd7457c7f6999b7dbd11a22e7a1556039832",
+  "elfBytes": 12464,
+  "deployment": {
+    "programId": "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5",
+    "signature": "QggyQJu6KjtyMFVaMaGZyXdAs9Ls98pLGHvBSjsaEb488aEWJnZ3yBbRFX8px4eCogWzxjr22GMvn6fN7EjDaSR"
+  },
+  "payerAfter": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 504144725
+    },
+    "value": 2295881197
+  }
+}

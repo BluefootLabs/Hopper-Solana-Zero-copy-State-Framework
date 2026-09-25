@@ -1,0 +1,220 @@
+{
+  "schema": "hopper.registry-consumer.v2",
+  "sourceCommit": "a4ed5fdd4b291592cfc1240e5ba20936b96e27c3",
+  "publicationSourceCommit": "a4ed5fdd4b291592cfc1240e5ba20936b96e27c3",
+  "gatesSourceCommit": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+  "build": {
+    "platformTools": "v1.54",
+    "arch": "v0",
+    "locked": true
+  },
+  "records": [
+    {
+      "name": "named-vault",
+      "packageName": "hopper-vault",
+      "crateTypes": [
+        "cdylib"
+      ],
+      "allDependenciesFromCratesIo": true,
+      "fixtureSourceSha256": {
+        "src/dsl.rs": "b9c10f91ff31d788e5e4ef5efc50536aef22ac5cf7a5e606fdec0711c7edbb9b",
+        "src/lib.rs": "f38b53c5c0c11f06a7c0a2a757a98b29f1090eb779a6d94084ce43e2c2084bff",
+        "src/state.rs": "854aa6a100be4db34f0e0cfff230e8b8b285c964473173f923d123ca55cfeead",
+        "src/tests.rs": "e527f46127172b71623a708cfd2715a3252aaa8a0e4f5c4963ba8a43b8788990"
+      },
+      "fixtureSourceMatchesGatedCommit": true,
+      "releaseDependencies": [
+        {
+          "name": "hopper-associated-token",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "273ed888e59dfc4fc978206b5313b174eab4284adee1861d3d5e63576169a907"
+        },
+        {
+          "name": "hopper-derive",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "021bab52b2be1d67b066d47cf5eb49a066f2be8ac453356ce2a9f17be472c474"
+        },
+        {
+          "name": "hopper-lang",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "2367a310be31bf8574b4a64e0e217fc521d7c8d9ed6d8800968cc1970764e807"
+        },
+        {
+          "name": "hopper-macros",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "a66973e2ca5f702c420b95461c6cb62ee18e552efe75ce5b01e5fb71fd0ff211"
+        },
+        {
+          "name": "hopper-memo",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "d8eab103b8d7b70e229af212575854b9231c47212a1eca2d2691d402555d1b71"
+        },
+        {
+          "name": "hopper-native",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "293738705ccb51e46f6b02c5dd3f76c1c9166ad15b9e4861001beb88a62bf4d7"
+        },
+        {
+          "name": "hopper-runtime",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "c8003dcfc1e1736bb162d665d788989e4c1330c37dc9bc59c69b7b1a456cfecb"
+        },
+        {
+          "name": "hopper-schema",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "f7015ca0440652fd367c0630f1fb0aee6cf3dd5b0038e592981f47cc19c7404b"
+        },
+        {
+          "name": "hopper-solana",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "68bd6e62a20931ac866a1c09409cf069166b9d742dda4c87e342a52e027822bb"
+        },
+        {
+          "name": "hopper-system",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "95c29c7ecea48f2312a84c4d9744572bd5bf295ea804c2a7a1818a6f01ac69eb"
+        },
+        {
+          "name": "hopper-systems",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "c7ee9ed735c7f30ce19b06b4accdf686b6f73513d1718dc1bb4c6c6a00731603"
+        },
+        {
+          "name": "hopper-token",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "d7a0429360a740aa291eb876d94c4f845976f78be96fa2329ae02a4e80cc96b8"
+        },
+        {
+          "name": "hopper-token-2022",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "97906eea7c65533e581147dd79c5f6977d37b7a0b9c89930ed793bae605da89a"
+        }
+      ],
+      "registryDependencyCount": 44,
+      "elfBytes": 12464,
+      "elfSha256": "15a3fdfc21cecc094e5e7fd88c1edd7457c7f6999b7dbd11a22e7a1556039832",
+      "testedElfSha256": "15a3fdfc21cecc094e5e7fd88c1edd7457c7f6999b7dbd11a22e7a1556039832",
+      "identicalToTestedV0Elf": true,
+      "testsPassed": 2,
+      "verifierBinarySha256": "295ff5357907390404bf7709bbd55fa7ec2c8f47f569db9510798d7ae3818a20",
+      "verifierBinary": "target\\debug\\deps\\named_vault_sbf-f0ca528e7466bb23.exe",
+      "lockfileSha256": "f8184d129f0f576ed9c1d3e41822c1d883367019ffdd43f5238bda73d54b3580"
+    },
+    {
+      "name": "byte-allowance",
+      "packageName": "hopper-byte-allowance",
+      "crateTypes": [
+        "cdylib"
+      ],
+      "allDependenciesFromCratesIo": true,
+      "fixtureSourceSha256": {
+        "src/lib.rs": "0cbb42fc6ddbcb66da2c7a4b0e9734049a8d42708e4a99f1c616c58b9365d0a3"
+      },
+      "fixtureSourceMatchesGatedCommit": true,
+      "releaseDependencies": [
+        {
+          "name": "hopper-associated-token",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "273ed888e59dfc4fc978206b5313b174eab4284adee1861d3d5e63576169a907"
+        },
+        {
+          "name": "hopper-derive",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "021bab52b2be1d67b066d47cf5eb49a066f2be8ac453356ce2a9f17be472c474"
+        },
+        {
+          "name": "hopper-lang",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "2367a310be31bf8574b4a64e0e217fc521d7c8d9ed6d8800968cc1970764e807"
+        },
+        {
+          "name": "hopper-macros",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "a66973e2ca5f702c420b95461c6cb62ee18e552efe75ce5b01e5fb71fd0ff211"
+        },
+        {
+          "name": "hopper-memo",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "d8eab103b8d7b70e229af212575854b9231c47212a1eca2d2691d402555d1b71"
+        },
+        {
+          "name": "hopper-native",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "293738705ccb51e46f6b02c5dd3f76c1c9166ad15b9e4861001beb88a62bf4d7"
+        },
+        {
+          "name": "hopper-runtime",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "c8003dcfc1e1736bb162d665d788989e4c1330c37dc9bc59c69b7b1a456cfecb"
+        },
+        {
+          "name": "hopper-schema",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "f7015ca0440652fd367c0630f1fb0aee6cf3dd5b0038e592981f47cc19c7404b"
+        },
+        {
+          "name": "hopper-solana",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "68bd6e62a20931ac866a1c09409cf069166b9d742dda4c87e342a52e027822bb"
+        },
+        {
+          "name": "hopper-system",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "95c29c7ecea48f2312a84c4d9744572bd5bf295ea804c2a7a1818a6f01ac69eb"
+        },
+        {
+          "name": "hopper-systems",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "c7ee9ed735c7f30ce19b06b4accdf686b6f73513d1718dc1bb4c6c6a00731603"
+        },
+        {
+          "name": "hopper-token",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "d7a0429360a740aa291eb876d94c4f845976f78be96fa2329ae02a4e80cc96b8"
+        },
+        {
+          "name": "hopper-token-2022",
+          "version": "0.4.0",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "checksum": "97906eea7c65533e581147dd79c5f6977d37b7a0b9c89930ed793bae605da89a"
+        }
+      ],
+      "registryDependencyCount": 44,
+      "elfBytes": 24936,
+      "elfSha256": "6d18fea5d19d805dacc279c416346a570f33e7f8d0e43512bb249cb62b86a8cc",
+      "testedElfSha256": "6d18fea5d19d805dacc279c416346a570f33e7f8d0e43512bb249cb62b86a8cc",
+      "identicalToTestedV0Elf": true,
+      "testsPassed": 3,
+      "verifierBinarySha256": "38ff4c889d424e369dbc4ea075241e11e5511d263fb699762f49fbecbf54ed32",
+      "verifierBinary": "target\\debug\\deps\\byte_allowance_sbf-3ad346c255920ac3.exe",
+      "lockfileSha256": "2cdb2bdba5060fe88afeb6fe4a4da4a50541fbcc1645ac59679a785d08f0c121"
+    }
+  ],
+  "allPassed": true,
+  "allElfsIdenticalToTestedV0": true
+}

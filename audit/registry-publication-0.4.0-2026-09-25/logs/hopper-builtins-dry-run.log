@@ -1,0 +1,8 @@
+    Updating crates.io index
+   Packaging hopper-builtins v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-builtins)
+    Packaged 6 files, 21.3KiB (6.6KiB compressed)
+   Verifying hopper-builtins v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-builtins)
+   Compiling hopper-builtins v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-builtins-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.50s
+   Uploading hopper-builtins v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-builtins)
+warning: aborting upload due to dry run

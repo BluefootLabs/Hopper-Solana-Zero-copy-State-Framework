@@ -1,0 +1,32 @@
+
+> hopper-site@0.2.1 build
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 18ms
+- Experiments (use with caution):
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1471ms
+  Running TypeScript ...
+  Finished TypeScript in 1396ms ...
+  Collecting page data using 6 workers ...
+  Generating static pages using 6 workers (0/49) ...
+  Generating static pages using 6 workers (12/49) 
+  Generating static pages using 6 workers (24/49) 
+  Generating static pages using 6 workers (36/49) 
+✓ Generating static pages using 6 workers (49/49) in 645ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /docs
+└ ƒ /docs/[slug]
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

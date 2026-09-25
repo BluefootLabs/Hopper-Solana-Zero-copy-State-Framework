@@ -1,0 +1,32 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling hopper-runtime v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Checking hopper-native v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Checking hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+    Checking hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+    Checking hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+    Checking hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Checking hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+    Checking subtle v2.6.1
+    Checking curve25519-dalek v4.1.3
+    Checking hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+    Checking syn v2.0.117
+    Checking hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+    Checking hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+    Checking hopper-memo v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+ Documenting hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+ Documenting hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+ Documenting hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+warning: unresolved link to `LayoutManifest`
+   --> crates\hopper-core\src\manifest.rs:762:63
+    |
+762 |     /// The current main client-generator pipeline consumes [`LayoutManifest`]
+    |                                                               ^^^^^^^^^^^^^^ no item named `LayoutManifest` in scope
+    |
+    = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+    = note: `#[warn(rustdoc::broken_intra_doc_links)]` on by default
+
+warning: `hopper-systems` (lib doc) generated 1 warning
+ Documenting hopper-runtime v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 11.61s
+   Generated D:/tmp/Hopper-Solana-Zero-copy-State-Framework/target\doc\hopper_derive\index.html and 3 other files

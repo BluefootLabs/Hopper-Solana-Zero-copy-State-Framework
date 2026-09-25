@@ -1,0 +1,59 @@
+   Compiling hopper-runtime v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+   Compiling hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-memo v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized] target(s) in 10.63s
+     Running tests\named_vault_sbf.rs (target\debug\deps\named_vault_sbf-f0ca528e7466bb23.exe)
+
+running 2 tests
+unsigned init: Err(MissingRequiredSignature), CU=108, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=0 CU=1709
+readonly init: Err(Immutable), CU=110, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=279, rollback
+unsigned init: Err(MissingRequiredSignature), CU=369, rollback
+vault deposit CU=1602
+readonly init: Err(Immutable), CU=107, rollback
+vault withdraw CU=240
+init insufficient rent: Err(Custom(1)), CU=1643, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=0 CU=1709
+vault init prefund=500000 CU=1709
+reinitialization: Err(AccountAlreadyInitialized), CU=279, rollback
+zero amount: Err(Custom(6002)), CU=202, rollback
+unsigned authority: Err(MissingRequiredSignature), CU=114, rollback
+vault deposit CU=1602
+readonly vault: Err(Immutable), CU=115, rollback
+vault withdraw CU=240
+wrong authority: Err(InvalidAccountData), CU=181, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=3000000 CU=1707
+wrong owner: Err(IncorrectProgramId), CU=120, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=279, rollback
+wrong layout: Err(InvalidAccountData), CU=149, rollback
+vault deposit CU=1602
+zero amount: Err(Custom(6002)), CU=175, rollback
+vault withdraw CU=240
+unsigned authority: Err(MissingRequiredSignature), CU=99, rollback
+test named_initialization_and_custody_round_trip ... ok
+readonly vault: Err(Immutable), CU=100, rollback
+wrong authority: Err(InvalidAccountData), CU=166, rollback
+wrong owner: Err(IncorrectProgramId), CU=104, rollback
+wrong layout: Err(InvalidAccountData), CU=135, rollback
+insufficient tracked balance: Err(Custom(6001)), CU=199, rollback
+insufficient depositor funds: Err(Custom(1)), CU=1550, rollback
+overflow after successful transfer CPI: Err(ArithmeticOverflow), CU=1604, rollback
+test initialization_and_access_refusals_preserve_all_accounts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

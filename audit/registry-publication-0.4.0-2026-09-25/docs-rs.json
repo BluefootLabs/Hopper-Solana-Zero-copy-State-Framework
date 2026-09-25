@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-09-25T19:54:37.951256+00:00",
+  "pages": [
+    {
+      "url": "https://docs.rs/hopper-lang/0.4.0/hopper/",
+      "status": 404
+    },
+    {
+      "url": "https://docs.rs/hopper-runtime/0.4.0/hopper_runtime/layout/trait.AccountFields.html",
+      "status": 404
+    },
+    {
+      "url": "https://docs.rs/hopper-systems/0.4.0/hopper_core/",
+      "status": 404
+    },
+    {
+      "url": "https://docs.rs/hopper-derive/0.4.0/hopper_derive/",
+      "status": 404
+    }
+  ]
+}

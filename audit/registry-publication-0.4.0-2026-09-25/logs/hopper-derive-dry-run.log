@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+    Updating crates.io index
+    Packaged 21 files, 920.6KiB (207.7KiB compressed)
+   Verifying hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+   Compiling hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-derive-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 5.81s
+   Uploading hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+warning: aborting upload due to dry run

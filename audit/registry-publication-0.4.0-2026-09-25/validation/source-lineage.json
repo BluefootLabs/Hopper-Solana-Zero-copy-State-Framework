@@ -1,0 +1,179 @@
+{
+  "schema": "hopper.dx-source-lineage.v1",
+  "sourceCommit": "a4ed5fdd4b291592cfc1240e5ba20936b96e27c3",
+  "gatesSourceCommit": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+  "changedPaths": [
+    "README.md",
+    "docs/RELEASE_0_4_VALIDATION.md"
+  ],
+  "allExecutableSourcesManifestsAndLocksIdentical": true,
+  "devnetTransactions": 19,
+  "elfSha256": "15a3fdfc21cecc094e5e7fd88c1edd7457c7f6999b7dbd11a22e7a1556039832",
+  "bindings": [
+    {
+      "path": "named-vault-devnet/fund-authority.transaction.json",
+      "sha256": "eae729ff9bcdc3db1a32411c6208b34b22aa78d315221770e7b37cf5cb463a44"
+    },
+    {
+      "path": "named-vault-devnet/fund-authority.snapshots.json",
+      "sha256": "19eed9f401a0c482ba6c630c3e0e38f651950497b114784a5709c90578e40bb2"
+    },
+    {
+      "path": "named-vault-devnet/fund-outsider.transaction.json",
+      "sha256": "e16d0fde645a7706aa1f23631662686967b5d55575536aeea68b3ffba646c30d"
+    },
+    {
+      "path": "named-vault-devnet/fund-outsider.snapshots.json",
+      "sha256": "9f5708f864701b36da1da2245cd7122c8d511df1ed041233c6e6032a7b78e2af"
+    },
+    {
+      "path": "named-vault-devnet/prefund-vault.transaction.json",
+      "sha256": "04b58435f3491883f3e865aac72ce6b2b7a560545352c87c8b394bba55595e7a"
+    },
+    {
+      "path": "named-vault-devnet/prefund-vault.snapshots.json",
+      "sha256": "2d86c3299d7891364c161ec4721724ce4c3fef1d731850cf3b719990f8b8491a"
+    },
+    {
+      "path": "named-vault-devnet/initialize.transaction.json",
+      "sha256": "2a3c6be3fa68959ec18436d5439d55fe7db9064f1d4f377d49fc1e2266acee77"
+    },
+    {
+      "path": "named-vault-devnet/initialize.snapshots.json",
+      "sha256": "857c89d7b9ad138e500669400f8a84c4d60d1378be86ca67a4420b218f7489d3"
+    },
+    {
+      "path": "named-vault-devnet/initialize-prefunded.transaction.json",
+      "sha256": "19ad724396487723b1b90e11fa75541e3dcc1e4d55005e81231eeb43361e32f5"
+    },
+    {
+      "path": "named-vault-devnet/initialize-prefunded.snapshots.json",
+      "sha256": "c17e88fd6b331f153d30cf64c2c8a9044476b2213ee66d6a46a95733676ef286"
+    },
+    {
+      "path": "named-vault-devnet/reinitialize.transaction.json",
+      "sha256": "13d28a82bf75a3786694a4e5c2e40f73a6e72279ba5a455fec75638cf037e92b"
+    },
+    {
+      "path": "named-vault-devnet/reinitialize.snapshots.json",
+      "sha256": "18354c33841f114ecf4483e963cf3197d120e686a0e8c017d568a8bf1a6648a1"
+    },
+    {
+      "path": "named-vault-devnet/deposit-zero.transaction.json",
+      "sha256": "0b63c4e2fca26db3310bcfce1de914c74a45b8601cba590eb05d884b88684364"
+    },
+    {
+      "path": "named-vault-devnet/deposit-zero.snapshots.json",
+      "sha256": "2b874d0a9e114aa507762f3e7a6bd6d34385972a1b42db0cc455aa99de79c094"
+    },
+    {
+      "path": "named-vault-devnet/deposit-unsigned.transaction.json",
+      "sha256": "5a136054ca2b7de12432b8cf2c43919187c93193ca5d60cc9ad1d84fb7db3979"
+    },
+    {
+      "path": "named-vault-devnet/deposit-unsigned.snapshots.json",
+      "sha256": "753f19d10d3d389d00d1545d6c32b50b850cb1f695ffcad40408b6e37afba4a2"
+    },
+    {
+      "path": "named-vault-devnet/deposit-readonly.transaction.json",
+      "sha256": "398a3b08834f3f375af2e40b2fad98191b515e45d347d45467ce3f048814401e"
+    },
+    {
+      "path": "named-vault-devnet/deposit-readonly.snapshots.json",
+      "sha256": "fca39f1c3a415624757cb8c3ebf76e4cab7e2f73c36c76bacd6ac4a0264ea701"
+    },
+    {
+      "path": "named-vault-devnet/deposit-wrong-authority.transaction.json",
+      "sha256": "eaef7e851431b7e5369a214af6418278d75dd1f470fd2a50251a802e255e6c02"
+    },
+    {
+      "path": "named-vault-devnet/deposit-wrong-authority.snapshots.json",
+      "sha256": "c7f6c024f4b6c9dc0cffcf49964345e74ea0d153f38e0d401cb8159731462b44"
+    },
+    {
+      "path": "named-vault-devnet/deposit.transaction.json",
+      "sha256": "b021d864e806bfb48799fbf01caa2c70120758cd6dc119cc1262324eabfc2606"
+    },
+    {
+      "path": "named-vault-devnet/deposit.snapshots.json",
+      "sha256": "85276e826e3a6dff019dce2bdc283934639199529b69a3855c00ea3a67970be7"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-zero.transaction.json",
+      "sha256": "ee33b9a8fe6379aa14f000035d46551276ab14e1ac3fd7fb2448d5ea1345e30c"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-zero.snapshots.json",
+      "sha256": "e15dc86814c35e7ea018295362847c0263caadb3c867063192865eb65e1590a9"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-unsigned.transaction.json",
+      "sha256": "26b9226cae2a5bddf0ec3699e21478e8ba76588787740e34f7b12e7a6902af19"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-unsigned.snapshots.json",
+      "sha256": "3eb1a8e6e1c87be884ce26045b200321e94c06e07f211c2ade6d054db125e384"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-readonly.transaction.json",
+      "sha256": "cae3e0337dc20a8add0bf7c4977b7092eaefcd56b029e773da9af7f884694686"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-readonly.snapshots.json",
+      "sha256": "250ec3653ef636da35428367217374f18d33fb4101edf8e20634e186c0fcd1ae"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-wrong-authority.transaction.json",
+      "sha256": "012adaf57303435aed2fcdfc42f3509d99d746258d5ba46379b6bce6e52c4289"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-wrong-authority.snapshots.json",
+      "sha256": "d564a0bb376ab7ab0f5578df295d4b496b41643ac30e19f150b658c2a0ef457d"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-over-balance.transaction.json",
+      "sha256": "084982b6b43b68b59e1ffde35f77ab7fce5688c3e86042912e3c16e94ab4b924"
+    },
+    {
+      "path": "named-vault-devnet/withdraw-over-balance.snapshots.json",
+      "sha256": "a052c22789df5bddaf80c8ae59a95c7ddff49f5b7362bcaa9a629855b4ce89fd"
+    },
+    {
+      "path": "named-vault-devnet/withdraw.transaction.json",
+      "sha256": "8c8b3f175c63310debd6bc9527c8f53b84ae5377f3dd32aacff62c7f7cd7ed96"
+    },
+    {
+      "path": "named-vault-devnet/withdraw.snapshots.json",
+      "sha256": "38a700c7bf6a66d9fca4b951b4943197b8b1c78838968171c6663e6059e86d01"
+    },
+    {
+      "path": "named-vault-devnet/deposit-insufficient-funds.transaction.json",
+      "sha256": "bd7eb8c233280785ccc0f2a26311c38ec51d6876c420b6a9fa21891b343af028"
+    },
+    {
+      "path": "named-vault-devnet/deposit-insufficient-funds.snapshots.json",
+      "sha256": "d3b3fe86628dab5017f0fc96bdc69388a4a35f3a176237de5391fcfecaae3042"
+    },
+    {
+      "path": "named-vault-devnet/deposit-missing-system.transaction.json",
+      "sha256": "1c41c543ad46d1f453d923b6903f5624fed13c784fa3b9ca646c547fafa02106"
+    },
+    {
+      "path": "named-vault-devnet/deposit-missing-system.snapshots.json",
+      "sha256": "99b0ea8c3bbb331b730a2697b565ba089ad160972c4ec11fbf603a93bb264fc4"
+    },
+    {
+      "path": "gates-final/receipt.json",
+      "sha256": "5385bd1b37a0b498630cc18192f3ca0c9221558eaa524c526ff06e0e115ebc2b"
+    },
+    {
+      "path": "named-vault-devnet/receipt.json",
+      "sha256": "ec4857cda1673f7e768ec8edbd6db2a3d8ecb339356122d49ec59b20179ac79a"
+    },
+    {
+      "path": "prepublication/publish-train.json",
+      "sha256": "6d9fc32c08a5a22057177855fec49247a84068ba66c25ce4c2f3474bb833b219"
+    }
+  ],
+  "allPassed": true
+}

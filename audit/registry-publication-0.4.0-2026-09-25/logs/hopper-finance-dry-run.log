@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-finance)
+    Updating crates.io index
+    Packaged 9 files, 24.1KiB (6.5KiB compressed)
+   Verifying hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-finance)
+ Downloading crates ...
+  Downloaded hopper-systems v0.4.0
+   Compiling hopper-systems v0.4.0
+   Compiling hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-finance-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 2.63s
+   Uploading hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-finance)
+warning: aborting upload due to dry run

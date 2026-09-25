@@ -1,0 +1,81 @@
+{
+  "blockTime": 1790365473,
+  "meta": {
+    "computeUnitsConsumed": 166,
+    "costUnits": 2516,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidAccountData"
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5 invoke [1]",
+      "Program 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5 consumed 166 of 200000 compute units",
+      "Program 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5 failed: invalid account data for instruction"
+    ],
+    "postBalances": [
+      2283741197,
+      1000000,
+      940800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2283751197,
+      1000000,
+      940800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      }
+    }
+  },
+  "slot": 504145430,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "GjNtSG3XLHBDZgJ2Bzo3Pm6N9GhxYUHz6EUctwCEC5v7",
+        "DzBuVZGPbctKUj8j8y883149eLTe1tE4V8SCBxYr4wxZ",
+        "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            2
+          ],
+          "data": "2Uok59752wFM",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "MMgRkhHoMtATMGs3MUEjCY2o5DoRKeUaf2dWwJnR26H"
+    },
+    "signatures": [
+      "3tsAUZrtmZDkSVbmg2SJqHzaMDeht7dSRwoSyPnVjkxRNJVQfVDqcuDU4wZfH9u4zuUfyrKHkBnpAC46e7YGJFh6",
+      "35GDYACapgdeviTbP9mQeu5wTgKcR6K9JdyUUURYPgiaycuvRtpyTviq3toopTcqEeMpCaCMh4y7YMPWRBckvCrB"
+    ]
+  },
+  "transactionIndex": 11,
+  "version": "legacy"
+}

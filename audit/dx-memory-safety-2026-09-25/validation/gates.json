@@ -1,0 +1,707 @@
+{
+  "sourceCommit": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+  "sourceUnchangedAndClean": true,
+  "records": [
+    {
+      "name": "fmt",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "host",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--workspace",
+        "--locked",
+        "--offline",
+        "--no-fail-fast"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "clippy",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "unsafe",
+      "argv": [
+        "py",
+        "-X",
+        "utf8",
+        "scripts/check-unsafe-safety-comments.py"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "provenance",
+      "argv": [
+        "py",
+        "-X",
+        "utf8",
+        "scripts/tests/test_release_provenance.py"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "fixed-layout-rejections",
+      "argv": [
+        "py",
+        "-X",
+        "utf8",
+        "scripts/test-fixed-layout-rejections.py",
+        "--out",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\fixed-layout-rejections"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "layout-offsets",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-lang",
+        "--features",
+        "proc-macros,migrate",
+        "--test",
+        "layout_overlay_offsets",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "named-vault-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-vault/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\named-vault-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "byte-allowance-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-byte-allowance/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\byte-allowance-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "runtime-gate-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/runtime-gate/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\runtime-gate-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "mint-plan-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/mint-plan/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\mint-plan-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "canonical-pda-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/canonical-pda/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\canonical-pda-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "cicada-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-cicada/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "cicada-route-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-cicada-route-fixture/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-route-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "cicada-canonical-route-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-cicada-canonical-route-fixture/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-canonical-route-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "orderbook-v0-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-orderbook/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\orderbook-v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "named-vault-v0-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "named_vault_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "byte-allowance-v0-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "byte_allowance_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "runtime-gate-v0-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "ambient_gate_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "mint-plan-v0-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "mint_plan_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "canonical-pda-v0-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "canonical_pda_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "named-vault-v3-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-vault/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\named-vault-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "byte-allowance-v3-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-byte-allowance/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\byte-allowance-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "runtime-gate-v3-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/runtime-gate/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\runtime-gate-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "mint-plan-v3-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/mint-plan/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\mint-plan-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "canonical-pda-v3-build",
+      "argv": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/canonical-pda/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\canonical-pda-v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "named-vault-v3-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "named_vault_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "byte-allowance-v3-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "byte_allowance_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "runtime-gate-v3-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "ambient_gate_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "mint-plan-v3-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "mint_plan_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "canonical-pda-v3-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "canonical_pda_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "orderbook-v0-tests",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "--manifest-path",
+        "bench/framework-comparison/verifier/Cargo.toml",
+        "--test",
+        "orderbook_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "cicada-lifecycle",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-cicada",
+        "--test",
+        "lifecycle_sbf_e2e",
+        "--locked",
+        "--offline",
+        "--",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "fuzz-adapter-build",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "build",
+        "-p",
+        "hopper-cicada-fuzz-adapter",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "cicada-semantic",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper.exe",
+        "fuzz",
+        "run",
+        "--program",
+        "examples/hopper-cicada/hopper.manifest.json",
+        "--plan",
+        "fuzz/plans/hopper-cicada.plan.json",
+        "--adapter",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper-cicada-fuzz-adapter.exe",
+        "--require-invariant",
+        "cicada-business-semantics",
+        "--report",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-semantic-report.json"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "publish-train",
+      "argv": [
+        "py",
+        "-X",
+        "utf8",
+        "scripts/check-publish-train.py",
+        "--out",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dx-architecture-2026-09-25\\gates-final\\publish-train.json"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "builds": [
+    {
+      "name": "named-vault",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\named-vault-v0\\hopper_vault.so",
+      "bytes": 12464,
+      "sha256": "15a3fdfc21cecc094e5e7fd88c1edd7457c7f6999b7dbd11a22e7a1556039832"
+    },
+    {
+      "name": "byte-allowance",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\byte-allowance-v0\\hopper_byte_allowance.so",
+      "bytes": 24936,
+      "sha256": "6d18fea5d19d805dacc279c416346a570f33e7f8d0e43512bb249cb62b86a8cc"
+    },
+    {
+      "name": "runtime-gate",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\runtime-gate-v0\\hopper_runtime_gate_fixture.so",
+      "bytes": 21296,
+      "sha256": "7325e23b3afe1819fb16574871ea9a6212b8fcfb2326407f507d304720adf95a"
+    },
+    {
+      "name": "mint-plan",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\mint-plan-v0\\hopper_mint_plan_fixture.so",
+      "bytes": 16576,
+      "sha256": "6b047172d561242ac402545a8213acbdfa6e8c24bd3cea82c10712e835b0584f"
+    },
+    {
+      "name": "canonical-pda",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\canonical-pda-v0\\hopper_canonical_pda_fixture.so",
+      "bytes": 13912,
+      "sha256": "a50c337e1510a0cb1cf5f38854a520ac362c911ef4966f1f5fbdef833c177e47"
+    },
+    {
+      "name": "cicada",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-v0\\hopper_cicada.so",
+      "bytes": 154264,
+      "sha256": "59870c2a4da1520a7323c185b62395e938872ef9e1b308eb58ef4bf3e574d229"
+    },
+    {
+      "name": "cicada-route",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-route-v0\\hopper_cicada_route_fixture.so",
+      "bytes": 4752,
+      "sha256": "02ad6c5ec738b1d543e0ca198d8d4fde78d67593eb8f9f94873f823f1ae4a72c"
+    },
+    {
+      "name": "cicada-canonical-route",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\cicada-canonical-route-v0\\hopper_cicada_canonical_route_fixture.so",
+      "bytes": 23736,
+      "sha256": "8f83ae338f7803adfccffbefbbc28ad9febea7947175480028153c8f6d0447cc"
+    },
+    {
+      "name": "orderbook",
+      "arch": "v0",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\orderbook-v0\\hopper_orderbook.so",
+      "bytes": 14568,
+      "sha256": "903ca07c95441b45b0888bf35dbd2bcf860734c3e831dab9b2538901ffaa0f5b"
+    },
+    {
+      "name": "named-vault",
+      "arch": "v3",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\named-vault-v3\\hopper_vault.so",
+      "bytes": 11600,
+      "sha256": "7533007ad9ae6094da2ff6ac14555c1b2d483cc3b978a24c08340b5ad4be72be"
+    },
+    {
+      "name": "byte-allowance",
+      "arch": "v3",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\byte-allowance-v3\\hopper_byte_allowance.so",
+      "bytes": 23464,
+      "sha256": "d022298df0e1d70fbd9634711ee1aa77eb5648ae9454c4174867ac09ceb0eeca"
+    },
+    {
+      "name": "runtime-gate",
+      "arch": "v3",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\runtime-gate-v3\\hopper_runtime_gate_fixture.so",
+      "bytes": 19920,
+      "sha256": "bfb7cb4e1a50b24fe247f544c5e039ff3a1ed63c384a8505f6f6f0ef63ac010b"
+    },
+    {
+      "name": "mint-plan",
+      "arch": "v3",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\mint-plan-v3\\hopper_mint_plan_fixture.so",
+      "bytes": 16320,
+      "sha256": "fe9a305be2b2cf80cc33ad125d1e8079398e30f718ce2baec8a9acd98a597e19"
+    },
+    {
+      "name": "canonical-pda",
+      "arch": "v3",
+      "elf": "target\\hopper\\dx-architecture-2026-09-25\\gates-final\\canonical-pda-v3\\hopper_canonical_pda_fixture.so",
+      "bytes": 13304,
+      "sha256": "b1afebc7810889f75496042612e7cae0ba143d697c5ed614a86e2ca64c083eaa"
+    }
+  ],
+  "allPassed": true
+}

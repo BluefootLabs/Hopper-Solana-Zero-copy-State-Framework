@@ -1,0 +1,8 @@
+{
+  "path": "crates/hopper-core/src/manifest.rs",
+  "publishedSourceCommit": "a4ed5fdd4b291592cfc1240e5ba20936b96e27c3",
+  "change": "Qualify hopper_schema::LayoutManifest as code text; remove unresolved intra-doc link.",
+  "documentationOnly": true,
+  "publishedArchiveUnchanged": true,
+  "rustdocWarningsDeniedPassed": true
+}

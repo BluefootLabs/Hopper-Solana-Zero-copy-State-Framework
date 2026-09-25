@@ -1,0 +1,56 @@
+   Compiling hopper-fixed-layout-rejections v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tests\fixtures\fixed-layout-rejections)
+warning: unused import: `pod_from_bytes`
+  --> src\main.rs:19:40
+   |
+19 |     use hopper::hopper_core::account::{pod_from_bytes, VerifiedAccount};
+   |                                        ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused `Result` that must be used
+  --> src\main.rs:39:9
+   |
+39 |         std::hint::black_box(VerifiedAccount::<Bytes>::new(&[0; 1]));
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+   = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+39 |         let _ = std::hint::black_box(VerifiedAccount::<Bytes>::new(&[0; 1]));
+   |         +++++++
+
+error[E0080]: evaluation panicked: FixedLayout::SIZE must equal size_of::<Self>()
+  --> D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core\src\account\verified.rs:47:17
+   |
+47 |         const { super::assert_fixed_layout::<T>() };
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `hopper::systems::VerifiedAccount::<'_, Bytes>::new::{constant#0}` failed inside this call
+   |
+note: inside `hopper::hopper_core::account::pod::assert_fixed_layout::<Bytes>`
+  --> /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library\core\src\panic.rs:62:8
+   |
+   = note: the failure occurred here
+   |
+  ::: D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core\src\account\pod.rs:54:5
+   |
+54 | /     assert!(
+55 | |         T::SIZE == core::mem::size_of::<T>(),
+56 | |         "FixedLayout::SIZE must equal size_of::<Self>()"
+57 | |     );
+   | |_____- in this macro invocation
+
+note: erroneous constant encountered
+  --> D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core\src\account\verified.rs:47:9
+   |
+47 |         const { super::assert_fixed_layout::<T>() };
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn VerifiedAccount::<'_, Bytes>::new`
+  --> src\main.rs:39:30
+   |
+39 |         std::hint::black_box(VerifiedAccount::<Bytes>::new(&[0; 1]));
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0080`.
+warning: `hopper-fixed-layout-rejections` (bin "hopper-fixed-layout-rejections") generated 2 warnings
+error: could not compile `hopper-fixed-layout-rejections` (bin "hopper-fixed-layout-rejections") due to 1 previous error; 2 warnings emitted

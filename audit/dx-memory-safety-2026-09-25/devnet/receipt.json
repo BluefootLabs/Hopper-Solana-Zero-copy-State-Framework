@@ -1,0 +1,259 @@
+{
+  "schema": "hopper.named-vault-devnet.v1",
+  "sourceCommit": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programId": "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5",
+  "elfSha256": "15a3fdfc21cecc094e5e7fd88c1edd7457c7f6999b7dbd11a22e7a1556039832",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "sourceUnchangedAndClean": true,
+  "addresses": [
+    "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+    "EY17Y7My5Pjvc4f5Yd28nY8y21eZCBgXXRKxPvfApibv",
+    "DzBuVZGPbctKUj8j8y883149eLTe1tE4V8SCBxYr4wxZ",
+    "9r7NphBCDizBCHKEw22objCtFbjPTtMKerAcisDfPnp5",
+    "GjNtSG3XLHBDZgJ2Bzo3Pm6N9GhxYUHz6EUctwCEC5v7",
+    "11111111111111111111111111111111"
+  ],
+  "transactions": [
+    {
+      "name": "fund-authority",
+      "signature": "23vo2by5qWuHpgrtQpXnHm1SwNsi2huEHY7oBK6vAa1XQTZDj5kxKiigUsuDEoHoSEqPaj9Mg5uVT5qz7cgZGqfp",
+      "slot": 504144767,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 5000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "fund-outsider",
+      "signature": "2Ax7HeEeiMqGFUysh3yC4isNY4gWmDUFBpRxHukwKL7zgotDC33DVwrj1hYDALMWY9MdzRoBjmHHGoUdAcbBbABE",
+      "slot": 504144816,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 5000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "prefund-vault",
+      "signature": "35jNwzy4cxSCrt1NpNGteTSiHDKBMLG7eGq6Hod3jqomR72HLDutMRJmsJynn1wCGAcygvAiGQEMzXrGyDDB6HgE",
+      "slot": 504144867,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 5000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "initialize",
+      "signature": "2UXxZGYaCTP2zY95guM9v9rkjBhid6dxLusDcmazceXgmfWi2uTGCQrAkEEQFYuzk2u51CDV3KzFCx7Vq2Utz2S6",
+      "slot": 504144918,
+      "error": null,
+      "computeUnits": 1709,
+      "fee": 15000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "initialize-prefunded",
+      "signature": "3XVNfCynB9a5U85z98YXiDubDrjWRY3kVP9sDhBKAew742GjxzkfgdQ7yFi24eAQFw7DcFxJKTCnr1M3yqMnUVGi",
+      "slot": 504144970,
+      "error": null,
+      "computeUnits": 1707,
+      "fee": 15000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "reinitialize",
+      "signature": "8DqjpQ8WvnsUZ2ZzU5tyeDAbZJw6UC8yVB514gW7nafwhCw9GbvhhpzEnraErzcQV2FHYnu6DMrxBKGmrrEm3KZ",
+      "slot": 504145011,
+      "error": {
+        "InstructionError": [
+          0,
+          "AccountAlreadyInitialized"
+        ]
+      },
+      "computeUnits": 279,
+      "fee": 15000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit-zero",
+      "signature": "5P3E4apQkwtVt7QsrGnA1iMXpE6hTFKfZYVzH1UP31E6FtzZDaEmBXhSyepXUucrVhE1tZND6QCBNqQ2Fm9gzD9r",
+      "slot": 504145056,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6002
+          }
+        ]
+      },
+      "computeUnits": 202,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit-unsigned",
+      "signature": "uoiPv3N6k6zbp7TCVieEmHxfqMQFfvBKKqDx8WZprMi34tLKfprVe1QZweDBCLF14R1dJD6n2W8EcKU9ZMFtTJg",
+      "slot": 504145102,
+      "error": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      },
+      "computeUnits": 114,
+      "fee": 5000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit-readonly",
+      "signature": "K54eqrUKN9QtkkaCi8Zb5SnxYiQ3VR75Ea9xybX5bAF7nJDweH5CTFYmM3q8hrmJSPytgRsWkjo6h6vFuSiW8L2",
+      "slot": 504145150,
+      "error": {
+        "InstructionError": [
+          0,
+          "Immutable"
+        ]
+      },
+      "computeUnits": 115,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit-wrong-authority",
+      "signature": "3jzrXiDXnAfRYh6e38PY65XAcVyCnyPAy28fPVgCksA9Q2DmBM8ptSDBjJwcM7d57p8imA5ZANensdVs1SJP6YGw",
+      "slot": 504145195,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 181,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit",
+      "signature": "2XadY8H7wkmVwRokn7Bq9RyzwRSBKRzJUCPpNRV4BPqfZ6iis2VGK66hHiUqvnkxrYadv1PzG1ggvS8UxDWQZGkd",
+      "slot": 504145235,
+      "error": null,
+      "computeUnits": 1602,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "withdraw-zero",
+      "signature": "3K3Hg4tvNvHh6eHWQggoFEBbBPQyy3xYVGcFTUccogzVRhpo9E2kdpriJVohh2Y167yFRV2s1Z9eH6XTNzMHvYcs",
+      "slot": 504145286,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6002
+          }
+        ]
+      },
+      "computeUnits": 175,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "withdraw-unsigned",
+      "signature": "ienMh3JhBHhzYPJn73k4dHxBjhQQopDyFuafQyuYuz5p7QgHCji8jpEVYi3UDJxnPFNJ6zUb8ppS8R7stA8u2z8",
+      "slot": 504145333,
+      "error": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      },
+      "computeUnits": 99,
+      "fee": 5000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "withdraw-readonly",
+      "signature": "2ZciTzaugeB2nadCvpW3D5z1w6i1TBnDJ2wJCbf3nvV6Uubz5LpznZoBKJGeptYGqVFffVziARzU22JfLF1cGE8H",
+      "slot": 504145381,
+      "error": {
+        "InstructionError": [
+          0,
+          "Immutable"
+        ]
+      },
+      "computeUnits": 100,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "withdraw-wrong-authority",
+      "signature": "3tsAUZrtmZDkSVbmg2SJqHzaMDeht7dSRwoSyPnVjkxRNJVQfVDqcuDU4wZfH9u4zuUfyrKHkBnpAC46e7YGJFh6",
+      "slot": 504145430,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 166,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "withdraw-over-balance",
+      "signature": "41jnf89fNtcfBSUvTqtUS6BRgGSmrYombCY5XZ1FFcfB5Y8wjDBLEq17XvjZSUALwZpSR54FZwC6XWP5CYqEow1w",
+      "slot": 504145477,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6001
+          }
+        ]
+      },
+      "computeUnits": 199,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "withdraw",
+      "signature": "2BaHpg2JJoDjLuVXQrovuSy8VFBRatys3erDHfEivAQE4N91f1rnF3kYL4EQzCsNUVny2wqAE9MfxWD8hVGCX69",
+      "slot": 504145522,
+      "error": null,
+      "computeUnits": 240,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit-insufficient-funds",
+      "signature": "8AD4NSzGs58vyFvjsZmGJ2t94NKQtD1CHcvUVz8ZDGTgJtyf7uYg4r6uKDiXwpNqAtexogbpiCsKeCoEhBbsTxw",
+      "slot": 504145567,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 1
+          }
+        ]
+      },
+      "computeUnits": 1550,
+      "fee": 10000,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "deposit-missing-system",
+      "signature": "64RWsMjsWXjAwqK3WP9w3sXirsBgKiPfV2QWub1dS5WDz2n7LemhYZiesVSjzCr61vbbKSwKkxDWroc5y1NhrEkg",
+      "slot": 504145613,
+      "error": {
+        "InstructionError": [
+          0,
+          "NotEnoughAccountKeys"
+        ]
+      },
+      "computeUnits": 89,
+      "fee": 10000,
+      "expectedStateVerified": true
+    }
+  ],
+  "allPassed": true
+}

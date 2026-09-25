@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-lending)
+    Updating crates.io index
+    Packaged 8 files, 11.5KiB (3.7KiB compressed)
+   Verifying hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-lending)
+   Compiling hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-lending-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.89s
+   Uploading hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-lending)
+warning: aborting upload due to dry run

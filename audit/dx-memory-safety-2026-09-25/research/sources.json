@@ -1,0 +1,42 @@
+{
+  "observedAt": "2026-09-25T18:36:52.270263+00:00",
+  "sources": [
+    {
+      "name": "pina-counter",
+      "url": "https://raw.githubusercontent.com/pina-rs/pina/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/counter_program/src/lib.rs",
+      "sha256": "aaa24e9e410ca834f6e458b9e07bf21665f8161a7c28d557e30232888b0fab18",
+      "bytes": 12195
+    },
+    {
+      "name": "quasar-escrow",
+      "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/03617018c2665340abc63dc9f7becda55a25ce48/examples/escrow/src/instructions/make.rs",
+      "sha256": "597759c5733ac4fde01b5cd982ff252d63339130c19656f21c180e94d7940e26",
+      "bytes": 2961
+    },
+    {
+      "name": "anchor-v2-readme",
+      "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/lang-v2/README.md",
+      "sha256": "23435245c17a5f391b5a86365ceeb1f6e516ba5ecc193f349d7c9a78999cfe30",
+      "bytes": 11824
+    },
+    {
+      "name": "pina-head",
+      "url": "https://api.github.com/repos/pina-rs/pina/commits/main",
+      "sha256": "adf9e712fa0dc4d04b84f0bd8d5c60a38e24d2fb60f794995944cc0c00f70f66",
+      "bytes": 7005,
+      "commit": "478ae3d2811ea7f7869d2a32e6095a9727d4f9d8"
+    },
+    {
+      "name": "quasar-head",
+      "url": "https://api.github.com/repos/blueshift-gg/quasar/commits/main",
+      "error": "HTTP Error 422: Unprocessable Entity"
+    },
+    {
+      "name": "anchor-v2-head",
+      "url": "https://api.github.com/repos/otter-sec/anchor/commits/anchor-next",
+      "sha256": "5728b817776440cb789710e60bef313d3a04e5d93f355c4517e2952240d0019b",
+      "bytes": 88592,
+      "commit": "038c193a9eedd5ffd4aaf831d501a74a0c90084e"
+    }
+  ]
+}

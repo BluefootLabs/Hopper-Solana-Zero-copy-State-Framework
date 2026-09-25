@@ -1,0 +1,19 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5
+data      : 9 bytes (0x020100000000000000)
+accounts  : 2 slots
+  [0] EY17Y7My5Pjvc4f5Yd28nY8y21eZCBgXXRKxPvfApibv -w
+  [1] DzBuVZGPbctKUj8j8y883149eLTe1tE4V8SCBxYr4wxZ -w
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 244/1232 bytes (legacy)
+
+signature : ienMh3JhBHhzYPJn73k4dHxBjhQQopDyFuafQyuYuz5p7QgHCji8jpEVYi3UDJxnPFNJ6zUb8ppS8R7stA8u2z8
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"MissingRequiredSignature"]}
+compute   : 99 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain ienMh3JhBHhzYPJn73k4dHxBjhQQopDyFuafQyuYuz5p7QgHCji8jpEVYi3UDJxnPFNJ6zUb8ppS8R7stA8u2z8 --rpc https://api.devnet.solana.com

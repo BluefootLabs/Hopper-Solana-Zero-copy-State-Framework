@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-distribute v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-distribute)
+    Updating crates.io index
+    Packaged 8 files, 14.3KiB (4.9KiB compressed)
+   Verifying hopper-distribute v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-distribute)
+   Compiling hopper-distribute v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-distribute-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.80s
+   Uploading hopper-distribute v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-distribute)
+warning: aborting upload due to dry run

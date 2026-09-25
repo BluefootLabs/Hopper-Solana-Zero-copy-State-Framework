@@ -1,0 +1,53 @@
+{
+  "observedAt": "2026-09-25T18:51:15.139529+00:00",
+  "sources": [
+    {
+      "name": "quasar-repo",
+      "url": "https://api.github.com/repos/blueshift-gg/quasar",
+      "sha256": "7f5fa235c608de347f8b5b496b2d1235e15d7c6e766d635b6a651151414acc9a",
+      "bytes": 6347
+    },
+    {
+      "name": "quasar-current-head",
+      "url": "https://api.github.com/repos/blueshift-gg/quasar/commits/master",
+      "sha256": "a973f240ab0d6a4e6704736b877494a4cea63dbb7fb039f24d14becdafb810ae",
+      "bytes": 7636
+    },
+    {
+      "name": "quasar-tree",
+      "url": "https://api.github.com/repos/blueshift-gg/quasar/git/trees/03617018c2665340abc63dc9f7becda55a25ce48?recursive=1",
+      "sha256": "cf9f5fe2d3147b634ff78442778349847cb590d6c335bc9a55495c2e3231d660",
+      "bytes": 274763
+    },
+    {
+      "name": "anchor-tree",
+      "url": "https://api.github.com/repos/otter-sec/anchor/git/trees/038c193a9eedd5ffd4aaf831d501a74a0c90084e?recursive=1",
+      "sha256": "059ed56c191019bc58817347cefa498f806a64de29b224e1398261aff012aabf",
+      "bytes": 626063
+    },
+    {
+      "name": "quasar-fixed",
+      "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/03617018c2665340abc63dc9f7becda55a25ce48/derive/src/account/fixed.rs",
+      "sha256": "d84f16be6a7b83e5c4918c8159c141ee09b2c05086543791cbf8cf65781757b4",
+      "bytes": 9826
+    },
+    {
+      "name": "quasar-methods",
+      "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/03617018c2665340abc63dc9f7becda55a25ce48/derive/src/account/methods.rs",
+      "sha256": "a5c2acebaa2627e01d018e7a69a60492bedb6267464da749b9ba2ec2e282a539",
+      "bytes": 8514
+    },
+    {
+      "name": "anchor-traits",
+      "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/lang-v2/src/traits.rs",
+      "sha256": "c1f66fb0b1c77e1eb0afd625ada660602ceca76f18961d78c0729a145ebcfee7",
+      "bytes": 30761
+    },
+    {
+      "name": "anchor-slab-hooks",
+      "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/lang-v2/src/accounts/slab_hooks.rs",
+      "sha256": "a1c634f56ba9a213d53e3e885dbef465f0f2c1562c06f4487214144de241988b",
+      "bytes": 3687
+    }
+  ]
+}

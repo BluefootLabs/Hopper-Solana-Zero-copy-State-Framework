@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-lending)
+    Updating crates.io index
+    Packaged 8 files, 11.5KiB (3.7KiB compressed)
+   Verifying hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-lending)
+   Compiling hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-lending-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.63s
+   Uploading hopper-lending v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-lending)
+    Uploaded hopper-lending v0.4.0 to registry `crates-io`
+note: waiting for hopper-lending v0.4.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-lending v0.4.0 at registry `crates-io`

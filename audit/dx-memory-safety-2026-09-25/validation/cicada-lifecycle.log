@@ -1,0 +1,44 @@
+   Compiling hopper-runtime v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+   Compiling hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-memo v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-cicada v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-cicada)
+   Compiling hopper-test v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-test)
+    Finished `test` profile [unoptimized] target(s) in 24.19s
+     Running tests\lifecycle_sbf_e2e.rs (target\debug\deps\lifecycle_sbf_e2e-9ebad77903587f86.exe)
+
+running 23 tests
+test compiled_initialize_refuses_finalized_program_without_authority ... ok
+test compiled_initialize_refuses_non_upgrade_authority_first_caller ... ok
+test compiled_writable_or_conflicting_duplicate_route_meta_is_rejected ... ok
+test compiled_native_lamport_shortfall_is_rolled_back ... ok
+test compiled_hostile_route_cannot_delegate_cicada_state ... ok
+test compiled_hostile_route_policy_mutation_is_rolled_back ... ok
+test compiled_hostile_route_lamport_debit_is_rolled_back ... ok
+test compiled_writable_output_mint_is_rejected_before_route_cpi ... ok
+test compiled_hostile_route_cannot_spoof_output_without_spending_input ... ok
+test compiled_exact_route_accepts_host_generated_commitment ... ok
+test compiled_tampered_stored_bump_byte_refuses_the_bind ... ok
+test compiled_canonical_route_owner_authorized_policy_mutation_rolls_back ... ok
+test compiled_canonical_spl_cancel_refund_and_reclaim_round_trip ... ok
+test compiled_claim_release_cancel_and_reclaim_lifecycle ... ok
+test compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims ... ok
+test compiled_canonical_token_2022_custody_cancel_and_reclaim_round_trip ... ok
+test compiled_canonical_token_2022_route_executes_refunds_and_reclaims ... ok
+test compiled_canonical_route_executes_two_real_token_legs_refunds_and_reclaims ... ok
+test compiled_canonical_route_underpayment_and_zero_input_roll_back ... ok
+test compiled_native_lamport_floors_accept_canonical_spl_and_token_2022_routes ... ok
+test compiled_noncanonical_token_account_shapes_are_rejected ... ok
+test compiled_cancelled_dust_cannot_block_reclaim_for_canonical_tokens ... ok
+test compiled_settled_dust_cannot_block_reclaim_for_canonical_tokens ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

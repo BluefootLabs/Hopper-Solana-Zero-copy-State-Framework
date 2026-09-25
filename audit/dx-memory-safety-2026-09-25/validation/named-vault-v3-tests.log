@@ -1,0 +1,46 @@
+    Finished `test` profile [unoptimized] target(s) in 0.50s
+     Running tests\named_vault_sbf.rs (target\debug\deps\named_vault_sbf-f0ca528e7466bb23.exe)
+
+running 2 tests
+unsigned init: Err(MissingRequiredSignature), CU=108, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=0 CU=1709
+readonly init: Err(Immutable), CU=110, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=279, rollback
+unsigned init: Err(MissingRequiredSignature), CU=369, rollback
+vault deposit CU=1602
+readonly init: Err(Immutable), CU=107, rollback
+vault withdraw CU=240
+init insufficient rent: Err(Custom(1)), CU=1643, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=500000 CU=1709
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=0 CU=1709
+zero amount: Err(Custom(6002)), CU=202, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=279, rollback
+unsigned authority: Err(MissingRequiredSignature), CU=114, rollback
+vault deposit CU=1602
+readonly vault: Err(Immutable), CU=115, rollback
+vault withdraw CU=240
+wrong authority: Err(InvalidAccountData), CU=181, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=3000000 CU=1707
+wrong owner: Err(IncorrectProgramId), CU=120, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=279, rollback
+wrong layout: Err(InvalidAccountData), CU=149, rollback
+vault deposit CU=1602
+zero amount: Err(Custom(6002)), CU=175, rollback
+vault withdraw CU=240
+test named_initialization_and_custody_round_trip ... ok
+unsigned authority: Err(MissingRequiredSignature), CU=99, rollback
+readonly vault: Err(Immutable), CU=100, rollback
+wrong authority: Err(InvalidAccountData), CU=166, rollback
+wrong owner: Err(IncorrectProgramId), CU=104, rollback
+wrong layout: Err(InvalidAccountData), CU=135, rollback
+insufficient tracked balance: Err(Custom(6001)), CU=199, rollback
+insufficient depositor funds: Err(Custom(1)), CU=1550, rollback
+overflow after successful transfer CPI: Err(ArithmeticOverflow), CU=1604, rollback
+test initialization_and_access_refusals_preserve_all_accounts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

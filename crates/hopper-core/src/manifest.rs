@@ -759,7 +759,7 @@ impl AccountDescriptor {
     /// A deterministic [`LayoutFingerprint`] available to off-chain tooling.
     /// `const`: a caller can embed it and, after separately obtaining trusted
     /// advertised metadata, compare the two without recomputing the descriptor.
-    /// The current main client-generator pipeline consumes [`LayoutManifest`]
+    /// The current main client-generator pipeline consumes `hopper_schema::LayoutManifest`
     /// rather than this value. This method does not fetch or authenticate a
     /// registry. It folds in wire-identity fields but never the `deprecated`
     /// lifecycle bit, so deprecating a layout does not change its identity.

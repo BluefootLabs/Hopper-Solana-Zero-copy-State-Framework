@@ -1,0 +1,31 @@
+[01/29] grillo-manifest: 18 packaged files, archive f81630d0af0b4a563261099945acdc0f4722037568cfd840a7b3e177001f55e8
+[02/29] hopper-builtins: 6 packaged files, archive ce4de36e61e52087eee181ec605cd68f33778015733f2c90bbec14f492c8881c
+[03/29] hopper-derive: 21 packaged files, archive 35ef9dd141bcc075f137bf84996bef7a8473602292dff4463b778d81f7607046
+[04/29] hopper-native: 40 packaged files, archive db042ebb4cef0b71155d7f05b8c248f5b5c0f4dd9521feb032e0d5564f97f274
+[05/29] hopper-topology: 11 packaged files, archive 26751506b8da7ad6f5aa2a17a1ce2544be6496fded99ac8cb03bd312bd0c7854
+[06/29] hopper-runtime: 58 packaged files, archive 2924b9ef3bf8f092e73b03a9588a9f85bc2f6b833cd69cf23a550103345b618e
+[07/29] hopper-anchor: 7 packaged files, archive 670a4fea9a43906a5e1c92309870f1db669e0ab85ea8f116f986fa6a7ca2288d
+[08/29] hopper-system: 6 packaged files, archive 329afe93e14a904a47e3c86ac026bb693c0931c6ddc0d1cd69be5203c3048c33
+[09/29] hopper-systems: 81 packaged files, archive 4112678c43964d0d09a904125c86187275f231b003bc3b9c84c17542f00214d1
+[10/29] hopper-token: 7 packaged files, archive 15b66270735fab8e9e42a214f78c0fbe83d80c238c5820aa169ac0d693b2678b
+[11/29] hopper-distribute: 8 packaged files, archive d292c54a742fb7830d6e7f95c2e78669c48e909dd821059b036a648bb06539cb
+[12/29] hopper-lending: 8 packaged files, archive 2c078e3ba1043c339a9f4df8bcfc391ab74b1e7f98e393956a9466bbc04db9d9
+[13/29] hopper-memo: 6 packaged files, archive 27de4605f1beddc80f7dbfb9aa7c7a1641b29662aed276891c8233640277220b
+[14/29] hopper-metaplex: 10 packaged files, archive 24cfc8ddafb02f918b748f9430eba70bec3124659c1a64abba6325a83ed22696
+[15/29] hopper-multisig: 7 packaged files, archive 1bb7a8d6ad37ef566e2bd0d7ca2a8e3753888f1e137062bccc40ea94c9b1184b
+[16/29] hopper-staking: 8 packaged files, archive 5f860f4691b2a99f85db07962276176ab24183e7643c82b9fe8aff26feaea6f2
+[17/29] hopper-svm: 6 packaged files, archive 194a43bb067b12c829f55168780cc5ed9e0f67a35b2751673254ad140864be54
+[18/29] hopper-vesting: 8 packaged files, archive f8a5c650a8e1d3d0b7ce6f5fa7205d313e165b49333da54fc6cd46dfee9cd035
+[19/29] hopper-finance: 9 packaged files, archive 4fb22ffae1a6a4268eadcbb7b4fa7673c6f519a2708efe7b69fdc8ea65625e1d
+[20/29] hopper-schema: 18 packaged files, archive f83e3bb63b873a5620612f6193936d6267bb80b8e6f2cfc7ebacccb823a29f17
+[21/29] hopper-macros: 6 packaged files, archive 45902f957b363f30a855ac4edf59b0102fcb0a69a44411767c87f9f7cda61506
+[22/29] hopper-solana: 24 packaged files, archive 986d8a1f1f577343a81eae2ab5549f2a5acad43f95a422b3871b580fb8388da9
+[23/29] hopper-associated-token: 7 packaged files, archive 83d1521a4afd2e49577e07770fcbf52a4db31a3e95a2401b1b590302e15daf41
+[24/29] hopper-token-2022: 9 packaged files, archive 089bab07b374a18e797aca361590c2679b3bce996bc76d5ca6cc51cce8d5118f
+[25/29] hopper-manager: 9 packaged files, archive 32459cdc491fabb7522fa6ccb97889c52ee20156c8bab3f96c60c67ac7344cb5
+[26/29] hopper-sdk: 11 packaged files, archive c9c2c6640a0bd90156c2b04bb94478feb4f174f5ef2dab20f68fe03147b230e6
+[27/29] hopper-lang: 1222 packaged files, archive 0ea1a2f80fb30f27ae885fc0278a8bd4d8c79038a3859d73b3b25065e16b22df
+[28/29] grillo-verifier: 18 packaged files, archive d73bc110d8974b856a14abee029a88374b141f1814b1457e8c50902a7fb5e6c3
+[29/29] hopper-cli: 52 packaged files, archive c33ff9bf35a671a7f3ad69481ce873e9518b2940dff4c2342028972fcb73d948
+wrote D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\dx-architecture-2026-09-25\gates-final\publish-train.json
+OK: 29 public packages match the declared topological publication train; no crate was published

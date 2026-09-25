@@ -1,0 +1,13 @@
+    Updating crates.io index
+   Packaging hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Updating crates.io index
+    Packaged 24 files, 157.7KiB (32.6KiB compressed)
+   Verifying hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Blocking waiting for file lock on build directory
+   Compiling hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-solana-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 11.19s
+   Uploading hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Uploaded hopper-solana v0.4.0 to registry `crates-io`
+note: waiting for hopper-solana v0.4.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-solana v0.4.0 at registry `crates-io`

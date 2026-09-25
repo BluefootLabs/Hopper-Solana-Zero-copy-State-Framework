@@ -1,0 +1,81 @@
+{
+  "blockTime": 1790365465,
+  "meta": {
+    "computeUnitsConsumed": 100,
+    "costUnits": 2150,
+    "err": {
+      "InstructionError": [
+        0,
+        "Immutable"
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5 invoke [1]",
+      "Program 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5 consumed 100 of 200000 compute units",
+      "Program 3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5 failed: Account is immutable"
+    ],
+    "postBalances": [
+      2283751197,
+      9059200,
+      833120,
+      940800
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2283761197,
+      9059200,
+      833120,
+      940800
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "Immutable"
+        ]
+      }
+    }
+  },
+  "slot": 504145381,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "EY17Y7My5Pjvc4f5Yd28nY8y21eZCBgXXRKxPvfApibv",
+        "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5",
+        "DzBuVZGPbctKUj8j8y883149eLTe1tE4V8SCBxYr4wxZ"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            3
+          ],
+          "data": "2Uok59752wFM",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "7LvBRPnV5ejx17jJnN7tED6k7ZjHVDU7EbSkbU9BB3LQ"
+    },
+    "signatures": [
+      "2ZciTzaugeB2nadCvpW3D5z1w6i1TBnDJ2wJCbf3nvV6Uubz5LpznZoBKJGeptYGqVFffVziARzU22JfLF1cGE8H",
+      "5o2xCmUsoiZSfS4QJwezjzR9NmzAJ2ad9PvoqsJAPUqKqjRjfRoYqoxQk82YTjWaYFpGRcbqPduP5W1A7YRoMuqP"
+    ]
+  },
+  "transactionIndex": 9,
+  "version": "legacy"
+}

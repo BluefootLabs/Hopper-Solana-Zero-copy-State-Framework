@@ -1,0 +1,204 @@
+{
+  "addresses": [
+    "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+    "EY17Y7My5Pjvc4f5Yd28nY8y21eZCBgXXRKxPvfApibv",
+    "DzBuVZGPbctKUj8j8y883149eLTe1tE4V8SCBxYr4wxZ",
+    "9r7NphBCDizBCHKEw22objCtFbjPTtMKerAcisDfPnp5",
+    "GjNtSG3XLHBDZgJ2Bzo3Pm6N9GhxYUHz6EUctwCEC5v7",
+    "11111111111111111111111111111111"
+  ],
+  "before": [
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2283866197,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 10000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    null,
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  ],
+  "expected": [
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2283851197,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 9060200,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "owner": "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5",
+      "lamports": 939800,
+      "data": [
+        "AQEAABGnqBrLZwExAQAAAMkZEANDZwNdsKyrGQiSFWDTv8kpFAQ2++v/0JNcZSiVAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "rentEpoch": 18446744073709551615,
+      "space": 57
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  ],
+  "after": [
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2283851197,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 9060200,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "AQEAABGnqBrLZwExAQAAAMkZEANDZwNdsKyrGQiSFWDTv8kpFAQ2++v/0JNcZSiVAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 939800,
+      "owner": "3KQueyP2phWfwdnju1o98zNVU4vRrr3yerUgvkwjBzK5",
+      "rentEpoch": 18446744073709551615,
+      "space": 57
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  ]
+}

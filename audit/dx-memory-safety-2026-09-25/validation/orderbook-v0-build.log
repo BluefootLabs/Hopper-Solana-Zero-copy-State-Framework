@@ -1,0 +1,10 @@
+[2026-09-25T19:37:42.853258600Z WARN  cargo_build_sbf] Package 'hopper-orderbook' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-orderbook v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-orderbook)
+    Finished `release` profile [optimized] target(s) in 6.73s

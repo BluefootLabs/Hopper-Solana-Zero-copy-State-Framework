@@ -1,0 +1,29 @@
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized] target(s) in 1.28s
+     Running tests\orderbook_sbf.rs (target\debug\deps\orderbook_sbf-26fdf7392cd1f2f8.exe)
+
+running 2 tests
+unsigned book init: Err(MissingRequiredSignature), 81 CU, full rollback
+dirty trailing byte init: Err(AccountAlreadyInitialized), 65598 CU, full rollback
+orderbook initialize: Ok(()), 65919 CU
+post bid: 868 CU, exact account state
+post ask: 867 CU, exact account state
+stranger cannot remove ask: Err(Custom(7300)), 379 CU, full rollback
+record ask event: 969 CU, exact account state
+drain event: 1120 CU, exact account state
+orderbook initialize: Ok(()), 65919 CU
+empty drain: Err(Custom(7305)), 226 CU, full rollback
+missing maker signature: Err(MissingRequiredSignature), 77 CU, full rollback
+reinitialize: Err(AccountAlreadyInitialized), 150 CU, full rollback
+test orderbook_initialization_and_lifecycle_change_only_expected_bytes ... ok
+readonly book: Err(InvalidAccountData), 102 CU, full rollback
+foreign book owner: Err(IncorrectProgramId), 90 CU, full rollback
+bad layout: Err(InvalidAccountData), 172 CU, full rollback
+overlapping registry: Err(InvalidAccountData), 191 CU, full rollback
+excessive count: Err(InvalidAccountData), 285 CU, full rollback
+full side: Err(Custom(7301)), 291 CU, full rollback
+full event ring preserves ask: Err(Custom(7307)), 252 CU, full rollback
+test orderbook_initialization_and_mutation_refusals_preserve_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

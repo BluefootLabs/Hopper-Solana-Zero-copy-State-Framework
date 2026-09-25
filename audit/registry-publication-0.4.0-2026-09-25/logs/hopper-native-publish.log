@@ -1,0 +1,11 @@
+    Updating crates.io index
+   Packaging hopper-native v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Packaged 40 files, 572.9KiB (134.7KiB compressed)
+   Verifying hopper-native v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+   Compiling hopper-native v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-native-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.89s
+   Uploading hopper-native v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Uploaded hopper-native v0.4.0 to registry `crates-io`
+note: waiting for hopper-native v0.4.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-native v0.4.0 at registry `crates-io`

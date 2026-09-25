@@ -1,0 +1,1457 @@
+{
+  "schema": "hopper.publish-train-attestation.v2",
+  "generatedAt": "2026-09-25T19:39:32.713109+00:00",
+  "source": {
+    "commitAtStart": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+    "commitAtEnd": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+    "treeCleanAtStart": true,
+    "treeCleanAtEnd": true,
+    "statusUnchanged": true,
+    "worktreeFingerprintAtStart": "6e8cecac881d6da6b90a9fb03adf9c0f2efb7f5392b6a70cea1ea8f08757e2e5",
+    "worktreeFingerprintAtEnd": "6e8cecac881d6da6b90a9fb03adf9c0f2efb7f5392b6a70cea1ea8f08757e2e5",
+    "worktreeUnchanged": true
+  },
+  "ci": {
+    "githubRunId": null,
+    "githubRunAttempt": null,
+    "githubWorkflowRef": null,
+    "githubJob": null
+  },
+  "publishOrder": {
+    "path": "release/publish-order.toml",
+    "sha256": "af8b62fff468a58629e12dcd02408c6a86204d08e8a551f4737e8a3b1ba58e63"
+  },
+  "defaultVersion": "0.4.0",
+  "packageVersions": {
+    "grillo-manifest": "0.1.0",
+    "hopper-builtins": "0.4.0",
+    "hopper-derive": "0.4.0",
+    "hopper-native": "0.4.0",
+    "hopper-topology": "0.1.0",
+    "hopper-runtime": "0.4.0",
+    "hopper-anchor": "0.4.0",
+    "hopper-system": "0.4.0",
+    "hopper-systems": "0.4.0",
+    "hopper-token": "0.4.0",
+    "hopper-distribute": "0.4.0",
+    "hopper-lending": "0.4.0",
+    "hopper-memo": "0.4.0",
+    "hopper-metaplex": "0.4.0",
+    "hopper-multisig": "0.4.0",
+    "hopper-staking": "0.4.0",
+    "hopper-svm": "0.4.0",
+    "hopper-vesting": "0.4.0",
+    "hopper-finance": "0.4.0",
+    "hopper-schema": "0.4.0",
+    "hopper-macros": "0.4.0",
+    "hopper-solana": "0.4.0",
+    "hopper-associated-token": "0.4.0",
+    "hopper-token-2022": "0.4.0",
+    "hopper-manager": "0.4.0",
+    "hopper-sdk": "0.4.0",
+    "hopper-lang": "0.4.0",
+    "grillo-verifier": "0.1.0",
+    "hopper-cli": "0.4.0"
+  },
+  "packageArchiveBuild": {
+    "argv": [
+      "cargo",
+      "package",
+      "--locked",
+      "--no-verify",
+      "-p",
+      "grillo-manifest",
+      "-p",
+      "hopper-builtins",
+      "-p",
+      "hopper-derive",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-topology",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-anchor",
+      "-p",
+      "hopper-system",
+      "-p",
+      "hopper-systems",
+      "-p",
+      "hopper-token",
+      "-p",
+      "hopper-distribute",
+      "-p",
+      "hopper-lending",
+      "-p",
+      "hopper-memo",
+      "-p",
+      "hopper-metaplex",
+      "-p",
+      "hopper-multisig",
+      "-p",
+      "hopper-staking",
+      "-p",
+      "hopper-svm",
+      "-p",
+      "hopper-vesting",
+      "-p",
+      "hopper-finance",
+      "-p",
+      "hopper-schema",
+      "-p",
+      "hopper-macros",
+      "-p",
+      "hopper-solana",
+      "-p",
+      "hopper-associated-token",
+      "-p",
+      "hopper-token-2022",
+      "-p",
+      "hopper-manager",
+      "-p",
+      "hopper-sdk",
+      "-p",
+      "hopper-lang",
+      "-p",
+      "grillo-verifier",
+      "-p",
+      "hopper-cli"
+    ],
+    "exitCode": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrSha256": "ea72e5ebe085a13b5a75d36cfe61afe647c67389dd4013157b994dc1598bc775",
+    "transcriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+  },
+  "registryDryRun": {
+    "requested": false,
+    "registry": "crates-io",
+    "startAt": null,
+    "completeTrain": false,
+    "passedPackageCount": 0,
+    "skippedPackageCount": 0
+  },
+  "packages": [
+    {
+      "position": 1,
+      "name": "grillo-manifest",
+      "version": "0.1.0",
+      "manifest": "crates/grillo-manifest/Cargo.toml",
+      "readme": "crates/grillo-manifest/README.md",
+      "internalDependencies": [],
+      "packagedFileCount": 18,
+      "packageListSha256": "f7fd00d9342fe2d05d391289593f4394bf1f838baedcc169d0063669873ec05a",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "grillo-manifest"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "f7fd00d9342fe2d05d391289593f4394bf1f838baedcc169d0063669873ec05a",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "5a4ee1e220b8ab20dfef2c252bc7224f143a7e2d20949e366ff2c1a1292629eb"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/grillo-manifest-0.1.0.crate",
+        "bytes": 52806,
+        "sha256": "f81630d0af0b4a563261099945acdc0f4722037568cfd840a7b3e177001f55e8"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "grillo-manifest",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 2,
+      "name": "hopper-builtins",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-builtins/Cargo.toml",
+      "readme": "crates/hopper-builtins/README.md",
+      "internalDependencies": [],
+      "packagedFileCount": 6,
+      "packageListSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-builtins"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "9c8802302fb0950df39f68f2bc2f5118f262390f99168cbdecdbdf2811f45baf"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-builtins-0.4.0.crate",
+        "bytes": 6779,
+        "sha256": "ce4de36e61e52087eee181ec605cd68f33778015733f2c90bbec14f492c8881c"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-builtins",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 3,
+      "name": "hopper-derive",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-macros-proc/Cargo.toml",
+      "readme": "crates/hopper-macros-proc/README.md",
+      "internalDependencies": [],
+      "packagedFileCount": 21,
+      "packageListSha256": "7102018c37243f863f9715fe43083b2b9a60dd3d8ab55cbd2ab6467ce0b11be8",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-derive"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "7102018c37243f863f9715fe43083b2b9a60dd3d8ab55cbd2ab6467ce0b11be8",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "df634a900b3ba106966a8f3405e5d4485d6d3134131901bc2af3bc140f5921c0"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-derive-0.4.0.crate",
+        "bytes": 212702,
+        "sha256": "35ef9dd141bcc075f137bf84996bef7a8473602292dff4463b778d81f7607046"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-derive",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 4,
+      "name": "hopper-native",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-native/Cargo.toml",
+      "readme": "crates/hopper-native/README.md",
+      "internalDependencies": [],
+      "packagedFileCount": 40,
+      "packageListSha256": "9bd3e35c234063bfd4c5f61525bb37650d9efa60a4984c930ea48599d67306d7",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-native"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "9bd3e35c234063bfd4c5f61525bb37650d9efa60a4984c930ea48599d67306d7",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "7bd57649d221d34528825c965c21c29b9e3a8715a6805fb8d4fd91f904de68ba"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-native-0.4.0.crate",
+        "bytes": 137899,
+        "sha256": "db042ebb4cef0b71155d7f05b8c248f5b5c0f4dd9521feb032e0d5564f97f274"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-native",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 5,
+      "name": "hopper-topology",
+      "version": "0.1.0",
+      "manifest": "crates/hopper-topology/Cargo.toml",
+      "readme": "crates/hopper-topology/README.md",
+      "internalDependencies": [],
+      "packagedFileCount": 11,
+      "packageListSha256": "e6e386d2f13d5e822b6855df1eebb670f6b586500fbd746df4544c5f214710ec",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-topology"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "e6e386d2f13d5e822b6855df1eebb670f6b586500fbd746df4544c5f214710ec",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "3d06e7292275a3bafa34cb16dcdef3e4096150b4942a27fe32d41518d0eaa96f"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-topology-0.1.0.crate",
+        "bytes": 18925,
+        "sha256": "26751506b8da7ad6f5aa2a17a1ce2544be6496fded99ac8cb03bd312bd0c7854"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-topology",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 6,
+      "name": "hopper-runtime",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-runtime/Cargo.toml",
+      "readme": "crates/hopper-runtime/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-native",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 58,
+      "packageListSha256": "2b49fe93573c51347199a61f2603dfadc0c07e9e5facfa24a1f7dddb31b1fa5a",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-runtime"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "2b49fe93573c51347199a61f2603dfadc0c07e9e5facfa24a1f7dddb31b1fa5a",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "e1d86050474ecaa4eca4f796ae8a2f8c58b4434791cb54d002ef80d3bac1a580"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-runtime-0.4.0.crate",
+        "bytes": 303373,
+        "sha256": "2924b9ef3bf8f092e73b03a9588a9f85bc2f6b833cd69cf23a550103345b618e"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-runtime",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 7,
+      "name": "hopper-anchor",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-anchor/Cargo.toml",
+      "readme": "crates/hopper-anchor/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 7,
+      "packageListSha256": "dde24d383bcc290ab62e02bdd920495c07d983a1c25026030ede7787cfc98595",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-anchor"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "dde24d383bcc290ab62e02bdd920495c07d983a1c25026030ede7787cfc98595",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "44c9df50dd40203fa0677b3e22cf3faa2dfb971de6f6ad30601117564b70d6d1"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-anchor-0.4.0.crate",
+        "bytes": 4135,
+        "sha256": "670a4fea9a43906a5e1c92309870f1db669e0ab85ea8f116f986fa6a7ca2288d"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-anchor",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 8,
+      "name": "hopper-system",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-system/Cargo.toml",
+      "readme": "crates/hopper-system/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 6,
+      "packageListSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-system"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "4896772f9a21dfd2d639ab5b99135c15a143f5824f85c93169c8540cdf503bb3"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-system-0.4.0.crate",
+        "bytes": 2222,
+        "sha256": "329afe93e14a904a47e3c86ac026bb693c0931c6ddc0d1cd69be5203c3048c33"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-system",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 9,
+      "name": "hopper-systems",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-core/Cargo.toml",
+      "readme": "crates/hopper-core/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 81,
+      "packageListSha256": "b672ba27a592eb461185f09a219873a579bc70557e6a800bc6072d235ce710e0",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-systems"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "b672ba27a592eb461185f09a219873a579bc70557e6a800bc6072d235ce710e0",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "1e4f0829d1b87fc67ea46f149866a016116ad9fbb30be9e7f3446f9c5daf94ab"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-systems-0.4.0.crate",
+        "bytes": 199031,
+        "sha256": "4112678c43964d0d09a904125c86187275f231b003bc3b9c84c17542f00214d1"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-systems",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 10,
+      "name": "hopper-token",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-spl/hopper-token/Cargo.toml",
+      "readme": "crates/hopper-spl/hopper-token/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 7,
+      "packageListSha256": "5d51d2fe1fa5b31f496b9b6df243b69e3b704fa09937339f568d1ae709d95b98",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-token"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "5d51d2fe1fa5b31f496b9b6df243b69e3b704fa09937339f568d1ae709d95b98",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "28e6f0da23dddc97b70c3c720663cba354b010fa2e36f78ca427613e86c60881"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-token-0.4.0.crate",
+        "bytes": 9774,
+        "sha256": "15b66270735fab8e9e42a214f78c0fbe83d80c238c5820aa169ac0d693b2678b"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-token",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 11,
+      "name": "hopper-distribute",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-distribute/Cargo.toml",
+      "readme": "crates/hopper-distribute/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 8,
+      "packageListSha256": "c91ca0f50403bf4b581d2589469d04e94a84a9dfd6cef61016f1c13874926ea0",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-distribute"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "c91ca0f50403bf4b581d2589469d04e94a84a9dfd6cef61016f1c13874926ea0",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "cbc4bb6e1e6bed860c1deb367aebebc661754d57774b1e116d0b0d431a687961"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-distribute-0.4.0.crate",
+        "bytes": 4992,
+        "sha256": "d292c54a742fb7830d6e7f95c2e78669c48e909dd821059b036a648bb06539cb"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-distribute",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 12,
+      "name": "hopper-lending",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-lending/Cargo.toml",
+      "readme": "crates/hopper-lending/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 8,
+      "packageListSha256": "9e4d695c518f8b87934d88a995106e05e5096cad6ab5721b385a13c6d276af43",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-lending"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "9e4d695c518f8b87934d88a995106e05e5096cad6ab5721b385a13c6d276af43",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "af7b91e4c440e87b9b1c25ff692be8f9943a5e15096ed283204bb87061975d7c"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-lending-0.4.0.crate",
+        "bytes": 3752,
+        "sha256": "2c078e3ba1043c339a9f4df8bcfc391ab74b1e7f98e393956a9466bbc04db9d9"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-lending",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 13,
+      "name": "hopper-memo",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-memo/Cargo.toml",
+      "readme": "crates/hopper-memo/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 6,
+      "packageListSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-memo"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "ff41798b626b30e760ab71dc70369fd3e858b0ae1596f2428cde267747b5ba7d"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-memo-0.4.0.crate",
+        "bytes": 4358,
+        "sha256": "27de4605f1beddc80f7dbfb9aa7c7a1641b29662aed276891c8233640277220b"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-memo",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 14,
+      "name": "hopper-metaplex",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-spl/hopper-metaplex/Cargo.toml",
+      "readme": "crates/hopper-spl/hopper-metaplex/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 10,
+      "packageListSha256": "45b6c248da0728d560a90d857b0523ee0b2ff346be5d638df0c89c4b2829600a",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-metaplex"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "45b6c248da0728d560a90d857b0523ee0b2ff346be5d638df0c89c4b2829600a",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "378d73ad61e5197569934e656296b80924c57117113525f1c810015f624b7e25"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-metaplex-0.4.0.crate",
+        "bytes": 12190,
+        "sha256": "24cfc8ddafb02f918b748f9430eba70bec3124659c1a64abba6325a83ed22696"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-metaplex",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 15,
+      "name": "hopper-multisig",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-multisig/Cargo.toml",
+      "readme": "crates/hopper-multisig/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 7,
+      "packageListSha256": "3078248f0c3796f9e98557711d6fc8b1f5856475a5b2280f529b5821261f7eb9",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-multisig"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "3078248f0c3796f9e98557711d6fc8b1f5856475a5b2280f529b5821261f7eb9",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "5e31b4a296f84e48d511def3439b6bcb701a6fdd56707193e94216b4380cee46"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-multisig-0.4.0.crate",
+        "bytes": 2657,
+        "sha256": "1bb7a8d6ad37ef566e2bd0d7ca2a8e3753888f1e137062bccc40ea94c9b1184b"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-multisig",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 16,
+      "name": "hopper-staking",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-staking/Cargo.toml",
+      "readme": "crates/hopper-staking/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 8,
+      "packageListSha256": "1fe2ce69f76727696d23193f5a17b412d36636c6c5b3347f6c16ebab32e307a6",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-staking"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "1fe2ce69f76727696d23193f5a17b412d36636c6c5b3347f6c16ebab32e307a6",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "6a139782db39ebb706267ae29b5c6651f42793df1def57b8789e6971006bbd5b"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-staking-0.4.0.crate",
+        "bytes": 4011,
+        "sha256": "5f860f4691b2a99f85db07962276176ab24183e7643c82b9fe8aff26feaea6f2"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-staking",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 17,
+      "name": "hopper-svm",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-svm/Cargo.toml",
+      "readme": "crates/hopper-svm/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-native",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 6,
+      "packageListSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-svm"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "b423777ca7b31c1a0e89f355b3a1f747dd97b338c6b6e9b50a3317f72afc6b14"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-svm-0.4.0.crate",
+        "bytes": 4841,
+        "sha256": "194a43bb067b12c829f55168780cc5ed9e0f67a35b2751673254ad140864be54"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-svm",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 18,
+      "name": "hopper-vesting",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-vesting/Cargo.toml",
+      "readme": "crates/hopper-vesting/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 8,
+      "packageListSha256": "cd5fe01cd2fe0909061037b617f48ff2f28d2d503d2bce93e162919609603c68",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-vesting"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "cd5fe01cd2fe0909061037b617f48ff2f28d2d503d2bce93e162919609603c68",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "a803347d454365ecfd04595af16b2abb44c9e65bea9871165202d6988f7f99e8"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-vesting-0.4.0.crate",
+        "bytes": 3933,
+        "sha256": "f8a5c650a8e1d3d0b7ce6f5fa7205d313e165b49333da54fc6cd46dfee9cd035"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-vesting",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 19,
+      "name": "hopper-finance",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-finance/Cargo.toml",
+      "readme": "crates/hopper-finance/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-systems",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 9,
+      "packageListSha256": "8d9ef1a306ed1d6b25b968daf9b76d2e5f3c927ccd6f90066fe5ecc02602d75e",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-finance"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "8d9ef1a306ed1d6b25b968daf9b76d2e5f3c927ccd6f90066fe5ecc02602d75e",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "4639e0db41fb7a06851f0898cd0b2324f13b7a9c9b786276127832db5dc5aa8b"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-finance-0.4.0.crate",
+        "bytes": 6687,
+        "sha256": "4fb22ffae1a6a4268eadcbb7b4fa7673c6f519a2708efe7b69fdc8ea65625e1d"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-finance",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 20,
+      "name": "hopper-schema",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-schema/Cargo.toml",
+      "readme": "crates/hopper-schema/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-systems",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 18,
+      "packageListSha256": "b2a881ed2b1674b155bc1e56f0fe4cc0b190fb5432c33b77d10ab925bafa5433",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-schema"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "b2a881ed2b1674b155bc1e56f0fe4cc0b190fb5432c33b77d10ab925bafa5433",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "0d6a181c87b7b99a446ef7def9f57f7eadcead8fc5536e044b27fec225571656"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-schema-0.4.0.crate",
+        "bytes": 137107,
+        "sha256": "f83e3bb63b873a5620612f6193936d6267bb80b8e6f2cfc7ebacccb823a29f17"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-schema",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 21,
+      "name": "hopper-macros",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-macros/Cargo.toml",
+      "readme": "crates/hopper-macros/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-schema",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-system",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-systems",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 6,
+      "packageListSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-macros"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "82a0b269b1b40c25d4e939e2bd190b3e02054ad164b5c6f54584dc0c546acbe1",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "d4f2c287ea61c2a1595ff1735f66f611dfc227a99e925263914cdb8a3876d692"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-macros-0.4.0.crate",
+        "bytes": 17559,
+        "sha256": "45902f957b363f30a855ac4edf59b0102fcb0a69a44411767c87f9f7cda61506"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-macros",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 22,
+      "name": "hopper-solana",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-solana/Cargo.toml",
+      "readme": "crates/hopper-solana/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-system",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-systems",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-token",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 24,
+      "packageListSha256": "335d0d688ddd79ea9a8eecf9367255f4da5ff32d2cc21469304b974a1ee9ed5f",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-solana"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "335d0d688ddd79ea9a8eecf9367255f4da5ff32d2cc21469304b974a1ee9ed5f",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "40aee17e64ce79cd89bcc7bf25a1d2398927458d2c480cf126d66f93f4a59d6f"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-solana-0.4.0.crate",
+        "bytes": 33413,
+        "sha256": "986d8a1f1f577343a81eae2ab5549f2a5acad43f95a422b3871b580fb8388da9"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-solana",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 23,
+      "name": "hopper-associated-token",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-spl/hopper-associated-token/Cargo.toml",
+      "readme": "crates/hopper-spl/hopper-associated-token/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-solana",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 7,
+      "packageListSha256": "5d51d2fe1fa5b31f496b9b6df243b69e3b704fa09937339f568d1ae709d95b98",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-associated-token"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "5d51d2fe1fa5b31f496b9b6df243b69e3b704fa09937339f568d1ae709d95b98",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "e6299e066ef0cb71c9ebeb472041080006eef819c002f74127b2eaa042194f55"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-associated-token-0.4.0.crate",
+        "bytes": 3870,
+        "sha256": "83d1521a4afd2e49577e07770fcbf52a4db31a3e95a2401b1b590302e15daf41"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-associated-token",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 24,
+      "name": "hopper-token-2022",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-spl/hopper-token-2022/Cargo.toml",
+      "readme": "crates/hopper-spl/hopper-token-2022/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-solana",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 9,
+      "packageListSha256": "87b76a2037a773bc3f222e4c2ac9da1a1805e33dc98904b0f665339a6b98646c",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-token-2022"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "87b76a2037a773bc3f222e4c2ac9da1a1805e33dc98904b0f665339a6b98646c",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "085607c1c899e0d08d87408a3f2bd27410c0ab94b570760a5040b8d33af08230"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-token-2022-0.4.0.crate",
+        "bytes": 20876,
+        "sha256": "089bab07b374a18e797aca361590c2679b3bce996bc76d5ca6cc51cce8d5118f"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-token-2022",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 25,
+      "name": "hopper-manager",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-manager/Cargo.toml",
+      "readme": "crates/hopper-manager/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-schema",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 9,
+      "packageListSha256": "0f92716d8db86fb8dd8aa888708df9f4f55e96b756d5a8dac916e212e573fcf8",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-manager"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "0f92716d8db86fb8dd8aa888708df9f4f55e96b756d5a8dac916e212e573fcf8",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "0ae024a3e94a4e71e9710aff304da03ff8c765dc453931c631c6ca31f4bab719"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-manager-0.4.0.crate",
+        "bytes": 9169,
+        "sha256": "32459cdc491fabb7522fa6ccb97889c52ee20156c8bab3f96c60c67ac7344cb5"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-manager",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 26,
+      "name": "hopper-sdk",
+      "version": "0.4.0",
+      "manifest": "crates/hopper-sdk/Cargo.toml",
+      "readme": "crates/hopper-sdk/README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-schema",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 11,
+      "packageListSha256": "274af94a0b29561015a3357ea92b1acd0d192c0966f6ebc0167daf239c4f6bda",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-sdk"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "274af94a0b29561015a3357ea92b1acd0d192c0966f6ebc0167daf239c4f6bda",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "335cd9c12ddfcac38285a6627b765a07983e867d4fcd942e4dbf8f92f61929ba"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-sdk-0.4.0.crate",
+        "bytes": 18958,
+        "sha256": "c9c2c6640a0bd90156c2b04bb94478feb4f174f5ef2dab20f68fe03147b230e6"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-sdk",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 27,
+      "name": "hopper-lang",
+      "version": "0.4.0",
+      "manifest": "Cargo.toml",
+      "readme": "README.md",
+      "internalDependencies": [
+        {
+          "name": "hopper-anchor",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-associated-token",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-builtins",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-derive",
+          "requirement": "=0.4.0"
+        },
+        {
+          "name": "hopper-distribute",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-finance",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-lending",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-macros",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-memo",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-metaplex",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-multisig",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-runtime",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-schema",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-solana",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-staking",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-system",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-systems",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-token",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-token-2022",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-vesting",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 1222,
+      "packageListSha256": "b8ce6d1bf46523e48b50623f96c68a8185f6206dd96e156e89d3337172c9adbe",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-lang"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "66076718b9710046f980ee1fdf592be2517fb34a500915733ee2d11d24256d48",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "1020b24fb96665758d7aa215314d06ac55e8ba54750c3e1f7d37551a8e1ba428"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-lang-0.4.0.crate",
+        "bytes": 1516581,
+        "sha256": "0ea1a2f80fb30f27ae885fc0278a8bd4d8c79038a3859d73b3b25065e16b22df"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-lang",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 28,
+      "name": "grillo-verifier",
+      "version": "0.1.0",
+      "manifest": "crates/grillo-verifier/Cargo.toml",
+      "readme": "crates/grillo-verifier/README.md",
+      "internalDependencies": [
+        {
+          "name": "grillo-manifest",
+          "requirement": "^0.1.0"
+        }
+      ],
+      "packagedFileCount": 18,
+      "packageListSha256": "8a6d73ce3767fbbfdc21542853d4fb7d87eb3ff3bc20b45072e726d70c36c301",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "grillo-verifier"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "8a6d73ce3767fbbfdc21542853d4fb7d87eb3ff3bc20b45072e726d70c36c301",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "4900f5a217833c639c4944ef38018490d8ce573325722eb3f90211db1fcbd9fe"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/grillo-verifier-0.1.0.crate",
+        "bytes": 45390,
+        "sha256": "d73bc110d8974b856a14abee029a88374b141f1814b1457e8c50902a7fb5e6c3"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "grillo-verifier",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    },
+    {
+      "position": 29,
+      "name": "hopper-cli",
+      "version": "0.4.0",
+      "manifest": "tools/hopper-cli/Cargo.toml",
+      "readme": "tools/hopper-cli/README.md",
+      "internalDependencies": [
+        {
+          "name": "grillo-verifier",
+          "requirement": "^0.1.0"
+        },
+        {
+          "name": "hopper-manager",
+          "requirement": "^0.4.0"
+        },
+        {
+          "name": "hopper-schema",
+          "requirement": "^0.4.0"
+        }
+      ],
+      "packagedFileCount": 52,
+      "packageListSha256": "d787df0df06c2a8abb96ab3a8831a42f4fdc55f859929dff9e17298a2604f37f",
+      "packageListCommand": {
+        "argv": [
+          "cargo",
+          "package",
+          "--locked",
+          "--list",
+          "-p",
+          "hopper-cli"
+        ],
+        "exitCode": 0,
+        "stdoutSha256": "d787df0df06c2a8abb96ab3a8831a42f4fdc55f859929dff9e17298a2604f37f",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "transcriptSha256": "ca629bf1ae873fb183eebf2511c7fe0263b85492845fe3f37dde4d2eb95b1227"
+      },
+      "registryDryRun": {
+        "status": "not-requested"
+      },
+      "packageArchive": {
+        "path": "target/package/hopper-cli-0.4.0.crate",
+        "bytes": 354203,
+        "sha256": "c33ff9bf35a671a7f3ad69481ce873e9518b2940dff4c2342028972fcb73d948"
+      },
+      "packageCommand": {
+        "mode": "single-train-command",
+        "selectedPackage": "hopper-cli",
+        "trainCommandTranscriptSha256": "8600345e01a7626aab460dd82dc0b7e617927e2becc14f5cf3373df50fccb7b4"
+      }
+    }
+  ]
+}

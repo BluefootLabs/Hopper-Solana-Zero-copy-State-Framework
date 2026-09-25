@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-staking v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-staking)
+    Updating crates.io index
+    Packaged 8 files, 11.7KiB (3.9KiB compressed)
+   Verifying hopper-staking v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-staking)
+   Compiling hopper-staking v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-staking-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.90s
+   Uploading hopper-staking v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-staking)
+warning: aborting upload due to dry run

@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-finance)
+    Updating crates.io index
+    Packaged 9 files, 24.1KiB (6.5KiB compressed)
+   Verifying hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-finance)
+   Compiling hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-finance-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 0.59s
+   Uploading hopper-finance v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-finance)
+    Uploaded hopper-finance v0.4.0 to registry `crates-io`
+note: waiting for hopper-finance v0.4.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published hopper-finance v0.4.0 at registry `crates-io`

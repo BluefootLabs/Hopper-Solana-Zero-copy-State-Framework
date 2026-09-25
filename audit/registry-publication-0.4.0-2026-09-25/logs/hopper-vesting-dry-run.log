@@ -1,0 +1,9 @@
+    Updating crates.io index
+   Packaging hopper-vesting v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-vesting)
+    Updating crates.io index
+    Packaged 8 files, 11.0KiB (3.8KiB compressed)
+   Verifying hopper-vesting v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-vesting)
+   Compiling hopper-vesting v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-vesting-0.4.0)
+    Finished `dev` profile [unoptimized] target(s) in 1.59s
+   Uploading hopper-vesting v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-vesting)
+warning: aborting upload due to dry run

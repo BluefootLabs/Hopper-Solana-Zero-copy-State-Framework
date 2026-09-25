@@ -1,0 +1,30 @@
+{
+  "allPassed": true,
+  "cases": [
+    {
+      "case": "honest",
+      "exitCode": 0,
+      "expectedResultVerified": true
+    },
+    {
+      "case": "pod",
+      "exitCode": 101,
+      "expectedResultVerified": true
+    },
+    {
+      "case": "verified",
+      "exitCode": 101,
+      "expectedResultVerified": true
+    },
+    {
+      "case": "collection",
+      "exitCode": 101,
+      "expectedResultVerified": true
+    },
+    {
+      "case": "event",
+      "exitCode": 101,
+      "expectedResultVerified": true
+    }
+  ]
+}
