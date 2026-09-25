@@ -135,7 +135,7 @@ Three differences:
 3. `System` is a Hopper marker for the canonical System Program ID.
 
 Hopper also ships a golden path that removes the `vault.load()?.bump`
-expression entirely. Mark the canonical-bump field on the state type once,
+expression entirely. Mark the stored-bump field on the state type once,
 then ask for it by name in every context:
 
 ```rust
@@ -167,13 +167,14 @@ provides an offset; it does not initialize the byte. Preserve that field in
 later mutation and migration paths. A field merely named `bump` is not
 automatically selected, and `bump = stored` on an unmarked type fails to compile.
 
-The new workspace bind path retains validated bumps for direct required
+Since 0.3.1, the bind path retains validated bumps for direct required
 stored, supplied, and seed-helper fields as well as bare inferred fields.
 Optional fields and composite gathering still use their separate gather paths.
 No retained value gains a stronger canonicality guarantee than its validator.
 
-On `init` with `seeds` and `bump = <arg>`, Anchor hashes the seeds before
-creating the account; Hopper does not hash at all. The lifecycle helper
+For an eligible empty, non-signer `init` with `seeds` and `bump = <arg>`,
+Hopper can omit its separate derivation pre-check. The runtime still
+validates PDA signer seeds during CPI. The lifecycle helper
 creates the account through a System Program CPI signed with those seeds
 and that bump, and the System Program requires the created account to sign,
 so an account that is not a transaction signer passes only as the address

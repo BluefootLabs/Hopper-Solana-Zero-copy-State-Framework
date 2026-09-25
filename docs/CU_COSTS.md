@@ -1,14 +1,8 @@
 # Compute-unit cost reference
 
-The per-primitive cost table Hopper developers budget against. Every number
-in the tables below is a measured value from one reproducible Mollusk run,
-same artifact, same harness, same day. Where an operation is not yet covered
-by the measurement lab, this page says so instead of estimating.
+This page preserves the per-primitive measurements from the pinned **2026-07-09** Mollusk run below. They describe that artifact, toolchain, and runtime; they are not measurements of the current release or a universal instruction budget. Operations outside that lab are identified separately.
 
-If a CU number elsewhere in the docs or marketing drifts from this table,
-the table wins. Cross-framework comparisons (Anchor, Pinocchio, Quasar) are
-not made on this page; those are measured separately, with their own
-provenance, in `BENCHMARKS.md`.
+Use the provenance matching the program and runtime being compared. Later end-to-end release measurements do not become invalid because they differ from this historical table. Cross-framework comparisons have their own provenance in `BENCHMARKS.md`.
 
 ## Provenance
 
@@ -28,7 +22,7 @@ provenance, in `BENCHMARKS.md`.
 - **Net CU**: the delta between the two `sol_log_compute_units()` calls
   bracketing the primitive, minus the empty-bracket overhead measured by a
   dedicated probe (disc 21: **101 CU** in this run). This is the closest
-  estimate of the primitive alone, and the number to budget against.
+  estimate of the primitive alone in this historical fixture.
 - **Whole-ix CU**: `compute_units_consumed` for the entire instruction:
   entrypoint account parse, dispatch, fixture checks, and the measurement
   logging (four log-class syscalls, ≈ 400 CU) all included. Useful as an
@@ -189,12 +183,6 @@ Two structural notes, both disclosed wherever the feature is claimed:
 
 ## Budgeting rule of thumb
 
-From the rows above: full validated load (33) + overlay access (2) +
-fingerprint re-check (6) ≈ **~40 CU of framework cost per account**. A
-three-account instruction pays on the order of ~120 CU of Hopper overhead
-before its business logic, well under 0.1% of a 200k budget. Opting into a
-full emitted receipt adds ~2.2k CU (~1.1%).
-
 For client-side budgeting (`SetComputeUnitLimit`), the schema field
 `cu_estimate` is author-supplied and must come from a measured worst-case
 run of the actual instruction, not from summing this table, per-primitive
@@ -210,23 +198,9 @@ discs for them, do not budget from this page:
 
 - **Token / Mint constraint reads** (`token::mint`, `mint::decimals`, …)
 - **Token-2022 extension TLV walks** (`extensions::*`)
-- **PDA derivation** (`seeds`/`bump` paths). Structural guidance that
-  remains true and is measured end-to-end in the vault parity lab
-  (`BENCHMARKS.md`): verifying a **stored bump** with one `sol_sha256`
-  (about 150 CU on a typed program-owned account, since 2026-09-21; the
-  curve-checked `create_program_address` syscall is 1,500) is an order of
-  magnitude cheaper than a `find_program_address` bump search, and it is
-  the path Hopper's macros steer you toward. An `init` field with
-  `bump = <arg>` costs no hash at all: the creation CPI signed with the
-  seeds is the check, since the System Program requires the created account
-  to sign (the hash runs only for a signer or a non-empty account). Seeds
-  that are all literals can use `hopper::canonical_pda!` to search and
-  curve-check on the build host, then compare the emitted address on chain.
-  `const_pda!` only hashes a supplied bump; it does not prove canonicality
-  or curve membership. Bare `bump` and `seeds_fn` perform canonical search
-  at runtime, including for typed accounts. An address comparison still
-  executes instructions; removing derivation does not make the instruction
-  cost zero CU.
+- **PDA derivation** (`seeds`/`bump` paths). A supplied or stored bump selects one derivation; bare `bump` and `seeds_fn` perform a canonical search at runtime. Typed program-owned accounts can use the optimized SHA-256 check for a selected bump, but ownership and a matching address do not prove that the stored byte is canonical.
+  An eligible empty, non-signer `init` with `bump = <arg>` can omit Hopper's separate derivation pre-check because the signed creation CPI must establish the account's signer privilege. The runtime still validates the PDA signer seeds; this is not a hash-free transaction. Signer or non-empty accounts retain the separate check.
+  Literal seeds can use `hopper::canonical_pda!` to search and curve-check on the build host, then compare the emitted address on chain. `const_pda!` only hashes a supplied bump; it does not prove canonicality or curve membership. An address comparison still executes instructions; removing derivation does not make the instruction cost zero CU. Use current, pinned whole-instruction measurements when choosing a path; this lab provides no isolated PDA cost or universal speedup ratio.
 - **Logging macro variants** (`hopper_log!`, `msg!` with formatting,
   `hopper_emit_cpi!`). The measured anchor points from this run: one
   log-class syscall bills 100 CU base (the empty bracket measures 101 CU),
@@ -235,11 +209,7 @@ discs for them, do not budget from this page:
   end-to-end context: the router parity lab (`BENCHMARKS.md`) prices full
   router hops, each including one CPI to a mock AMM, at ~1.5k CU per hop.
 
-Accessors that compile to a direct field read (`AccountView::address()`,
-`lamports()`, `data_len()`, `raw_ref()`) carry no measured row for a
-structural reason: there is nothing to bracket. They are pointer/field
-reads emitted inline; any nonzero cost they had would surface in the
-overlay and load rows that contain them.
+This lab has no isolated rows for `AccountView::address()`, `lamports()`, or `data_len()`. They inline field reads, which does not by itself prove zero CU. `raw_ref()` also acquires an account borrow and checks the typed view's size; it is not merely a pointer read. Measure these operations in the actual instruction that uses them.
 
 ## How to measure yourself
 

@@ -365,8 +365,9 @@ pub struct AddMember<'info> {
 covering `[TAIL_PREFIX_OFFSET, +inf)`. Inside the handler, acquire the gated
 cursor with `ctx.tail_seq_mut::<T>(index, Roster::TAIL_PREFIX_OFFSET as u32)`
 (or `tail_seq_ref` for reads). See `POLICY_GUARANTEES.md` for the exact
-head-protection and delegation-refusal guarantees, and the honest limit on
-per-element isolation.
+head-protection guarantees, writable-CPI delegation refusal when the
+context also declares `lamports(...)`, and the limit on per-element isolation.
+Bare `strict_writes` does not govern writable CPI delegation or lamport mutation.
 
 > Why `tail(...)` and not `mut(...)`? The context proc-macro cannot introspect a
 > layout type to tell a `Seq` tail from a fixed segment, so the growable-tail

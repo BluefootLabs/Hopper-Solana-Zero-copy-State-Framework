@@ -402,10 +402,10 @@ Typestate pattern enforcing execution phase ordering at compile time:
 Unresolved -> Resolved -> Validated -> Executed
 ```
 
-Each transition is a zero-cost move. The six conceptual phases:
+Phase markers are zero-sized types; there is no runtime phase tag. Transition methods still perform account-count checks and execute the caller's resolution, validation, and execution closures. Their checks, borrows, mutations, and syscalls have runtime cost. Typestate enforces ordering; it does not make those operations free. The six conceptual phases:
 
 1. **Resolve** -- parse accounts from the instruction
-2. **Validate** -- run checks, verify signatures, verify PDAs
+2. **Validate** -- run checks, check signer privilege, verify PDAs
 3. **Borrow** -- acquire mutable references
 4. **Mutate** -- write account data
 5. **Emit** -- fire events
