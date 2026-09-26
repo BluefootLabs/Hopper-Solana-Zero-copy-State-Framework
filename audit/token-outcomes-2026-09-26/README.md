@@ -30,5 +30,10 @@ The website checks cover rendered HTML, story order, routes and heading links;
 they do not establish visual browser QA. Hosted-CI status, when captured, is
 reported separately from the local results.
 
-The prior native/runtime 0.4.2 API pages now return HTTP 200. The new API
-pages were still pending at the dated docs-status capture; local docs passed.
+All four checked API pages, including the prior 0.4.2 pages, return HTTP 200.
+
+Hosted GitHub workflows did not start: their annotations report an account
+billing lock. The local test passes above are independent of those blocked jobs.
+
+Production website c194f3699f383981487bede5e4b1fdc2fa1b8e4d passed all 51 pages
+and 4439 internal links/heading targets.
