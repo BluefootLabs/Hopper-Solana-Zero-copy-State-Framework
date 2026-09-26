@@ -25,5 +25,6 @@ pub mod mint;
 pub mod oracle;
 pub mod token;
 pub mod token2022_ext;
+pub mod transfer;
 pub mod twap;
 pub mod typed_cpi;

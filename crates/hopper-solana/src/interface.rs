@@ -271,7 +271,7 @@ impl<'a> InterfaceMint<'a> {
 /// that owns the source token account.
 ///
 /// The instruction layout is shared between SPL Token and Token-2022:
-/// `[12u8, amount: u64 LE, decimals: u8]` with three accounts (source,
+/// `[12u8, amount: u64 LE, decimals: u8]` with four accounts (source,
 /// mint, destination, authority). This helper picks the right program
 /// id based on the source account's owner and forwards through the
 /// runtime's checked CPI path.

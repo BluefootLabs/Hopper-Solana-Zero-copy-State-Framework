@@ -1,0 +1,40 @@
+Targeted CPI and token-outcome review, September 26, 2026
+
+Current public heads and exact fetched-file hashes: the run's research/sources.json.
+Pina advanced to 35174e39a2b9cb76aa045372178fe5b8085d7892. Pinocchio, Quasar,
+Anchor v2 anchor-next, Agave and SIMDs remained at the preceding run's pins.
+Source refresh is not a new line-by-line audit of unchanged repositories.
+
+Read Pina crates/pina/src/token.rs verified module: scalar debit/credit arithmetic
+requires positive exact debit and positive credit no larger than the amount.
+The consumer supplies identity and lower-bound policy. Hopper's existing scalar
+balance helpers also leave these responsibilities to callers. Add a separate
+snapshot bound to actual account views, with an explicit minimum receipt and
+fresh owner, shape, mint, state and authority checks. Do not claim this general
+before/after pattern is a novel invention. The useful improvement is reducing
+application mistakes while preserving choice of CPI builder.
+
+Read canonical Token-2022 processor transfer section, pinned at
+23b03f88e44a9ef2587e5a08206a09eca0c8f17b: self-transfer returns without moving
+balances after validation; ordinary transfer debits the requested amount and
+credits amount minus calculated fee, accumulating withheld fees separately.
+These are distinct invariants. Net base-balance checks do not prove internal
+attribution or replace extension policy. No upstream implementation copied.
+
+Hopper runtime CPI dedup implementation and native descriptor/preflight paths
+were reviewed for account matching and borrow retention. Reordered dedup infos
+were validated by pubkey but host System transfer emulation used positions 0/1.
+The baseline debited an unrelated extra account. Resolve both metas by pubkey
+before host emulation. On-chain syscall resolution already uses addresses.
+
+Miri on the token tests found a separate host RefMut provenance defect: deriving
+a pointer from a mutable reborrow and then moving its native parent guard retags
+the parent reference, invalidating the child. Consume the native guard first,
+retain a raw pointer and one release obligation, and move the lease through
+projections. The SBF representation already uses raw parts. A second Miri error
+was in the new Box-backed test fixture, fixed with a Vec allocation pointer;
+that fixture error is not a product defect.
+
+Scope limits: no full-repository competitive audit, universal speed/safety claim,
+new network activation claim, automatic hook integration, or complete Pinocchio
+API compatibility claim. Earlier network observations remain dated separately.

@@ -1,6 +1,6 @@
 [package]
 name = "hopper-solana"
-version = "0.4.0"
+version = "0.4.1"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Solana integration layer for Hopper. SPL Token/Mint zero-copy readers, Token-2022 screening, CPI guards, token account helpers."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-solana/0.4.0"
+documentation = "https://docs.rs/crate/hopper-solana/0.4.1"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "spl-token", "cpi", "hopper-native"]
 categories = ["no-std"]
@@ -25,15 +25,14 @@ hopper-runtime = { workspace = true }
 hopper-system = { path = "../hopper-system", version = "0.4.0", default-features = false }
 hopper-token = { workspace = true, default-features = false }
 
+[dev-dependencies]
+hopper-native = { workspace = true }
+hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
+
 [features]
 default = []
 legacy-token-instructions = ["hopper-token/legacy-token-instructions"]
-# Opt-in for the `sol_remaining_compute_units` syscall (SIMD-0049). The
-# proposal is Withdrawn and its feature gate
-# (5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP) has never been activated on
-# mainnet-beta, devnet, or testnet, so a program that references the symbol
-# fails to deploy on every public cluster while passing local tests (local
-# validators enable every feature). The compute-budget helpers are therefore
-# compiled for on-chain targets only with this feature; host builds keep them
-# for tests. Enable it only for a private cluster that activates the gate.
+# Opt-in remaining-compute syscall. Its feature account was absent on all three
+# public clusters in the 2026-09-26 finalized RPC capture. Enable only for a
+# target verified to support it; host tests do not establish cluster support.
 remaining-compute-units-syscall = ["hopper-runtime/remaining-compute-units-syscall"]

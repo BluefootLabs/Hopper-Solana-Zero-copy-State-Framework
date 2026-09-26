@@ -2490,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "hopper-native",
  "proptest",
@@ -2562,8 +2562,9 @@ dependencies = [
 
 [[package]]
 name = "hopper-solana"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
+ "hopper-native",
  "hopper-runtime",
  "hopper-system",
  "hopper-systems",
@@ -2684,6 +2685,14 @@ dependencies = [
  "solana-transaction",
  "spl-associated-token-account-interface",
  "spl-token-2022-interface",
+]
+
+[[package]]
+name = "hopper-token-outcomes-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-runtime",
+ "hopper-solana",
 ]
 
 [[package]]

@@ -38,7 +38,8 @@ packages = [
 
 [version_overrides]
 hopper-native = "0.4.2"
-hopper-runtime = "0.4.2"
+hopper-runtime = "0.4.3"
+hopper-solana = "0.4.1"
 grillo-manifest = "0.1.0"
 grillo-verifier = "0.1.0"
 hopper-topology = "0.1.0"

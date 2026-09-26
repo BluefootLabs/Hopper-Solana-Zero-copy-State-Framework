@@ -12,10 +12,10 @@
 //!   deterministic RAII release built into the guard.
 //!
 //! - **non-Solana host tests**.
-//!   `{ ptr, guard, token, _marker }`. Richer because host tests rely on
-//!   the active backend's borrow machinery (RefCell, etc.) plus Hopper's
-//!   own cross-handle alias registry (`BorrowToken`). Both are real RAII
-//!   and must live until the runtime guard drops.
+//!   `{ ptr, guard, token, _marker }`. Shared guards retain the native
+//!   guard; exclusive guards retain its release state without retaining a
+//!   parent mutable reference that moving the wrapper could retag. Both also
+//!   retain Hopper's cross-handle alias registry token until drop.
 //!
 //! Both reprs expose the same surface: `Deref`/`DerefMut` into `T`,
 //! `as_ptr` / `as_mut_ptr`, byte-slice narrowing (`slice`, `slice_from`),
@@ -236,9 +236,26 @@ pub struct RefMut<'a, T: ?Sized> {
 #[cfg(not(target_os = "solana"))]
 pub struct RefMut<'a, T: ?Sized> {
     ptr: *mut T,
-    guard: BackendRefMut<'a, [u8]>,
+    guard: ExclusiveLease,
     token: BorrowToken,
     _marker: PhantomData<&'a mut T>,
+}
+
+/// Owns the native release obligation without storing a parent `&mut [u8]`.
+#[cfg(not(target_os = "solana"))]
+struct ExclusiveLease(*mut u8);
+
+#[cfg(not(target_os = "solana"))]
+impl Drop for ExclusiveLease {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: from_backend transfers the native guard's live lease here.
+            // Projections move this owner; exactly one final drop releases it.
+            unsafe {
+                *self.0 = hopper_native::NOT_BORROWED;
+            }
+        }
+    }
 }
 
 impl<'a> RefMut<'a, [u8]> {
@@ -257,17 +274,13 @@ impl<'a> RefMut<'a, [u8]> {
         }
         #[cfg(not(target_os = "solana"))]
         {
-            // Take the write pointer from a *mutable* reborrow: deriving it
-            // from `&*inner` (a shared reborrow) and casting would give the
-            // pointer shared provenance, making later writes through it UB
-            // under the aliasing model (Miri flags it). The `mut` rebinding
-            // is host-only so the Solana lane (which consumes `inner` by
-            // value) stays warning-free.
-            let mut inner = inner;
-            let ptr = (&mut *inner) as *mut [u8];
+            // Consume the parent before deriving our raw pointer. Retaining and
+            // moving the parent's &mut after a reborrow invalidates that pointer
+            // under Stacked Borrows, even if the lease flag is still correct.
+            let (bytes, state) = inner.into_raw_parts();
             Self {
-                ptr,
-                guard: inner,
+                ptr: bytes as *mut [u8],
+                guard: ExclusiveLease(state),
                 token,
                 _marker: PhantomData,
             }

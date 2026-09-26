@@ -1036,13 +1036,17 @@ pub fn invoke_signed_deduped<const MAX_INFOS: usize>(
     #[cfg(not(target_os = "solana"))]
     if is_host_system_transfer(instruction) {
         validate_cpi_accounts_deduped(instruction, infos, signers_seeds)?;
-        // A System transfer names two distinct accounts (from, to); the
-        // deduped info list preserves them at positions 0 and 1 because
-        // dedup keeps first-occurrence (i.e. push/meta) order.
-        if infos.len() < 2 {
+        // This public API accepts any info order. Resolve the System transfer's
+        // positional metas by address just as the SVM does; an extra info must
+        // never be mistaken for the debited account.
+        if instruction.accounts.len() < 2 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
-        return emulate_host_system_transfer(instruction, infos);
+        let source = find_info(infos, instruction.accounts[0].address)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let destination = find_info(infos, instruction.accounts[1].address)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        return emulate_host_system_transfer(instruction, &[infos[source], infos[destination]]);
     }
 
     validate_cpi_accounts_deduped(instruction, infos, signers_seeds)?;
@@ -1100,59 +1104,23 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 
 // -- Borrow-checked (Pinocchio-equivalent) tier -------------------------
 
-/// Invoke a CPI with **borrow-state validation only**, the
-/// Pinocchio-equivalent mid tier.
+/// Invoke after checking account-address correspondence and live data borrows.
 ///
-/// # Validation tiers
+/// Writable metas require an exclusive borrow; readonly metas require a shared
+/// borrow. When a lamport write policy is active, writable CPI delegation also
+/// requires whole-account data and lamport permission.
 ///
-/// From most to least validation (and CU cost):
+/// Unlike the default [`invoke`] path, this tier omits local signer and writable
+/// privilege checks and allows duplicate writable metas. The SVM still enforces
+/// privileges and PDA signer derivation. Choose this tier only when the application
+/// intends that account aliasing and has validated its account relationships.
 ///
-/// | Tier | Functions | Validates before the syscall |
-/// |------|-----------|------------------------------|
-/// | checked | [`invoke_checked`] / [`invoke_signed_checked`] | Explicit-by-name aliases of the default tier (same checks). |
-/// | default | [`invoke`] / [`invoke_signed`] / [`invoke_with_bounds`] / [`invoke_signed_with_bounds`] | Meta↔view address match, required transaction signer or supplied PDA authority, meta writability vs. account writability, per-account borrow state, **and** duplicate-writable rejection. The SVM syscall authoritatively derives and matches PDA signers with the caller id. |
-/// | borrow_checked | `invoke_borrow_checked` / [`invoke_signed_borrow_checked`] | Per-account borrow state only: writable metas must be exclusively borrowable, read-only metas shared-borrowable. |
-/// | unchecked | [`invoke_unchecked`] / [`invoke_signed_unchecked`] (`unsafe`) | Nothing. |
+/// [`invoke_checked`] is an explicit alias for the default tier. Unsafe
+/// [`invoke_unchecked`] skips Hopper's checks and requires the caller to uphold
+/// its documented borrow and descriptor contracts.
 ///
-/// Every **safe** tier additionally consults the mutation-completeness lamport gate
-/// on writable metas: under a `strict_writes` context that declared its
-/// lamport dimension (`lamports(...)`), handing an account to a callee
-/// as writable requires that account to carry a whole-account data
-/// grant *and* lamport permission. Instructions outside the feature pay
-/// one `None`-check. The `unsafe` unchecked tier remains ungated (it is
-/// the documented escape hatch and validates nothing).
-///
-/// # What this tier is
-///
-/// This tier performs exactly the per-account borrow-state checks that
-/// Pinocchio's `invoke` performs before its syscall; nothing more. It
-/// skips the default tier's meta↔view address comparison, signer/PDA
-/// matching, the writability re-check, and the O(n²) pairwise
-/// duplicate-writable scan, which together cost roughly 9–13 extra
-/// instructions per CPI at instruction level (measured 2026-07-07).
-/// `borrow_checked` therefore matches the CU cost of a hand-written
-/// Pinocchio `invoke` while remaining a safe (non-`unsafe`) API,
-/// because the borrow checks are precisely what discharge the
-/// runtime's aliasing contract.
-///
-/// # When it is appropriate
-///
-/// Use this tier when the accounts were already validated at parse
-/// time, the entrypoint/context layer has checked addresses and
-/// writability, so re-checking per CPI buys nothing; i.e. when you
-/// want the exact validation level of a raw Pinocchio program.
-///
-/// The default tier's duplicate-writable rejection guards a real
-/// Sealevel footgun (two writable metas aliasing one account let a
-/// callee double-mutate state behind your back) and is deliberately
-/// **not** weakened or removed. Wide-CPI callers who have already run
-/// `require_unique_writable_accounts` (the check-layer graph
-/// constraint), or whose account shape statically precludes duplicate
-/// writables, can safely opt down to `borrow_checked`.
-///
-/// Off-chain (host builds) the syscall is a no-op; validation still
-/// runs, and host-side System-program transfers are emulated the same
-/// way the default tier emulates them.
+/// On host targets, supported System transfers are emulated. Other CPIs are
+/// validation-only no-ops; exercise real callee behavior in an SVM or on devnet.
 #[inline]
 pub fn invoke_borrow_checked<const ACCOUNTS: usize>(
     instruction: &InstructionView<'_, '_, '_, '_>,
@@ -1161,14 +1129,8 @@ pub fn invoke_borrow_checked<const ACCOUNTS: usize>(
     invoke_signed_borrow_checked::<ACCOUNTS>(instruction, account_views, &[])
 }
 
-/// Invoke a signed CPI with **borrow-state validation only**, the
-/// Pinocchio-equivalent mid tier.
-///
-/// See [`invoke_borrow_checked`] for the full tier table, what this
-/// tier validates (and deliberately does not), and when opting down
-/// from the default tier is appropriate. `signers_seeds` are passed
-/// straight through to the syscall; unlike [`invoke_signed`], no
-/// required-signer/PDA-authority preflight is performed before the syscall.
+/// Signed variant of [`invoke_borrow_checked`]. Signer seeds are forwarded to
+/// the SVM, which derives and validates the caller's PDA authorities.
 #[inline]
 pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
     instruction: &InstructionView<'_, '_, '_, '_>,
@@ -1842,3 +1804,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "cpi_dedup_tests.rs"]
+mod dedup_tests;

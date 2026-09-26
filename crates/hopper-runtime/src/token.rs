@@ -508,19 +508,13 @@ pub fn require_mint_freeze_authority(
 ///
 /// # Prefer [`TransferChecked`]
 ///
-/// The plain `Transfer` instruction does not carry the mint's
-/// decimals, so the SPL token program cannot reject a mis-routed
-/// call against a different mint. Token-2022 transfer-hook
-/// accounts in particular require the checked variant.
-/// [`TransferChecked`] adds a `decimals: u8` parameter the token
-/// program validates and is the Hopper-preferred path.
-///
-/// This builder remains available for programs interoperating with
-/// pre-Token-2022 deployments that only expose the plain transfer path, but
-/// new code should use `TransferChecked`.
+/// The plain instruction carries neither an explicit mint account nor decimals.
+/// The token program still checks that source and destination mints match.
+/// Prefer `TransferChecked` to also validate the caller-supplied mint and decimals.
+/// This legacy builder calls the classic SPL Token program and is feature-gated.
 #[deprecated(
     since = "0.2.0",
-    note = "use TransferChecked for Token-2022 safety (mint + decimals validation)"
+    note = "use TransferChecked for explicit classic SPL mint and decimals validation"
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct Transfer<'a> {
@@ -576,7 +570,7 @@ impl Transfer<'_> {
 /// Prefer [`MintToChecked`] for the decimals-verified path.
 #[deprecated(
     since = "0.2.0",
-    note = "use MintToChecked for Token-2022 safety (mint + decimals validation)"
+    note = "use MintToChecked for explicit classic SPL mint and decimals validation"
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct MintTo<'a> {
@@ -622,7 +616,7 @@ impl MintTo<'_> {
 /// Prefer [`BurnChecked`] for the decimals-verified path.
 #[deprecated(
     since = "0.2.0",
-    note = "use BurnChecked for Token-2022 safety (mint + decimals validation)"
+    note = "use BurnChecked for explicit classic SPL mint and decimals validation"
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct Burn<'a> {
@@ -721,7 +715,7 @@ impl CloseAccount<'_> {
 /// Prefer [`ApproveChecked`] for the decimals-verified path.
 #[deprecated(
     since = "0.2.0",
-    note = "use ApproveChecked for Token-2022 safety (mint + decimals validation)"
+    note = "use ApproveChecked for explicit classic SPL mint and decimals validation"
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct Approve<'a> {
@@ -813,20 +807,12 @@ impl Revoke<'_> {
 
 // ---------------------------------------------------------------------
 //
-// The Hopper audit flagged Token-2022 extension handling as a gap.
-// `TransferChecked` is the SPL instruction that
-// carries an extra `decimals: u8` byte the token program verifies
-// against the mint's stored decimals. That verification defends
-// against wrong-mint attacks where the caller passed a different
-// mint than the account expects. programs targeting Token-2022
-// (which adds transfer-hook extensions) should prefer this builder
-// over the unchecked `Transfer` because the decimals check is the
-// only cheap pre-flight guard against extension bypass.
-
-/// Builder for SPL Token TransferChecked (instruction index 12).
+/// Builder for classic SPL Token TransferChecked (instruction index 12).
 ///
-/// Adds mint and decimals validation over the legacy `Transfer` builder. Required for
-/// accounts that participate in Token-2022 extension flows.
+/// The token program checks the supplied mint and decimals. This builder calls
+/// `TOKEN_PROGRAM_ID`; it does not dispatch to Token-2022 or resolve transfer
+/// hooks. Use `hopper_solana::interface` or `hopper_token_2022` for those program
+/// integrations, supplying hook accounts when required.
 pub struct TransferChecked<'a> {
     pub from: &'a AccountView<'a>,
     pub mint: &'a AccountView<'a>,
@@ -846,13 +832,10 @@ impl TransferChecked<'_> {
         self.invoke_signed_unchecked(&[])
     }
 
-    /// Strict invoke: signer pre-check **plus** token-account
-    /// ownership verification. Auto-injects the check that
-    /// `#[hopper::program(enforce_token_checks = true)]` promises so
-    /// a handler inside such a program can write
-    /// `TransferChecked { ... }.invoke_strict()?` and know that the
-    /// attacker-passes-correct-pubkey-but-wrong-signer exploit class
-    /// is closed before the CPI.
+    /// Check transaction signer status and require the source's token owner
+    /// to equal the authority before CPI. This stricter owner path excludes
+    /// delegated transfers; use `invoke` when the token program should validate
+    /// a delegate or `invoke_multisig` for an SPL multisig authority.
     ///
     /// Verifies `self.from`'s `owner` field (SPL TokenAccount bytes
     /// `[32..64]`) matches `self.authority.address()`. Returns
@@ -926,8 +909,8 @@ impl TransferChecked<'_> {
 
 /// Builder for SPL Token MintToChecked (instruction index 14).
 ///
-/// Same-shape decimals guard as [`TransferChecked`]. The Hopper-
-/// preferred path when minting into a Token-2022 account.
+/// Checks decimals through the classic SPL Token program, like [`TransferChecked`].
+/// For Token-2022, use the corresponding `hopper_token_2022` builder.
 pub struct MintToChecked<'a> {
     pub mint: &'a AccountView<'a>,
     pub account: &'a AccountView<'a>,

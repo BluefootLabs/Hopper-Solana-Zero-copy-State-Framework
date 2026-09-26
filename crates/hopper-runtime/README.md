@@ -32,6 +32,12 @@ separate LazyContext surface defers loader parsing for lazy programs.
 
 CPI: invoke, invoke_signed, invoke_checked, invoke_signed_checked, plus the unsafe cpi::invoke_unchecked / cpi::invoke_signed_unchecked variants, whose `# Safety` contract requires the caller to rule out conflicting account-data borrows.
 
+In 0.4.3, host System-transfer emulation resolves deduplicated account infos by
+address even when reordered or accompanied by extra infos. Host mutable guards
+also retain their native borrow through a movable release lease, fixing pointer
+provenance during wrapping and projection. Both regressions pass Miri. Other
+host CPIs remain validation-only no-ops; test callee behavior in an SVM or on devnet.
+
 PDA helpers: find_program_address, create_program_address, plus Hopper's verify-only sha256 path that skips curve_validate for stored-bump PDA verification.
 
 All PDA paths reject oversized seed lists instead of truncating them. The

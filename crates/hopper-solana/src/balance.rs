@@ -16,7 +16,10 @@ use crate::token::TOKEN_ACCOUNT_LEN;
 
 /// Snapshot the current token balance from a token account.
 ///
-/// Reads amount at bytes 64..72 of the SPL Token layout.
+/// Reads amount at bytes 64..72 of the SPL Token layout. The caller must validate
+/// program ownership, mint, initialized state and account identity separately.
+/// For a bound pair of validated accounts and an explicit transfer receipt policy,
+/// use [`crate::transfer::TokenTransferSnapshot`].
 #[inline(always)]
 pub fn snapshot_token_balance(account: &AccountView<'_>) -> Result<u64, ProgramError> {
     let data = account.try_borrow()?;
@@ -72,7 +75,9 @@ pub fn check_balance_decreased(
 
 /// Verify a token balance delta is within tolerance of the expected amount.
 ///
-/// `tolerance_bps` is the acceptable deviation in basis points.
+/// This checks the absolute magnitude, accepting either an increase or decrease.
+/// `tolerance_bps` is the acceptable deviation in basis points. Use a directional
+/// check or [`crate::transfer::TokenTransferSnapshot`] for a debit/credit policy.
 #[inline(always)]
 pub fn check_balance_delta(
     account: &AccountView<'_>,
