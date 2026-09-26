@@ -12,10 +12,10 @@ other Solana programs through checked CPI helpers.
 
 | Application | Working starting point |
 |---|---|
-| Token trading and settlement | [Funded token escrow](examples/hopper-escrow): deposit, atomic exchange, cancellation, surplus refunds, and rent recovery |
-| SOL custody and payments | [SOL vault](examples/hopper-vault): create, deposit through the System Program, and authorized withdrawal |
-| Multisig administration | [Bounded multisig](examples/hopper-bounded-multisig): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
-| Delegated treasury spending | [Treasury](examples/hopper-treasury): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
+| Token trading and settlement | [Funded token escrow](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-escrow/README.md): deposit, atomic exchange, cancellation, surplus refunds, and rent recovery |
+| SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
+| Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
+| Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
 | Token claims and rewards | Token CPI builders plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
 | NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
@@ -98,7 +98,7 @@ The funded escrow completed **33 finalized devnet transactions** on September 26
 2026, with full expected account-state checks and matching deployed ELF bytes
 before and after the run. Its local compiled tests also exercise token CPI
 rollback. The named SOL vault completed 19 finalized devnet transactions.
-See [program measurements](BENCHMARKS.md) and
+See [program measurements](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md) and
 [release status](https://hopperzero.dev/docs/release-status) for scope and artifacts.
 
 The registry framework version is **0.4.0**. Repository examples evolve
@@ -107,14 +107,14 @@ independently and are not published crates. The native/runtime 0.4.1 patch is va
 
 ## Documentation
 
-- [Program architecture](docs/ARCHITECTURE.md)
-- [Writing handlers and accounts](docs/WRITING_HOPPER_PROGRAMS.md)
-- [Token escrow](examples/hopper-escrow/README.md)
-- [Governance and treasury programs](docs/GOVERNANCE_PROGRAMS.md)
-- [Bounded fields](docs/BOUNDED_FIELDS.md) and [dynamic tails](docs/DYNAMIC_TAILS.md)
-- [On-chain write policies](docs/ONCHAIN_BYTE_POLICIES.md)
-- [Capabilities and integration boundaries](docs/PROGRAM_CAPABILITIES.md)
-- [Safety and unsafe invariants](docs/UNSAFE_INVARIANTS.md)
+- [Program architecture](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ARCHITECTURE.md)
+- [Writing handlers and accounts](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/WRITING_HOPPER_PROGRAMS.md)
+- [Token escrow](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-escrow/README.md)
+- [Governance and treasury programs](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/GOVERNANCE_PROGRAMS.md)
+- [Bounded fields](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/BOUNDED_FIELDS.md) and [dynamic tails](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DYNAMIC_TAILS.md)
+- [On-chain write policies](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ONCHAIN_BYTE_POLICIES.md)
+- [Capabilities and integration boundaries](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/PROGRAM_CAPABILITIES.md)
+- [Safety and unsafe invariants](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/UNSAFE_INVARIANTS.md)
 
 Framework code is licensed under MIT OR Apache-2.0 unless a component states
 otherwise. See [security reporting](SECURITY.md) before disclosing a vulnerability.
