@@ -1,0 +1,226 @@
+{
+  "observedAt": "2026-09-26T05:57:02.234450+00:00",
+  "sources": [
+    {
+      "project": "quasar",
+      "repo": "blueshift-gg/quasar",
+      "branch": "master",
+      "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "exampleOrFixtureDirectories": [
+        "examples/escrow",
+        "examples/multisig",
+        "examples/vault"
+      ]
+    },
+    {
+      "project": "pina",
+      "repo": "pina-rs/pina",
+      "branch": "main",
+      "commit": "478ae3d2811ea7f7869d2a32e6095a9727d4f9d8",
+      "exampleOrFixtureDirectories": [
+        "examples/account_realloc_program",
+        "examples/compact_accounts_program",
+        "examples/counter_program",
+        "examples/custom_errors_program",
+        "examples/declare_id_program",
+        "examples/declare_program",
+        "examples/duplicate_mutable_accounts_program",
+        "examples/escrow_program",
+        "examples/events_program",
+        "examples/float_accounts_program",
+        "examples/heap_alloc_program",
+        "examples/hello_solana_program",
+        "examples/migrations_program",
+        "examples/multisig_program",
+        "examples/optional_accounts_program",
+        "examples/pina_bpf_program",
+        "examples/privacy_pool_program",
+        "examples/profile_program",
+        "examples/prop_amm_program",
+        "examples/role_registry_program",
+        "examples/staking_rewards_program",
+        "examples/system_accounts_program",
+        "examples/sysvar_checks_program",
+        "examples/todo_program",
+        "examples/transfer_sol_program",
+        "examples/validation_program",
+        "examples/vesting_program"
+      ]
+    },
+    {
+      "project": "anchor-v2",
+      "repo": "otter-sec/anchor",
+      "branch": "anchor-next",
+      "commit": "038c193a9eedd5ffd4aaf831d501a74a0c90084e",
+      "exampleOrFixtureDirectories": [
+        "tests-v2/programs/account-address-constraints",
+        "tests-v2/programs/account-meta-signer-overrides",
+        "tests-v2/programs/accounts",
+        "tests-v2/programs/borsh-realloc",
+        "tests-v2/programs/callee",
+        "tests-v2/programs/caller",
+        "tests-v2/programs/client-builders",
+        "tests-v2/programs/constraint-values",
+        "tests-v2/programs/constraints",
+        "tests-v2/programs/custom-constraints",
+        "tests-v2/programs/declare-program",
+        "tests-v2/programs/derives",
+        "tests-v2/programs/dispatch-remaining",
+        "tests-v2/programs/dup-mut",
+        "tests-v2/programs/equivalence",
+        "tests-v2/programs/event-cpi",
+        "tests-v2/programs/foreign-borsh-account",
+        "tests-v2/programs/init-space-usability",
+        "tests-v2/programs/ix-macro",
+        "tests-v2/programs/min-ix-data-len",
+        "tests-v2/programs/optional-accounts",
+        "tests-v2/programs/pda-payer",
+        "tests-v2/programs/program-interface",
+        "tests-v2/programs/seeds",
+        "tests-v2/programs/space-annotation",
+        "tests-v2/programs/spl-ata",
+        "tests-v2/programs/spl",
+        "tests-v2/programs/token-2022-extensions",
+        "tests-v2/programs/token-interface"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "project": "quasar",
+      "path": "examples/escrow/src/instructions/take.rs",
+      "url": "https://github.com/blueshift-gg/quasar/blob/b0de7db4cd271654a2dcf78807dd865e98e0b339/examples/escrow/src/instructions/take.rs",
+      "sha256": "502733e2cb345f28d3145bcdec0fb242aff2074907f13e50e76c96746da08f23",
+      "bytes": 2332,
+      "localFile": "quasar-examples-escrow-src-instructions-take.rs"
+    },
+    {
+      "project": "quasar",
+      "path": "examples/escrow/src/instructions/refund.rs",
+      "url": "https://github.com/blueshift-gg/quasar/blob/b0de7db4cd271654a2dcf78807dd865e98e0b339/examples/escrow/src/instructions/refund.rs",
+      "sha256": "adac95574265d88c5b6b14cdfb9ad37f4149699c84881d56468b23b59e5ddfaa",
+      "bytes": 1659,
+      "localFile": "quasar-examples-escrow-src-instructions-refund.rs"
+    },
+    {
+      "project": "quasar",
+      "path": "examples/multisig/src/instructions/execute_transfer.rs",
+      "url": "https://github.com/blueshift-gg/quasar/blob/b0de7db4cd271654a2dcf78807dd865e98e0b339/examples/multisig/src/instructions/execute_transfer.rs",
+      "sha256": "1fecd8cb95a2ba11a6d21f5f6a5ea46ff48ea7360f18bd749e1bc32f3de1ddf8",
+      "bytes": 1584,
+      "localFile": "quasar-examples-multisig-src-instructions-execute_transfer.rs"
+    },
+    {
+      "project": "quasar",
+      "path": "examples/vault/src/instructions/deposit.rs",
+      "url": "https://github.com/blueshift-gg/quasar/blob/b0de7db4cd271654a2dcf78807dd865e98e0b339/examples/vault/src/instructions/deposit.rs",
+      "sha256": "5f37693e40306756892928fb07b6a6cf0906392a879c2562999137b8e5922d8a",
+      "bytes": 552,
+      "localFile": "quasar-examples-vault-src-instructions-deposit.rs"
+    },
+    {
+      "project": "pina",
+      "path": "examples/escrow_program/readme.md",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/escrow_program/readme.md",
+      "sha256": "ef62ee27f41009f051bb700af7f4faccadf6cb2dfd39aa5381445efc2206c994",
+      "bytes": 489,
+      "localFile": "pina-examples-escrow_program-readme.md"
+    },
+    {
+      "project": "pina",
+      "path": "examples/vesting_program/readme.md",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/vesting_program/readme.md",
+      "sha256": "8aeb6b4f8a13a1162855ed1ca77e80da4a80318adee9da94ec7269f986193f82",
+      "bytes": 2087,
+      "localFile": "pina-examples-vesting_program-readme.md"
+    },
+    {
+      "project": "pina",
+      "path": "examples/staking_rewards_program/readme.md",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/staking_rewards_program/readme.md",
+      "sha256": "dbd4efde9602e38d5bec5909940e3b527729451512fd821104d0f91b1d6a428a",
+      "bytes": 2985,
+      "localFile": "pina-examples-staking_rewards_program-readme.md"
+    },
+    {
+      "project": "pina",
+      "path": "examples/prop_amm_program/readme.md",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/prop_amm_program/readme.md",
+      "sha256": "6ea37b20c93e0f14c6c48781bd0d8e092e38b02c2ffe67145355c18b76156619",
+      "bytes": 1253,
+      "localFile": "pina-examples-prop_amm_program-readme.md"
+    },
+    {
+      "project": "pina",
+      "path": "examples/privacy_pool_program/readme.md",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/privacy_pool_program/readme.md",
+      "sha256": "8fc4df37506197a728e1ff0aac74920ce015fc5e0d8978bf1657310637d0e8ec",
+      "bytes": 7287,
+      "localFile": "pina-examples-privacy_pool_program-readme.md"
+    },
+    {
+      "project": "pina",
+      "path": "examples/multisig_program/readme.md",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/multisig_program/readme.md",
+      "sha256": "7d05a80032b73aa617b8c702fc85914e612944a4cc743ed39d91dbe00f54469b",
+      "bytes": 3567,
+      "localFile": "pina-examples-multisig_program-readme.md"
+    },
+    {
+      "project": "anchor-v2",
+      "path": "lang-v2/README.md",
+      "url": "https://github.com/otter-sec/anchor/blob/038c193a9eedd5ffd4aaf831d501a74a0c90084e/lang-v2/README.md",
+      "sha256": "23435245c17a5f391b5a86365ceeb1f6e516ba5ecc193f349d7c9a78999cfe30",
+      "bytes": 11824,
+      "localFile": "anchor-v2-lang-v2-README.md"
+    },
+    {
+      "project": "anchor-v2",
+      "path": "bench/programs/vault/anchor-v2/Cargo.toml",
+      "url": "https://github.com/otter-sec/anchor/blob/038c193a9eedd5ffd4aaf831d501a74a0c90084e/bench/programs/vault/anchor-v2/Cargo.toml",
+      "sha256": "f87b7f3e80308144a11bdb566fda878e641969b0ce6ca099f756ae53dc9fd798",
+      "bytes": 988,
+      "localFile": "anchor-v2-bench-programs-vault-anchor-v2-Cargo.toml"
+    },
+    {
+      "project": "anchor-v2",
+      "path": "bench/programs/vault/anchor-v2/src/lib.rs",
+      "url": "https://github.com/otter-sec/anchor/blob/038c193a9eedd5ffd4aaf831d501a74a0c90084e/bench/programs/vault/anchor-v2/src/lib.rs",
+      "sha256": "b64ebaa33a209decc03955cbc8f6c03855ecb544b1663dc2dd7067d9dc036fff",
+      "bytes": 1532,
+      "localFile": "anchor-v2-bench-programs-vault-anchor-v2-src-lib.rs"
+    },
+    {
+      "project": "anchor-v2",
+      "path": "bench/programs/multisig/anchor-v2/src/lib.rs",
+      "url": "https://github.com/otter-sec/anchor/blob/038c193a9eedd5ffd4aaf831d501a74a0c90084e/bench/programs/multisig/anchor-v2/src/lib.rs",
+      "sha256": "dfe31217850f55cf16d8604e818f1f776fcf71a78bcffd4b3c9082519bc7ae57",
+      "bytes": 1180,
+      "localFile": "anchor-v2-bench-programs-multisig-anchor-v2-src-lib.rs"
+    },
+    {
+      "project": "anchor-v2",
+      "path": "bench/programs/prop-amm/anchor-v2/src/lib.rs",
+      "url": "https://github.com/otter-sec/anchor/blob/038c193a9eedd5ffd4aaf831d501a74a0c90084e/bench/programs/prop-amm/anchor-v2/src/lib.rs",
+      "sha256": "0ca71e1b8e9703cc0fc45b896a33b6852a57a14c8d622d5bc0d7b7593ff14bee",
+      "bytes": 3094,
+      "localFile": "anchor-v2-bench-programs-prop-amm-anchor-v2-src-lib.rs"
+    },
+    {
+      "project": "pina",
+      "path": "examples/vesting_program/src/lib.rs",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/vesting_program/src/lib.rs",
+      "sha256": "3eb013926a2004862c0e15a260bf54d307ba6a6865fafe63d48b9d1fefd3c726",
+      "bytes": 24657,
+      "localFile": "pina-examples-vesting_program-src-lib.rs"
+    },
+    {
+      "project": "pina",
+      "path": "examples/staking_rewards_program/src/lib.rs",
+      "url": "https://github.com/pina-rs/pina/blob/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/staking_rewards_program/src/lib.rs",
+      "sha256": "0a2c21626ef0f59c1074e95bb59683c09eda9006590f1190ff3d7434940f6396",
+      "bytes": 34157,
+      "localFile": "pina-examples-staking_rewards_program-src-lib.rs"
+    }
+  ]
+}

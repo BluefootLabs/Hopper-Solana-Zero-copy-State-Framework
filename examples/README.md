@@ -4,6 +4,10 @@ These examples teach Hopper in layers. Start with the counter, then move into a
 small vault or escrow flow, Token-2022, migration, cross-program interfaces, and
 the full showcase once the basics are familiar.
 
+Choose a product direction with the
+[application use-case guide](../docs/APPLICATION_USE_CASES.md), which separates
+working examples from helpers and integrations you still need to build.
+
 ## Learning Order
 
 ### Tier 1: Start Here
@@ -17,8 +21,9 @@ the full showcase once the basics are familiar.
    dispatch, and state basics in one place. Companion guide:
    [hopper-vault/README.md](hopper-vault/README.md)
 
-3. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Token escrow with authority
-   checks and SPL Token integration. Companion guide: [hopper-escrow/README.md](hopper-escrow/README.md)
+3. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Escrow-shaped state lifecycle
+   with authority checks and account closure. It does not hold or transfer SPL
+   tokens; use Cicada to study token custody and settlement. Companion guide: [hopper-escrow/README.md](hopper-escrow/README.md)
 
 4. **[hopper-token-2022-vault](hopper-token-2022-vault/src/lib.rs)** - Hopper-owned
    Token-2022 vault flow with a local `hopper.manifest.json`, so the CLI can

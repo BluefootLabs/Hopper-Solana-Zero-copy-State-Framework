@@ -3,7 +3,7 @@
 ## Lead with the application
 
 Hopper is a zero-copy Solana program framework for Rust developers building
-vaults, trading programs, and applications with on-chain state and permissions.
+trading, token-claim, and marketplace logic with on-chain state and permissions.
 The first page should answer what someone can build, how they start, and why
 direct state access and explicit write limits help their application.
 
@@ -67,3 +67,20 @@ rerun every framework feature or the peer benchmark matrix. The placement
 compiler and broader wrapper extensions remain proposals. Cicada is an
 integration workload; Grillo is optional evidence tooling. Neither establishes
 universal speed, safety, or production-readiness leadership.
+
+## Application-example follow-up
+
+Lead with trading and settlement, token claims and airdrops, and NFT/cNFT
+markets. Link each to the [application guide](APPLICATION_USE_CASES.md).
+Keep the working SOL vault and delegated quotas as introductory examples,
+rather than treating quotas as a token airdrop.
+
+The [peer example review](RESEARCH_APPLICATION_EXAMPLES_2026_09_26.md)
+distinguishes Quasar application examples, Pina application guides, and Anchor
+v2 benchmark fixtures. It also identifies Hopper's state-only escrow label
+error in the example index, now corrected. Funding and token release are
+implementation requirements, not benefits that can be inferred from a name.
+
+Claims and cNFT markets are application directions with explicit integration
+gaps. They are not newly shipped templates, newly measured benchmarks, or a
+new crates.io release.

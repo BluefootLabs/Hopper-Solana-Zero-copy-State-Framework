@@ -3,17 +3,23 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-Hopper is a zero-copy Solana program framework for building vaults, trading
-programs, and on-chain applications in Rust. Declare accounts and handlers,
-work with stored state in place, and define what each instruction may change.
+Hopper is a zero-copy Solana program framework for Rust developers building
+on-chain trading, token-claim, and marketplace logic. Declare accounts and
+handlers, work with stored state in place, and define what each instruction
+may change. Combine the framework with your application rules and integrations.
 
 ## Start with what you want to build
 
-| Use case | Start here | What the example demonstrates |
+| What you want to build | Available starting point | What you add |
 |---|---|---|
-| SOL vaults and balances | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/src/lib.rs) | Named initialization, authority checks, deposits and withdrawals |
-| Delegated application quotas | [Byte allowance](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-byte-allowance/src/lib.rs) | Per-delegate limits, stale-request rejection, and writes restricted to selected usage fields |
-| Orders and settlement | [Protocol examples](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/PROTOCOL_GRADE_EXAMPLES.md) | Account-backed collections, settlement rules, and token-program integration |
+| Trading and settlement | [Intent settlement and order storage](https://hopperzero.dev/docs/use-cases#trading-and-settlement) | Product rules and production integrations; the orderbook example has no matching or settlement |
+| Token claims and airdrops | [Claim building blocks](https://hopperzero.dev/docs/use-cases#token-claims-and-airdrops): account state, token CPI, vesting and distribution math | Eligibility, claim replay protection, funded custody, and recovery; no complete airdrop template is claimed |
+| NFT and cNFT markets | [Marketplace integration guide](https://hopperzero.dev/docs/use-cases#nft-and-cnft-markets): state and Token Metadata helpers | Listing and settlement logic; Bubblegum cNFT support requires a custom integration |
+
+For a first working program, start with the
+[SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/src/lib.rs).
+For on-chain limits and scoped writes, explore
+[delegated application quotas](https://hopperzero.dev/docs/byte-allowance).
 
 Start with typed accounts and ordinary Rust handlers. Add checked cross-program
 calls, collections, state migrations, and generated clients as needed. Headered
