@@ -161,6 +161,7 @@ impl<'a, T: ?Sized> RefMut<'a, T> {
                 // guard is consumed without releasing its exclusive lease; the
                 // new guard owns that same lease for the original lifetime.
                 Ok(RefMut {
+                    // SAFETY: `ptr` retains the exclusive lease described above.
                     value: unsafe { &mut *ptr },
                     state,
                 })
