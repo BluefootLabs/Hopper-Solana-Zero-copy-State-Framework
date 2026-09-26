@@ -13,3 +13,23 @@ example; that example is not a complete governance executor.
 
 Devnet receipts are added only after finalized verification. No registry
 packages are changed by these non-published example and documentation edits.
+
+## Finalized devnet validation
+
+The September 26, 2026 run finalized **33 transactions** with complete expected
+account-state checks: 17 setup transactions and 16 escrow/donation transactions,
+including ten expected refusals. The deployed 41,656-byte ELF matched the tested
+v0 artifact before and after execution.
+
+Program: `3ZhgEZzjCaoEHVUyYkHKWcYnqf4F1ND4vjRDDbb1JZdT`.
+Source: `bd7e2a0f4e49d6b442fe46965feaf0fd8def4b45`.
+ELF SHA-256: `9ae4f1aaf919e152d58789438c5b2859ba9f432862e65a64a77579407021751b`.
+
+Make measured 7,548 and 7,873 CU for the two offers;
+take with a surplus refund measured 8,731 CU;
+cancel measured 4,773 CU. These are this fixture's
+measurements, not a competitor comparison.
+
+The first upload exhausted RPC retries before executable deployment. Its buffer
+rent was recovered; a subsequent upload used a saved buffer key. Raw deployment
+logs and all private keys are excluded from public evidence.

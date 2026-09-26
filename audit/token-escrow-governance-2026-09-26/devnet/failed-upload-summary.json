@@ -1,0 +1,6 @@
+{
+  "reason": "RPC data writes exhausted retries before executable deployment",
+  "buffer": "3etr2VHMEvtskY3syitwscZhax6eAtY1FhB3NhFG5xjZ",
+  "recoveredLamports": 212491320,
+  "rawLogExcluded": true
+}

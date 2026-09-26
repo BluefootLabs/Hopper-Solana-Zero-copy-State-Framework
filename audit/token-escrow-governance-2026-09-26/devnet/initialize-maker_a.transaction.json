@@ -1,0 +1,83 @@
+{
+  "blockTime": 1790404892,
+  "meta": {
+    "computeUnitsConsumed": 233,
+    "costUnits": 1593,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 233 of 200000 compute units",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success"
+    ],
+    "postBalances": [
+      1910520739,
+      1488440,
+      20369267856,
+      1066800
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "5Xow4rRvA3mF4ytRtaFW6Eti8WTKbZouRkUWg2swAYos",
+        "owner": "bZM5dJyD5bez2mtsLsUtmvvnFP9SwwcLgMfz5m9VDDV",
+        "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "uiTokenAmount": {
+          "amount": "0",
+          "decimals": 6,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "preBalances": [
+      1910525739,
+      1488440,
+      20369267856,
+      1066800
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 504317260,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "Bot9Xq8MgfpjCo9HLLvjaJpnvdibEG7Uwu4BG5ZbqWqd",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "5Xow4rRvA3mF4ytRtaFW6Eti8WTKbZouRkUWg2swAYos"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            3
+          ],
+          "data": "6MjG21pqmVvsVFWsQxW4pNkNKH8xxrhDK3bXXUfSxnMeT",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "9TbUkChycXiFE2QbLdCkqaPZFaEQRradZuqUZdYGqd2N"
+    },
+    "signatures": [
+      "28dyPQSipwkpNCyhQmU1qyNC6VHHoRgruidMSyRpvtC8cnXESJ579VqbcLvSX1iKgzn4ruD3z8a125dURnruQ7R6"
+    ]
+  },
+  "transactionIndex": 16,
+  "version": "legacy"
+}

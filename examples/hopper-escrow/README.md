@@ -92,3 +92,23 @@ creates real mints and token accounts, and checks finalized full account
 snapshots after each transaction, including expected failures. Private keypairs
 remain under its ignored output directory. This example has not received an
 independent security audit.
+
+## Finalized devnet validation
+
+The September 26, 2026 run finalized **33 transactions** with complete expected
+account-state checks: 17 setup transactions and 16 escrow/donation transactions,
+including ten expected refusals. The deployed 41,656-byte ELF matched the tested
+v0 artifact before and after execution.
+
+Program: `3ZhgEZzjCaoEHVUyYkHKWcYnqf4F1ND4vjRDDbb1JZdT`.
+Source: `bd7e2a0f4e49d6b442fe46965feaf0fd8def4b45`.
+ELF SHA-256: `9ae4f1aaf919e152d58789438c5b2859ba9f432862e65a64a77579407021751b`.
+
+Make measured 7,548 and 7,873 CU for the two offers;
+take with a surplus refund measured 8,731 CU;
+cancel measured 4,773 CU. These are this fixture's
+measurements, not a competitor comparison.
+
+
+Public signatures, full snapshots, and artifact checks are in the
+[validation archive](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/token-escrow-governance-2026-09-26).

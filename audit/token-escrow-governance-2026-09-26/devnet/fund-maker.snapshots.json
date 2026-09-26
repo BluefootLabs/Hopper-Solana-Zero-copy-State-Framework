@@ -1,0 +1,172 @@
+{
+  "before": {
+    "payer": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1937202779,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "maker": null,
+    "taker": null,
+    "outsider": null,
+    "mint_a": null,
+    "mint_b": null,
+    "maker_a": null,
+    "maker_b": null,
+    "taker_a": null,
+    "taker_b": null,
+    "escrow_take": null,
+    "vault_take": null,
+    "escrow_cancel": null,
+    "vault_cancel": null,
+    "authority_take": null,
+    "authority_cancel": null,
+    "token": {
+      "data": [
+        "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 20369267856,
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 36
+    },
+    "system": {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  },
+  "expected": {
+    "payer": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1917197779,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "maker": {
+      "owner": "11111111111111111111111111111111",
+      "lamports": 20000000,
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "taker": null,
+    "outsider": null,
+    "mint_a": null,
+    "mint_b": null,
+    "maker_a": null,
+    "maker_b": null,
+    "taker_a": null,
+    "taker_b": null,
+    "escrow_take": null,
+    "vault_take": null,
+    "escrow_cancel": null,
+    "vault_cancel": null,
+    "authority_take": null,
+    "authority_cancel": null,
+    "token": {
+      "data": [
+        "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 20369267856,
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 36
+    },
+    "system": {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  },
+  "after": {
+    "payer": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1917197779,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "maker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 20000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "taker": null,
+    "outsider": null,
+    "mint_a": null,
+    "mint_b": null,
+    "maker_a": null,
+    "maker_b": null,
+    "taker_a": null,
+    "taker_b": null,
+    "escrow_take": null,
+    "vault_take": null,
+    "escrow_cancel": null,
+    "vault_cancel": null,
+    "authority_take": null,
+    "authority_cancel": null,
+    "token": {
+      "data": [
+        "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 20369267856,
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 36
+    },
+    "system": {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  }
+}

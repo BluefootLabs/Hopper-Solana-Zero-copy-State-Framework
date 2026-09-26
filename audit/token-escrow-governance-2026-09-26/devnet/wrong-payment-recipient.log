@@ -1,0 +1,29 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 3ZhgEZzjCaoEHVUyYkHKWcYnqf4F1ND4vjRDDbb1JZdT
+data      : 17 bytes (0x01e803000000000000d007000000000000)
+accounts  : 12 slots
+  [0] 3bGKnmG6aFc4Qk92JgscNHZEGbnnyCY6PQL1hSBrBeFS s-
+  [1] NHkzZLorBhiFCc6eGUzPxiRV2Zid5wbVCTNbpLzLFE2 -w
+  [2] bZM5dJyD5bez2mtsLsUtmvvnFP9SwwcLgMfz5m9VDDV -w
+  [3] 8bxiuPWB6zTrMqnFE3bTMQmvkvZYbdCzq2W1inJ9Rjp9 --
+  [4] Dsq1MGjuxEUKMtsriQ14AtdnzeFag49zGtt4vGeqKBXT -w
+  [5] 5Xow4rRvA3mF4ytRtaFW6Eti8WTKbZouRkUWg2swAYos --
+  [6] CWSU91JRkMMDTdNaZQXeYSqGtsqFEbFmPmJ6c2SLK7cb --
+  [7] AvpGB6F4QieGuUQXsyrkGpLM3mwrnzX38cKapeBH59eH -w
+  [8] 3PmMdMLY5B5LsjPGAFHw9VPDovGYawx8PgA4UyvYLcJ1 -w
+  [9] 3PmMdMLY5B5LsjPGAFHw9VPDovGYawx8PgA4UyvYLcJ1 -w
+  [10] Bot9Xq8MgfpjCo9HLLvjaJpnvdibEG7Uwu4BG5ZbqWqd -w
+  [11] TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA --
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn, 3bGKnmG6aFc4Qk92JgscNHZEGbnnyCY6PQL1hSBrBeFS
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 614/1232 bytes (legacy)
+
+signature : 5yTTWEeJHUhE8RJFcxCAMzugLGckGUcJZFakb7rZvpgtNHpNxU6WJmLsmdxmmGxG35vNb81esPANogAsR6kEnz5Y
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidAccountData"]}
+compute   : 456 CU
+fee       : 10000 lamports
+
+explain it: hopper tx explain 5yTTWEeJHUhE8RJFcxCAMzugLGckGUcJZFakb7rZvpgtNHpNxU6WJmLsmdxmmGxG35vNb81esPANogAsR6kEnz5Y --rpc https://api.devnet.solana.com

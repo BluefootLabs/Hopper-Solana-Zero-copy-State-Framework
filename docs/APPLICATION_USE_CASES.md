@@ -25,7 +25,9 @@ application. The smaller
 creates a classic SPL Token vault, deposits the offer, exchanges both tokens
 atomically, and refunds the maker on cancellation. Surplus deposits return to
 the maker. Layout v2 replaces the old state-only example; read its token policy
-and current validation evidence before deploying.
+and current validation evidence before deploying. Its September 26 run finalized
+33 devnet transactions with full expected account-state checks, including setup,
+funding, settlement, cancellation, donations, and ten expected refusals.
 
 ## Token claims and airdrops
 
