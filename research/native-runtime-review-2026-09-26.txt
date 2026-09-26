@@ -1,0 +1,99 @@
+Native runtime review, September 26, 2026
+
+Scope and limits
+This is a targeted implementation review, not a completed line-by-line audit of
+every repository. Full pinned inventories and fetched-file hashes are captured
+separately. Downloaded files and an unchanged head do not count as reviewed code.
+No third-party implementation was copied into Hopper. Product documentation does
+not use this comparison as a claim of universal speed, security, or API parity.
+
+Pins
+Pinocchio: anza-xyz/pinocchio adbd48d12229ffa30d6fb3d3a8ff777fdb053b80
+SDK: anza-xyz/solana-sdk 6f74525ac8fba532017b379769549f4640c90e62
+Pina: pina-rs/pina 478ae3d2811ea7f7869d2a32e6095a9727d4f9d8
+Quasar: blueshift-gg/quasar b0de7db4cd271654a2dcf78807dd865e98e0b339
+Anchor v2: otter-sec/anchor, anchor-next, 038c193a9eedd5ffd4aaf831d501a74a0c90084e
+Beethoven: blueshift-gg/beethoven b1f2c0f5ac71d7e557f772e16c6058800c82c438
+ABI v2: blueshift-gg/abiv2 1fa9c6af359901a1ad0d44973a701ae792ce9129
+PinaPod: pina-rs/pinapod 4ce33bb2ea5757d6220be2f2313d58851f7db79f
+Lootbox: pina-rs/lootbox 65273faeb0705fb8160b55dc699086b2d584ad1e
+Agave: anza-xyz/agave f77165963c709934e8ea8564187c00f081b597d1
+SIMDs: solana-foundation/solana-improvement-documents 4b643ca8746742183a469681765e694b385bb315
+
+Reviewed implementation boundaries and conclusions
+- Pinocchio sdk/Cargo.toml and sdk/src/lib.rs resize implementation (roughly
+  lines 425-500): SDK account-view/instruction-view are part of the relevant
+  dependency surface. Resize checks original allocation and zeroes growth.
+- SDK account-view/src/lib.rs account metadata, borrow guards, mappings and close
+  sections: close clears metadata after checking borrows. Lamports must be moved
+  first by the caller. Mapped borrows are established APIs, not a new invention.
+- Pina crates/pina/src/cpi.rs realloc helper (1867-1953): owner/writable checks,
+  a rent plan, funding/refund, and resize. Its comment distinguishes per-step
+  checks from entry-time cumulative growth. Hopper can preflight its own stored
+  entry length before a System-funded resize. Retaining excess rent is Hopper's
+  explicit policy here, not a claim that refunding is inherently incorrect.
+- Pina crates/pina/tests/verified_transfer.rs (whole file): exact source debit
+  and positive destination credit bounded by requested amount. A successful CPI
+  alone does not establish a protocol's economic outcome; Hopper's token examples
+  and post-CPI checks must retain explicit amount/fee policy.
+- Quasar lang/src/ops/close.rs and realloc.rs (whole files), account_init.rs
+  selected path, lang/src/cpi/dyn_cpi.rs builder and invocation/return sections:
+  stack capacities, initialized prefixes, raw invocation and producer checking
+  are distinct responsibilities. The local wrapping close arithmetic is not by
+  itself proof of an exploitable issue in callers. Hopper's close helper must
+  nevertheless reject overflow and aliases before mutation.
+- Anchor v2 lang-v2/src/cpi.rs resize/refund sections, tests/realloc_payer_target_check.rs
+  (whole file), tests/close_semantics.rs first 165 lines: payer-target aliases and
+  close-time metadata are real API contracts. Reviewed tests are not evidence
+  that every Anchor v2 call path was audited.
+- Beethoven crates/core/src/lib.rs (whole file): protocol adapter traits for
+  swaps/deposits. A generic checked-CPI boundary does not supply all DEX adapters.
+- ABI v2 README, sdk/src/context.rs (whole file), account.rs metadata/resize/borrow
+  sections (1-145 and 275-435): runtime-provided transaction indices, separate
+  borrow flags, and mutation syscalls. The pinned README labels it alpha and
+  requires an experimental Agave/Mollusk fork. Do not market ABI v2 as public
+  cluster support, or treat it as interchangeable with SIMD-0449 input pointers.
+- PinaPod README, lib.rs safety overview and traits.rs validation section
+  (105-205): alignment-one representation and domain validation are separate.
+  Generated compact multi-tail code was fetched but not fully reviewed.
+- Lootbox README and program lib.rs reveal/payout section (1159-1241): drop state
+  borrows around CPI, re-read oracle results, and preserve post-payout liability.
+  It is an application example with explicit experimental status, not evidence
+  that a complete random-rewards integration already exists in Hopper.
+
+Hopper changes prompted by this boundary review
+1. Runtime SBF segment guards previously used an unchecked native projection
+   without retaining its account borrow. Local registries did not exclude a
+   second registry, whole-account borrows, lifecycle mutation or CPI. Retain the
+   canonical native lease and keep explicit checked multi-field splits.
+2. SegmentsMut's doc-hidden public constructor accepted unvalidated offsets.
+   Restrict it to the checked runtime construction path; compile-fail regression.
+3. Preflight close borrows, aliases, writable flags, credit overflow and runtime
+   policy before data/balance mutation. Correct direct native self-transfer and
+   reject self-funded rent deficits. Host baseline tests reproduce the failures.
+4. Add native lease-preserving field mapping and a System-funded resize builder.
+   Miri found a candidate mapping provenance error missed by native execution.
+   Move the parent reference before deriving a projection; separate unwind lease
+   release. Both mapping and lifecycle tests pass Miri after correction.
+5. Published runtime 0.4.1 fails the compiled segment regression safely before
+   attempting aliasing. Fixed v0/v3 pass. Deployed lifecycle ELFs match the later
+   Miri-corrected builds byte-for-byte; see the source-lineage receipt.
+
+Network evidence
+Finalized public RPC queried expected genesis and 22 source-pinned Feature
+accounts per cluster at 2026-09-26 10:07 UTC. Alpenglow is active on devnet/testnet;
+the mainnet account is absent. Direct pointers, SHA-512 and the 200 ms slot stage
+are not active mainnet observations. A System-owned address is not a proven
+Feature activation. Proposal labels are not deployment status. Alpenglow changes
+neither Hopper account-lock granularity nor the requirement to submit a transaction.
+
+Remaining research, not shipped capabilities
+Do not claim a universal Pinocchio drop-in replacement: public Rust types and
+downstream CPI adapters have their own integration contracts. Hopper owns its
+native account/entrypoint/CPI implementation; replacing another SDK in a program
+still requires porting and testing that program. ABI v2, full sister-repo audits,
+additional protocol adapters and absolute comparative performance remain separate
+work. Existing dated benchmark wins and losses must retain their source pins.
+
+Primary source URLs follow https://github.com/{repository}/blob/{pin}/{path}.
+Public source metadata and exact fetched-file hashes are archived with this run.

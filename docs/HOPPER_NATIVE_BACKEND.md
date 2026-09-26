@@ -87,9 +87,29 @@ Hopper's direct runtime groups the following capabilities behind one account-mem
 | `lazy` | Dispatch-before-parse lazy account resolution |
 | `capability` | Compile-time capability types (SignerView, WritableView, etc.) |
 | `project` | Bounds-checked zero-copy struct projection |
-| `budget` | CU budget tracking and `cu_trace!` macro |
+| `budget` | Tracing helpers; remaining-CU syscall requires explicit cluster support |
 | `hash` | Zero-alloc multi-part hashing via syscalls |
-| `return_data` | Typed CPI return data deserialization |
-| `batch` | Atomic close-and-transfer, realloc-checked operations |
-| `sysvar` | Complete sysvar access with computed helpers |
+| `return_data` | Producer-checked typed CPI return-data prefix reads |
+| `batch` | Preflighted close/transfer, direct rent top-ups, System-funded resize |
+| `sysvar` | Supported sysvar readers and computed helpers |
 | `safe/expert/raw` | Tiered API surface for progressive unsafe exposure |
+
+## Grow and release application state
+
+Use `hopper_native::batch::ResizeWithPayer` for a program-owned account funded
+by a System-owned wallet or PDA. Pass the current entrypoint program ID and the
+executable System Program account. The default invocation reads live rent;
+`invoke_signed_with_rent` accepts a value already read in the same instruction.
+Validate your application's authority first. Shrinking keeps excess SOL in the
+account; a refund is an explicit application decision.
+
+Direct `realloc_checked_with` debits its optional payer without CPI and therefore
+requires a payer owned by the executing program. It is not a wallet-transfer API.
+Native operations sit outside runtime write policies. Runtime programs use the
+guarded account and lamport APIs for policy-controlled mutations.
+
+Keep account borrows scoped around local computation and drop them before CPI
+that needs conflicting access. `Ref::map` and `RefMut::map` select fields while
+retaining their account lease; runtime `split_segments_mut` validates several
+disjoint fields under one lease. A local segment registry alone is not an alias
+boundary. The 0.4.2 SBF path retains both the range lease and native borrow.

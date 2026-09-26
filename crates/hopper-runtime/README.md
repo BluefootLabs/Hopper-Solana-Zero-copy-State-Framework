@@ -89,3 +89,20 @@ not prove authority: Solana still derives and verifies the PDA at the CPI bounda
 The native `invoke_and_read<T>` helper also checks the return-data producer and
 typed prefix, rejecting a nested program's unforwarded result. Applications
 remain responsible for validating the returned value's meaning.
+
+## Account lifecycle safety in 0.4.2
+
+Segment guards retain their native account borrow on SBF. Conflicting access,
+resizing, closure, and writable checked CPI are refused until the guard drops.
+Runtime callers edit multiple fields through the checked `split_segments_mut`
+API; its raw constructor is no longer public. Close refusals preserve account
+state even when caught. Direct self-transfers are balance-checked net zero.
+
+Native `Ref` / `RefMut` mapping keeps the original lease while selecting a
+field. Native `batch::ResizeWithPayer` (feature `cpi`) grows program-owned state
+using live rent and a checked System transfer from a wallet or System-owned
+PDA. It checks growth before charging, zeroes exposed bytes, and retains excess
+rent on shrink. The application must authorize the operation. Runtime write
+policies do not govern APIs deliberately called at the native layer.
+
+[Compiled and devnet evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-lifecycle-2026-09-26).

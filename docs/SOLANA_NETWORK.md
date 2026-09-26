@@ -1,6 +1,6 @@
 # Solana network compatibility
 
-Alpenglow was rechecked **2026-09-26 08:41 UTC** through finalized public RPC,
+Alpenglow was rechecked **2026-09-26 10:07 UTC** through finalized public RPC,
 with expected genesis, Feature ownership, and activation encoding checks.
 These are observations, not authenticated ledger proofs or permanent constants.
 
@@ -10,16 +10,16 @@ The feature account `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS` reports:
 
 | Cluster | Finalized snapshot slot | Alpenglow gate |
 |---|---:|---|
-| Devnet | 504348469 | Active since 504144000 |
-| Testnet | 445256318 | Active since 444620256 |
-| Mainnet-beta | 450623655 | Absent |
+| Devnet | 504370928 | Active since 504144000 |
+| Testnet | 445280060 | Active since 444620256 |
+| Mainnet-beta | 450643028 | Absent |
 
 Anza's [feature tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule)
 records testnet epoch 1042 and devnet epoch 1167, with mainnet activation pending.
 An activation slot is not a measured first Votor-finalized block or a latency
 benchmark. Validator versions alone do not establish activation.
 
-The [pinned SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/f1afd941b9fa5061ea80a5401feb72172121ebb5/proposals/0326-alpenglow.md)
+The [pinned SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/4b643ca8746742183a469681765e694b385bb315/proposals/0326-alpenglow.md)
 covers Votor. Rotor, smart sampling, and lazy/asynchronous execution are outside
 its scope. Its `Review` label illustrates why proposal status and deployed
 features must be checked separately.
@@ -36,10 +36,10 @@ Consensus finality does not remove account locks, compute charges, or applicatio
 authorization requirements. Hopper byte policies continue to govern tracked
 mutation inside the program; they do not change the scheduler's account locks.
 
-## Other runtime observations from September 25
+## Other runtime observations from September 26
 
-The following table retains the **2026-09-25 06:23 UTC** capture; it was not all
-requeried with the Alpenglow check.
+The same finalized capture checked 22 feature accounts per cluster, with source
+keys pinned to Agave `f77165963c709934e8ea8564187c00f081b597d1`.
 
 | Feature | Devnet | Testnet | Mainnet-beta |
 |---|---|---|---|
@@ -49,7 +49,6 @@ requeried with the Alpenglow check.
 | 0460 virtual address adjustments | Active | Active | Unproven: System-owned account |
 | Account-data direct mapping and 0512 SHA-512 | Active | Active | Absent |
 | 0500 older-sBPF deployment restriction and 0049 remaining-compute syscall | Absent | Absent | Absent |
-| CPI depth-eight gate | Absent | Absent | Absent |
 | 0194 rent threshold and first two 0437 price stages | Active | Active | Active |
 | Remaining three 0437 rent stages | Absent | Absent | Absent |
 | Slot-time stages through 250 ms | Active | Active | Active |
@@ -63,3 +62,6 @@ not a shipped Hopper capability.
 The [release record](https://hopperzero.dev/docs/release-status) separates these
 network observations from Hopper's own compiled and devnet tests. Query the
 actual target cluster again before enabling a gated feature.
+
+The CPI depth-eight gate was absent in the separate September 25 capture; it
+was not included in this 22-feature refresh.

@@ -325,7 +325,7 @@ impl<'a, T: crate::Pod, const N: usize> SegmentsMut<'a, T, N> {
         N
     }
 
-    /// Always `false` (a split with `N == 0` is not constructed).
+    /// Whether this split contains no ranges (`N == 0`).
     #[inline(always)]
     pub const fn is_empty(&self) -> bool {
         N == 0
