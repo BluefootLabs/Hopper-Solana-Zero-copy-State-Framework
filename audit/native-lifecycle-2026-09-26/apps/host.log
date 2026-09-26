@@ -1,0 +1,479 @@
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+   Compiling hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-memo v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-svm v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+   Compiling hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+    Finished `test` profile [unoptimized] target(s) in 10.18s
+     Running unittests src\lib.rs (target\debug\deps\hopper-3a70611a14901d80.exe)
+
+running 6 tests
+test __macro_support::tests::decodes_bounded_string_arg_then_scalar ... ok
+test __macro_support::tests::finish_rejects_trailing_bytes ... ok
+test __macro_support::tests::decodes_scalars_in_order ... ok
+test __macro_support::tests::decodes_bounded_vec_arg_then_tail_slice ... ok
+test __macro_support::tests::typed_address_decodes ... ok
+test __macro_support::tests::remainder_slice_consumes_tail ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\compact_dynamic_tail_integration.rs (target\debug\deps\compact_dynamic_tail_integration-ca3b99210ec288ae.exe)
+
+running 7 tests
+test compact_dynamic_tail_sits_right_after_one_byte_disc_and_head ... ok
+test compact_raw_tail_exposes_payload_slice ... ok
+test compact_space_for_tail_is_disc_head_prefix_capacity ... ok
+test compact_tail_write_then_read_roundtrips_typed_payload ... ok
+test distinct_tail_types_yield_distinct_layout_ids ... ok
+test fixed_compact_layout_reports_no_dynamic_tail ... ok
+test compact_market_implements_compact_dynamic_layout ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\compact_tail_collections_integration.rs (target\debug\deps\compact_tail_collections_integration-de334131a6e0d0d7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\composite_contexts_integration.rs (target\debug\deps\composite_contexts_integration-8b6e03a8e2cbf381.exe)
+
+running 7 tests
+test account_count_sums_across_the_composite ... ok
+test inner_unsigned_authority_fails_bind ... ok
+test outer_unsigned_payer_fails_bind ... ok
+test schema_metadata_splices_the_inner_context_per_slot ... ok
+test inner_wrong_owner_vault_fails_bind ... ok
+test valid_set_binds_and_writes_land_in_the_correct_flattened_slots ... ok
+test too_few_accounts_for_the_flattened_count_fails ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\composite_options_integration.rs (target\debug\deps\composite_options_integration-63c796ac44b59f4d.exe)
+
+running 6 tests
+test composed_write_ranges_splice_the_inner_segment_rebased ... ok
+test event_cpi_appends_after_the_flattened_set_and_control_is_unchanged ... ok
+test composite_dispatcher_emits_on_ok_and_not_on_err ... ok
+test inner_segment_lease_enforceable_from_the_outer_gate ... ok
+test composite_event_context_requires_the_trailing_slots ... ok
+test composite_event_emit_produces_the_exact_wire_bytes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\constant_integration.rs (target\debug\deps\constant_integration-e506e7f2ddd77267.exe)
+
+running 4 tests
+test constant_value_preserved ... ok
+test descriptor_captures_metadata ... ok
+test idl_emitter_empty_constants_array_on_empty_slice ... ok
+test idl_emitter_renders_constants_array ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\declare_id.rs (target\debug\deps\declare_id-c660f38d1b305bfe.exe)
+
+running 2 tests
+test declare_id_generates_id_and_accessors ... ok
+test declared_id_round_trips_through_base58 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\declare_program_integration.rs (target\debug\deps\declare_program_integration-f1dd90de60391b43.exe)
+
+running 1 test
+test declare_program_builds_borrowed_instruction_parts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\dx_parity_docs.rs (target\debug\deps\dx_parity_docs-687a244480b81889.exe)
+
+running 1 test
+test public_docs_and_templates_stay_on_first_touch_surface ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\dynamic_account_integration.rs (target\debug\deps\dynamic_account_integration-2c0b6aa5c008e56f.exe)
+
+running 16 tests
+test account_pretty_tail_schema_changes_layout_fingerprint ... ok
+test account_attribute_auto_upgrades_pretty_dynamic_fields ... ok
+test account_sugar_lowers_signed_and_wide_scalars_to_wire ... ok
+test bare_tail_str_validates_utf8_on_access ... ok
+test bare_tail_bytes_are_binary_safe ... ok
+test bare_tail_can_follow_bounded_compact_head ... ok
+test generated_editor_commits_string_and_vector_changes ... ok
+test account_too_small_errors_before_tail_write ... ok
+test dynamic_account_accepts_generic_tail_vectors ... ok
+test dynamic_account_generates_fixed_body_tail_and_views ... ok
+test dynamic_account_sugar_lowers_signed_and_wide_scalars_to_wire ... ok
+test invalid_utf8_in_compact_tail_is_rejected_by_borrowed_view ... ok
+test layout_fingerprint_distinguishes_bare_tail_kind ... ok
+test layout_fingerprint_includes_dynamic_tail_schema ... ok
+test bare_tail_str_consumes_remaining_payload ... ok
+test bounded_tail_capacity_is_enforced ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\emit_touch_map_dispatch_integration.rs (target\debug\deps\emit_touch_map_dispatch_integration-38b3d3cdda40ddc3.exe)
+
+running 2 tests
+test opt_in_advertises_the_const_control_does_not ... ok
+test dispatcher_emits_on_ok_path_and_not_on_err_path ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\epoch_migrate_context_integration.rs (target\debug\deps\epoch_migrate_context_integration-8699ca73c163aebd.exe)
+
+running 4 tests
+test current_epoch_account_binds_without_a_single_byte_written ... ok
+test standalone_validate_accepts_stale_epochs_read_only_and_rejects_future ... ok
+test future_epoch_account_fails_bind_and_is_not_written ... ok
+test stale_epoch_account_heals_through_both_edges_at_bind ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\error_derive_integration.rs (target\debug\deps\error_derive_integration-14cb0be21fd1e608.exe)
+
+running 7 tests
+test derived_code_is_stable_and_nonzero ... ok
+test explicit_codes_round_trip_through_u32 ... ok
+test into_works_in_program_result_position ... ok
+test invariant_metadata_is_recoverable ... ok
+test lowers_into_program_error_custom ... ok
+test registry_tables_track_every_variant ... ok
+test rust_discriminant_agrees_with_wire_code ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\event_cpi_dispatch_integration.rs (target\debug\deps\event_cpi_dispatch_integration-324be32215e64077.exe)
+
+running 7 tests
+test bind_pins_the_appended_program_slot_to_the_program_id ... ok
+test opt_in_appends_two_trailing_slots_and_advertises_the_const ... ok
+test emit_with_unsigned_outer_pda_authority_uses_supplied_seeds ... ok
+test emit_one_liner_produces_the_exact_wire_bytes ... ok
+test opted_in_context_requires_the_two_extra_accounts ... ok
+test generated_sink_authenticates_marker_instructions ... ok
+test control_program_behaves_exactly_as_before ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\exact_cell_accessors_integration.rs (target\debug\deps\exact_cell_accessors_integration-43c0516287717419.exe)
+
+running 3 tests
+test attribute_context_projects_the_last_valid_u32_selected_cell ... ok
+test out_of_range_reads_and_writes_refuse_without_truncating_the_selector ... ok
+test multiple_selectors_change_only_the_selected_typed_cells ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\hybrid_tail_integration.rs (target\debug\deps\hybrid_tail_integration-3033297da8fb9e89.exe)
+
+running 9 tests
+test dynamic_fields_sugar_expands_to_tail_codec ... ok
+test layout_reports_has_dynamic_tail_true ... ok
+test plain_layout_reports_has_dynamic_tail_false ... ok
+test tail_len_on_freshly_zeroed_buffer_is_zero ... ok
+test tail_prefix_offset_sits_after_fixed_body ... ok
+test tail_read_rejects_truncated_buffer ... ok
+test tail_rewrite_overwrites_previous_payload ... ok
+test tail_write_then_read_roundtrips_typed_payload ... ok
+test tail_write_updates_prefix_then_payload ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\init_if_needed_integration.rs (target\debug\deps\init_if_needed_integration-222e432e48b1da58.exe)
+
+running 8 tests
+test composite_v2_lets_the_outer_container_use_init_if_needed ... ok
+test nonempty_foreign_layout_fails_exactly_like_a_required_mut_account ... ok
+test nonempty_wrong_owner_fails_exactly_like_a_required_mut_account ... ok
+test empty_slot_binds_and_runs_the_full_init_cpi_lifecycle ... ok
+test nonempty_valid_slot_binds_without_recreating_and_preserves_state ... ok
+test published_surface_names_init_if_needed_and_its_bind_time_contract ... ok
+test prefunded_at_minimum_debits_the_payer_nothing_but_still_allocates_and_assigns ... ok
+test prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\instructions_sysvar.rs (target\debug\deps\instructions_sysvar-070d108392de09f3.exe)
+
+running 3 tests
+test instructions_sysvar_free_helpers_are_reachable_from_hopper_sysvar ... ok
+test instructions_sysvar_reader_is_also_reachable_from_hopper_systems ... ok
+test instructions_sysvar_reader_is_reachable_from_hopper_sysvar ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\layout_overlay_offsets.rs (target\debug\deps\layout_overlay_offsets-530ba24f65db60a1.exe)
+
+running 2 tests
+test body_only_proc_layout_skips_header_and_keeps_borrow_guard ... ok
+test declarative_layout_still_includes_header ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\metaplex_context_integration.rs (target\debug\deps\metaplex_context_integration-76c786e04a333805.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\migrate_integration.rs (target\debug\deps\migrate_integration-5be41ff3d51b8cf9.exe)
+
+running 8 tests
+test applying_edges_in_order_produces_final_state ... ok
+test edge_constants_are_forward_migrations ... ok
+test migrators_reject_too_short_body ... ok
+test migration_chain_has_continuity ... ok
+test edge_constants_carry_correct_epochs ... ok
+test layout_migrations_macro_registers_chain ... ok
+test v1_to_v2_migrator_adds_100_in_place ... ok
+test v2_to_v3_migrator_xors_with_constant_deterministically ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\migrating_context_integration.rs (target\debug\deps\migrating_context_integration-cbf599514129cff7.exe)
+
+running 9 tests
+test foreign_layout_fails_bind_with_the_normal_error_and_is_not_written ... ok
+test standalone_validate_accepts_both_versions_without_writing ... ok
+test standalone_validate_still_rejects_foreign_layouts ... ok
+test undersized_v1_grows_at_bind_with_a_payer_funded_rent_top_up ... ok
+test unsigned_authority_still_fails_bind ... ok
+test undersized_v1_allocation_is_rejected_by_both_surfaces ... ok
+test v1_account_binds_migrates_and_handler_reads_the_transformed_values ... ok
+test v2_account_binds_without_a_single_byte_written ... ok
+test validate_accepts_undersized_v1_when_the_context_declares_resize ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\named_fields.rs (target\debug\deps\named_fields-8f7f594ac7bee33b.exe)
+
+running 4 tests
+test compact_named_inputs_keep_the_compact_wire_contract ... ok
+test consumer_defined_inputs_can_validate_before_writing ... ok
+test named_and_positional_inputs_have_identical_wire_bytes ... ok
+test composed_initialization_propagates_failure_without_local_undo ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\optional_accounts_integration.rs (target\debug\deps\optional_accounts_integration-7fd31792f8cc3554.exe)
+
+running 7 tests
+test optional_slots_still_count_and_schema_publishes_optionality ... ok
+test absent_optionals_bind_none_and_perform_zero_checks ... ok
+test present_optionals_bind_some_with_checks_enforced_and_typed_access ... ok
+test present_optional_not_writable_fails_exactly_like_required ... ok
+test present_optional_with_wrong_owner_fails_exactly_like_required ... ok
+test program_id_slot_in_a_required_context_is_not_special ... ok
+test present_optional_signer_unsigned_fails_exactly_like_required ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\program_manifest_integration.rs (target\debug\deps\program_manifest_integration-58b8ca8875fbffed.exe)
+
+running 13 tests
+test __hopper_manifest_export::__hopper_print_manifest ... ok
+test account_rows_are_converted_verbatim_from_schema_metadata ... ok
+test event_descriptor_publishes_tag_and_payload_relative_fields ... ok
+test layout_manifest_carries_real_types_offsets_and_declared_intents ... ok
+test context_descriptors_are_the_specs_schema_metadata ... ok
+test manifest_json_renders_the_decode_surfaces ... ok
+test name_version_default_to_cargo_pkg_and_override_cleanly ... ok
+test overrides::__hopper_manifest_export::__hopper_print_manifest ... ok
+test checked_in_smoke_manifest_carries_tx_explain_decode_surfaces ... ok
+test schema_export_and_layout_manifest_agree ... ok
+test typed_handlers_publish_rows_raw_handlers_stay_opaque ... ok
+test wrapper_signers_publish_signer_true ... ok
+test release_binding_is_derived_from_the_same_program_manifest ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\remaining_accounts_context_integration.rs (target\debug\deps\remaining_accounts_context_integration-0116fdb61b223501.exe)
+
+running 1 test
+test context_generates_remaining_account_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\require_macros.rs (target\debug\deps\require_macros-a5e0b5228ff9373a.exe)
+
+running 16 tests
+test require_amount_positive_rejects_zero ... ok
+test require_eq_errors_when_not_equal ... ok
+test require_gt_rejects_equal_values ... ok
+test require_gt_passes_when_strictly_greater ... ok
+test require_eq_passes_when_equal ... ok
+test require_keys_eq_errors_when_different_bytes ... ok
+test require_keys_neq_errors_when_same_bytes ... ok
+test require_gte_passes_when_greater_or_equal ... ok
+test require_neq_passes_when_different ... ok
+test require_keys_eq_passes_when_same_bytes ... ok
+test require_gte_errors_when_less ... ok
+test require_keys_neq_passes_when_different_bytes ... ok
+test require_neq_errors_when_equal ... ok
+test require_errors_when_cond_false ... ok
+test require_passes_when_cond_true ... ok
+test require_short_form_returns_invalid_argument ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\segment_descriptor_validation.rs (target\debug\deps\segment_descriptor_validation-af08464a07e7b204.exe)
+
+running 2 tests
+test malformed_geometry_is_refused_before_exposing_elements ... ok
+test valid_slice_mutation_preserves_neighboring_regions ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\seq_tail_integration.rs (target\debug\deps\seq_tail_integration-21fc212218db285f.exe)
+
+running 4 tests
+test layout_id_is_capacity_independent ... ok
+test tail_context_publishes_a_single_open_ended_tail_range ... ok
+test systems_mode_seq_tail_spelling_generates_the_same_cursors ... ok
+test seq_tail_push_grow_and_head_protection_end_to_end ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\stored_bump_integration.rs (target\debug\deps\stored_bump_integration-f78f241d5a38ecc2.exe)
+
+running 2 tests
+test canonical_bump_abs_offset_points_at_the_marked_field ... ok
+test stored_bump_context_compiles_against_the_marker_const ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\strict_writes_manifest_integration.rs (target\debug\deps\strict_writes_manifest_integration-340c67d92a76cbf1.exe)
+
+running 12 tests
+test effective_writable_demotes_exactly_the_untouched_account ... ok
+test lamports_context_publishes_mutation_complete_consts ... ok
+test bound_context_transfer_lamports_is_gated_end_to_end ... ok
+test manifest_json_publishes_mutation_complete_for_lamports_context ... ok
+test runtime_write_policy_enforces_exactly_the_published_ranges ... ok
+test sweep_context_implies_exactly_the_sweep_roles ... ok
+test manifest_json_publishes_the_context_write_set ... ok
+test sweep_helper_executes_end_to_end_under_the_lamport_gate ... ok
+test runtime_gate_refuses_undeclared_lamport_mutation_for_bound_scope ... ok
+test published_write_ranges_byte_match_declared_field_offsets ... ok
+test non_strict_context_publishes_empty_no_authority_set ... ok
+test toll_context_declares_exactly_the_transfer_roles ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\strict_writes_realloc_integration.rs (target\debug\deps\strict_writes_realloc_integration-ee1bd838e23086d0.exe)
+
+running 2 tests
+test realloc_plus_segment_publishes_only_the_segment_range ... ok
+test realloc_plus_segment_enforces_segment_and_reallocs_at_bind ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\sysvar_prelude.rs (target\debug\deps\sysvar_prelude-119ae0297917dad4.exe)
+
+running 3 tests
+test clock_and_rent_are_in_the_prelude ... ok
+test sysvar_module_exposes_full_surface ... ok
+test rent_minimum_balance_matches_const_path ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\token_2022_docs.rs (target\debug\deps\token_2022_docs-8dba43014689202a.exe)
+
+running 1 test
+test guide_matches_compiled_examples ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ui.rs (target\debug\deps\ui-3841720388012fcc.exe)
+
+running 4 tests
+    Checking hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Checking hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Checking hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+    Checking hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+    Checking hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+    Checking hopper-memo v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+    Checking hopper-svm v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-svm)
+    Checking hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Checking hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+    Checking hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+    Checking hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+    Checking hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+    Checking hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+    Checking hopper-lang-tests v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\tests\trybuild\hopper-lang)
+    Finished `dev` profile [unoptimized] target(s) in 2.10s
+
+
+test tests/compile_fail/pod_bool_field.rs ... ok
+test tests/compile_fail/pod_char_field.rs ... ok
+test tests/compile_fail/pod_reference_field.rs ... ok
+test tests/compile_fail/pod_missing_repr.rs ... ok
+test tests/compile_fail/pod_padded_u64.rs ... ok
+test tests/compile_fail/pod_vec_field.rs ... ok
+test tests/compile_fail/zerocopy_seal_required.rs ... ok
+test tests/compile_fail/ref_only_rejects_raw_ref.rs ... ok
+test tests/compile_fail/quasar_mut_account_reference.rs ... ok
+
+
+test compile_fail_pod ... ok
+    Checking hopper-lang-tests v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\tests\trybuild\hopper-lang)
+    Finished `dev` profile [unoptimized] target(s) in 0.12s
+
+
+test tests/compile_fail/tiny_profile_multibyte_discriminator.rs ... ok
+test tests/compile_fail/tiny_profile_receipt_modifier.rs ... ok
+
+
+test compile_fail_tiny_profile ... ok
+    Checking hopper-lang-tests v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\tests\trybuild\hopper-lang)
+    Finished `dev` profile [unoptimized] target(s) in 0.12s
+
+
+test tests/compile_fail/bare_tail_not_final.rs ... ok
+
+
+test compile_fail_dynamic_tails ... ok
+    Checking hopper-lang-tests v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\tests\trybuild\hopper-lang)
+    Finished `dev` profile [unoptimized] target(s) in 0.12s
+
+
+test tests/compile_fail/state_init_no_payer.rs ... ok
+test tests/compile_fail/state_init_no_space.rs ... ok
+test tests/compile_fail/state_seeds_no_bump.rs ... ok
+test tests/compile_fail/state_realloc_no_payer.rs ... ok
+test tests/compile_fail/state_realloc_no_zero.rs ... ok
+
+
+test compile_fail_state_constraints ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.09s
+
+     Running tests\wrapper_context_integration.rs (target\debug\deps\wrapper_context_integration-16200c5869b05407.exe)
+
+running 12 tests
+test account_wrapper_phantom_data_is_zero_cost ... ok
+test init_account_wrapper_phantom_data_is_zero_cost ... ok
+test interface_wrappers_are_zero_cost ... ok
+test custom_program_id_impl_is_addressable_at_const_time ... ok
+test signer_wrapper_is_repr_transparent_pointer_sized ... ok
+test substrate_exports_runtime_and_native_symbols ... ok
+test system_program_id_is_canonical_zero_pubkey ... ok
+test prelude_exports_memo_and_token_interface_helpers ... ok
+test program_wrapper_phantom_data_is_zero_cost ... ok
+test program_profile_tiny_is_emitted ... ok
+test unchecked_and_system_wrappers_are_zero_cost ... ok
+test state_helpers_accept_native_wire_values ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

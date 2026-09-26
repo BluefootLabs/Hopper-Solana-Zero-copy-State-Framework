@@ -1,0 +1,34 @@
+[
+  {
+    "test": "mapped_borrows",
+    "command": [
+      "cargo",
+      "+nightly",
+      "miri",
+      "test",
+      "-p",
+      "hopper-native",
+      "--test",
+      "mapped_borrows",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "test": "lifecycle_preflight",
+    "command": [
+      "cargo",
+      "+nightly",
+      "miri",
+      "test",
+      "-p",
+      "hopper-native",
+      "--test",
+      "lifecycle_preflight",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  }
+]

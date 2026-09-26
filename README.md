@@ -105,7 +105,7 @@ See [program measurements](https://github.com/BluefootLabs/Hopper-Solana-Zero-co
 [release status](https://hopperzero.dev/docs/release-status) for scope and artifacts.
 
 The registry framework version is **0.4.0**. Repository examples evolve
-independently and are not published crates. The native/runtime **0.4.2** safety patch is devnet-tested; see the [release record](docs/RELEASE_0_4_VALIDATION.md) for publication status. Support packages `grillo-*` and
+independently and are not published crates. The native/runtime **0.4.2** safety patch is published and devnet-tested. See the [release record](docs/RELEASE_0_4_VALIDATION.md). Support packages `grillo-*` and
 `hopper-topology` use their own 0.1.0 versions.
 
 ## Documentation

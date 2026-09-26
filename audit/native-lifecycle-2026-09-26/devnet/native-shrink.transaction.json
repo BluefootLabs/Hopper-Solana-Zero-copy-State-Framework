@@ -1,0 +1,79 @@
+{
+  "blockTime": 1790418926,
+  "meta": {
+    "computeUnitsConsumed": 315,
+    "costUnits": 2963,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk invoke [1]",
+      "Program EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk consumed 315 of 200000 compute units",
+      "Program EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk success"
+    ],
+    "postBalances": [
+      974083367,
+      9918720,
+      1731520,
+      812800,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      974093367,
+      9918720,
+      1731520,
+      812800,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 504378073,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "F5Cn1xXD6k9BtMMgXJvM7ommoSjTeSqNz9UbugY3MMWW",
+        "3QxzmTz9WKmAWuGrC2nmFjSLzfNFs6cNswsaVmo44PsS",
+        "6U68KQr7YuXJrBVU9EcseJsC9XGTbYb4MUtZQYEbjqMF",
+        "11111111111111111111111111111111",
+        "EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            2,
+            1,
+            4
+          ],
+          "data": "2h1y",
+          "programIdIndex": 5,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "12MURCXv52kF2WZNPj2iWUe1kWm8aPK2KQ3Y1ngpNdcd"
+    },
+    "signatures": [
+      "2QJrEoDBhAiB4xGLed5LcdRqLR8x47dRgdNUQo67LEhdveK9A3JQ8ytKYWyZb9uDq6fUucVTAp6feP8wbbDUeC9z",
+      "2H4Puak5LRLPLFrrH9CqMX4SpVvtHzb1LXt8YutsaaxB1BspC25DGGbmmqVQY3StXGUqxvjBJHh15vHpjg7PX31n"
+    ]
+  },
+  "transactionIndex": 1,
+  "version": "legacy"
+}

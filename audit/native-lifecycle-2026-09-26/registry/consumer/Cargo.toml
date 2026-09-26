@@ -1,0 +1,9 @@
+[package]
+name="hopper-lifecycle-consumer"
+version="0.0.0"
+edition="2021"
+[workspace]
+[dependencies]
+hopper-native={version="=0.4.2",features=["cpi"]}
+hopper-runtime="=0.4.2"
+hopper={package="hopper-lang",version="=0.4.0",features=["proc-macros"]}

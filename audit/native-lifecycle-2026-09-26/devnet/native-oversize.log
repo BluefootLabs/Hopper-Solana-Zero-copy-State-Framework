@@ -1,0 +1,21 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk
+data      : 3 bytes (0x05ffff)
+accounts  : 4 slots
+  [0] 6U68KQr7YuXJrBVU9EcseJsC9XGTbYb4MUtZQYEbjqMF -w
+  [1] 3QxzmTz9WKmAWuGrC2nmFjSLzfNFs6cNswsaVmo44PsS -w
+  [2] F5Cn1xXD6k9BtMMgXJvM7ommoSjTeSqNz9UbugY3MMWW sw
+  [3] 11111111111111111111111111111111 --
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn, F5Cn1xXD6k9BtMMgXJvM7ommoSjTeSqNz9UbugY3MMWW
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 368/1232 bytes (legacy)
+
+signature : 3bGv5uacRMDBWXs3YYeE5dCWA6DpskWgyWi56xbzHZ5ZFGYAU2WiE9xiqngcLA8HT1JaP2VY8zPNParwoZv94vGM
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidRealloc"]}
+compute   : 292 CU
+fee       : 10000 lamports
+
+explain it: hopper tx explain 3bGv5uacRMDBWXs3YYeE5dCWA6DpskWgyWi56xbzHZ5ZFGYAU2WiE9xiqngcLA8HT1JaP2VY8zPNParwoZv94vGM --rpc https://api.devnet.solana.com

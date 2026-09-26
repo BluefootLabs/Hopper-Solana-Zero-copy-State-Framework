@@ -1,0 +1,79 @@
+{
+  "blockTime": 1790418895,
+  "meta": {
+    "computeUnitsConsumed": 143,
+    "costUnits": 2791,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk invoke [1]",
+      "Program EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk consumed 143 of 200000 compute units",
+      "Program EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk success"
+    ],
+    "postBalances": [
+      974168367,
+      10000000,
+      1731520,
+      731520,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      974178367,
+      10000000,
+      1731520,
+      731520,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 504377937,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "F5Cn1xXD6k9BtMMgXJvM7ommoSjTeSqNz9UbugY3MMWW",
+        "3QxzmTz9WKmAWuGrC2nmFjSLzfNFs6cNswsaVmo44PsS",
+        "6U68KQr7YuXJrBVU9EcseJsC9XGTbYb4MUtZQYEbjqMF",
+        "11111111111111111111111111111111",
+        "EWcfFN6FRNWQUGumfmbctMgYTt2rrWszHqxhMjdoAiEk"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            2,
+            1,
+            4
+          ],
+          "data": "1",
+          "programIdIndex": 5,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "DdXs6qBniW4FXK1h7PAeYkfc8iirQRC7eZXB93hnoqmd"
+    },
+    "signatures": [
+      "5jDdscTMNCGRwheCcv7FYvAuAXgAamAa2HBmtkYJrjLZJnwpRiNNq4MjYMkpXeZtNoraKowa26gkT4N8Lqjk6n3E",
+      "K7SqQuR2n3zno51eSisJXg4WAnC92PUm7wh7Hn2DxJbmj3BcUevGGUNnLUfhiTGW1ReH9ZnTxgK34EfekK1eeGm"
+    ]
+  },
+  "transactionIndex": 2,
+  "version": "legacy"
+}

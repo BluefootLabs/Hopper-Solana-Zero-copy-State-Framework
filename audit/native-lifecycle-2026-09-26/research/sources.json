@@ -1,0 +1,180 @@
+{
+  "observedAt": "2026-09-26T10:04:30.672853+00:00",
+  "projects": [
+    {
+      "name": "pinocchio",
+      "repository": "anza-xyz/pinocchio",
+      "branch": "HEAD",
+      "commit": "adbd48d12229ffa30d6fb3d3a8ff777fdb053b80",
+      "commitDate": "2026-08-03T08:42:23Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "b572a3793e5841861c57af1b5e09ed774214f4faf0980934a135aee2bd935aec",
+          "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80/Cargo.toml"
+        },
+        {
+          "path": "README.md",
+          "sha256": "90778fa42bc187dad07c7d6ac65e912e5a454a02350fde9dd188af70399cdf5a",
+          "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80/README.md"
+        },
+        {
+          "path": "sdk/Cargo.toml",
+          "sha256": "9be3cda4857b151887d98e7ac65fea21aeccfad64958e6e7f3e97d33877ff259",
+          "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80/sdk/Cargo.toml"
+        },
+        {
+          "path": "sdk/src/lib.rs",
+          "sha256": "426a753ccce3f0770e2e3227fc162b98618d62a6c482e5930fb1601ba39bd421",
+          "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80/sdk/src/lib.rs"
+        }
+      ],
+      "inventoryBlobs": 192
+    },
+    {
+      "name": "sdk",
+      "repository": "anza-xyz/solana-sdk",
+      "branch": "HEAD",
+      "commit": "6f74525ac8fba532017b379769549f4640c90e62",
+      "commitDate": "2026-09-23T09:58:09Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "f37967301b9642fc2b02d011361c86681fa81e9996d9358496a54a699709b77b",
+          "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/Cargo.toml"
+        },
+        {
+          "path": "README.md",
+          "sha256": "974d2dbf84252e1403a82713a648ffcd2c90d774cc358f80b8b5a151042689e5",
+          "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/README.md"
+        },
+        {
+          "path": "sdk/Cargo.toml",
+          "sha256": "81de0ac7efd8d48f2654c31d6ad3771be8049dc5ecd0d398d16d829cdb793bf5",
+          "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/sdk/Cargo.toml"
+        },
+        {
+          "path": "sdk/src/lib.rs",
+          "sha256": "e925cac0ba99639e805e4492e8a471f8d43826244288b48aff64bccf5be009f7",
+          "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/sdk/src/lib.rs"
+        }
+      ],
+      "inventoryBlobs": 566
+    },
+    {
+      "name": "pina",
+      "repository": "pina-rs/pina",
+      "branch": "HEAD",
+      "commit": "478ae3d2811ea7f7869d2a32e6095a9727d4f9d8",
+      "commitDate": "2026-09-25T11:23:45Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "7a8e572771a32a529642a2fa1ae93b5558e6cba17d93cc31d7fc98fe7043a5e4",
+          "url": "https://raw.githubusercontent.com/pina-rs/pina/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/Cargo.toml"
+        }
+      ],
+      "inventoryBlobs": 3661
+    },
+    {
+      "name": "quasar",
+      "repository": "blueshift-gg/quasar",
+      "branch": "HEAD",
+      "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "commitDate": "2026-07-13T06:20:59Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "af8e42fdac352e9cc60814d456b3b3c54a6019256a8335046ecfb3f9d6f44ebc",
+          "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/b0de7db4cd271654a2dcf78807dd865e98e0b339/Cargo.toml"
+        },
+        {
+          "path": "README.md",
+          "sha256": "9015ecc716101ab6d875a505a7c1025cf20efecb71218b30d3ca78e24d59d534",
+          "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/b0de7db4cd271654a2dcf78807dd865e98e0b339/README.md"
+        }
+      ],
+      "inventoryBlobs": 790
+    },
+    {
+      "name": "beethoven",
+      "repository": "blueshift-gg/beethoven",
+      "branch": "HEAD",
+      "commit": "b1f2c0f5ac71d7e557f772e16c6058800c82c438",
+      "commitDate": "2026-07-12T12:52:00Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "e9aee075b4c729993b9a1ec2a45d7af8fff467f6889437cc505ddccdb635fcf4",
+          "url": "https://raw.githubusercontent.com/blueshift-gg/beethoven/b1f2c0f5ac71d7e557f772e16c6058800c82c438/Cargo.toml"
+        },
+        {
+          "path": "README.md",
+          "sha256": "1d3d4fb987209487a4136af7c460ba8c132c1d114f0e4cc316ebf1fb8715a830",
+          "url": "https://raw.githubusercontent.com/blueshift-gg/beethoven/b1f2c0f5ac71d7e557f772e16c6058800c82c438/README.md"
+        }
+      ],
+      "inventoryBlobs": 253
+    },
+    {
+      "name": "anchor-v2",
+      "repository": "otter-sec/anchor",
+      "branch": "anchor-next",
+      "commit": "038c193a9eedd5ffd4aaf831d501a74a0c90084e",
+      "commitDate": "2026-09-25T12:14:31Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "4c18e1eff70aec0629fc5d863cb30c244657f49323576c0e9be355df4a70d552",
+          "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/Cargo.toml"
+        },
+        {
+          "path": "README.md",
+          "sha256": "deee0137b5c8ef24a69de222d1322851d2335b692ba888839046a8eb0e8e1846",
+          "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/README.md"
+        }
+      ],
+      "inventoryBlobs": 1767
+    },
+    {
+      "name": "agave",
+      "repository": "anza-xyz/agave",
+      "branch": "HEAD",
+      "commit": "f77165963c709934e8ea8564187c00f081b597d1",
+      "commitDate": "2026-09-26T02:49:10Z",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "7f8f7edc4cdc1591421212e4db8188b88eea87be83e94e115511456e863d391b",
+          "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/Cargo.toml"
+        },
+        {
+          "path": "README.md",
+          "sha256": "c7b8070a7e338db7645534e93e5e8aa50245e0525c9ff03c2225c4cd478fe60b",
+          "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/README.md"
+        },
+        {
+          "path": "feature-set/src/lib.rs",
+          "sha256": "91956131b8bd24c0e230df0b926f5bd59514ac4ed0589516885a3af3f6f9cff7",
+          "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/feature-set/src/lib.rs"
+        }
+      ],
+      "inventoryBlobs": 1845
+    },
+    {
+      "name": "simds",
+      "repository": "solana-foundation/solana-improvement-documents",
+      "branch": "HEAD",
+      "commit": "4b643ca8746742183a469681765e694b385bb315",
+      "commitDate": "2026-09-25T15:18:56Z",
+      "files": [
+        {
+          "path": "README.md",
+          "sha256": "4e512e9e39583e776c2b9f6d2f415d912f285910962e5cd5d856da7cb5963916",
+          "url": "https://raw.githubusercontent.com/solana-foundation/solana-improvement-documents/4b643ca8746742183a469681765e694b385bb315/README.md"
+        }
+      ],
+      "inventoryBlobs": 144
+    }
+  ]
+}

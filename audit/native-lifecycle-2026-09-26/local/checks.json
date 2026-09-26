@@ -1,0 +1,307 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-native-lifecycle-fixture",
+      "-p",
+      "hopper-runtime-lifecycle-fixture",
+      "-p",
+      "hopper-framework-verifier"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "lock",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "check",
+      "-p",
+      "hopper-native-lifecycle-fixture",
+      "-p",
+      "hopper-runtime-lifecycle-fixture",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "native",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-native",
+      "--features",
+      "cpi",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-runtime",
+      "--features",
+      "thread-local-registry",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "clippy",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-native-lifecycle-fixture",
+      "-p",
+      "hopper-runtime-lifecycle-fixture",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-Dwarnings"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "build-runtime-baseline",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\baseline-segments\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\runtime-baseline",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-runtime-baseline",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "lifecycle_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 101,
+    "expectedFailure": true
+  },
+  {
+    "kind": "runtime",
+    "arch": "baseline",
+    "elfSha256": "54ac282aa55858dc6abd9b5853ff517acde29ac151610c170cbf426abd977baa",
+    "bytes": 28440
+  },
+  {
+    "name": "build-runtime-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\lifecycle\\runtime\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\runtime-v0",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-runtime-v0",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "lifecycle_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "kind": "runtime",
+    "arch": "v0",
+    "elfSha256": "f5853a44fbd1721556f402e51cdb9fde6655c66a36dd7f3b80de2baf98a01e10",
+    "bytes": 23480
+  },
+  {
+    "name": "build-native-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\lifecycle\\native\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\native-v0",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-native-v0",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "lifecycle_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "kind": "native",
+    "arch": "v0",
+    "elfSha256": "0061fe999f48e28ca8e10fc1db1e16a2a31b697e6af3e4a90fabc91a6bcdb97e",
+    "bytes": 9024
+  },
+  {
+    "name": "build-runtime-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\lifecycle\\runtime\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\runtime-v3",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-runtime-v3",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "lifecycle_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "kind": "runtime",
+    "arch": "v3",
+    "elfSha256": "960c89160a2d8a3b74f176251f54d9ca45724e9ab1861fadbac3457f55d591b4",
+    "bytes": 22392
+  },
+  {
+    "name": "build-native-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\lifecycle\\native\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\native-v3",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-native-v3",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "lifecycle_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "kind": "native",
+    "arch": "v3",
+    "elfSha256": "d29f0cef2b4ba6750aeec8d326b9ef9a7e7c17c1d7a1ab31dfc3f002b8ebfa4a",
+    "bytes": 8072
+  }
+]

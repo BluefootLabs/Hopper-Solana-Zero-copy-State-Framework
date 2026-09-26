@@ -1,0 +1,11 @@
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized] target(s) in 0.59s
+     Running tests\mapped_borrows.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\mapped_borrows-0ad85ec9fb14e3e5.exe)
+
+running 3 tests
+test mutable_projection_preserves_exclusivity_and_error_returns_original ... ok
+test shared_projection_and_failed_selection_keep_the_lease ... ok
+test unwinding_a_mapping_closure_releases_the_borrow ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+

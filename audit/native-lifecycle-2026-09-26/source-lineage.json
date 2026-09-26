@@ -1,0 +1,86 @@
+{
+  "devnetSource": "eded33d0f7f896200c7c7ce79acc97d6d91b0015",
+  "publishedSource": "88b54101721c75c7de8b8c6d754e7c0ed95048f4",
+  "lifecycleElfBytesIdentical": true,
+  "applications": {
+    "applications": [
+      {
+        "program": "hopper-treasury",
+        "arch": "v0",
+        "elfSha256": "4df54f39d03fdada1b0dea4fba5ca9dcf1615082b487611869c633b3e8b02dca",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-bounded-multisig",
+        "arch": "v0",
+        "elfSha256": "908ebca71d39a82f467123f4e69d646335d68374161e5b9e26af9b29cf0f02c8",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-escrow",
+        "arch": "v0",
+        "elfSha256": "fddf4287d30f2faca4d54b3a2f5fa04b296ec4dc7e52e92199db59b0f8bf8b4d",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-byte-allowance",
+        "arch": "v0",
+        "elfSha256": "d96ca646e71830a257c2da48f3fa0695e7f48c324ab2ae15110dfe70da6f318a",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-runtime-gate-fixture",
+        "arch": "v0",
+        "elfSha256": "81b43e20ad1f59712841a0dbb173e029b79477d3854172696f96e7a355c6e59f",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-treasury",
+        "arch": "v3",
+        "elfSha256": "c453caf0d2884c712b70c44b76abdaa1cbc231063bf833dc2de3a680dc916fae",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-bounded-multisig",
+        "arch": "v3",
+        "elfSha256": "c9a1e8ab7e48a9184f72778acc3a6b33dc2a06c403ee81e4fbc416a682ee4d82",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-escrow",
+        "arch": "v3",
+        "elfSha256": "865f740f3a5b7e5da33ce04d5ceacf4ab748bde6769c38aa1f279ccf90751f1d",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-byte-allowance",
+        "arch": "v3",
+        "elfSha256": "6ec144c07a45e399f5a9e3babfe1f3cc81fae4cf4309d3b5e7472d0e18db3654",
+        "rebuiltBytesIdentical": true
+      },
+      {
+        "program": "hopper-runtime-gate-fixture",
+        "arch": "v3",
+        "elfSha256": "1080ec9ffc8134e3b5e632616e9216a5754d175c560f66da2cbd51d28866addf",
+        "rebuiltBytesIdentical": true
+      }
+    ],
+    "allIdentical": true
+  },
+  "changes": [
+    "README.md",
+    "crates/hopper-native/README.md",
+    "crates/hopper-native/src/borrow.rs",
+    "crates/hopper-native/tests/lifecycle_preflight.rs",
+    "crates/hopper-native/tests/mapped_borrows.rs",
+    "crates/hopper-runtime/README.md",
+    "crates/hopper-runtime/src/segment_lease.rs",
+    "docs/HOPPER_NATIVE_BACKEND.md",
+    "docs/HOPPER_NATIVE_ENHANCEMENTS.md",
+    "docs/RELEASE_0_4_VALIDATION.md",
+    "docs/SOLANA_NETWORK.md",
+    "docs/UNSAFE_INVARIANTS.md",
+    "research/native-runtime-review-2026-09-26.txt"
+  ],
+  "explanation": "Mutable mapping provenance and native host-test allocation provenance were corrected after the devnet run. Both lifecycle v0 ELFs and all ten downstream v0/v3 ELFs were rebuilt and match the tested bytes. The published source also contains documentation and research updates."
+}

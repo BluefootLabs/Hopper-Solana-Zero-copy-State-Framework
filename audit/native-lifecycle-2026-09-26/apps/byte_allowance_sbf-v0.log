@@ -1,0 +1,62 @@
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized] target(s) in 1.38s
+     Running tests\byte_allowance_sbf.rs (target\debug\deps\byte_allowance_sbf-dd1c038b44bc0bea.exe)
+
+running 3 tests
+ALLOWANCE_HEADER_HEX=5c0100007a6ee6c48cc8cff401000000
+ALLOWANCE_HEADER_HEX=5c0100007a6ee6c48cc8cff401000000
+unsigned payer: Err(MissingRequiredSignature), 173 CU, complete rollback
+readonly payer: Err(Immutable), 175 CU, complete rollback
+wrong delegate: Err(Custom(7800)), 436 CU, complete rollback
+op=1, slot=0, 937 CU, exact two-cell write
+unsigned book: Err(MissingRequiredSignature), 416 CU, complete rollback
+stale revision: Err(Custom(7801)), 453 CU, complete rollback
+op=2, slot=0, 882 CU, exact two-cell write
+readonly book: Err(Immutable), 172 CU, complete rollback
+limit exceeded: Err(Custom(7802)), 486 CU, complete rollback
+op=1, slot=0, 937 CU, exact two-cell write
+zero amount: Err(Custom(7803)), 396 CU, complete rollback
+wrong system program: Err(IncorrectProgramId), 177 CU, complete rollback
+op=1, slot=1, 937 CU, exact two-cell write
+out of bounds: Err(InvalidInstructionData), 395 CU, complete rollback
+payer aliases book: Err(AccountBorrowFailed), 485 CU, complete rollback
+op=2, slot=1, 882 CU, exact two-cell write
+max selector: Err(InvalidInstructionData), 395 CU, complete rollback
+truncated init arguments: Err(InvalidInstructionData), 145 CU, complete rollback
+op=1, slot=1, 937 CU, exact two-cell write
+wrong admin: Err(InvalidAccountData), 168 CU, complete rollback
+trailing init arguments: Err(InvalidInstructionData), 146 CU, complete rollback
+op=1, slot=2, 937 CU, exact two-cell write
+stale admin revision: Err(Custom(7801)), 470 CU, complete rollback
+foreign book owner: Err(Custom(0)), 1576 CU, complete rollback
+op=2, slot=2, 882 CU, exact two-cell write
+missing signer: Err(MissingRequiredSignature), 91 CU, complete rollback
+preallocated book data: Err(AccountAlreadyInitialized), 384 CU, complete rollback
+op=1, slot=2, 937 CU, exact two-cell write
+readonly book: Err(Immutable), 95 CU, complete rollback
+insufficient rent payer: Err(Custom(1)), 1576 CU, complete rollback
+op=1, slot=3, 937 CU, exact two-cell write
+truncated arguments: Err(InvalidInstructionData), 80 CU, complete rollback
+op=2, slot=3, 882 CU, exact two-cell write
+trailing arguments: Err(InvalidInstructionData), 81 CU, complete rollback
+surplus initialization account ignored: exact expected state, 1703 CU
+op=1, slot=3, 937 CU, exact two-cell write
+test initialization_refusals_preserve_all_accounts ... ok
+reinitialize: Err(AccountAlreadyInitialized), 384 CU, complete rollback
+test lifecycle_changes_only_selected_cells ... ok
+surplus consume account ignored: exact expected state, 1006 CU
+delegate aliases book: Err(Custom(7800)), 438 CU, complete rollback
+unsigned administrator: Err(MissingRequiredSignature), 90 CU, complete rollback
+foreign owner: Err(IncorrectProgramId), 99 CU, complete rollback
+bad discriminator: Err(InvalidAccountData), 130 CU, complete rollback
+bad layout id: Err(InvalidAccountData), 135 CU, complete rollback
+bad version: Err(InvalidAccountData), 132 CU, complete rollback
+bad schema epoch: Err(InvalidAccountData), 137 CU, complete rollback
+short layout: Err(AccountDataTooSmall), 127 CU, complete rollback
+spent overflow: Err(ArithmeticOverflow), 470 CU, complete rollback
+revision overflow: Err(ArithmeticOverflow), 481 CU, complete rollback
+limit below spent: Err(Custom(7804)), 474 CU, complete rollback
+test adversarial_inputs_preserve_all_account_state ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.02s
+

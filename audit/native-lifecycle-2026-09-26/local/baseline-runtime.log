@@ -1,0 +1,33 @@
+   Compiling hopper-runtime v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Finished `test` profile [unoptimized] target(s) in 6.18s
+     Running unittests src\lib.rs (target\debug\deps\hopper_runtime-15075b66e9b6b8d0.exe)
+
+running 2 tests
+test account::tests::close_to_refusal_preserves_source_and_recipient ... FAILED
+test account::tests::close_to_rejects_the_same_account_as_recipient ... FAILED
+
+failures:
+
+---- account::tests::close_to_refusal_preserves_source_and_recipient stdout ----
+
+thread 'account::tests::close_to_refusal_preserves_source_and_recipient' (30072) panicked at crates\hopper-runtime\src\account.rs:2363:9:
+assertion `left == right` failed
+  left: (0, 84)
+ right: (42, 42)
+
+---- account::tests::close_to_rejects_the_same_account_as_recipient stdout ----
+
+thread 'account::tests::close_to_rejects_the_same_account_as_recipient' (113936) panicked at crates\hopper-runtime\src\account.rs:2371:9:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(InvalidArgument)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    account::tests::close_to_refusal_preserves_source_and_recipient
+    account::tests::close_to_rejects_the_same_account_as_recipient
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 315 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p hopper-runtime --lib`

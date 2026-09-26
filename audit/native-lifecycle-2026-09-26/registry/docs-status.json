@@ -1,0 +1,16 @@
+[
+  {
+    "crate": "hopper-native",
+    "version": "0.4.2",
+    "url": "https://docs.rs/hopper-native/0.4.2/hopper_native/",
+    "resolvedUrl": "https://docs.rs/hopper-native/0.4.2/hopper_native/",
+    "status": 404
+  },
+  {
+    "crate": "hopper-runtime",
+    "version": "0.4.2",
+    "url": "https://docs.rs/hopper-runtime/0.4.2/hopper_runtime/",
+    "resolvedUrl": "https://docs.rs/hopper-runtime/0.4.2/hopper_runtime/",
+    "status": 404
+  }
+]

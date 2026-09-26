@@ -1,0 +1,8 @@
+    Updating crates.io index
+   Packaging hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Packaged 42 files, 588.2KiB (138.2KiB compressed)
+   Verifying hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\package\hopper-native-0.4.2)
+    Finished `dev` profile [unoptimized] target(s) in 1.25s
+   Uploading hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+warning: aborting upload due to dry run

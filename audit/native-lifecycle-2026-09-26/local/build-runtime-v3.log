@@ -1,0 +1,4 @@
+   Compiling hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+   Compiling hopper-runtime-lifecycle-fixture v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\lifecycle\runtime)
+    Finished `release` profile [optimized] target(s) in 2.08s

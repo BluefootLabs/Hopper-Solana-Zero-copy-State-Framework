@@ -1,0 +1,101 @@
+    Finished `test` profile [unoptimized] target(s) in 0.48s
+     Running tests\token_escrow_sbf.rs (target\debug\deps\token_escrow_sbf-bd3986b063b7f8e4.exe)
+
+running 2 tests
+escrow make CU=8510, header=02020000b2e9d63057f5904701000000
+escrow make CU=7209, header=02020000b2e9d63057f5904701000000
+reinitialize: Err(AccountAlreadyInitialized), CU=1131
+missing signer: Err(MissingRequiredSignature), CU=206
+repeated take: Err(InvalidAccountData), CU=262
+missing writable: Err(Immutable), CU=207
+repeated cancel: Err(InvalidAccountData), CU=188
+escrow op=1, donation=0, CU=8103
+missing signer: Err(MissingRequiredSignature), CU=211
+missing writable: Err(Immutable), CU=212
+escrow make CU=8510, header=02020000b2e9d63057f5904701000000
+missing signer: Err(MissingRequiredSignature), CU=585
+missing writable: Err(Immutable), CU=586
+missing writable: Err(Immutable), CU=584
+repeated take: Err(InvalidAccountData), CU=262
+trailing payload: Err(InvalidInstructionData), CU=191
+repeated cancel: Err(InvalidAccountData), CU=188
+escrow op=1, donation=37, CU=9712
+short payload: Err(InvalidInstructionData), CU=190
+wrong token program: Err(InvalidArgument), CU=617
+escrow make CU=8510, header=02020000b2e9d63057f5904701000000
+wrong vault PDA: Err(InvalidSeeds), CU=565
+missing signer: Err(MissingRequiredSignature), CU=224
+repeated take: Err(InvalidAccountData), CU=262
+missing writable: Err(Immutable), CU=229
+repeated cancel: Err(InvalidAccountData), CU=188
+escrow op=2, donation=0, CU=5427
+missing writable: Err(Immutable), CU=467
+escrow make CU=8510, header=02020000b2e9d63057f5904701000000
+missing writable: Err(Immutable), CU=862
+missing writable: Err(Immutable), CU=866
+missing writable: Err(Immutable), CU=870
+repeated take: Err(InvalidAccountData), CU=262
+missing writable: Err(Immutable), CU=877
+repeated cancel: Err(InvalidAccountData), CU=188
+escrow op=2, donation=37, CU=5427
+test funded_make_take_cancel_and_donations ... ok
+missing writable: Err(Immutable), CU=881
+trailing payload: Err(InvalidInstructionData), CU=216
+short payload: Err(InvalidInstructionData), CU=215
+wrong token program: Err(InvalidArgument), CU=891
+wrong vault PDA: Err(InvalidSeeds), CU=844
+missing signer: Err(MissingRequiredSignature), CU=156
+missing writable: Err(Immutable), CU=158
+missing writable: Err(Immutable), CU=157
+missing writable: Err(Immutable), CU=683
+missing writable: Err(Immutable), CU=687
+trailing payload: Err(InvalidInstructionData), CU=695
+short payload: Err(InvalidInstructionData), CU=136
+wrong token program: Err(InvalidArgument), CU=698
+wrong vault PDA: Err(InvalidSeeds), CU=666
+source mint: Err(Custom(6100)), CU=814
+source owner: Err(Custom(6102)), CU=827
+maker payment owner: Err(Custom(6102)), CU=898
+make funding fails after state and vault creation: Err(Custom(1)), CU=7275
+zero offer: Err(Custom(6104)), CU=602
+freeze authority mint: Err(Custom(6105)), CU=740
+foreign mint owner: Err(IncorrectProgramId), CU=711
+token policy substitution: Err(Custom(6100)), CU=1694
+token policy substitution: Err(Custom(6102)), CU=1707
+token policy substitution: Err(Custom(6103)), CU=1719
+token policy substitution: Err(Custom(6103)), CU=1721
+token policy substitution: Err(Custom(6100)), CU=1988
+token policy substitution: Err(Custom(6102)), CU=2001
+token policy substitution: Err(Custom(6103)), CU=2013
+token policy substitution: Err(Custom(6103)), CU=2015
+token policy substitution: Err(Custom(6100)), CU=1916
+token policy substitution: Err(Custom(6102)), CU=1929
+token policy substitution: Err(Custom(6103)), CU=1941
+token policy substitution: Err(Custom(6103)), CU=1943
+token policy substitution: Err(Custom(6100)), CU=1774
+token policy substitution: Err(Custom(6102)), CU=1787
+token policy substitution: Err(Custom(6103)), CU=1799
+token policy substitution: Err(Custom(6103)), CU=1801
+token policy substitution: Err(Custom(6100)), CU=1844
+token policy substitution: Err(Custom(6102)), CU=1857
+token policy substitution: Err(Custom(6103)), CU=1869
+token policy substitution: Err(Custom(6103)), CU=1871
+vault delegate or close authority: Err(Custom(6103)), CU=1724
+cancel vault authority substitution: Err(Custom(6103)), CU=860
+vault delegate or close authority: Err(Custom(6103)), CU=1726
+cancel vault authority substitution: Err(Custom(6103)), CU=862
+stored binding substitution: Err(InvalidAccountData), CU=298
+stored binding substitution: Err(InvalidAccountData), CU=454
+stored binding substitution: Err(InvalidAccountData), CU=376
+stored binding substitution: Err(InvalidAccountData), CU=415
+stored binding substitution: Err(InvalidAccountData), CU=337
+stale quote: Err(Custom(6101)), CU=1585
+aliased recipient: Err(Custom(6107)), CU=1546
+unauthorized cancel: Err(InvalidAccountData), CU=223
+insufficient taker funds: Err(Custom(1)), CU=3671
+state-close overflow after exchange and vault-close CPIs: Err(ArithmeticOverflow), CU=6742
+state-close overflow after refund and vault-close CPIs: Err(ArithmeticOverflow), CU=4065
+test adversarial_accounts_and_cpi_failures_rollback ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

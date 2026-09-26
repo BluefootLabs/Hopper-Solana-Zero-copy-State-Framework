@@ -1,0 +1,12 @@
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized] target(s) in 0.23s
+     Running tests\lifecycle_preflight.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\lifecycle_preflight-a142fa244d68acf2.exe)
+
+running 4 tests
+test close_refusal_is_unchanged_even_when_the_error_is_caught ... ok
+test read_only_recipient_and_overflow_leave_both_accounts_unchanged ... ok
+test self_transfer_preserves_balance_and_self_close_is_rejected ... ok
+test underfunded_resize_cannot_use_the_target_as_its_own_payer ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+

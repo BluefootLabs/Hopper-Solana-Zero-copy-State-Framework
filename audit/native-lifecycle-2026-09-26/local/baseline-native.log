@@ -1,0 +1,51 @@
+   Compiling hopper-native v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized] target(s) in 0.42s
+     Running tests\lifecycle_preflight.rs (target\debug\deps\lifecycle_preflight-0fbda66c6ed61d8a.exe)
+
+running 4 tests
+test self_transfer_preserves_balance_and_self_close_is_rejected ... FAILED
+test underfunded_resize_cannot_use_the_target_as_its_own_payer ... FAILED
+test read_only_recipient_and_overflow_leave_both_accounts_unchanged ... FAILED
+test close_refusal_is_unchanged_even_when_the_error_is_caught ... FAILED
+
+failures:
+
+---- self_transfer_preserves_balance_and_self_close_is_rejected stdout ----
+
+thread 'self_transfer_preserves_balance_and_self_close_is_rejected' (151588) panicked at crates\hopper-native\tests\lifecycle_preflight.rs:33:5:
+assertion `left == right` failed
+  left: 1100
+ right: 1000
+
+---- underfunded_resize_cannot_use_the_target_as_its_own_payer stdout ----
+
+thread 'underfunded_resize_cannot_use_the_target_as_its_own_payer' (8488) panicked at crates\hopper-native\tests\lifecycle_preflight.rs:54:5:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(InvalidArgument)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- read_only_recipient_and_overflow_leave_both_accounts_unchanged stdout ----
+
+thread 'read_only_recipient_and_overflow_leave_both_accounts_unchanged' (62124) panicked at crates\hopper-native\tests\lifecycle_preflight.rs:44:9:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(Immutable)
+
+---- close_refusal_is_unchanged_even_when_the_error_is_caught stdout ----
+
+thread 'close_refusal_is_unchanged_even_when_the_error_is_caught' (146544) panicked at crates\hopper-native\tests\lifecycle_preflight.rs:25:5:
+assertion `left == right` failed
+  left: (1000, 2000, 16)
+ right: (1000, 1000, 16)
+
+
+failures:
+    close_refusal_is_unchanged_even_when_the_error_is_caught
+    read_only_recipient_and_overflow_leave_both_accounts_unchanged
+    self_transfer_preserves_balance_and_self_close_is_rejected
+    underfunded_resize_cannot_use_the_target_as_its_own_payer
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p hopper-native --test lifecycle_preflight`

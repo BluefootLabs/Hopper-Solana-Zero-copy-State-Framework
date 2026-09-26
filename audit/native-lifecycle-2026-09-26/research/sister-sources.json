@@ -1,0 +1,362 @@
+[
+  {
+    "name": "abiv2",
+    "repository": "blueshift-gg/abiv2",
+    "commit": "1fa9c6af359901a1ad0d44973a701ae792ce9129",
+    "date": "2026-07-26T18:36:45Z",
+    "files": [
+      {
+        "path": "Cargo.toml",
+        "sha256": "eb8e1cf440888f6d5c9b6ef9cca698c9d2229971718db7832bff4ab5d2e91ef6",
+        "lines": 28,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/Cargo.toml"
+      },
+      {
+        "path": "README.md",
+        "sha256": "13a9ffb71a5836b59f3c5249adb51d89c73b6304d02df77f7fddeb77eaa3ed03",
+        "lines": 156,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/README.md"
+      },
+      {
+        "path": "benchmark/tests/account_borrow.rs",
+        "sha256": "5ef33724f93e925490e747a89c221ad633eb1c9b76771ad6bdc363e7c815ad7e",
+        "lines": 87,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/account_borrow.rs"
+      },
+      {
+        "path": "benchmark/tests/account_data.rs",
+        "sha256": "7bf840500177285f8fdfdfddaba05e8f826520f923cc8803d71c53737b9f01c4",
+        "lines": 75,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/account_data.rs"
+      },
+      {
+        "path": "benchmark/tests/account_resize.rs",
+        "sha256": "5b533459c6bc82663a37695e76aa6c4313d4eba9a311a8a8e90d24ca0a176793",
+        "lines": 107,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/account_resize.rs"
+      },
+      {
+        "path": "benchmark/tests/assign_owner.rs",
+        "sha256": "74c25994cddf30e44ad27e4383e4b3fef65aecf8552e9d5ae3a4f69293bcd482",
+        "lines": 69,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/assign_owner.rs"
+      },
+      {
+        "path": "benchmark/tests/counter.rs",
+        "sha256": "69aac2adb151753e0c239fdf107a78436270ad118d8499d114ff25149e632670",
+        "lines": 89,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/counter.rs"
+      },
+      {
+        "path": "benchmark/tests/counter_asm.rs",
+        "sha256": "8f7bfa3547b753bb148220e31ba74f1ea6a7ea8684249ef9dac2a6aab7b83a69",
+        "lines": 89,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/counter_asm.rs"
+      },
+      {
+        "path": "benchmark/tests/cpi.rs",
+        "sha256": "3d48be7608a1334e83e59d789e021f72ec0b4a877c5924e9aa85c24561ea2b33",
+        "lines": 148,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/cpi.rs"
+      },
+      {
+        "path": "benchmark/tests/deny_allocator.rs",
+        "sha256": "716169c28f0a3d5c724b4d8a07ab60fe6fc7c6aaf4e42ffabc403dd126b16a54",
+        "lines": 47,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/deny_allocator.rs"
+      },
+      {
+        "path": "benchmark/tests/doppler_asm.rs",
+        "sha256": "db6a1a33c0715acc1c6b3ab765d80e0c163747807c03524aa19136db0df28c87",
+        "lines": 118,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/doppler_asm.rs"
+      },
+      {
+        "path": "benchmark/tests/rent_sysvar.rs",
+        "sha256": "4993ae1ef17a9b8861824594eb58401cb2ea84b59513d811e0ece16743ba3037",
+        "lines": 38,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/rent_sysvar.rs"
+      },
+      {
+        "path": "benchmark/tests/return_data.rs",
+        "sha256": "db46e07e0d96090a0f37ee7b0dc3f183cb492319e5153b9239df62e20a4be64c",
+        "lines": 35,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/return_data.rs"
+      },
+      {
+        "path": "benchmark/tests/setup/mod.rs",
+        "sha256": "1baa1be08eb9d64b8057a9492d923e0023aefe6de6ed2f551d4683c9f67836ad",
+        "lines": 42,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/setup/mod.rs"
+      },
+      {
+        "path": "benchmark/tests/trace.rs",
+        "sha256": "cfc4a096fc5a291a462582d346d33958fe95d55dc4cae6d87b53a3c2e9bf7694",
+        "lines": 51,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/trace.rs"
+      },
+      {
+        "path": "benchmark/tests/transfer_lamports.rs",
+        "sha256": "218138c1f41ca4c97d2f17645b9a40f5caeb0c7f351fe6a205de85e91a3d2ca4",
+        "lines": 93,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/benchmark/tests/transfer_lamports.rs"
+      },
+      {
+        "path": "programs/account-borrow/src/lib.rs",
+        "sha256": "9dd6909db69eebb5368acdd058cdec8cfecc7e4a468e71a5797877e6c6fb0da3",
+        "lines": 31,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/account-borrow/src/lib.rs"
+      },
+      {
+        "path": "programs/account-data/src/lib.rs",
+        "sha256": "360a97f895c0a468a2e7f2d12b6ce8f209ab307a89f82b622423c49f94d50aef",
+        "lines": 31,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/account-data/src/lib.rs"
+      },
+      {
+        "path": "programs/account-resize/src/lib.rs",
+        "sha256": "8a0b359fc08f2b3a131255613086ffa75739d758a0610fec303ff15c702165ad",
+        "lines": 41,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/account-resize/src/lib.rs"
+      },
+      {
+        "path": "programs/assign-owner/src/lib.rs",
+        "sha256": "8658112d5b0b09e5fa07d8e8b95fc95249873c636b819f086599c9c7324d70d1",
+        "lines": 29,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/assign-owner/src/lib.rs"
+      },
+      {
+        "path": "programs/counter/src/lib.rs",
+        "sha256": "0cbc1e52f2284f5544020ab77c90b52b8e7b9e980d9cc8686222ac637ebb2c51",
+        "lines": 24,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/counter/src/lib.rs"
+      },
+      {
+        "path": "programs/cpi/src/lib.rs",
+        "sha256": "cb0a679e569a9c8cf2a6a5c3070f7dec5b91db630047877c366ebcf2a7d121ef",
+        "lines": 213,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/cpi/src/lib.rs"
+      },
+      {
+        "path": "programs/deny-allocator/src/lib.rs",
+        "sha256": "4de7429d8c88756e4bc2244219a09271b13fe85bd644a5c3627a1dceef8c4ac8",
+        "lines": 27,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/deny-allocator/src/lib.rs"
+      },
+      {
+        "path": "programs/rent-sysvar/src/lib.rs",
+        "sha256": "f3083cb6305b6135408f229e6bb09790907d714b1ac4b9299ccb1935087b301a",
+        "lines": 32,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/rent-sysvar/src/lib.rs"
+      },
+      {
+        "path": "programs/return-data/src/lib.rs",
+        "sha256": "5d90b6506829005d50f38bc09a7cb86b76168cada5c89724804b704fd0aeb1a6",
+        "lines": 35,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/return-data/src/lib.rs"
+      },
+      {
+        "path": "programs/trace/src/lib.rs",
+        "sha256": "303c9e6b828062ed3f7fa5e06c720e545512762681342423c864b92be86265d1",
+        "lines": 42,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/trace/src/lib.rs"
+      },
+      {
+        "path": "programs/transfer-lamports/src/lib.rs",
+        "sha256": "d13cba66f42799ad9f75a1c514498eb29937e50f92c94e57fa9a02a41669dff8",
+        "lines": 30,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/programs/transfer-lamports/src/lib.rs"
+      },
+      {
+        "path": "sdk/src/account.rs",
+        "sha256": "a8f24f582f0c93fff2eb60bd588a14e9681a7edd334bfd6e946f125d6262328c",
+        "lines": 599,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/account.rs"
+      },
+      {
+        "path": "sdk/src/context.rs",
+        "sha256": "8859f18b950baf11d60099cea2e9eb1e114608e81bb80afb28bcb95057859e50",
+        "lines": 192,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/context.rs"
+      },
+      {
+        "path": "sdk/src/cpi.rs",
+        "sha256": "dbb554334bdb8844e145a71918b91d71f1e86a8bb4b62a6bba4ad9d98f167d5a",
+        "lines": 366,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/cpi.rs"
+      },
+      {
+        "path": "sdk/src/entrypoint/allocator.rs",
+        "sha256": "55bf5ae7f45607398e7f4d50f6c372ff20444a1469e2bd054d4e7c602b430b31",
+        "lines": 129,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/entrypoint/allocator.rs"
+      },
+      {
+        "path": "sdk/src/entrypoint/mod.rs",
+        "sha256": "83145f63ab732b30f7053bd7091d3a442aca8526b17e922054356959000f75f7",
+        "lines": 370,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/entrypoint/mod.rs"
+      },
+      {
+        "path": "sdk/src/lib.rs",
+        "sha256": "0ee92bf1a9499f14088bba68f9c7c7de39c98d5ecfb7b433d8912e111ea9b963",
+        "lines": 303,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/lib.rs"
+      },
+      {
+        "path": "sdk/src/memory.rs",
+        "sha256": "4859b4c1b01abf50d8b8d4c11190b0fbba6d5add2c1330467e91b5b25733d759",
+        "lines": 167,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/memory.rs"
+      },
+      {
+        "path": "sdk/src/syscall.rs",
+        "sha256": "b44e7a11ae79b08df3d5b831e5a5545558898048471e9e1f2a2e0a9f779179cb",
+        "lines": 39,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/syscall.rs"
+      },
+      {
+        "path": "sdk/src/sysvar/clock.rs",
+        "sha256": "e6dfdd6e0ec1937486a1fca6179acd8801aa5259fc081c4606678e5ce54da9d6",
+        "lines": 147,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/sysvar/clock.rs"
+      },
+      {
+        "path": "sdk/src/sysvar/mod.rs",
+        "sha256": "688d42bdbb2c9c69a847f3d1359f29df420fb14748b5f3121b9fc06657fedddd",
+        "lines": 27,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/sysvar/mod.rs"
+      },
+      {
+        "path": "sdk/src/sysvar/rent.rs",
+        "sha256": "b21bad0f9ae49c5e42cf4d60150d3ea7a9654960d0ad98847ffdbcb482957c7f",
+        "lines": 100,
+        "url": "https://raw.githubusercontent.com/blueshift-gg/abiv2/1fa9c6af359901a1ad0d44973a701ae792ce9129/sdk/src/sysvar/rent.rs"
+      }
+    ]
+  },
+  {
+    "name": "pinapod",
+    "repository": "pina-rs/pinapod",
+    "commit": "4ce33bb2ea5757d6220be2f2313d58851f7db79f",
+    "date": "2026-09-24T23:19:43Z",
+    "files": [
+      {
+        "path": "Cargo.toml",
+        "sha256": "679954e489cfe074319ec342a9cfee465f9de66a05264d29b1420a1183c7e32d",
+        "lines": 108,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/Cargo.toml"
+      },
+      {
+        "path": "README.md",
+        "sha256": "3d0b2488c32aae428776fe2395580efb24f3571faf2eec5c275f5201cb99c83e",
+        "lines": 164,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/README.md"
+      },
+      {
+        "path": "pinapod-derive/src/compact.rs",
+        "sha256": "2fdad56393cab254f93d993b6ac719eedf29a4ed6217e84d00b69b7ae5766996",
+        "lines": 2757,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/pinapod-derive/src/compact.rs"
+      },
+      {
+        "path": "pinapod-derive/src/compact_enum.rs",
+        "sha256": "9d3eed76692692c8d079d29949ea0e7acfe75ef8b984c9996c89d3f85e40e614",
+        "lines": 1109,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/pinapod-derive/src/compact_enum.rs"
+      },
+      {
+        "path": "pinapod-derive/src/lib.rs",
+        "sha256": "62a6f5807750150210460db3c0319c87c6cd26232af15e4e6b6f686d4530ce56",
+        "lines": 337,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/pinapod-derive/src/lib.rs"
+      },
+      {
+        "path": "pinapod/src/lib.rs",
+        "sha256": "5ab15ec46da95a556ffb396ad339d5d5658629567f963f53573ec3903b3b46b9",
+        "lines": 206,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/pinapod/src/lib.rs"
+      },
+      {
+        "path": "pinapod/src/traits.rs",
+        "sha256": "b3e55820dce8e7efbab7e7e04d634745ce3eb3f4744f56c5163a8418a1e24eb7",
+        "lines": 848,
+        "url": "https://raw.githubusercontent.com/pina-rs/pinapod/4ce33bb2ea5757d6220be2f2313d58851f7db79f/pinapod/src/traits.rs"
+      }
+    ]
+  },
+  {
+    "name": "lootbox",
+    "repository": "pina-rs/lootbox",
+    "commit": "65273faeb0705fb8160b55dc699086b2d584ad1e",
+    "date": "2026-09-26T08:39:30Z",
+    "files": [
+      {
+        "path": "Cargo.toml",
+        "sha256": "2cdadcfe2c173be0db63c7533d9bdff71534a2f5129cd222dafc923f3f8fccef",
+        "lines": 96,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/Cargo.toml"
+      },
+      {
+        "path": "README.md",
+        "sha256": "bc29cdd2950187cac97770785dfdfd30155a20faff3b2b1ed835661d46b9b542",
+        "lines": 153,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/README.md"
+      },
+      {
+        "path": "clients/cpi/lootbox_program/src/lib.rs",
+        "sha256": "ca87a5f5bf5ab2bc2f0d845d524078d7edaf5a2dfed9bb8a49cc671500a21ca7",
+        "lines": 8,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/clients/cpi/lootbox_program/src/lib.rs"
+      },
+      {
+        "path": "clients/rust/lootbox_program/src/lib.rs",
+        "sha256": "ab4225f69c74def8a604581869840e86393f9c0f5c96ff31daa4b6b302775f3d",
+        "lines": 5,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/clients/rust/lootbox_program/src/lib.rs"
+      },
+      {
+        "path": "crates/lootbox-cli/src/lib.rs",
+        "sha256": "645c1b523f09c40dfbaa95fdd37ed3d2ecdc9b1b42a17bb58c3b333d1661f786",
+        "lines": 241,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/crates/lootbox-cli/src/lib.rs"
+      },
+      {
+        "path": "crates/switchboard_randomness_cpi/src/lib.rs",
+        "sha256": "ffe98e55596ea6a04d9e81329615c393b8daa1e4aa0d06a16ec0e229efaf5a56",
+        "lines": 61,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/crates/switchboard_randomness_cpi/src/lib.rs"
+      },
+      {
+        "path": "programs/lootbox_program/src/lib.rs",
+        "sha256": "2a9f8c46376dd3eb7d39cdf7fff31f506e41fa717eaa166e6e2ed7eb947c3210",
+        "lines": 1770,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/programs/lootbox_program/src/lib.rs"
+      },
+      {
+        "path": "programs/lootbox_program/tests/surfpool/src/lib.rs",
+        "sha256": "a19a94981d7ad6ddd9a671ba6925efcae60a95dc6fa807aee7ef4e0d4aefbc7f",
+        "lines": 1372,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/programs/lootbox_program/tests/surfpool/src/lib.rs"
+      },
+      {
+        "path": "sdks/rust/src/lib.rs",
+        "sha256": "1a4fd953ec3aeaf0d8ec34dec48ec70d3be8da95f30e360d907f15feeb877cdd",
+        "lines": 326,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/sdks/rust/src/lib.rs"
+      },
+      {
+        "path": "tests/fixtures/mock_bubblegum/src/lib.rs",
+        "sha256": "d8eed771e9d7cbfa81af71938bc305a0c261bc370cc1a85adf953391cffb3e2c",
+        "lines": 227,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/tests/fixtures/mock_bubblegum/src/lib.rs"
+      },
+      {
+        "path": "tests/fixtures/mock_switchboard/src/lib.rs",
+        "sha256": "093e9c311c170aa6c53b891a9203aee59a51ef8ed3a3bb6129cd3bb6a3cb183c",
+        "lines": 230,
+        "url": "https://raw.githubusercontent.com/pina-rs/lootbox/65273faeb0705fb8160b55dc699086b2d584ad1e/tests/fixtures/mock_switchboard/src/lib.rs"
+      }
+    ]
+  }
+]

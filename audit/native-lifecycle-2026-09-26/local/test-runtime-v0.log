@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized] target(s) in 0.50s
+     Running tests\lifecycle_sbf.rs (target\debug\deps\lifecycle_sbf-f2133d593259a602.exe)
+
+running 1 test
+runtime [0] signer=true: 456 CU
+runtime [1] signer=true: 488 CU
+runtime [2] signer=true: 576 CU
+runtime [3] signer=true: 154 CU
+runtime [4] signer=true: 153 CU
+runtime [5] signer=true: 180 CU
+runtime [6] signer=true: 491 CU
+test lifecycle_and_segment_guards_preserve_complete_account_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

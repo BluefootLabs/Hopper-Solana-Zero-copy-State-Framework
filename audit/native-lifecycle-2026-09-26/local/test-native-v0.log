@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized] target(s) in 0.49s
+     Running tests\lifecycle_sbf.rs (target\debug\deps\lifecycle_sbf-f2133d593259a602.exe)
+
+running 1 test
+native [0] signer=true: 143 CU
+native [1] signer=true: 130 CU
+native [2] signer=true: 126 CU
+native [3] signer=true: 138 CU
+native [4] signer=true: 128 CU
+native [5, 32, 0] signer=true: 1591 CU
+native [6] signer=true: 157 CU
+native [7] signer=true: 307 CU
+native [8] signer=true: 134 CU
+native [9] signer=true: 1681 CU
+native [5, 32, 0] signer=false: 437 CU
+native [5, 255, 255] signer=true: 292 CU
+test lifecycle_and_segment_guards_preserve_complete_account_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

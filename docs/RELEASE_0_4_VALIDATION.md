@@ -7,6 +7,9 @@ account list. See [migration](MIGRATION_0_4.md) for compatibility details.
 
 ## Native/runtime 0.4.2 — account lifecycle and borrow safety
 
+**Published on crates.io:** `hopper-native` and `hopper-runtime` 0.4.2.
+Registry downloads match the release source and checksums.
+
 The 0.4.2 patch keeps an account's native borrow alive for the full lifetime of
 an SBF segment guard. Conflicting whole-account access, another registry,
 closure, resizing, and writable checked CPI are refused while that guard lives.

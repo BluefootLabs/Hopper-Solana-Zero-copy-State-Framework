@@ -1,0 +1,396 @@
+   Compiling hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized] target(s) in 2.70s
+     Running unittests src\lib.rs (target\debug\deps\hopper_runtime-cefad894523d194a.exe)
+
+running 317 tests
+test account::tests::close_refuses_while_data_borrow_is_live ... ok
+test account::tests::close_to_rejects_the_same_account_as_recipient ... ok
+test account::tests::close_to_refusal_preserves_source_and_recipient ... ok
+test account::tests::compact_init_rejects_overlapping_or_overflowing_tail_before_writing ... ok
+test account::tests::compact_dynamic_loads_head_with_a_growable_tail ... ok
+test account::tests::compact_dynamic_rejects_short_and_wrong_disc ... ok
+test account::tests::check_owned_by_any_accepts_listed_owner_and_rejects_others ... ok
+test account::tests::compact_load_rejects_oversized_fixed_buffer ... ok
+test account::tests::compact_load_rejects_wrong_disc ... ok
+test account::tests::compact_load_uses_one_byte_header_and_body_at_offset_one ... ok
+test account::tests::compact_load_rejects_short_buffer ... ok
+test account::tests::const_segment_api_matches_manual_offsets ... ok
+test account::tests::load_rejects_undersized_layout_body ... ok
+test account::tests::load_mut_is_zero_copy_and_pointer_stable ... ok
+test account::tests::compact_loads_recheck_actual_body_bounds ... ok
+test account::tests::seg_lease_releases_on_drop_and_allows_reacquire ... ok
+test account::tests::expect_signer_writable_keeps_distinct_errors_and_passes_valid ... ok
+test account::tests::every_access_path_is_tracked ... ok
+test account::tests::extension_bytes_mut_is_governed_over_its_exact_range ... ok
+test account::tests::init_header_stamps_layout_schema_epoch ... ok
+test account::tests::layout_info_matches_checks_schema_epoch ... ok
+test account::tests::live_load_mut_blocks_segment_ref ... ok
+test account::tests::load_after_segment_drop_succeeds ... ok
+test account::tests::load_cross_program_guards_length_even_with_lax_foreign_header ... ok
+test account::tests::default_layout_accepts_legacy_zero_epoch ... ok
+test account::tests::duplicate_address_aliases_are_rejected_across_views ... ok
+test account::tests::load_rejects_wrong_disc_and_wrong_version ... ok
+test account::tests::load_supports_header_inclusive_layouts ... ok
+test account::tests::typed_segment_api_round_trips ... ok
+test account::tests::seg_lease_still_rejects_simultaneous_overlap ... ok
+test account::tests::split_segments_mut_borrows_two_disjoint_ranges ... ok
+test account::tests::split_segments_mut_rejects_overlap_and_rolls_back ... ok
+test account::tests::typed_load_holds_borrow_until_drop ... ok
+test account::tests::zero_appended_rides_the_transition_authority_not_the_byte_ranges ... ok
+test account::tests::typed_load_rejects_schema_epoch_mismatch ... ok
+test account_wrappers::resolver_tests::interface_account_resolver_keeps_owner_and_layout_checks ... ok
+test account_wrappers::resolver_tests::interface_account_resolves_bounded_layout_variants ... ok
+test account::tests::zero_range_is_gated_over_exactly_the_cleared_bytes ... ok
+test account::tests::typed_loads_do_not_trust_overridden_sizing_and_validation ... ok
+test account::tests::live_load_blocks_segment_mut ... ok
+test account_wrappers::resolver_tests::interface_account_revalidates_layout_after_binding ... ok
+test account_wrappers::resolver_tests::interface_account_revalidates_owner_after_binding ... ok
+test account_wrappers::tests::signer_wrapper_is_pointer_sized_zero_cost ... ok
+test account_wrappers::tests::system_program_id_is_all_zero ... ok
+test address::tests::address_is_zero_or_fold ... ok
+test address::tests::keys_eq_bytes_matches_slice_semantics ... ok
+test address::tests::keys_eq_differs_only_in_last_byte ... ok
+test address::tests::keys_eq_detects_single_byte_difference_at_every_index ... ok
+test address::tests::eq_is_consistent_with_derived_ord ... ok
+test address::tests::keys_eq_matches_bytewise_on_equal_arrays ... ok
+test audit::tests::detects_any_duplicate ... ok
+test audit::tests::read_only_duplicates_do_not_fail_writable_audit ... ok
+test audit::tests::signer_duplicates_are_rejected ... ok
+test audit::tests::writable_duplicates_are_rejected ... ok
+test behavior::tests::check_mints_proof_with_payload_and_rejects_violations ... ok
+test behavior::tests::update_requires_the_proof_and_applies_declared_writes ... ok
+test behavior::tests::write_contribution_is_declared_for_strict_writes_folding ... ok
+test compact::tests::compact_len_is_one_plus_body ... ok
+test compact::tests::validate_checks_len_and_disc ... ok
+test compute::tests::offchain_compute_is_unlimited ... ok
+test context::write_policy_tests::empty_policy_is_a_machine_checked_read_only_instruction ... ok
+test context::write_policy_tests::field_policy_refuses_whole_account_write_paths ... ok
+test context::write_policy_tests::field_policy_allows_declared_segments_and_refuses_the_rest ... ok
+test context::write_policy_tests::load_mut_is_gated_before_header_validation_or_borrow ... ok
+test context::write_policy_tests::no_policy_leaves_every_write_path_open ... ok
+test context::write_policy_tests::scoped_context_runtime_segments_preserve_write_policy ... ok
+test context::write_policy_tests::whole_account_allowance_admits_all_write_paths ... ok
+test cpi::tests::borrow_checked_offchain_noop_path_returns_ok ... ok
+test cpi::tests::borrow_checked_permits_duplicate_writable_metas_unlike_default_tier ... ok
+test cpi::tests::borrow_checked_rejects_live_mutable_data_borrow ... ok
+test cpi::tests::borrow_checked_requires_enough_account_views ... ok
+test cpi::tests::borrow_checked_succeeds_after_borrow_release ... ok
+test cpi::tests::duplicate_writable_accounts_are_rejected_before_cpi ... ok
+test cpi::tests::host_system_transfer_is_gated_through_the_lamport_funnel ... ok
+test cpi::tests::fused_build_matches_split_build_and_per_tier_errors ... ok
+test cpi::tests::host_system_transfer_refusal_leaves_both_balances_untouched ... ok
+test cpi::tests::signed_preflight_defers_pda_derivation_to_the_svm ... ok
+test cpi::tests::writable_meta_is_refused_unless_both_dimensions_are_declared ... ok
+test cpi_event::tests::decode_is_the_exact_inverse_of_encode ... ok
+test cpi_event::tests::decode_rejects_short_or_mismarked_data ... ok
+test cpi_event::tests::encodes_marker_tag_and_payload_in_order ... ok
+test cpi_event::tests::host_invoke_accepts_supplied_pda_authority_and_captures_the_wire_bytes ... ok
+test cpi_event::tests::host_verify_event_authority_reports_the_placeholder_bump ... ok
+test cpi_event::tests::invoke_rejects_too_many_seeds ... ok
+test cpi_event::tests::rejects_short_buffer ... ok
+test cpi_event::tests::reserved_marker_is_stable ... ok
+test cpi_event::tests::sink_accepts_a_signed_authority_on_host ... ok
+test cpi_event::tests::sink_rejects_short_data_and_wrong_marker ... ok
+test cpi_event::tests::sink_requires_the_authority_account_to_be_present ... ok
+test cpi_event::tests::sink_requires_the_authority_to_sign ... ok
+test cpi_event::tests::trait_tag_defaults_to_the_associated_const ... ok
+test cpi_event::tests::zero_payload_is_valid ... ok
+test crank::tests::empty_marker_has_zero_hints ... ok
+test crank::tests::lookup_miss_returns_none ... ok
+test crank::tests::lookup_resolves_named_field ... ok
+test crypto::tests::hash_helpers_accept_sixteen_segments ... ok
+test crypto::tests::hash_helpers_reject_more_than_sixteen_segments ... ok
+test dyn_cpi::tests::byte_push_walks_the_buffer ... ok
+test dyn_cpi::tests::data_overflow_rejects ... ok
+test dyn_cpi::tests::invoke::account_views_exposes_push_order_prefix ... ok
+test dyn_cpi::tests::invoke::distinct_addresses_stay_distinct_infos ... ok
+test dyn_cpi::tests::invoke::invoke_rejects_duplicate_writable_accounts ... ok
+test dyn_cpi::tests::invoke::invoke_submits_deduped_repeated_readonly_account ... ok
+test dyn_cpi::tests::invoke::invoke_surfaces_flag_mismatch_from_built_metas ... ok
+test dyn_cpi::tests::invoke::invoke_validates_and_submits_built_metas ... ok
+test dyn_cpi::tests::invoke::metas_preserve_order_and_duplicates_while_infos_dedup ... ok
+test dyn_cpi::tests::invoke::repeated_address_collapses_to_one_info_with_or_merged_flags ... ok
+test dyn_cpi::tests::push_pubkey_fills_32_bytes ... ok
+test error::tag_encoding_tests::glue_roundtrips_identity_for_every_variant ... ok
+test error::tag_encoding_tests::u64_conversion_matches_reference_for_every_variant ... ok
+test foreign::tests::external_account_rejects_wrong_owner_or_prefix ... ok
+test dyn_cpi::tests::invoke::wide_dyn_cpi_exceeds_legacy_64_account_ceiling ... ok
+test foreign::tests::external_account_revalidates_owner_and_discriminator_after_binding ... ok
+test foreign::tests::external_account_validates_owner_discriminator_and_length ... ok
+test foreign::tests::manifest_range_spans_inclusive ... ok
+test foreign::tests::manifest_single_epoch_is_inclusive_single_value ... ok
+test instruction::tests::stored_account_meta_flags_round_trip ... ok
+test instruction::tests::stored_instruction_builds_instruction_view_without_alloc ... ok
+test instruction::tests::stored_instruction_rejects_small_output_buffer ... ok
+test lamports::tests::dropping_the_gate_restores_ungated_passthrough ... ok
+test lamports::tests::gated_arithmetic_refusals_keep_indexed_gate_errors_out_of_the_way ... ok
+test lamports::tests::gated_self_transfer_follows_the_declared_set ... ok
+test lamports::tests::gated_transfer_between_declared_accounts_moves_exact_balances ... ok
+test lamports::tests::gated_transfer_composes_with_data_ranges ... ok
+test lamports::tests::gated_transfer_from_undeclared_account_is_refused_before_any_mutation ... ok
+test lamports::tests::gated_transfer_to_undeclared_account_is_refused_before_any_mutation ... ok
+test lamports::tests::ungated_behavior_matches_substrate_helper_exactly ... ok
+test lamports::tests::ungated_self_transfer_is_balance_checked_net_zero ... ok
+test lazy::tests::bridge_yields_runtime_types_end_to_end ... ok
+test memory::tests::copy_bytes_copies_prefix ... ok
+test lazy::tests::signer_requirement_maps_to_the_runtime_error ... ok
+test memory::tests::fill_and_compare_bytes ... ok
+test lazy::tests::drain_remaining_casts_the_whole_slice ... ok
+test migrate::tests::find_edge_errs_on_missing_epoch ... ok
+test memory::tests::move_within_allows_overlap ... ok
+test migrate::tests::find_edge_rejects_non_forward_edge ... ok
+test migrate::tests::find_edge_returns_matching_edge ... ok
+test migrate::tests::migration_edge_is_forward_detects_non_monotonic ... ok
+test migrate::tests::overshoot::foreign_owned_account_is_refused_before_any_edge_runs ... ok
+test migrate::tests::overshoot::overshooting_edge_is_refused_before_writing ... ok
+test migrate::tests::typed_layout_migration::cross_kind_migration_is_refused ... ok
+test migrate::tests::typed_layout_migration::epoch_migration_header_predicate_accepts_lag_refuses_lead ... ok
+test migrate::tests::typed_layout_migration::foreign_owned_account_is_refused_before_the_transform_runs ... ok
+test migrate::tests::typed_layout_migration::larger_new_shape_requires_realloc_first ... ok
+test migrate::tests::typed_layout_migration::migrate_chain_heals_from_any_starting_version ... ok
+test migrate::tests::typed_layout_migration::migrate_chain_with_payer_grows_once_to_the_largest_hop ... ok
+test migrate::tests::typed_layout_migration::migrated_account_refuses_a_second_migration ... ok
+test migrate::tests::typed_layout_migration::non_forward_version_is_refused ... ok
+test migrate::tests::typed_layout_migration::non_writable_account_is_refused_before_the_transform_runs ... ok
+test migrate::tests::typed_layout_migration::resizing_migration_grows_and_tops_up_exactly_the_deficit ... ok
+test migrate::tests::typed_layout_migration::resizing_migration_needs_no_payer_when_already_funded ... ok
+test migrate::tests::typed_layout_migration::shrink_is_opt_in_and_off_by_default_in_the_macro ... ok
+test migrate::tests::typed_layout_migration::shrink_refunds_only_the_rent_delta_and_never_touches_deposits ... ok
+test migrate::tests::typed_layout_migration::transform_error_leaves_the_header_on_the_old_layout ... ok
+test migrate::tests::typed_layout_migration::typed_migration_restamps_header_and_transforms_body ... ok
+test option_byte::tests::layout_is_c_with_value_at_align_of_t ... ok
+test option_byte::tests::malformed_tag_rejects ... ok
+test option_byte::tests::none_reads_as_none ... ok
+test option_byte::tests::some_reads_back ... ok
+test option_byte::tests::zero_tag_ignores_value_payload ... ok
+test pda::tests::const_program_address_matches_devnet_created_pdas ... ok
+test pod::tests::address_satisfies_pod ... ok
+test pod::tests::primitives_are_pod ... ok
+test policy::tests::default_policy_is_strict ... ok
+test policy::tests::instruction_ctx_args_round_trips ... ok
+test policy::tests::instruction_inherit_zeroes_every_lever ... ok
+test policy::tests::named_modes_differ_on_every_lever ... ok
+test policy::tests::program_profiles_are_stable ... ok
+test ref_only::tests::hopper_guards_satisfy_the_bound ... ok
+test remaining::tests::error_variants_surface_as_program_error ... ok
+test remaining::tests::max_remaining_matches_quasar ... ok
+test remaining::tests::typed_remaining_duplicate_and_sort_assertions_are_explicit ... ok
+test remaining::tests::typed_remaining_parses_external_signer_and_raw_slots ... ok
+test remaining::tests::typed_remaining_supports_groups_and_lazy_external_access ... ok
+test rent::tests::host_live_minimum_uses_the_documented_snapshot ... ok
+test rent::tests::minimum_balance_matches_launch_snapshot ... ok
+test rent::tests::minimum_balance_on_typical_vault_state ... ok
+test rent::tests::minimum_balance_scales_linearly ... ok
+test return_data::tests::copy_to_copies_only_the_prefix ... ok
+test return_data::tests::data_exposes_exactly_the_written_prefix ... ok
+test return_data::tests::debug_prints_only_the_initialized_prefix ... ok
+test return_data::tests::is_truncated_reflects_runtime_reported_length ... ok
+test return_data::tests::offchain_get_return_data_is_none ... ok
+test return_data::tests::read_pod_never_reads_past_the_prefix ... ok
+test return_data::tests::return_data_reads_pod_by_value ... ok
+test return_data::tests::try_set_return_data_rejects_oversized_payload ... ok
+test segment::tests::body_adds_header ... ok
+test segment::tests::contained_in_reports_proper_nesting ... ok
+test segment::tests::end_arithmetic_does_not_wrap_at_u32_max ... ok
+test segment::tests::overlaps_detects_shared_bytes ... ok
+test segment::tests::typed_segment_is_zero_sized ... ok
+test segment::tests::typed_segment_lowers_to_runtime_segment ... ok
+test segment::tests::typed_segment_offset_and_size_fold ... ok
+test segment_borrow::tests::adjacent_ranges_no_conflict ... ok
+test segment_borrow::tests::capacity_limit ... ok
+test segment_borrow::tests::different_accounts_always_allowed ... ok
+test segment_borrow::tests::guard_accessors ... ok
+test segment_borrow::tests::guard_auto_releases_read_on_drop ... ok
+test segment_borrow::tests::guard_auto_releases_write_on_drop ... ok
+test segment_borrow::tests::guard_then_manual_register_ok ... ok
+test segment_borrow::tests::non_overlapping_write_write_allowed ... ok
+test segment_borrow::tests::partially_overlapping_rejected ... ok
+test segment_borrow::tests::read_read_same_range_allowed ... ok
+test segment_borrow::tests::read_write_same_range_rejected ... ok
+test segment_borrow::tests::release_last_registered_falls_back_to_exact_release ... ok
+test segment_borrow::tests::release_then_reacquire ... ok
+test segment_borrow::tests::sequential_guards_reuse_slot ... ok
+test segment_borrow::tests::would_conflict_does_not_mutate ... ok
+test segment_borrow::tests::write_read_same_range_rejected ... ok
+test segment_borrow::tests::write_write_same_range_rejected ... ok
+test system::tests::advance_nonce_account_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::allocate_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::assign_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::authorize_nonce_account_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::create_account_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::initialize_nonce_account_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::transfer_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::upgrade_nonce_account_encoder_matches_pre_refactor_golden_bytes ... ok
+test system::tests::withdraw_nonce_account_encoder_matches_pre_refactor_golden_bytes ... ok
+test tail::tests::bool_encode_decode ... ok
+test tail::tests::bounded_string_capacity_helpers ... ok
+test tail::tests::bounded_string_roundtrip ... ok
+test tail::tests::bool_rejects_garbage ... ok
+test tail::tests::bounded_vec_roundtrip ... ok
+test tail::tests::bounded_vec_set_helpers_preserve_order ... ok
+test tail::tests::byte_array_roundtrip ... ok
+test tail::tests::max_encoded_len_matches_actual_encode_size ... ok
+test tail::tests::option_none_encodes_to_one_byte ... ok
+test tail::tests::option_rejects_invalid_tag ... ok
+test tail::tests::option_some_includes_inner_payload ... ok
+test tail::tests::seq_capacity_is_region_derived ... ok
+test tail::tests::seq_element_stride_matches_encoded_len ... ok
+test tail::tests::seq_from_region_rejects_corrupt_count_and_tiny_region ... ok
+test tail::tests::seq_of_addresses_roundtrips ... ok
+test tail::tests::seq_push_at_capacity_is_account_data_too_small ... ok
+test tail::tests::seq_push_get_iter_roundtrip ... ok
+test tail::tests::seq_swap_remove_moves_last_into_hole ... ok
+test tail::tests::tail_bounds_check_on_short_buffer ... ok
+test tail::tests::tail_decode_rejects_excess_payload ... ok
+test tail::tests::tail_length_prefix_roundtrip ... ok
+test tail::tests::u32_roundtrip ... ok
+test tail::tests::u64_roundtrip ... ok
+test token::tests::approve_checked_wire_format_is_stable ... ok
+test token::tests::authority_and_initialize_encodings_match_spl_token_wire_format ... ok
+test token::tests::burn_checked_wire_format_is_stable ... ok
+test token::tests::checked_encoding_preserves_amount_bits ... ok
+test token::tests::checked_encoding_round_trips_decimals_range ... ok
+test token::tests::mint_to_checked_wire_format_is_stable ... ok
+test token::tests::require_mint_authority_accepts_matching ... ok
+test token::tests::require_mint_authority_rejects_mismatched ... ok
+test token::tests::require_mint_decimals_matches ... ok
+test token::tests::require_mint_decimals_rejects_mismatch ... ok
+test token::tests::require_mint_freeze_authority_rejects_none_tag ... ok
+test token::tests::require_token_authority_accepts_matching_owner ... ok
+test token::tests::require_token_authority_rejects_mismatched_owner ... ok
+test token::tests::require_token_authority_rejects_short_buffer ... ok
+test token::tests::require_token_mint_accepts_matching_mint ... ok
+test token::tests::require_token_mint_rejects_mismatched_mint ... ok
+test token::tests::require_token_owner_eq_matches ... ok
+test token::tests::require_token_owner_eq_rejects_mismatch ... ok
+test token::tests::shipped_encoders_match_pre_refactor_golden_bytes ... ok
+test token::tests::spl_external_mint_view_and_decimals_proof ... ok
+test token::tests::spl_external_token_account_view_proofs_and_amount_delta ... ok
+test token::tests::transfer_checked_discriminator_is_12 ... ok
+test token::tests::transfer_checked_wire_format_is_stable ... ok
+test token_2022_ext::tests::allowlist_rejects_unknown_duplicate_and_truncated_entries ... ok
+test token_2022_ext::tests::extension_policy_requires_and_forbids_extensions ... ok
+test token_2022_ext::tests::find_extension_bails_on_malformed_length ... ok
+test token_2022_ext::tests::find_extension_finds_second_entry ... ok
+test token_2022_ext::tests::find_extension_returns_none_when_absent ... ok
+test token_2022_ext::tests::find_extension_returns_payload_slice ... ok
+test token_2022_ext::tests::mint_tlv_region_accepts_zero_kind_byte ... ok
+test token_2022_ext::tests::mint_tlv_region_rejects_short_account ... ok
+test segment_borrow::proptests::distinct_accounts_never_conflict ... ok
+test token_2022_ext::tests::mint_tlv_region_rejects_wrong_account_kind ... ok
+test token_2022_ext::tests::offset_constants_match_authoritative_spec ... ok
+test token_2022_ext::tests::real_layout_mint_tlv_region_starts_at_166 ... ok
+test token_2022_ext::tests::tlv_regions_reject_multisig_collision_and_dirty_mint_padding ... ok
+test token_2022_ext::tests::real_layout_mint_padding_is_not_treated_as_tlv ... ok
+test token_2022_ext::tests::token_account_policy_sees_cpi_guard_and_confidential_account ... ok
+test token_2022_ext::tests::token_account_tlv_region_accepts_zero_kind_byte ... ok
+test token_2022_ext::tests::token_account_tlv_region_rejects_mint_kind ... ok
+test token_2022_ext::tests::token_account_tlv_region_returns_real_tlv ... ok
+test utils::hint::tests::likely_is_identity_on_host ... ok
+test utils::hint::tests::unlikely_is_identity_on_host ... ok
+test write_policy::gate_store_layout_tests::initial_gate_store_is_all_zero_bytes ... ok
+test write_policy::gate_store_layout_tests::issued_counter_hands_out_nonzero_monotonic_tokens ... ok
+test write_policy::tests::containment_oracle_resolves_parametric_cells_and_static_unions ... ok
+test write_policy::gate_store_layout_tests::zeroed_sbf_state_has_no_evaluator ... ok
+test write_policy::tests::containment_survives_u32_boundary_arithmetic ... ok
+test write_policy::tests::data_only_policy_governs_data_but_passes_the_lamport_dimension ... ok
+test write_policy::tests::declared_lamport_dimension_permits_only_members ... ok
+test write_policy::tests::declared_ranges_allow_exact_and_contained_writes ... ok
+test segment_borrow::proptests::write_borrows_match_disjointness_oracle ... ok
+test write_policy::tests::depth_exhaustion_fails_closed_loudly ... ok
+test segment_borrow::proptests::read_borrows_never_conflict ... ok
+test write_policy::tests::duplicate_addresses_share_one_merged_permission ... ok
+test write_policy::tests::empty_policy_denies_all_writes ... ok
+test write_policy::tests::fallback_tier_second_install_is_refused_fail_closed ... ok
+test write_policy::tests::forgotten_guard_leaves_stale_value_policy_never_ub ... ok
+test write_policy::tests::gate_delegation_requires_both_dimensions ... ok
+test write_policy::tests::gate_refuses_undeclared_and_allows_declared_lamport_mutation ... ok
+test write_policy::tests::mutation_complete_policy_still_governs_delegation ... ok
+test write_policy::tests::install_fails_closed_when_accounts_exceed_capacity ... ok
+test write_policy::tests::nested_gates_shadow_and_resume_like_a_stack ... ok
+test write_policy::tests::open_ended_tail_range_allows_tail_refuses_head_and_is_not_whole_account ... ok
+test write_policy::tests::out_of_order_guard_drops_cannot_corrupt_other_gates ... ok
+test write_policy::tests::parametric_column_allows_only_the_selected_cell ... ok
+test write_policy::tests::public_raw_surfaces_are_governed_by_the_ambient_gate ... ok
+test write_policy::tests::sbf_dispatch_preserves_byte_ranges_and_data_only_lamport_passthrough ... ok
+test write_policy::tests::undeclared_lamport_dimension_permits_everything_and_is_incomplete ... ok
+test write_policy::tests::sbf_dispatch_preserves_nested_and_failed_install_enforcement ... ok
+test write_policy::tests::undeclared_ranges_are_refused_with_indexed_error ... ok
+test write_policy::tests::whole_account_allowance_contains_any_request ... ok
+test write_policy::tests::whole_account_grant_is_required_for_delegation ... ok
+test zerocopy::tests::address_is_zero_copy ... ok
+test zerocopy::tests::primitives_are_zero_copy_and_wire ... ok
+
+test result: ok. 317 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\competitor_bug_classes.rs (target\debug\deps\competitor_bug_classes-8891bbad41b845de.exe)
+
+running 12 tests
+test a_live_segment_borrow_blocks_the_access_a_stale_view_would_need ... ok
+test anchor_4616_shared_read_alias_during_live_mutable_borrow_is_refused ... ok
+test anchor_5043_cpi_metas_are_validated_against_the_views_that_back_them ... ok
+test duplicate_accounts_in_an_instruction_slice_are_rejected ... ok
+test overlapping_mutable_segment_borrows_on_one_account_are_rejected ... ok
+test typed_and_lazy_parsers_report_and_enforce_true_capacity ... ok
+test failed_migration_edge_never_advances_the_schema_epoch ... ok
+test remaining_advertised_length_is_true_length_at_zero_and_nonzero ... ok
+test strict_writes_rejects_writes_outside_the_declared_byte_range_set ... ok
+test remaining_cap_is_exact_and_loud_at_the_64_boundary ... ok
+test typed_remaining_sets_parse_exactly_what_they_advertise ... ok
+test migration_edge_that_grows_the_layout_leaves_no_stale_bytes ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hopper_runtime
+
+running 46 tests
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::load (line 691) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::load_compact (line 785) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::load_compact_dynamic (line 877) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::load_cross_program (line 1027) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::load_mut (line 730) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::segment_ref_const (line 616) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::segment_ref_typed (line 649) ... ignored
+test crates\hopper-runtime\src\account.rs - account::AccountView<'info>::split_segments_mut (line 475) ... ignored
+test crates\hopper-runtime\src\account_wrappers.rs - account_wrappers (line 9) ... ignored
+test crates\hopper-runtime\src\account_wrappers.rs - account_wrappers::InterfaceAccountLayout (line 492) ... ignored
+test crates\hopper-runtime\src\account_wrappers.rs - account_wrappers::Program (line 416) ... ignored
+test crates\hopper-runtime\src\behavior.rs - behavior (line 10) ... ignored
+test crates\hopper-runtime\src\context.rs - context::Context (line 28) ... ignored
+test crates\hopper-runtime\src\context.rs - context::Context<'a>::split_segments_mut (line 624) ... ignored
+test crates\hopper-runtime\src\cpi_event.rs - cpi_event (line 13) ... ignored
+test crates\hopper-runtime\src\cpi_event.rs - cpi_event (line 78) ... ignored
+test crates\hopper-runtime\src\cpi_event.rs - cpi_event::encode_event_cpi (line 152) ... ignored
+test crates\hopper-runtime\src\interop.rs - interop (line 15) ... ignored
+test crates\hopper-runtime\src\layout.rs - layout::LayoutContract (line 180) ... ignored
+test crates\hopper-runtime\src\layout.rs - layout::read_schema_epoch (line 441) ... ignored
+test crates\hopper-runtime\src\lazy.rs - lazy (line 9) ... ignored
+test crates\hopper-runtime\src\lib.rs - const_pda (line 248) ... ignored
+test crates\hopper-runtime\src\lib.rs - declare_id (line 217) ... ignored
+test crates\hopper-runtime\src\lib.rs - err (line 431) ... ignored
+test crates\hopper-runtime\src\lib.rs - hopper_emit_cpi (line 536) ... ignored
+test crates\hopper-runtime\src\lib.rs - hopper_emit_cpi (line 550) ... ignored
+test crates\hopper-runtime\src\lib.rs - hopper_unsafe_region (line 462) ... ignored
+test crates\hopper-runtime\src\lib.rs - layout_migrations (line 144) ... ignored
+test crates\hopper-runtime\src\lib.rs - require_keys_eq (line 311) ... ignored
+test crates\hopper-runtime\src\log.rs - log::log_64 (line 35) ... ignored
+test crates\hopper-runtime\src\migrate.rs - migrate::migrate_chain (line 500) ... ignored
+test crates\hopper-runtime\src\migrate.rs - migrate::migrate_layout (line 190) ... ignored
+test crates\hopper-runtime\src\option_byte.rs - option_byte (line 21) ... ignored
+test crates\hopper-runtime\src\pod.rs - pod (line 81) ... ignored
+test crates\hopper-runtime\src\policy.rs - policy (line 37) ... ignored
+test crates\hopper-runtime\src\remaining.rs - remaining (line 16) ... ignored
+test crates\hopper-runtime\src\remaining.rs - remaining (line 30) ... ignored
+test crates\hopper-runtime\src\segment.rs - segment::TypedSegment (line 102) ... ignored
+test crates\hopper-runtime\src\segment_borrow.rs - segment_borrow::SegmentBorrowRegistry (line 122) ... ignored
+test crates\hopper-runtime\src\segment_borrow.rs - segment_borrow::SegmentBorrowRegistry::register_guard (line 1050) ... ignored
+test crates\hopper-runtime\src\segment_lease.rs - segment_lease (line 12) ... ignored
+test crates\hopper-runtime\src\utils.rs - utils::hint (line 17) ... ignored
+test crates\hopper-runtime\src\segment_lease.rs - segment_lease::SegmentsMut (line 290) - compile fail ... ok
+test crates\hopper-runtime\src\pod.rs - pod (line 51) - compile fail ... ok
+test crates\hopper-runtime\src\pod.rs - pod (line 42) - compile fail ... ok
+test crates\hopper-runtime\src\pod.rs - pod (line 61) - compile fail ... ok
+
+test result: ok. 4 passed; 0 failed; 42 ignored; 0 measured; 0 filtered out; finished in 0.09s
+

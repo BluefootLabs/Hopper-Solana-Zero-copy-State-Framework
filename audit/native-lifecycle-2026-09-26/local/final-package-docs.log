@@ -1,0 +1,6 @@
+   Compiling hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Checking hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+ Documenting hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+ Documenting hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 3.57s
+   Generated D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\doc\hopper_native\index.html and 1 other file

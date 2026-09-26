@@ -1,0 +1,420 @@
+{
+  "checks": [
+    {
+      "name": "host",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-lang",
+        "--features",
+        "proc-macros",
+        "--lib",
+        "--tests",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "core",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-systems",
+        "--lib",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "unsafe",
+      "command": [
+        "python",
+        "scripts/check-unsafe-safety-comments.py",
+        "--inventory-out",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\unsafe-inventory.md"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "build-hopper-treasury-v0",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-treasury/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-treasury",
+      "arch": "v0",
+      "elfSha256": "4df54f39d03fdada1b0dea4fba5ca9dcf1615082b487611869c633b3e8b02dca"
+    },
+    {
+      "name": "build-hopper-bounded-multisig-v0",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-bounded-multisig/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-bounded-multisig",
+      "arch": "v0",
+      "elfSha256": "908ebca71d39a82f467123f4e69d646335d68374161e5b9e26af9b29cf0f02c8"
+    },
+    {
+      "name": "build-hopper-escrow-v0",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-escrow/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-escrow",
+      "arch": "v0",
+      "elfSha256": "fddf4287d30f2faca4d54b3a2f5fa04b296ec4dc7e52e92199db59b0f8bf8b4d"
+    },
+    {
+      "name": "build-hopper-byte-allowance-v0",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-byte-allowance/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-byte-allowance",
+      "arch": "v0",
+      "elfSha256": "d96ca646e71830a257c2da48f3fa0695e7f48c324ab2ae15110dfe70da6f318a"
+    },
+    {
+      "name": "build-hopper-runtime-gate-fixture-v0",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v0",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/runtime-gate/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-runtime-gate-fixture",
+      "arch": "v0",
+      "elfSha256": "81b43e20ad1f59712841a0dbb173e029b79477d3854172696f96e7a355c6e59f"
+    },
+    {
+      "name": "governance_sbf-v0",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "governance_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "token_escrow_sbf-v0",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "token_escrow_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "byte_allowance_sbf-v0",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "byte_allowance_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "ambient_gate_sbf-v0",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "ambient_gate_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "build-hopper-treasury-v3",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-treasury/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-treasury",
+      "arch": "v3",
+      "elfSha256": "c453caf0d2884c712b70c44b76abdaa1cbc231063bf833dc2de3a680dc916fae"
+    },
+    {
+      "name": "build-hopper-bounded-multisig-v3",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-bounded-multisig/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-bounded-multisig",
+      "arch": "v3",
+      "elfSha256": "c9a1e8ab7e48a9184f72778acc3a6b33dc2a06c403ee81e4fbc416a682ee4d82"
+    },
+    {
+      "name": "build-hopper-escrow-v3",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-escrow/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-escrow",
+      "arch": "v3",
+      "elfSha256": "865f740f3a5b7e5da33ce04d5ceacf4ab748bde6769c38aa1f279ccf90751f1d"
+    },
+    {
+      "name": "build-hopper-byte-allowance-v3",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "examples/hopper-byte-allowance/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-byte-allowance",
+      "arch": "v3",
+      "elfSha256": "6ec144c07a45e399f5a9e3babfe1f3cc81fae4cf4309d3b5e7472d0e18db3654"
+    },
+    {
+      "name": "build-hopper-runtime-gate-fixture-v3",
+      "command": [
+        "cargo-build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.54",
+        "--manifest-path",
+        "bench/runtime-gate/program/Cargo.toml",
+        "--sbf-out-dir",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-replacement-2026-09-26\\apps\\v3",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "program": "hopper-runtime-gate-fixture",
+      "arch": "v3",
+      "elfSha256": "1080ec9ffc8134e3b5e632616e9216a5754d175c560f66da2cbd51d28866addf"
+    },
+    {
+      "name": "governance_sbf-v3",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "governance_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "token_escrow_sbf-v3",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "token_escrow_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "byte_allowance_sbf-v3",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "byte_allowance_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "ambient_gate_sbf-v3",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "test",
+        "-p",
+        "hopper-framework-verifier",
+        "--test",
+        "ambient_gate_sbf",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "allPassed": true
+}

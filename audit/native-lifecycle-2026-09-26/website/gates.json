@@ -1,0 +1,12 @@
+{
+  "results": {
+    "build": 0,
+    "lint": 0
+  },
+  "lintFiles": [
+    "components/features.tsx",
+    "components/framework-evidence.tsx",
+    "components/hero.tsx",
+    "lib/release.ts"
+  ]
+}
