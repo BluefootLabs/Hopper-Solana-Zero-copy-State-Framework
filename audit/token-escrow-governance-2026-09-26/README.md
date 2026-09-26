@@ -33,3 +33,14 @@ measurements, not a competitor comparison.
 The first upload exhausted RPC retries before executable deployment. Its buffer
 rent was recovered; a subsequent upload used a saved buffer key. Raw deployment
 logs and all private keys are excluded from public evidence.
+
+## Website verification
+
+Website commit 4aea1a70494db675ae400180fd7086e208040a98 passed production build, including TypeScript checking.
+Local and production HTTP checks each covered 50 pages, with no broken internal
+routes or heading targets. Production checked 4367 internal links.
+The deployment receipt binds the Vercel production deployment to that commit.
+The final full-directory and scoped lint reruns made very little progress and
+were stopped without diagnostics. Neither is counted as a passing gate in this
+receipt. Build/TypeScript and page checks passed independently. Checks inspect
+rendered HTML and content, not browser screenshots.

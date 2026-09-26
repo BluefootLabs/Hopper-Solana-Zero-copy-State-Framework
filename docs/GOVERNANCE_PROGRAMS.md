@@ -42,7 +42,9 @@ data assumptions. The framework does not make these models interchangeable.
   toward a threshold, rejects malformed duplicate storage, and prevents its
   removal helper from reducing membership below the configured threshold.
   Its approval helper consumes caller-supplied keys; it is not an authenticated
-  proposal executor or a replacement for Squads.
+  proposal executor or a replacement for Squads. Its teaching rename/add-member
+  handlers require a signer but do not bind that signer to an administrator or
+  approved proposal; they are not suitable treasury authorization rules.
 - The [byte-allowance program](https://hopperzero.dev/docs/byte-allowance)
   demonstrates delegated limits, stale-request rejection, and scoped usage
   writes. It accounts for application credits, not treasury token custody.
