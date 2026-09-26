@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\scripts\test-byte-allowance-devnet.py", line 212, in <module>
+    main()
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\scripts\test-byte-allowance-devnet.py", line 38, in main
+    assert rpc("getGenesisHash", []) == GENESIS
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\scripts\test-runtime-gate-devnet.py", line 48, in rpc
+    with urllib.request.urlopen(request, timeout=45) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\matts\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\matts\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\matts\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\matts\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\matts\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "C:\Users\matts\AppData\Local\Programs\Python\Python312\Lib\urllib\request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 429: Too Many Requests

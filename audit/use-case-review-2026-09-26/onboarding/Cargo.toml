@@ -1,0 +1,44 @@
+[package]
+name = "my_program"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Hopper program scaffold"
+
+# `cdylib` alone: with an rlib in the list cargo drops `-C lto` for the
+# on-chain artifact and the release profile below loses its size win. Unit
+# tests live in src/lib.rs under #[cfg(test)], which needs no rlib.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hopper = { package = "hopper-lang", version = "0.4.0", default-features = false, features = ["proc-macros"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
+
+# Ecosystem-standard on-chain release profile (matches anchor init, Quasar, and
+# the Solana performance guide). codegen-units = 1 is the free optimization win.
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
+
+# The reviewed Hopper substrate opts back out of overflow checks: its
+# arithmetic is explicitly checked/widened where it matters and its parsing
+# loops are bounds-guarded by construction, so the flag only adds flat CU
+# there. YOUR program crate keeps full checking. This mirrors the Hopper
+# workspace's own release profile, which is the configuration used for its
+# published CU figures.
+[profile.release.package.hopper-native]
+overflow-checks = false
+[profile.release.package.hopper-runtime]
+overflow-checks = false
+[profile.release.package.hopper-lang]
+overflow-checks = false

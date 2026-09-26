@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "3301132e2ee2a7e7e4e4d32dc38234f531db3160",
+  "gatesSourceCommit": "8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb",
+  "executableSourceUnchanged": true,
+  "documentationOnlyCodeDifference": "crates/hopper-core/src/manifest.rs",
+  "programId": "3ygR7zvgaSSH6PEuEg643eoVQahGSBHX17qSHwxVxbct",
+  "elfSha256": "6d18fea5d19d805dacc279c416346a570f33e7f8d0e43512bb249cb62b86a8cc",
+  "elfBytes": 24936,
+  "payer": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "payerBefore": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 504191579
+    },
+    "value": 2283701197
+  },
+  "payerAfter": {
+    "context": {
+      "apiVersion": "4.3.0",
+      "slot": 504191609
+    },
+    "value": 2155169357
+  },
+  "deployment": {
+    "programId": "3ygR7zvgaSSH6PEuEg643eoVQahGSBHX17qSHwxVxbct",
+    "signature": "4C7LYqZdH8qjMq7LKp21tT3TBhFdjB1V6p6qmCBMAaN6U5s3DgCVGVV3ioFW2Ebj6UgDUMGeA7A8FQCoZAYvrE3j"
+  }
+}

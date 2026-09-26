@@ -116,3 +116,14 @@ and [registry verification](../audit/registry-publication-2026-09-25/README.md).
 For current network boundaries, see the [September 25 source and activation
 review](SOURCE_REVIEW_2026-09-25.md). Alpenglow is a consensus change, not a
 sub-account locking feature or a new Hopper byte-fee mechanism.
+
+
+## Published 0.4.0 revalidation — September 26
+
+The 0.4.0 byte-allowance artifact passed 40 fresh finalized devnet transactions,
+including all four quota slots and refusal cases. Complete expected account
+snapshots were checked after every transaction. Program dumps before and after
+match the gated ELF and the registry-only consumer build. Consumption measured
+889 CU and limit updates 831 CU in this fixture. See the
+[use-case review evidence](../audit/use-case-review-2026-09-26/README.md).
+The earlier 0.3.2 capture above remains separately dated.

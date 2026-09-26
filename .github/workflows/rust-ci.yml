@@ -75,6 +75,8 @@ jobs:
         run: rustc --version | grep -E '^rustc 1\.96\.0 '
       - name: Run the complete host workspace suite
         run: cargo test --workspace --locked --no-fail-fast
+      - name: Devnet RPC read retry boundaries
+        run: python3 scripts/tests/test_devnet_rpc.py
       - name: Reject forged fixed-layout sizes during code generation
         run: python3 scripts/test-fixed-layout-rejections.py
 

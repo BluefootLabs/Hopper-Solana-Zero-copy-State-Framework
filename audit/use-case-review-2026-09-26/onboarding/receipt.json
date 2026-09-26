@@ -1,0 +1,49 @@
+{
+  "version": "0.4.0",
+  "project": "C:\\Users\\matts\\AppData\\Local\\Temp\\hopper-onboarding-2026-09-26-qv6em2fh\\my-program",
+  "cliSha256": "473db579ba9b2c1534709fadc38aa0c445008daaae9fabdd80be4b95b2b1c4e9",
+  "registryDependency": true,
+  "records": [
+    {
+      "name": "init",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper.exe",
+        "init",
+        "C:\\Users\\matts\\AppData\\Local\\Temp\\hopper-onboarding-2026-09-26-qv6em2fh\\my-program",
+        "--template",
+        "minimal",
+        "--yes",
+        "--no-git"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "resolve",
+      "argv": [
+        "cargo",
+        "+1.96.0",
+        "generate-lockfile",
+        "--offline"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "build",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper.exe",
+        "build",
+        "--tools-version",
+        "v1.54",
+        "--arch",
+        "v0",
+        "--",
+        "--locked",
+        "--offline"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "elfBytes": 5768,
+  "elfSha256": "349e2f0e7d2494614fceff7c163c191f53a1fcd180d0e8a7e1b7a4c29b639794",
+  "allPassed": true
+}

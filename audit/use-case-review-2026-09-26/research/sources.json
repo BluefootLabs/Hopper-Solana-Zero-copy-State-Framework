@@ -1,0 +1,65 @@
+{
+  "observedAt": "2026-09-25T22:37:09.889816+00:00",
+  "sources": [
+    {
+      "project": "quasar",
+      "branch": "master",
+      "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/b0de7db4cd271654a2dcf78807dd865e98e0b339/README.md",
+      "sha256": "9015ecc716101ab6d875a505a7c1025cf20efecb71218b30d3ca78e24d59d534",
+      "bytes": 2858,
+      "localFile": "quasar-README.md"
+    },
+    {
+      "project": "quasar",
+      "branch": "master",
+      "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "path": "examples/escrow/src/instructions/make.rs",
+      "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/b0de7db4cd271654a2dcf78807dd865e98e0b339/examples/escrow/src/instructions/make.rs",
+      "sha256": "7e991902831ee5e23d065c4d2e720289176cca8eb0b3a0293c32bcebf80e2210",
+      "bytes": 1967,
+      "localFile": "quasar-examples-escrow-src-instructions-make.rs"
+    },
+    {
+      "project": "pina",
+      "branch": "main",
+      "commit": "478ae3d2811ea7f7869d2a32e6095a9727d4f9d8",
+      "path": "readme.md",
+      "url": "https://raw.githubusercontent.com/pina-rs/pina/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/readme.md",
+      "sha256": "e921557c0632b45b38e0e49eee66e430946c65749431e6e2e8bab4ac166a79c5",
+      "bytes": 61621,
+      "localFile": "pina-readme.md"
+    },
+    {
+      "project": "pina",
+      "branch": "main",
+      "commit": "478ae3d2811ea7f7869d2a32e6095a9727d4f9d8",
+      "path": "examples/counter_program/src/lib.rs",
+      "url": "https://raw.githubusercontent.com/pina-rs/pina/478ae3d2811ea7f7869d2a32e6095a9727d4f9d8/examples/counter_program/src/lib.rs",
+      "sha256": "aaa24e9e410ca834f6e458b9e07bf21665f8161a7c28d557e30232888b0fab18",
+      "bytes": 12195,
+      "localFile": "pina-examples-counter_program-src-lib.rs"
+    },
+    {
+      "project": "anchor-v2",
+      "branch": "anchor-next",
+      "commit": "038c193a9eedd5ffd4aaf831d501a74a0c90084e",
+      "path": "lang-v2/README.md",
+      "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/lang-v2/README.md",
+      "sha256": "23435245c17a5f391b5a86365ceeb1f6e516ba5ecc193f349d7c9a78999cfe30",
+      "bytes": 11824,
+      "localFile": "anchor-v2-lang-v2-README.md"
+    },
+    {
+      "project": "anchor-v2",
+      "branch": "anchor-next",
+      "commit": "038c193a9eedd5ffd4aaf831d501a74a0c90084e",
+      "path": "lang-v2/src/traits.rs",
+      "url": "https://raw.githubusercontent.com/otter-sec/anchor/038c193a9eedd5ffd4aaf831d501a74a0c90084e/lang-v2/src/traits.rs",
+      "sha256": "c1f66fb0b1c77e1eb0afd625ada660602ceca76f18961d78c0729a145ebcfee7",
+      "bytes": 30761,
+      "localFile": "anchor-v2-lang-v2-src-traits.rs"
+    }
+  ]
+}

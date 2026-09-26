@@ -1,15 +1,16 @@
 # hopper-cli
 
-Command-line tooling for inspecting, explaining, and managing Hopper programs.
+Create, build, test, and inspect Hopper programs from the command line.
 
-This is the operator's interface to Hopper. Feed it hex-encoded account data and
-a program manifest and it will decode headers, explain fields, diff versions,
-plan migrations, decode receipts, and generate client SDKs. Works entirely
-offline by default, with optional RPC connectivity for live account fetching.
+Start a project with `init` and build its on-chain artifact with `build`.
+Generate clients for application integration, inspect account data, and review
+declared permissions before upgrades. Inspection over supplied files works
+offline; deployment and live account or transaction queries use RPC.
+
 
 ## Install
 
-Install the 0.3.1 release:
+Install the 0.4.0 release:
 
 ```bash
 cargo install hopper-cli --version 0.4.0 --locked

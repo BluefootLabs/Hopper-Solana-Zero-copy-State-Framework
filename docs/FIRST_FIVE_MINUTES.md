@@ -45,31 +45,38 @@ This is the default mental model: validated accounts enter through `#[derive(Acc
 
 ## 2. Vault
 
-For larger instructions, keep the handler tiny and put business rules on the accounts struct:
+A SOL deposit must transfer lamports as well as update its recorded balance.
+This excerpt from the tested vault declares the writable signer, vault authority
+constraint, and System Program account. It calls the real transfer CPI before
+updating state; propagate an error so Solana can roll back both operations.
 
 ```rust
 #[derive(Accounts)]
 pub struct Deposit<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
     #[account(mut, has_one = authority)]
     pub vault: Account<'info, Vault>,
-    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> Deposit<'info> {
     pub fn deposit(&self, amount: u64) -> ProgramResult {
-        let mut vault = self.vault.get_mut()?;
-        vault.balance.checked_add_assign(amount)?;
-        Ok(())
-    }
-}
+        hopper::hopper_require!(amount > 0, ZeroAmount);
 
-#[program]
-mod vault_program {
-    use super::*;
+        let authority = self.authority.as_account();
+        let vault_account = self.vault.as_account();
+        hopper::system::Transfer {
+            from: authority,
+            to: vault_account,
+            lamports: amount,
+        }
+        .invoke()?;
 
-    #[instruction(1)]
-    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
-        ctx.accounts.deposit(amount)
+        self.vault
+            .with_mut(|vault| vault.balance.checked_add_assign(amount))
     }
 }
 ```

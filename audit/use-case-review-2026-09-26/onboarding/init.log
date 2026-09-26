@@ -1,0 +1,13 @@
+
+[ok] Initialized  my_program at C:\Users\matts\AppData\Local\Temp\hopper-onboarding-2026-09-26-qv6em2fh\my-program
+
+  Template: Minimal - single Config layout, one initialize handler
+  Backend:  hopper-native
+  Testing:  hopper-svm
+
+  Next steps:
+    >  cd C:\Users\matts\AppData\Local\Temp\hopper-onboarding-2026-09-26-qv6em2fh\my-program
+    >  hopper build --host  # host typecheck
+    >  hopper test
+    >  hopper build  # SBF build
+

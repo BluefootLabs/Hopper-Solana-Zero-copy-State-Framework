@@ -3,20 +3,28 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-Hopper is a zero-copy Solana program framework. Declare your state, account
-constraints, and handlers in Rust; work directly with validated account bytes.
-Headered layouts check version and layout identity. Compact layouts check their
-discriminator and size contract. Raw SVM access remains explicit.
+Hopper is a zero-copy Solana program framework for building vaults, trading
+programs, and on-chain applications in Rust. Declare accounts and handlers,
+work with stored state in place, and define what each instruction may change.
 
-**Solana locks accounts. Hopper governs bytes.** Mainnet still schedules whole
-writable accounts. Hopper's byte ranges enforce and explain mutation inside
-program-owned access; they do not create sub-account parallelism or a byte-level
-fee discount.
+## Start with what you want to build
 
-Build with typed accounts, checked CPI, and generated clients. As a program
-grows, add byte-range write policies, reports of acquired ranges, typed grow
-and shrink migrations, and manifest-derived fuzzing. The same declarations
-connect program authoring, validation, and release inspection.
+| Use case | Start here | What the example demonstrates |
+|---|---|---|
+| SOL vaults and balances | [SOL vault](examples/hopper-vault/src/lib.rs) | Named initialization, authority checks, deposits and withdrawals |
+| Delegated application quotas | [Byte allowance](examples/hopper-byte-allowance/src/lib.rs) | Per-delegate limits, stale-request rejection, and writes restricted to selected usage fields |
+| Orders and settlement | [Protocol examples](docs/PROTOCOL_GRADE_EXAMPLES.md) | Account-backed collections, settlement rules, and token-program integration |
+
+Start with typed accounts and ordinary Rust handlers. Add checked cross-program
+calls, collections, state migrations, and generated clients as needed. Headered
+layouts validate version and layout identity; compact layouts use a smaller
+discriminator and size contract.
+
+**Solana locks accounts. Hopper governs bytes.** Declared write policies are
+enforced on Hopper-tracked access paths inside your program. Raw access needs
+separate review. Byte policies do not create sub-account parallelism or an
+automatic fee discount. Optional inspection tools help explain execution;
+they are not required to enforce those on-chain checks.
 
 Hopper owns its zero-dependency substrate in `crates/hopper-native`. That
 boundary gives the framework one place to enforce borrows, write contracts,

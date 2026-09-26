@@ -5,6 +5,13 @@
 
 Canonical low-level runtime surface for [Hopper](https://hopperzero.dev). This is the runtime boundary for account memory, CPI, syscalls, validation, and zero-copy state access.
 
+## Which crate should I start with?
+
+For a new application, use [`hopper-lang`](https://crates.io/crates/hopper-lang)
+under the Rust name `hopper`. This runtime crate is for teams that need direct
+account, CPI, and validation APIs or are building framework integrations.
+See the [vault walkthrough](https://hopperzero.dev/docs/start) for application authoring.
+
 ## What's here
 
 `layout::AccountFields` is an open input trait for generated or application-defined
