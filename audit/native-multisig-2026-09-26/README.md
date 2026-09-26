@@ -35,3 +35,15 @@ Reproduction runners are `scripts/test-governance-devnet.py`,
 Source research is separate from product documentation. The dated Alpenglow
 observation records cluster activation rather than inferring it from a proposal.
 Private keys, raw deployment logs, and third-party source copies are excluded.
+
+## Publication and production checks
+
+Both patch versions are available on docs.rs. Website production commit
+`46b87fa79ca85228c0de6346c9be96782f4bc37a` passed 50 live-page checks and
+4,298 internal-link checks, including current patch labels and escrow costs.
+These are HTTP/rendered-content checks, not a browser screenshot review.
+
+GitHub Actions did not start: the account was locked due to a billing issue.
+Hosted CI is not reported as passing. Local provenance tests and the unsafe
+contract scanner passed (308 Rust files across 29 public packages), alongside
+the recorded local Rust/SBF and devnet validation.
