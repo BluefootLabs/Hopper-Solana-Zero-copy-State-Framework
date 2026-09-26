@@ -1,0 +1,96 @@
+{
+  "version": {
+    "id": 3330224,
+    "crate": "hopper-runtime",
+    "num": "0.4.1",
+    "dl_path": "/api/v1/crates/hopper-runtime/0.4.1/download",
+    "readme_path": "/api/v1/crates/hopper-runtime/0.4.1/readme",
+    "updated_at": "2026-09-26T09:27:59.236164Z",
+    "created_at": "2026-09-26T09:27:59.236164Z",
+    "downloads": 0,
+    "features": {
+      "copy": [],
+      "cpi": [],
+      "crypto-big-mod-exp": [],
+      "crypto-bn254": [],
+      "crypto-curve": [],
+      "crypto-poseidon": [],
+      "cu-trace": [
+        "hopper-native/cu-trace"
+      ],
+      "default": [],
+      "legacy-token-instructions": [],
+      "remaining-compute-units-syscall": [
+        "hopper-native/remaining-compute-units-syscall"
+      ],
+      "simd-0321": [
+        "hopper-native/simd-0321"
+      ],
+      "simd-0449": [
+        "hopper-native/simd-0449",
+        "simd-0321"
+      ],
+      "static-syscalls": [
+        "hopper-native/static-syscalls"
+      ],
+      "thread-local-registry": [],
+      "touch-map": [],
+      "unguarded-raw-surfaces": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-runtime/0.4.1/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-runtime/0.4.1/downloads",
+      "authors": "/api/v1/crates/hopper-runtime/0.4.1/authors"
+    },
+    "crate_size": 303482,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-09-26T09:27:59.236164Z"
+      }
+    ],
+    "checksum": "cef00bce9875368eab2bfb1a1f00a885ca51502468502ceca16e99ea215b965e",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Canonical low-level runtime surface for Hopper programs: direct account memory, validation, borrow guards, CPI, and zero-copy state access.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-runtime/0.4.1",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 21266,
+          "comment_lines": 2194,
+          "files": 52
+        }
+      },
+      "total_code_lines": 21266,
+      "total_comment_lines": 2194
+    }
+  }
+}

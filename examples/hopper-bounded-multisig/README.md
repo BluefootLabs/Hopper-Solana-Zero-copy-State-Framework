@@ -88,3 +88,19 @@ Run the compiled suite with `HOPPER_MULTISIG_SBF` and `HOPPER_TREASURY_SBF` set:
 ```sh
 cargo test -p hopper-framework-verifier --test governance_sbf -- --ignored --nocapture
 ```
+
+## Finalized devnet validation
+
+The September 26 run finalized 44 transactions across this multisig, the
+delegated treasury, and native execution probes, including 17 expected refusals.
+The multisig paid exactly 50,000 lamports through an approved payout without
+member signatures at execution (679 CU). Replay, wrong destination, early
+execution, revoked permission, and stale membership approvals were rejected.
+Deposits and direct withdrawals also moved actual SOL while preserving rent.
+
+All observed account bytes and balances matched expectations, except treasury
+timestamps, which were independently bounded by finalized Clock samples.
+Deployed ELFs matched before and after execution. Exact time-window boundaries
+and further adversarial cases run in the compiled v0/v3 suite.
+
+[Receipts, signatures, snapshots, and source pins](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26).

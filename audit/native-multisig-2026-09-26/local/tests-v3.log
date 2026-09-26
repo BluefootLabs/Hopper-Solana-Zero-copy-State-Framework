@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized] target(s) in 0.51s
+     Running tests\governance_sbf.rs (target\debug\deps\governance_sbf-b59ed1e492540516.exe)
+
+running 3 tests
+test multisig_authenticates_members_and_moves_sol ... ok
+test treasury_moves_sol_and_enforces_clock_budget_and_permissions ... ok
+test multisig_payout_is_bounded_single_use_and_invalidated_by_policy_changes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.03s
+

@@ -1,0 +1,8 @@
+    Updating crates.io index
+     Locking 2 packages to latest compatible versions
+ Downloading crates ...
+  Downloaded hopper-runtime v0.4.1
+   Compiling hopper-runtime v0.4.1
+    Checking hopper-native v0.4.1
+    Checking hopper-patch-consumer v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\program-capability-2026-09-26\registry\consumer)
+    Finished `dev` profile [unoptimized] target(s) in 1.35s

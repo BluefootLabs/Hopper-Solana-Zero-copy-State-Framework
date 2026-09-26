@@ -1,0 +1,152 @@
+   Compiling hopper-native v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized] target(s) in 1.96s
+     Running unittests src\lib.rs (target\debug\deps\hopper_native-e99004800cd13ebf.exe)
+
+running 94 tests
+test address::tests::address_eq_matches_bytewise_on_equal_arrays ... ok
+test address::tests::address_macro_uses_local_decoder ... ok
+test budget::tests::floor_check_rejects_below_floor_with_coded_error ... ok
+test address::tests::address_eq_detects_single_byte_difference_at_every_index ... ok
+test address::tests::decodes_system_program_literal ... ok
+test cpi::abi_tests::checked_paths_accept_pda_seeds_and_forward_only_instruction_metas ... ok
+test entrypoint::entrypoint_tail_tests::builtin_err_maps_through_cold_outline_unchanged ... ok
+test hash::tests::keccak256_accepts_sixteen_segments ... ok
+test budget::tests::host_snapshot_reports_zero_used_and_passes_guards ... ok
+test budget::tests::floor_check_accepts_at_and_above_floor ... ok
+test entrypoint::entrypoint_tail_tests::custom_err_maps_through_cold_outline_unchanged ... ok
+test entrypoint::entrypoint_tail_tests::err_to_u64_matches_from_impl_for_all_variants ... ok
+test address::tests::eq_is_consistent_with_derived_ord ... ok
+test lazy::tests::agrees_every_data_len_residue ... ok
+test error::tests::u64_conversion_matches_reference_for_every_variant ... ok
+test entrypoint::entrypoint_tail_tests::ok_returns_bare_success_zero ... ok
+test hash::tests::blake3_accepts_sixteen_segments ... ok
+test hash::tests::blake3_rejects_more_than_sixteen_segments ... ok
+test address::tests::address_eq_differs_only_in_last_byte ... ok
+test hash::tests::keccak256_rejects_more_than_sixteen_segments ... ok
+test hash::tests::sha256_accepts_sixteen_segments ... ok
+test hash::tests::sha256_rejects_more_than_sixteen_segments ... ok
+test lazy::tests::agrees_exactly_max_254_accounts ... ok
+test lazy::tests::agrees_zero_accounts ... ok
+test lazy::tests::agrees_one_account ... ok
+test lazy::tests::agrees_with_duplicates ... ok
+test lazy::tests::drain_with_duplicates_aliases_canonical ... ok
+test lazy::tests::drain_remaining_returns_all ... ok
+test lazy::tests::memoized_tail_is_stable_across_calls_and_consumes ... ok
+test cpi::abi_tests::c_instruction_and_specialized_meta_encoding_match_the_c_abi ... ok
+test lazy::tests::forward_duplicate_traps_in_tail_scan - should panic ... ok
+test lazy::tests::forward_duplicate_traps_on_consume - should panic ... ok
+test lazy::tests::agrees_huge_data_len ... ok
+test lazy::tests::ix_after_consuming_some_accounts ... ok
+test lazy::tests::max_plus_accounts_clamp_and_tail_still_found ... ok
+test budget::tests::host_remaining_is_unmetered_max ... ok
+test lazy::tests::ix_after_consuming_all_accounts ... ok
+test lazy::tests::one_account_ix_before_consume_then_account ... ok
+test lazy::tests::skip_past_end_errors ... ok
+test lazy::tests::skip_advances_and_populates_get ... ok
+test lazy::tests::zero_accounts_serves_ix_and_pid_before_any_consume ... ok
+test pda::tests::const_pda_accepts_fifteen_base_seeds ... ok
+test pda::tests::const_pda_rejects_oversized_seeds - should panic ... ok
+test pda::tests::const_pda_reserves_the_bump_slot - should panic ... ok
+test pod::tests::bool_is_not_pod ... ok
+test pod::tests::multibyte_ints_are_value_pod_not_pod ... ok
+test pod::tests::primitives_are_pod ... ok
+test project::tests::project_bounds_and_disc_checks_run_before_borrowing ... ok
+test project::tests::projection_takes_a_shared_borrow_and_blocks_exclusive ... ok
+test raw_input::checked_parser_tests::arbitrary_ff_input_never_panics ... ok
+test raw_input::checked_parser_tests::arbitrary_short_input_never_panics ... ok
+test raw_input::checked_parser_tests::forward_duplicate_marker_is_rejected ... ok
+test raw_input::checked_parser_tests::oversized_account_count_is_rejected ... ok
+test raw_input::checked_parser_tests::parses_minimal_valid_frame ... ok
+test raw_input::checked_parser_tests::self_duplicate_marker_is_rejected ... ok
+test raw_input::checked_parser_tests::truncated_header_is_rejected ... ok
+test raw_input::fused_walk_tests::account_count_clamps_at_254_materialized_slots ... ok
+test raw_input::fused_walk_tests::beyond_max_is_skip_only_and_tail_still_found ... ok
+test raw_input::fused_walk_tests::duplicate_in_skip_only_tail_advances_eight_bytes ... ok
+test raw_input::fused_walk_tests::duplicates_alias_the_canonical_record ... ok
+test raw_input::fused_walk_tests::folded_stride_matches_align_offset_formula ... ok
+test raw_input::fused_walk_tests::exactly_max_accounts ... ok
+test raw_input::fused_walk_tests::fast_variant_uses_same_stride_and_aliases_duplicates ... ok
+test raw_input::fused_walk_tests::forward_duplicate_marker_traps_in_skip_only_tail - should panic ... ok
+test raw_input::fused_walk_tests::forward_duplicate_marker_traps_in_materialize_range - should panic ... ok
+test raw_input::fused_walk_tests::fused_walk_agrees_with_checked_parser ... ok
+test raw_input::fused_walk_tests::every_data_len_alignment_residue_walks_correctly ... ok
+test raw_input::fused_walk_tests::one_account_materializes_and_finds_tail ... ok
+test raw_input::fused_walk_tests::zero_accounts_finds_ix_data_and_program_id ... ok
+test raw_input::fused_walk_tests::leading_prefix_materializes_only_the_declared_accounts ... ok
+test return_data::tests::as_type_length_checks_against_the_prefix ... ok
+test raw_input::fused_walk_tests::huge_data_len_near_region_end ... ok
+test return_data::tests::as_u64_and_as_u32_never_read_past_the_prefix ... ok
+test return_data::tests::data_exposes_exactly_the_written_prefix ... ok
+test return_data::tests::offchain_get_return_data_is_none ... ok
+test sha256::tests::concat_matches_single_slice ... ok
+test sha256::tests::incremental_empty_matches_one_shot_empty ... ok
+test sha256::tests::incremental_matches_single_slice_across_block_boundaries ... ok
+test sha256::tests::sha256_abc_matches_known_vector ... ok
+test sha256::tests::sha256_empty_matches_known_vector ... ok
+test syscalls::tests::sys_hash_matches_known_agave_constants ... ok
+test sysvar::abi_tests::clock_reads_canonical_byte_image ... ok
+test sysvar::abi_tests::epoch_rewards_decodes_canonical_byte_image ... ok
+test sysvar::abi_tests::epoch_rewards_off_chain_is_zeroed_default ... ok
+test sysvar::abi_tests::epoch_schedule_reads_canonical_byte_image ... ok
+test sysvar::rent_tests::const_and_sysvar_agree_at_launch_snapshot ... ok
+test sysvar::rent_tests::const_rent_exempt_minimum_no_overflow_at_extremes ... ok
+test sysvar::rent_tests::repriced_sysvar_exceeds_const_underestimate ... ok
+test sysvar::rent_tests::saturating_mul_u64_matches_the_library_operator ... ok
+test sysvar::rent_tests::sysvar_minimum_balance_byte_matches_solana_reference ... ok
+test sysvar::rent_tests::sysvar_minimum_balance_no_overflow_at_extremes ... ok
+test sysvar::rent_tests::threshold_scaling_is_float_free_and_never_underfunds ... ok
+test wire::tests::wire_roundtrip_and_checked_math ... ok
+test wire::tests::wire_types_satisfy_substrate_pod ... ok
+
+test result: ok. 94 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cpi_borrow_preflight.rs (target\debug\deps\cpi_borrow_preflight-495423ed19b89024.exe)
+
+running 4 tests
+test system_create_account_rejects_live_borrows_before_invoke_without_mutation ... ok
+test specialized_unsigned_signers_fail_locally_but_pdas_reach_runtime_validation ... ok
+test system_seeded_helpers_distinguish_readonly_and_writable_metas ... ok
+test token_transfer_preflights_each_meta_and_outer_writable_privilege ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\loader_input_conformance.rs (target\debug\deps\loader_input_conformance-a203e5a27f606418.exe)
+
+running 11 tests
+test account_view_stays_pointer_shaped_for_the_0449_table_cast ... ok
+test checked_0449_decoder_rejects_equal_but_out_of_frame_instruction_bytes ... ok
+test safe_resize_preflights_borrows_and_writable_privilege_without_mutation ... ok
+test direct_pointer_table_initializes_resize_baselines_before_views_escape ... ok
+test checked_0449_decoder_rejects_malformed_duplicates_and_truncation ... ok
+test resize_uses_entry_baseline_after_cpi_and_duplicate_aliases_share_it ... ok
+test checked_table_and_stride_views_have_identical_mutation_semantics ... ok
+test stride_walk_pins_the_loader_geometry_across_data_len_residues ... ok
+test simd_0449_table_resolves_to_exactly_the_stride_walk_views ... ok
+test checked_0449_decoder_rejects_out_of_region_and_noncanonical_pointers ... ok
+test checked_0449_decoder_matches_the_stride_walk_for_every_alignment_residue ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hopper_native
+
+running 17 tests
+test crates\hopper-native\src\account_view.rs - account_view::AccountView<'info>::flags (line 887) ... ignored
+test crates\hopper-native\src\batch.rs - batch::realloc_checked_with (line 236) ... ignored
+test crates\hopper-native\src\batch.rs - batch::require_rent_exempt_with (line 112) ... ignored
+test crates\hopper-native\src\budget.rs - budget (line 22) ... ignored
+test crates\hopper-native\src\budget.rs - budget (line 40) ... ignored
+test crates\hopper-native\src\budget.rs - budget::cu_measure (line 214) ... ignored
+test crates\hopper-native\src\budget.rs - budget::cu_trace (line 191) ... ignored
+test crates\hopper-native\src\capability.rs - capability (line 16) ... ignored
+test crates\hopper-native\src\entrypoint.rs - entrypoint::hopper_program_entrypoint (line 74) ... ignored
+test crates\hopper-native\src\hash.rs - hash::sha256 (line 31) ... ignored
+test crates\hopper-native\src\lazy.rs - lazy (line 31) ... ignored
+test crates\hopper-native\src\lens.rs - lens (line 19) ... ignored
+test crates\hopper-native\src\lens.rs - lens::read_field_pod (line 69) ... ignored
+test crates\hopper-native\src\lib.rs - project (line 132) ... ignored
+test crates\hopper-native\src\return_data.rs - return_data::invoke_and_read (line 172) ... ignored
+test crates\hopper-native\src\syscalls.rs - syscalls::define_syscall (line 100) ... ignored
+test crates\hopper-native\src\verify.rs - verify (line 12) ... ignored
+
+test result: ok. 0 passed; 0 failed; 17 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

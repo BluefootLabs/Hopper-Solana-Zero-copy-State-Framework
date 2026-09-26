@@ -1,0 +1,16 @@
+{
+  "results": {
+    "build": 0,
+    "lint": 0
+  },
+  "lintFiles": [
+    "app/docs/page.tsx",
+    "app/layout.tsx",
+    "components/compare.tsx",
+    "components/footer.tsx",
+    "components/framework-evidence.tsx",
+    "components/use-cases.tsx",
+    "lib/docs.ts",
+    "next.config.mjs"
+  ]
+}

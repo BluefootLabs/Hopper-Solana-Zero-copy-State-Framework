@@ -1,0 +1,53 @@
+{
+  "builds": [
+    {
+      "program": "hopper-treasury",
+      "arch": "v0",
+      "bytes": 13704,
+      "sha256": "4df54f39d03fdada1b0dea4fba5ca9dcf1615082b487611869c633b3e8b02dca"
+    },
+    {
+      "program": "hopper-bounded-multisig",
+      "arch": "v0",
+      "bytes": 62664,
+      "sha256": "90ff6ae404b6d832eb32f4e5e3c4e538c15f8350bc58ebb6ebacdd4ede101849"
+    },
+    {
+      "program": "hopper-escrow",
+      "arch": "v0",
+      "bytes": 41704,
+      "sha256": "fddf4287d30f2faca4d54b3a2f5fa04b296ec4dc7e52e92199db59b0f8bf8b4d"
+    },
+    {
+      "program": "hopper-checked-cpi-fixture",
+      "arch": "v0",
+      "bytes": 4720,
+      "sha256": "a282fd793d6e176b2e5fe918cc32d04a84f02f8f45ab7a5eebb8020fae87aeb9"
+    },
+    {
+      "program": "hopper-treasury",
+      "arch": "v3",
+      "bytes": 12744,
+      "sha256": "c453caf0d2884c712b70c44b76abdaa1cbc231063bf833dc2de3a680dc916fae"
+    },
+    {
+      "program": "hopper-bounded-multisig",
+      "arch": "v3",
+      "bytes": 62240,
+      "sha256": "c43c54aa607a2c4b498ab5feb79e80a4f18d71b2703076f39bb4e769b00ee56a"
+    },
+    {
+      "program": "hopper-escrow",
+      "arch": "v3",
+      "bytes": 40656,
+      "sha256": "865f740f3a5b7e5da33ce04d5ceacf4ab748bde6769c38aa1f279ccf90751f1d"
+    },
+    {
+      "program": "hopper-checked-cpi-fixture",
+      "arch": "v3",
+      "bytes": 3840,
+      "sha256": "9eda106ee0dbf0bb2691b43d9d78c4f0a2ad13d43cae804aa54fc71d155a3b12"
+    }
+  ],
+  "testsPassed": true
+}

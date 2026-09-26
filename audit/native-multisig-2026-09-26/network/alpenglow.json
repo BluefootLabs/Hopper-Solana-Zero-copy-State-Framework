@@ -1,0 +1,65 @@
+{
+  "observedUtc": "2026-09-26T08:41:37.034334+00:00",
+  "gate": "A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS",
+  "clusters": [
+    {
+      "cluster": "devnet",
+      "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+      "result": {
+        "context": {
+          "apiVersion": "4.3.0",
+          "slot": 504348469
+        },
+        "value": {
+          "data": [
+            "AYCgDB4AAAAA",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 695960,
+          "owner": "Feature111111111111111111111111111111111111",
+          "rentEpoch": 18446744073709551615,
+          "space": 9
+        }
+      },
+      "activationSlot": 504144000,
+      "active": true
+    },
+    {
+      "cluster": "testnet",
+      "genesisHash": "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY",
+      "result": {
+        "context": {
+          "apiVersion": "4.3.0",
+          "slot": 445256318
+        },
+        "value": {
+          "data": [
+            "AeBdgBoAAAAA",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 695960,
+          "owner": "Feature111111111111111111111111111111111111",
+          "rentEpoch": 18446744073709551615,
+          "space": 9
+        }
+      },
+      "activationSlot": 444620256,
+      "active": true
+    },
+    {
+      "cluster": "mainnet",
+      "genesisHash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+      "result": {
+        "context": {
+          "apiVersion": "4.3.0",
+          "slot": 450623655
+        },
+        "value": null
+      },
+      "activationSlot": null,
+      "active": false
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "blockTime": 1790413738,
+  "meta": {
+    "computeUnitsConsumed": 1520,
+    "costUnits": 4297,
+    "err": null,
+    "fee": 15000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK invoke [1]",
+      "Program 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK consumed 1520 of 200000 compute units",
+      "Program 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK success"
+    ],
+    "postBalances": [
+      1265952067,
+      1000000,
+      1000000,
+      3141600,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1265967067,
+      1000000,
+      1000000,
+      3141600,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 504355597,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "59chaMLkjrBBjD2WDtm6KyfnXzHZefim5Fkk5xfhzT7o",
+        "DYa8dSAjFs79z2ZR5eSHbtow9StGYWyt4iknZjJwCEWU",
+        "6JWNaNELpPCLHZxCk92edPRRsBJWiFzmFwy8QjSE5QFg",
+        "5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 2,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 3
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1,
+            2
+          ],
+          "data": "1LeBCzz",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "SXBH2YeC8u5ktDZEyz7FizWxuqnWDBkK49APYGAgVTV"
+    },
+    "signatures": [
+      "46TFS9bE3VQwU59XVV7vvHBUjf249jXv8x15cvQgdrVX8KG4EZV1ogMJJkLnuQoTAQM9JRFfQJ4cw7QELgGyfKsV",
+      "3dr4yUp535MaZQck5bsqjrriUXvG4kJeJm27pN3pJ5pzdXQ9f5ZpRJMaizDLAk9HdJcSasxhBPJzopkWvvyZPLYk",
+      "5KaP87SBwnAzSeCEifQMDgyvDkG19TfLorSTQKzVCEYbuQiH7c3PHqeQuAjdi995ikNws5rxCNxoBzxxPwUzZFzr"
+    ]
+  },
+  "transactionIndex": 8,
+  "version": "legacy"
+}

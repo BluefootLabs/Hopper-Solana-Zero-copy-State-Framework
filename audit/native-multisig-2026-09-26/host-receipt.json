@@ -1,0 +1,131 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-bounded-multisig",
+      "-p",
+      "hopper-treasury",
+      "-p",
+      "hopper-escrow",
+      "-p",
+      "hopper-framework-verifier",
+      "-p",
+      "hopper-checked-cpi-fixture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "native",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-native",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-runtime",
+      "--lib",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "docs",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-lang",
+      "--features",
+      "proc-macros",
+      "--test",
+      "dx_parity_docs",
+      "--test",
+      "declare_id",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "host",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-bounded-multisig",
+      "--lib",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "layout",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "governance_sbf",
+      "program_layout_headers",
+      "--locked",
+      "--offline",
+      "--",
+      "--nocapture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "clippy",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-bounded-multisig",
+      "-p",
+      "hopper-treasury",
+      "-p",
+      "hopper-escrow",
+      "-p",
+      "hopper-framework-verifier",
+      "-p",
+      "hopper-checked-cpi-fixture",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-Dwarnings"
+    ],
+    "exitCode": 0
+  }
+]

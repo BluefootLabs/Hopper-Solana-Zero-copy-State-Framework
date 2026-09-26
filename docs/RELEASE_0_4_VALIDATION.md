@@ -5,7 +5,34 @@ Rust handlers and explicit account APIs. It corrects typed DSL header offsets,
 safe projection size checks, segment geometry, and the SOL vault's System CPI
 account list. See [migration](MIGRATION_0_4.md) for compatibility details.
 
-## Scope and source
+## Native/runtime 0.4.1 patch — September 26, 2026
+
+`hopper-native` and `hopper-runtime` **0.4.1 are published**. The framework and
+CLI remain 0.4.0; support packages keep their independent versions. Existing
+lockfiles must update the native/runtime dependencies to pick up the patch:
+
+```sh
+cargo update -p hopper-native -p hopper-runtime
+```
+
+The patch rejects missing signers in specialized checked CPI, uses immediate
+SVM aborts for no-allocation failures and panics, and validates the producer
+and typed prefix of CPI return data. A nested callee's unforwarded return data
+is rejected. Application-level value and outcome checks are still required.
+
+The repository also adds member-authorized SOL custody and expiring, revocable
+single-use payouts, and corrects treasury funding, segment validation, and
+cooldown enforcement. These examples are not published crates.
+
+**81 devnet transactions finalized**, including 30 expected refusals across
+governance/treasury/native probes (44), funded classic-token escrow (33), and
+direct/nested CPI return data (4). Local compiled tests cover v0 and v3;
+deployed v0 ELFs matched before and after each run. Registry downloads match
+their published checksums and source files, and a registry-only consumer builds.
+
+[Exact source pins, signatures, snapshots, hashes, and tests](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26).
+
+## Original 0.4.0 scope and source
 
 The complete local gate run and devnet run used clean source
 `8ca9f5c984b81a18a87edbd1ed19c5ac3106d2cb`. Publication documentation may be a later

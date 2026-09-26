@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "packages": [
+    {
+      "name": "hopper-native",
+      "version": "0.4.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "hopper-runtime",
+      "version": "0.4.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    }
+  ]
+}

@@ -1,0 +1,515 @@
+{
+  "schema": "hopper.governance-native-devnet.v1",
+  "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programs": {
+    "treasury": {
+      "programId": "21HFftD38zJS6Pxm2ZUNepPf7abqdnVdpXom9db2EDgS",
+      "elfSha256": "4df54f39d03fdada1b0dea4fba5ca9dcf1615082b487611869c633b3e8b02dca"
+    },
+    "multisig": {
+      "programId": "5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK",
+      "elfSha256": "90ff6ae404b6d832eb32f4e5e3c4e538c15f8350bc58ebb6ebacdd4ede101849"
+    },
+    "native": {
+      "programId": "7LyBR8noYoBwoqE4SnkEpPWE4zkB66G41GD7NHWrRGoZ",
+      "elfSha256": "a282fd793d6e176b2e5fe918cc32d04a84f02f8f45ab7a5eebb8020fae87aeb9"
+    }
+  },
+  "transactions": [
+    {
+      "name": "fund-alice",
+      "signature": "29bYaEupSnLcaHjiTnyjvhPVSULvyD21os3yAQhrSz7u85zd2GhpfbSNbBqmBd4KBTZe1Hq8MQgRDwimTMZPigpS",
+      "slot": 504355249,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 150,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "fund-bob",
+      "signature": "2dQcFU9HhFep3SNu8e4P1jTcaDmBW9tiyXm9BD6AQer5duzd2FakJwfUfnxqc8e83EUHZigkqPuoTiQ2wPW543nx",
+      "slot": 504355261,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 150,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "fund-carol",
+      "signature": "hQ9HxCFc6RVWzSXsB89AAzhmN6LXRTNNDvU6tm1NZHaEcb4EmLTvEfNjJhQsPgvGyjCguvXjCjb4Hrz6Hh3nJkx",
+      "slot": 504355281,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 150,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "fund-outsider",
+      "signature": "5pbi5Ew65fkbnXHCfDEXrE7V38wnzPTFHCW8aCKtzQBVcMf6U7imSJVRNdTQYyRcM2s97kTjsYqbkbxJG89G1vQq",
+      "slot": 504355292,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 150,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "fund-destination",
+      "signature": "3br5p913cyEQbpXenCTFzTAZ57aXdLQGpJPqVVzQxFL2RuqmHyrA1ghqDqwo2iZbRsYzLyhsqEnDwb1NDTo9nNrs",
+      "slot": 504355344,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 150,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "native-0",
+      "signature": "3uv5T2hZ31ig9PuVMHcdHwF44qpzLTW8TkQvj7tqRBFxQf69DbJcgcpAN8FEZPdtwWNqvAp2o3qu5QAmAetu5eng",
+      "slot": 504355355,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 242,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "native-1",
+      "signature": "5MovgivMaeEmudShCv7VqPNvH7b9sMri3YeTjikGGBoh1dDq3BHXBDhkqCGcvM9H9vC6t1MiTBxKQ7CH783g13i9",
+      "slot": 504355407,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 258,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "native-2",
+      "signature": "2t926f17aJH82ZaBwF5dnyso8WoawBnjX3pzTjzavK3hJFJG49GzuJfqcu8DJXgdFnqYGUtHqZXa3owze8W7kvAP",
+      "slot": 504355416,
+      "error": {
+        "InstructionError": [
+          0,
+          "ProgramFailedToComplete"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 54,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "native-3",
+      "signature": "3A9W7nYyZidNg2m6oKP5sFiQnckqo3bpaTAvuJGQdAhyBQnh58sP12yDtxXjsLqH8FiSW8j4Qai6HRJMhAE76a9D",
+      "slot": 504355431,
+      "error": {
+        "InstructionError": [
+          0,
+          "ProgramFailedToComplete"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 51,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-initialize",
+      "signature": "5McEoHCUAprV4wNMm3S7i97qHihHkbaRAW7KenmVfqZsf28n1yiHAgWVp6vKrAaty7UAESMDxet5nVpc2g9jHBQB",
+      "slot": 504355446,
+      "error": null,
+      "fee": 10000,
+      "computeUnits": 2593,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-deposit",
+      "signature": "21nxBTzoRaRXoKLGWWFvEfNXTQgH9ciuiMT5ZGDQbSWVgoAmGjvaVrVAJXgvhZoZvwfA8e9681x2VDn7uUikpx9P",
+      "slot": 504355500,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 1537,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-one-approval",
+      "signature": "3hvDUsvWy48SzrpBTrntQC5vsp643wryWaAEAEYw1A6VcofDrVgeUH2xBuiBtEyoef9uDv2GoFk7XRqWdTaMaF7q",
+      "slot": 504355508,
+      "error": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      },
+      "fee": 10000,
+      "computeUnits": 801,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-outsider",
+      "signature": "3sarFhDJCN1Eu39VjhaLgyr58CdeJMuHqUEQAywr9E7PWctimL8yL9D74gh19HWPx6YYaTXykp3onYUsNSch6213",
+      "slot": 504355521,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "fee": 15000,
+      "computeUnits": 639,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-duplicate",
+      "signature": "3dgpMBCHZAbc2fyZ8UDTScJXqrccYApWAAXerbTLcxd9zSEhV9WmMVSwdz9nDDvGShpXrRfRAAfDobbdGTQWGRva",
+      "slot": 504355535,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "fee": 10000,
+      "computeUnits": 338,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-rename",
+      "signature": "46TFS9bE3VQwU59XVV7vvHBUjf249jXv8x15cvQgdrVX8KG4EZV1ogMJJkLnuQoTAQM9JRFfQJ4cw7QELgGyfKsV",
+      "slot": 504355597,
+      "error": null,
+      "fee": 15000,
+      "computeUnits": 1520,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-withdraw",
+      "signature": "2Mp3nsDcNcyMa1GcTkUzbQm9Q4D5q6qdsZs2uDZwL8YKn8HSgGWBoKa4VH548hTaCKjjwnSKTFecRPYGp2uek6Tb",
+      "slot": 504355604,
+      "error": null,
+      "fee": 15000,
+      "computeUnits": 1301,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-rent-protected",
+      "signature": "5YkRPmkkAwNTFi4vzttQjqKz8Ez2tgxjTHk1YhqAyDrJZAWDqPR79jZSy2XVv57L5mhXQpVc5KzAJ3FuCXT4wRu8",
+      "slot": 504355612,
+      "error": {
+        "InstructionError": [
+          0,
+          "InsufficientFunds"
+        ]
+      },
+      "fee": 15000,
+      "computeUnits": 1258,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "approve-payout",
+      "signature": "2WGuJWr8Y8RtUjsAn4ReBHVUunVFm1uN2MPkd3ffMw5eo2JhgiEUipn8wLKvNPMMMKNCCeQhKd4Y3wP1m7bBYwYt",
+      "slot": 504355636,
+      "error": null,
+      "fee": 20000,
+      "computeUnits": 3037,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "approve-stale",
+      "signature": "4jKkUrmbAA4LzY7mjLmB1AUGBkkYdXrQiaDxizzAZaTvwkJ45C7KEWcq7BCvWq7DJyXyDRfjWXiZn23FaywKv2Q3",
+      "slot": 504355692,
+      "error": null,
+      "fee": 20000,
+      "computeUnits": 3037,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "approve-revoked",
+      "signature": "3yWsEHPWhQFgSgtQ7n9kutU8pKDR3BZH72R9f7Env4YjVzsiMqMM945R4VmWP5dRmLwymWrpxDsbqcQkEMfgJVtt",
+      "slot": 504355702,
+      "error": null,
+      "fee": 20000,
+      "computeUnits": 3037,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "approve-future",
+      "signature": "5yzCeWafqd4yxkJn5q49B4wVjZLiWygPdhCrKwWDRSn7ivXXY7W5QJZtLWxzayEV9tqtsCrFiutaSasuowkhkD4N",
+      "slot": 504355751,
+      "error": null,
+      "fee": 20000,
+      "computeUnits": 3037,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-before-window",
+      "signature": "2fVTKqwQAsmCZ9sc6JiutvFotV1HYsEZ2fKsZHaWRBkfhxaY9q9FLKW1oziZtkNBx5fSv2QAwRNmHxguJLL3yVPM",
+      "slot": 504355758,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 431,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-wrong-destination",
+      "signature": "PdWCY75feFEV18eR1kHrCNWhzpr6gpeFmsC8eQwB4uwhDdaWudP2eid7KAjKcJSWshzhxZaJ1zwLZ78rYh5BN9n",
+      "slot": 504355772,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 227,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-extra-payload",
+      "signature": "2yJ7KG49HH3sfhn5HVqGm1Tb36aqcL5kHUSpqg72X8QVR5XjCtHzyBvqpAJiaWJs7pP6LpuFvdTRjrrPvxCBEfgF",
+      "slot": 504355788,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 185,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-permissionless-execution",
+      "signature": "5ppD3Fzift6gnV96vUEoXoHk24BiaWRF8iBJfgGZQN3BZukmrnV5WF4FQ95fMarXVo8iCzkjRBpLW3Den6RLw8am",
+      "slot": 504355801,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 679,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-replay",
+      "signature": "3qv7sifHhYXB6AhcANePPz7Wc5quVcYz61PyZKKpuCeTzip5pJxLie2ooaHbtZ9zSMwDyUS9gT2XYJssxQxoRZB8",
+      "slot": 504355859,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 270,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-revoke",
+      "signature": "4QyaRK3vRefco8rJLj8MuWmKP1r6NyLX5JSDm2wGcfMtb3AxYab3U8tWmQx3vnz4vLssJtD7q72i3CGMc8xXcW5J",
+      "slot": 504355873,
+      "error": null,
+      "fee": 15000,
+      "computeUnits": 1033,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-revoked-execution",
+      "signature": "3MjzBqxTCBZcPdbnHXF9m3KfNv8zQQRbW1QbX9rfZd8PwJudLX8UQDDjesBraSCgggBasufduKqr7V6tzWEPXuWz",
+      "slot": 504355881,
+      "error": {
+        "InstructionError": [
+          0,
+          "IncorrectProgramId"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 149,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-remove-member",
+      "signature": "3qL3rXhL98QzYKuJRkCVGPA6kqNMcajDAejp5MzE4uuWaEtYu266P1sBDCrStvuhgJYUBGg88gc2XSe1m2i9WyUg",
+      "slot": 504355945,
+      "error": null,
+      "fee": 15000,
+      "computeUnits": 1749,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "payout-stale-after-removal",
+      "signature": "3kSnhw5CgvFZN2TtDyN5tGKuY8e9uUCmZHwsL88abF3o6dycuMDT82Eid9c4cmX6ZtApVDF8eob24pyM6dUsW1us",
+      "slot": 504355955,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 268,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-removed-member",
+      "signature": "2BY8QeQ89ZSZ2sbaUfkUckb4HGkts8zUNvy4acw3sxm2QWd77VLb7MccpGdyVUdPihTTcMEAR66f2Ff2EuA9TaHR",
+      "slot": 504355968,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "fee": 15000,
+      "computeUnits": 571,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-invalidate-payouts",
+      "signature": "67ZKEN5MR1PZo21HueFGdshUJRm5U1Mx2rDpqDRSDgF2YXVMK47PL81QddAdwjw2VKKCY8TjUkmChAiuVu5XHcnB",
+      "slot": 504356032,
+      "error": null,
+      "fee": 15000,
+      "computeUnits": 881,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "multisig-threshold-change",
+      "signature": "4KAL4vzwj5Ssf1xYzRAKicPPSQWp3GAhqvK9qgp8wgac9aNjXZZJg5PGB96vwNa9o2kq37aZHfBTP75dnz7pqSxd",
+      "slot": 504356044,
+      "error": null,
+      "fee": 15000,
+      "computeUnits": 1062,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-initialize",
+      "signature": "VT3LHcYoqu4rBNN1sQEpAbxMeCHKz63cQgCndRoeteDiK9hfuh5M3Ybx9Efjhr15Khoq9iHfLyWfxshEtfg98iE",
+      "slot": 504356056,
+      "error": null,
+      "fee": 10000,
+      "computeUnits": 1730,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-deposit",
+      "signature": "KpqDkaqirjMd32v6fWJnzrxAFFS5V3ziQZDn4SNQa7jGgvLbfvdEdYUenFS82WvGTRdR8kn7AsqGgsZDjAvRVSy",
+      "slot": 504356112,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 1566,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-withdraw",
+      "signature": "5ZnoZejf8Rza8XW1tnacTsPJALFFdJyrcosKS7P2EqoDQ6kgoyJr47ErnQna2t8dpBucQ4FXuotP9x7sYPM6CbHN",
+      "slot": 504356120,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 551,
+      "clockWriteWithinObservedBounds": true,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "cooldown-initialize",
+      "signature": "oDmN3ibegYBhkd2sqaxCLhqFL6KeXfmYyczfir9teQbXRmcKXxYJpfiuhS9Z7BRhE52mCFykrLGVh6TWMid4Hkq",
+      "slot": 504356131,
+      "error": null,
+      "fee": 10000,
+      "computeUnits": 1730,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "cooldown-deposit",
+      "signature": "4oqC94HW6fTzsdqD3ZrgpRcT4n7V3AXA6gRCR9EwDoA44187Zv1thrsGbCNCCfhtiEdtDNZBuiTjt4PxL5X78CDL",
+      "slot": 504356182,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 1566,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "cooldown-withdraw",
+      "signature": "26cpGXigYddXiZrqcHhpgQz8NJ9EqEA48ognzAq4QfgWWWw8xwEGeURx6QX286daQTYnrMfbeiUMXYfWeHowhJyN",
+      "slot": 504356194,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 551,
+      "clockWriteWithinObservedBounds": true,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-cooldown-enforced",
+      "signature": "3X5R2FzsuQf2iSUS4VYPDqUEzHcVgFV6JQsBwy4zRtAaEsxN3YmwdXDHuvrBrtQdXLFBs17BHehCuDQVFHZVRGZt",
+      "slot": 504356204,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 7004
+          }
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 372,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-budget-enforced",
+      "signature": "62JteWFDxRnWoVHBQcB7JeJRGUDrTCXbheKJzVJSaeXdgjog1JothmurjX5PFqk8dmFoiHQzRpgW8NqgRwowzpua",
+      "slot": 504356220,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 7002
+          }
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 204,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-operator-enforced",
+      "signature": "tncGaYYMoYDWGLrs3t2btbqYBhhfeqhi46e76mqPu841xFCXck8VMzJ93R7synaLpFyWL7pViBUrSngxDWRyR8u",
+      "slot": 504356233,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 7000
+          }
+        ]
+      },
+      "fee": 10000,
+      "computeUnits": 169,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-freeze",
+      "signature": "4hNSVmqRWc2VVYCjw8zXpEUNR44jCAJAtLrMG7ZVpM4iqnkHouHsQgZ6juiqcsoZ7f12g4XaGrAxoSWFhijqVStN",
+      "slot": 504356247,
+      "error": null,
+      "fee": 5000,
+      "computeUnits": 150,
+      "expectedStateVerified": true
+    },
+    {
+      "name": "treasury-frozen",
+      "signature": "3AHnSbzGMzQcpp3H4BmyLHLGXVttjF6MpFBeG8XHezeHi3gUKrVkBbTRJ93vMUkH5iX9tXBnm1CbWvGdPXtAGRdz",
+      "slot": 504356295,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 7001
+          }
+        ]
+      },
+      "fee": 5000,
+      "computeUnits": 181,
+      "expectedStateVerified": true
+    }
+  ],
+  "sourceUnchangedAndClean": true,
+  "deployedElfsMatchBeforeAndAfter": true,
+  "allPassed": true
+}

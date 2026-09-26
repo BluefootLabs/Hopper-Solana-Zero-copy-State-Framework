@@ -20,3 +20,7 @@ results. For broader proposal and voting programs, see
 [governance programs](GOVERNANCE_PROGRAMS.md).
 
 Payouts bind recipient, amount, inclusive Clock window, and policy revision. Any submitter can execute once; membership/threshold changes invalidate outstanding payouts. A threshold can revoke a payout and reclaim its rent to the multisig.
+
+The September 26 devnet payout executed within its stored amount, recipient,
+window, and policy revision without member signatures at execution. Replay,
+revocation, and stale approvals were rejected. [Validation record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26).

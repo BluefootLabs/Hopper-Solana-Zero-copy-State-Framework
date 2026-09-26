@@ -13,17 +13,26 @@ matched the locally tested artifact before and after execution.
 
 | Operation | Compute units |
 |---|---:|
-| Create and fund first offer | 7,548 |
-| Create and fund second offer | 7,873 |
-| Take offer, refund surplus, and close accounts | 8,731 |
-| Cancel, refund vault, and close accounts | 4,773 |
+| Create and fund first offer | 7,222 |
+| Create and fund second offer | 7,222 |
+| Take offer, refund surplus, and close accounts | 8,403 |
+| Cancel, refund vault, and close accounts | 4,118 |
 
-The v0 executable is 41,656 bytes. These fixture measurements include actual
+The v0 executable is 41,704 bytes. These fixture measurements include actual
 classic-token CPIs and the example's account/mint restrictions. They do not
 cover every token extension or every market design.
 
-[Signatures, snapshots, hashes, and compiled tests](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/token-escrow-governance-2026-09-26)
+[Signatures, snapshots, hashes, and compiled tests](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26)
 provide the evidence behind the numbers.
+
+## SOL governance and treasury: September 26, 2026
+
+The shared governance/treasury/native run finalized 44 transactions, including
+17 expected refusals. Multisig deposit measured 1,537 CU, direct withdrawal
+1,301 CU, approved payout execution 679 CU, and treasury withdrawal 551 CU.
+Payout execution needs no member signature after approval; its recipient,
+amount, time window, revision, and unused state are checked on chain.
+These costs apply to the recorded fixture's account and approval counts.
 
 ## Named SOL vault: September 25, 2026
 

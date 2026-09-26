@@ -1,0 +1,26 @@
+[
+  {
+    "name": "treasury",
+    "programId": "21HFftD38zJS6Pxm2ZUNepPf7abqdnVdpXom9db2EDgS",
+    "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f",
+    "elfSha256": "4df54f39d03fdada1b0dea4fba5ca9dcf1615082b487611869c633b3e8b02dca"
+  },
+  {
+    "name": "multisig",
+    "programId": "5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK",
+    "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f",
+    "elfSha256": "90ff6ae404b6d832eb32f4e5e3c4e538c15f8350bc58ebb6ebacdd4ede101849"
+  },
+  {
+    "name": "native",
+    "programId": "7LyBR8noYoBwoqE4SnkEpPWE4zkB66G41GD7NHWrRGoZ",
+    "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f",
+    "elfSha256": "a282fd793d6e176b2e5fe918cc32d04a84f02f8f45ab7a5eebb8020fae87aeb9"
+  },
+  {
+    "name": "escrow",
+    "programId": "GsZCxAwhE3vYHQVVihjQyhFqXjx1Tcopdm3NCfjms6qR",
+    "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f",
+    "elfSha256": "fddf4287d30f2faca4d54b3a2f5fa04b296ec4dc7e52e92199db59b0f8bf8b4d"
+  }
+]

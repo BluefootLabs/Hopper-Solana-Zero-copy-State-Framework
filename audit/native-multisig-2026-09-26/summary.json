@@ -1,0 +1,24 @@
+{
+  "suites": [
+    {
+      "suite": "devnet",
+      "transactions": 44,
+      "refusals": 17,
+      "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f"
+    },
+    {
+      "suite": "escrow-devnet",
+      "transactions": 33,
+      "refusals": 10,
+      "sourceCommit": "0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f"
+    },
+    {
+      "suite": "return-provenance/devnet",
+      "transactions": 4,
+      "refusals": 3,
+      "sourceCommit": "85eb40a378ed71adaeb7034164ebd8daf1b47ae3"
+    }
+  ],
+  "totalTransactions": 81,
+  "expectedRefusals": 30
+}

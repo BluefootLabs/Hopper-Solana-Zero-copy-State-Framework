@@ -1,0 +1,19 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+data      : 10 bytes (0x0e881300000000000006)
+accounts  : 3 slots
+  [0] 9mCJL7mg9wcHQkRm2c38LUNCZ8x8tYHmR75Jj6DmtEWo -w
+  [1] 3NVFworpenGdAFzrepBxdVA78FActjcNJAKgEaDzQ3SG -w
+  [2] 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn s-
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+wire      : 246/1232 bytes (legacy)
+
+signature : 44dy2YMmfXknFBuDUm99ABR7gunUTUtTp7ZxiXMWWTBnWEQuUHGe3693AicyP7v1NqT6pNTs8VFMxmAa8AV8FiFu
+confirmed : yes
+program   : Ok
+compute   : 153 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 44dy2YMmfXknFBuDUm99ABR7gunUTUtTp7ZxiXMWWTBnWEQuUHGe3693AicyP7v1NqT6pNTs8VFMxmAa8AV8FiFu --rpc https://api.devnet.solana.com

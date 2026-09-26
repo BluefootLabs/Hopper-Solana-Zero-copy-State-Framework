@@ -1,0 +1,16 @@
+[
+  {
+    "crate": "hopper-native",
+    "version": "0.4.1",
+    "url": "https://docs.rs/hopper-native/0.4.1/hopper_native/return_data/fn.invoke_and_read.html",
+    "status": 200,
+    "sha256": "0d3923aee203025a0ebe36d7d835906a70c726b322c8f594b879159f8433a07e"
+  },
+  {
+    "crate": "hopper-runtime",
+    "version": "0.4.1",
+    "url": "https://docs.rs/hopper-runtime/0.4.1/hopper_runtime/",
+    "status": 200,
+    "sha256": "247f098d2b8107a071c033e7b4eeac4c89e88df899f9b9a6546dc26fed1af4d8"
+  }
+]

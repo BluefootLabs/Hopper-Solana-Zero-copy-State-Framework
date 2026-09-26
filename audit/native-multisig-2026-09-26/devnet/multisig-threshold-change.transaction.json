@@ -1,0 +1,76 @@
+{
+  "blockTime": 1790413841,
+  "meta": {
+    "computeUnitsConsumed": 1062,
+    "costUnits": 3840,
+    "err": null,
+    "fee": 15000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK invoke [1]",
+      "Program 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK consumed 1062 of 200000 compute units",
+      "Program 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK success"
+    ],
+    "postBalances": [
+      1260834947,
+      1000000,
+      1000000,
+      4215880,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1260849947,
+      1000000,
+      1000000,
+      4215880,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 504356044,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "59chaMLkjrBBjD2WDtm6KyfnXzHZefim5Fkk5xfhzT7o",
+        "DYa8dSAjFs79z2ZR5eSHbtow9StGYWyt4iknZjJwCEWU",
+        "6JWNaNELpPCLHZxCk92edPRRsBJWiFzmFwy8QjSE5QFg",
+        "5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 2,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 3
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1,
+            2
+          ],
+          "data": "8PMufeJ5CFAf",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "FJqK9rodwNcGY2yYR3wwQiZV8vt4by3KewZEnLE4idQt"
+    },
+    "signatures": [
+      "4KAL4vzwj5Ssf1xYzRAKicPPSQWp3GAhqvK9qgp8wgac9aNjXZZJg5PGB96vwNa9o2kq37aZHfBTP75dnz7pqSxd",
+      "qMZtqDPh2TxuK1uBjQyEH9Qee9aEsMqdBH9SysKuSQmLYebJgkc8q5WXe9rQAgUh8DQ6H8Vqi22YF5zx6FxiEgB",
+      "4bP26BqQWrtJYU7HGhJeGZFNfFR5qJhmCZ1YgiTXF668wdaGvvn3U3B3KfQDr2ZtTkUQcHLoH1YpHBRfovdmZrWP"
+    ]
+  },
+  "transactionIndex": 7,
+  "version": "legacy"
+}

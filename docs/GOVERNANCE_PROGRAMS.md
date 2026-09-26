@@ -74,3 +74,11 @@ not provide independent transaction locks.
 
 See each example's README and validation receipts for its exact supported ABI,
 executed tests, and remaining product features.
+
+## Executed validation
+
+The bounded multisig and delegated treasury move actual SOL. Their shared
+September 26 devnet run, including native probes, finalized 44 transactions
+with 17 expected refusals. Permissionless payout execution measured 679 CU
+for the recorded fixture. [Inspect the complete validation record](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26)
+before extending these examples to a different asset or execution policy.

@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "85eb40a378ed71adaeb7034164ebd8daf1b47ae3",
+  "builds": [
+    {
+      "program": "hopper-treasury",
+      "identical": true,
+      "sha256": "4df54f39d03fdada1b0dea4fba5ca9dcf1615082b487611869c633b3e8b02dca"
+    },
+    {
+      "program": "hopper-bounded-multisig",
+      "identical": true,
+      "sha256": "90ff6ae404b6d832eb32f4e5e3c4e538c15f8350bc58ebb6ebacdd4ede101849"
+    },
+    {
+      "program": "hopper-escrow",
+      "identical": true,
+      "sha256": "fddf4287d30f2faca4d54b3a2f5fa04b296ec4dc7e52e92199db59b0f8bf8b4d"
+    },
+    {
+      "program": "hopper-checked-cpi-fixture",
+      "identical": true,
+      "sha256": "a282fd793d6e176b2e5fe918cc32d04a84f02f8f45ab7a5eebb8020fae87aeb9"
+    }
+  ],
+  "runtimeTestsPassed": true
+}

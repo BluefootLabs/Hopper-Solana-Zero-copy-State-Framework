@@ -1,0 +1,194 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-return-provenance-fixture",
+      "-p",
+      "hopper-framework-verifier"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "lock",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "check",
+      "-p",
+      "hopper-return-provenance-fixture",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "native",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-native",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "clippy",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-return-provenance-fixture",
+      "-p",
+      "hopper-framework-verifier",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-Dwarnings"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "build-baseline",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\program-capability-2026-09-26\\return-provenance\\baseline\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\program-capability-2026-09-26\\return-provenance\\baseline\\elf",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-baseline",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "return_provenance_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 101,
+    "expectedFailure": true
+  },
+  {
+    "arch": "baseline",
+    "elfSha256": "d263b2120893449301bcd20eb3a4699b14a3c25f4487b447023aea70a2826710",
+    "bytes": 3904
+  },
+  {
+    "name": "build-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\return-provenance\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\program-capability-2026-09-26\\return-provenance\\v0\\elf",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-v0",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "return_provenance_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "arch": "v0",
+    "elfSha256": "af86d67154d359bc693655933686d0c71c772db8fd6ae2302fb243322332e7eb",
+    "bytes": 4264
+  },
+  {
+    "name": "build-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\return-provenance\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\program-capability-2026-09-26\\return-provenance\\v3\\elf",
+      "--",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "name": "test-v3",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "return_provenance_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "arch": "v3",
+    "elfSha256": "502af7328e72fde97b5cfac163a753cbcc2874fb567bcfd6c5b87aefb339b570",
+    "bytes": 3352
+  }
+]

@@ -1,0 +1,22 @@
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized] target(s) in 1.23s
+     Running tests\return_provenance_sbf.rs (target\debug\deps\return_provenance_sbf-859aaa55e1a80ff7.exe)
+
+running 1 test
+return tag 4: 1274 CU
+
+thread 'return_data_checks_direct_producer_and_typed_prefix' (121752) panicked at bench\framework-comparison\verifier\tests\return_provenance_sbf.rs:40:9:
+assertion `left == right` failed: tag 7
+  left: Ok(())
+ right: Err(IncorrectProgramId)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test return_data_checks_direct_producer_and_typed_prefix ... FAILED
+
+failures:
+
+failures:
+    return_data_checks_direct_producer_and_typed_prefix
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p hopper-framework-verifier --test return_provenance_sbf`

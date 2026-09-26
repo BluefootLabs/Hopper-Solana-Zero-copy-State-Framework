@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized] target(s) in 0.49s
+     Running tests\checked_cpi_sbf.rs (target\debug\deps\checked_cpi_sbf-40b2166aa448fd20.exe)
+
+running 1 test
+abort tag 2: 53 CU
+abort tag 3: 51 CU
+test specialized_signer_preflight_returns_before_system_or_token_cpi ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

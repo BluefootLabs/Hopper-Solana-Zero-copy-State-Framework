@@ -95,20 +95,19 @@ independent security audit.
 
 ## Finalized devnet validation
 
-The September 26, 2026 run finalized **33 transactions** with complete expected
-account-state checks: 17 setup transactions and 16 escrow/donation transactions,
-including ten expected refusals. The deployed 41,656-byte ELF matched the tested
-v0 artifact before and after execution.
+The September 26, 2026 native/runtime patch run finalized **33 transactions**:
+17 setup transactions and 16 escrow/donation transactions, including ten
+expected refusals. Complete expected account snapshots matched after every
+transaction. The deployed 41,704-byte v0 ELF matched before and after the run.
 
-Program: `3ZhgEZzjCaoEHVUyYkHKWcYnqf4F1ND4vjRDDbb1JZdT`.
-Source: `bd7e2a0f4e49d6b442fe46965feaf0fd8def4b45`.
-ELF SHA-256: `9ae4f1aaf919e152d58789438c5b2859ba9f432862e65a64a77579407021751b`.
+Program: `GsZCxAwhE3vYHQVVihjQyhFqXjx1Tcopdm3NCfjms6qR`.
+Source: `0ef6f2a694a2dfe51cc13c1425e606d1a8b6746f`.
+ELF SHA-256: `fddf4287d30f2faca4d54b3a2f5fa04b296ec4dc7e52e92199db59b0f8bf8b4d`.
 
-Make measured 7,548 and 7,873 CU for the two offers;
-take with a surplus refund measured 8,731 CU;
-cancel measured 4,773 CU. These are this fixture's
-measurements for this exact program and workload.
+Both funded offers measured 7,222 CU; taking an offer with a surplus refund
+measured 8,403 CU; cancellation measured 4,118 CU. These are measurements for
+this exact program and workload, not guarantees for another application.
 
-
-Public signatures, full snapshots, and artifact checks are in the
-[validation archive](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/token-escrow-governance-2026-09-26).
+[Public signatures, snapshots, and compiled tests](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26) identify the
+source and artifact. Rebuilding after the return-data correction produced the
+same escrow ELF. The earlier September 26 run remains in its dated archive.

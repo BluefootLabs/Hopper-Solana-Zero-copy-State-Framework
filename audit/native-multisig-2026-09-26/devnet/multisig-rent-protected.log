@@ -1,0 +1,21 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 5wonqq1j5CJuNWgJgVCbJstWGYMeUw6q8FQw3o8HpsAK
+data      : 9 bytes (0x03811a060000000000)
+accounts  : 4 slots
+  [0] 6JWNaNELpPCLHZxCk92edPRRsBJWiFzmFwy8QjSE5QFg -w
+  [1] EWYjHELs5zDpiDBYFhWTmWyyjyExc3t7cQ9kptf798XJ -w
+  [2] 59chaMLkjrBBjD2WDtm6KyfnXzHZefim5Fkk5xfhzT7o s-
+  [3] DYa8dSAjFs79z2ZR5eSHbtow9StGYWyt4iknZjJwCEWU s-
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn, 59chaMLkjrBBjD2WDtm6KyfnXzHZefim5Fkk5xfhzT7o, DYa8dSAjFs79z2ZR5eSHbtow9StGYWyt4iknZjJwCEWU
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 438/1232 bytes (legacy)
+
+signature : 5YkRPmkkAwNTFi4vzttQjqKz8Ez2tgxjTHk1YhqAyDrJZAWDqPR79jZSy2XVv57L5mhXQpVc5KzAJ3FuCXT4wRu8
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InsufficientFunds"]}
+compute   : 1258 CU
+fee       : 15000 lamports
+
+explain it: hopper tx explain 5YkRPmkkAwNTFi4vzttQjqKz8Ez2tgxjTHk1YhqAyDrJZAWDqPR79jZSy2XVv57L5mhXQpVc5KzAJ3FuCXT4wRu8 --rpc https://api.devnet.solana.com

@@ -1,0 +1,8 @@
+[package]
+name="hopper-patch-consumer"
+version="0.0.0"
+edition="2021"
+[workspace]
+[dependencies]
+hopper-native={version="=0.4.1",features=["cpi"]}
+hopper-runtime="=0.4.1"

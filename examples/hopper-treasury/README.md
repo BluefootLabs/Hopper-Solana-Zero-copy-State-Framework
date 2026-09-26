@@ -48,3 +48,17 @@ withdrawals, exact state and balance changes, authorization, every segment's
 identity, cooldown boundaries, exhausted budgets, freezing, rent protection,
 arithmetic overflow, and rollback on refusal. The same SBF suite exercises the
 bounded multisig; see its README for the command.
+
+## Finalized devnet validation
+
+The September 26 treasury/multisig/native run finalized 44 transactions with
+17 expected refusals. Treasury deposits moved real wallet SOL through System
+CPI. Withdrawals moved the expected amount, and operator, budget, cooldown,
+and freeze refusals preserved the observed state except transaction fees.
+The treasury withdrawal fixture measured 551 CU.
+
+All checked non-clock bytes and balances matched exactly. Written timestamps
+fell between independently sampled finalized Clock values. Deployed ELFs
+matched the compiled artifacts before and after the run.
+
+[Receipts and exact test scope](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26).

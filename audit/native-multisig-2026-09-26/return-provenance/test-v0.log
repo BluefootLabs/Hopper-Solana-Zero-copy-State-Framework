@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized] target(s) in 0.52s
+     Running tests\return_provenance_sbf.rs (target\debug\deps\return_provenance_sbf-859aaa55e1a80ff7.exe)
+
+running 1 test
+return tag 4: 1303 CU
+return tag 7: 2380 CU
+return tag 5: 1312 CU
+return tag 6: 1171 CU
+test return_data_checks_direct_producer_and_typed_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

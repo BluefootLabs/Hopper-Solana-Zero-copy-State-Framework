@@ -97,12 +97,15 @@ parallelism, or guarantee a fee discount. Solana locks writable accounts.
 The funded escrow completed **33 finalized devnet transactions** on September 26,
 2026, with full expected account-state checks and matching deployed ELF bytes
 before and after the run. Its local compiled tests also exercise token CPI
-rollback. The named SOL vault completed 19 finalized devnet transactions.
+rollback. The named SOL vault completed 19 finalized devnet transactions. The latest
+governance/treasury/native run finalized 44 transactions, and four further
+transactions verified direct and nested CPI return data.
+[Inspect the patch and program validation](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-multisig-2026-09-26).
 See [program measurements](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md) and
 [release status](https://hopperzero.dev/docs/release-status) for scope and artifacts.
 
 The registry framework version is **0.4.0**. Repository examples evolve
-independently and are not published crates. The native/runtime 0.4.1 patch is validated separately before publication. Support packages `grillo-*` and
+independently and are not published crates. The native/runtime **0.4.1** patches are published and devnet-tested. Support packages `grillo-*` and
 `hopper-topology` use their own 0.1.0 versions.
 
 ## Documentation

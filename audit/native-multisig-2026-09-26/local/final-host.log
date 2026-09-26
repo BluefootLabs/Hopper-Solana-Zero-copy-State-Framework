@@ -1,0 +1,12 @@
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-bounded-multisig v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-bounded-multisig)
+    Finished `test` profile [unoptimized] target(s) in 0.89s
+     Running unittests src\lib.rs (target\debug\deps\hopper_bounded_multisig-0a8dd65219da9c92.exe)
+
+running 3 tests
+test state::tests::bounded_tail_roundtrips_label_and_signers ... ok
+test state::tests::multisig_data_helpers_cover_initialize_update_and_thresholds ... ok
+test state::tests::duplicate_members_cannot_satisfy_a_threshold ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
