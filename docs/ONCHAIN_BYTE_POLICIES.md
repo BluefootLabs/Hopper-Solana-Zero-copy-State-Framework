@@ -56,7 +56,10 @@ the selected elements in those columns. Neighboring cells, authority,
 delegates, limits, and the header stay outside the consumer's mutable grant.
 Explicit `lamports()` permits no lamport mutation through the governed APIs.
 Supported direct `AccountView` writes are subject to the macro-bound ambient
-gate too. Whole-account writable CPI delegation cannot fit this narrow grant.
+gate too. With this explicit lamport dimension, writable delegation through
+validated CPI helpers requires whole-account data permission and a lamport
+grant; these selected-cell contexts provide neither. Bare `strict_writes`
+without the lamport dimension retains legacy ungoverned writable-CPI behavior.
 
 The handler still owns business rules: who may spend, what a unit means,
 which revision is acceptable, and how much is allowed. `SEALED` rejects unsafe
@@ -127,3 +130,17 @@ match the gated ELF and the registry-only consumer build. Consumption measured
 889 CU and limit updates 831 CU in this fixture. See the
 [use-case review evidence](../audit/use-case-review-2026-09-26/README.md).
 The earlier 0.3.2 capture above remains separately dated.
+
+## Example instruction ABI
+
+| Opcode | Accounts in order | Arguments after the one-byte opcode |
+|---|---|---|
+| 0 initialize | authority signer+writable, new book signer+writable, System Program | four delegate addresses, u64 initial limit |
+| 1 consume | delegate signer, book writable | u16 slot, u64 expected revision, u64 amount |
+| 2 set_limit | authority signer, book writable | u16 slot, u64 expected revision, u64 limit |
+
+Integers are little-endian. Instruction payload lengths are exact. The bounded
+entrypoint may ignore surplus account metas after the declared accounts;
+`sealed` does not enforce an exact account count. The compiled suite checks
+that an extra account remains unchanged and only the expected cells change.
+There is no reset, close, or rent-recovery instruction.

@@ -50,3 +50,17 @@ or a new cross-framework benchmark. Existing Cicada, Grillo, and placement
 compiler limitations remain unchanged. Public receipts exclude private keys.
 Browser inventory was empty, so visual QA is not claimed; website build,
 lint, and rendered-link checks are recorded separately.
+
+## Website checks
+
+The revised website passed Next.js build, TypeScript, and ESLint checks.
+Local rendered verification covered all 47 routes and 3,267 internal links and
+heading targets, with zero failures. It checked use-case-first section order,
+the new-project command sequence's displayed content, the real-transfer
+tutorial, and retained quota-policy boundaries. Visual inspection was unavailable.
+
+Production deployment of website commit 9034529558cf9ccf1d01c4196e618e4af2d9d0e2 succeeded.
+The live crawl checked all 47 routes and 3,978 internal links/heading targets
+with zero failures. A transient connection reset required retrying read-only
+page fetches; the final complete capture is archived. The onboarding lockfile
+also confirms that all 44 dependencies came from crates.io.

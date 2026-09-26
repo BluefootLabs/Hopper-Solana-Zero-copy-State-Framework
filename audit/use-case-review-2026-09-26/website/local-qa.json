@@ -1,0 +1,8 @@
+{
+  "base": "http://127.0.0.1:3016",
+  "pages": 47,
+  "publishedVersion": "0.4.0",
+  "internalLinksChecked": 3267,
+  "failures": [],
+  "scope": "Rendered HTML, story order, release labels, policy boundaries, network observations, internal routes and heading targets; no visual browser inspection."
+}

@@ -11,9 +11,9 @@ work with stored state in place, and define what each instruction may change.
 
 | Use case | Start here | What the example demonstrates |
 |---|---|---|
-| SOL vaults and balances | [SOL vault](examples/hopper-vault/src/lib.rs) | Named initialization, authority checks, deposits and withdrawals |
-| Delegated application quotas | [Byte allowance](examples/hopper-byte-allowance/src/lib.rs) | Per-delegate limits, stale-request rejection, and writes restricted to selected usage fields |
-| Orders and settlement | [Protocol examples](docs/PROTOCOL_GRADE_EXAMPLES.md) | Account-backed collections, settlement rules, and token-program integration |
+| SOL vaults and balances | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/src/lib.rs) | Named initialization, authority checks, deposits and withdrawals |
+| Delegated application quotas | [Byte allowance](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-byte-allowance/src/lib.rs) | Per-delegate limits, stale-request rejection, and writes restricted to selected usage fields |
+| Orders and settlement | [Protocol examples](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/PROTOCOL_GRADE_EXAMPLES.md) | Account-backed collections, settlement rules, and token-program integration |
 
 Start with typed accounts and ordinary Rust handlers. Add checked cross-program
 calls, collections, state migrations, and generated clients as needed. Headered
