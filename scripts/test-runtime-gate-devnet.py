@@ -25,6 +25,7 @@ import re
 import struct
 import subprocess
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -45,8 +46,19 @@ def run(argv: list[str]) -> str:
 def rpc(method: str, params: list[object]) -> object:
     payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
     request = urllib.request.Request(RPC, payload, {"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=45) as response:
-        result = json.load(response)
+    # Retry only these reads. Never replay transaction submission or an unknown
+    # RPC method after an ambiguous network failure.
+    reads = {"getGenesisHash", "getBalance", "getMultipleAccounts",
+             "getMinimumBalanceForRentExemption", "getTransaction"}
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                result = json.load(response)
+            break
+        except urllib.error.HTTPError as error:
+            if method not in reads or error.code not in (429, 502, 503, 504) or attempt == 4:
+                raise
+            time.sleep(min(2 ** (attempt + 1), 16))
     if "error" in result:
         raise RuntimeError(f"{method}: {result['error']}")
     return result["result"]
