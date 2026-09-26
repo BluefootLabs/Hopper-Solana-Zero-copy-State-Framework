@@ -601,8 +601,9 @@ impl<'info> AccountView<'info> {
     /// # Caveat
     ///
     /// This low-level routine does **not** verify the caller has
-    /// authority to close the account, Solana's runtime enforces
-    /// owner/writable rules at transaction commit time regardless, but
+    /// ownership or application authority to close the account. Writability
+    /// and outstanding data borrows are checked locally. Solana's runtime
+    /// also enforces account modification rules, but
     /// higher-level APIs (e.g. `hopper_runtime::AccountView::close_to`)
     /// should pre-check those rules. See `account.rs::close_to` for
     /// the safe wrapper.
@@ -610,6 +611,7 @@ impl<'info> AccountView<'info> {
     pub fn close(&self) -> ProgramResult {
         // Zeroing the data region below would mutate bytes a live borrow
         // still references; refuse rather than invalidate it.
+        self.require_writable()?;
         self.check_borrow_mut()?;
         self.set_lamports(0);
         // SAFETY: no data borrow is outstanding (checked above); `data_ptr_unchecked`

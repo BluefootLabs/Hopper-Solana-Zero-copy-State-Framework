@@ -36,20 +36,19 @@ use crate::ProgramResult;
 /// checked before credit overflow ([`ProgramError::InsufficientFunds`]
 /// wins when both would fail), both post-balances are computed before
 /// either is applied (an arithmetic refusal also cannot half-apply),
-/// and, like the substrate helper, no writability pre-check is added
-/// (Sealevel's `writable` flag is still enforced underneath).
+/// and both accounts must be writable before balances change.
 ///
-/// The one behavioral divergence is deliberate: a **self-transfer**
+/// As in the substrate helper, a **self-transfer**
 /// (`from` and `to` carry the same address, i.e. the same underlying
 /// account) is handled explicitly as a balance-checked net zero,
 /// mirroring the host System-transfer emulation and the real System
-/// program. The substrate helper's debit-then-credit sequence would
-/// credit the pre-debit balance and mint `amount` out of thin air.
+/// program. The caller must verify ownership and application authority
+/// to debit the source; this helper does not authenticate a user.
 ///
 /// # Cost
 ///
 /// When no gate is installed, the only work added over the substrate
-/// helper is the self-transfer address compare and the gate's existing
+/// helper is the gate's existing
 /// no-gate fast path; the per-account address comparisons against the
 /// declared set happen only while a gate is actually installed.
 ///
@@ -61,6 +60,7 @@ use crate::ProgramResult;
 ///   `amount` lamports.
 /// - [`ProgramError::ArithmeticOverflow`], crediting `to` would
 ///   overflow `u64`.
+/// - [`ProgramError::Immutable`], either account is read-only.
 #[inline]
 pub fn transfer_lamports(
     from: &AccountView<'_>,
@@ -75,6 +75,8 @@ pub fn transfer_lamports(
     // emulation in `cpi.rs`.)
     crate::write_policy::check_lamport_mutation(from.address())?;
     crate::write_policy::check_lamport_mutation(to.address())?;
+    from.require_writable()?;
+    to.require_writable()?;
 
     // Self-transfer (same address = same underlying account): net zero.
     // Handled explicitly because the compute-both-then-apply sequence

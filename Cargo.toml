@@ -69,6 +69,8 @@ members = [
     "bench/runtime-gate/program",
     "bench/checked-cpi/program",
     "bench/return-provenance/program",
+    "bench/lifecycle/native",
+    "bench/lifecycle/runtime",
     "bench/pda-boundaries/program",
     "bench/canonical-pda/program",
     "bench/mint-plan/program",
@@ -90,8 +92,8 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 ] }
 
 [workspace.dependencies]
-hopper-native = { path = "crates/hopper-native", version = "0.4.1", default-features = false }
-hopper-runtime = { path = "crates/hopper-runtime", version = "0.4.1", default-features = false }
+hopper-native = { path = "crates/hopper-native", version = "0.4.2", default-features = false }
+hopper-runtime = { path = "crates/hopper-runtime", version = "0.4.2", default-features = false }
 hopper-core = { path = "crates/hopper-core", package = "hopper-systems", version = "0.4.0", default-features = false }
 hopper-macros = { path = "crates/hopper-macros", version = "0.4.0", default-features = false }
 hopper-macros-proc = { path = "crates/hopper-macros-proc", package = "hopper-derive", version = "=0.4.0" }

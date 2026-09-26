@@ -1,6 +1,6 @@
 [package]
 name = "hopper-runtime"
-version = "0.4.1"
+version = "0.4.2"
 publish = ["crates-io"]
 edition = "2021"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Canonical low-level runtime surface for Hopper programs: direct account memory, validation, borrow guards, CPI, and zero-copy state access."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-runtime/0.4.1"
+documentation = "https://docs.rs/crate/hopper-runtime/0.4.2"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "runtime", "no-std", "framework"]
 categories = ["no-std", "embedded"]
@@ -20,14 +20,10 @@ name = "hopper_runtime"
 default = []
 
 cu-trace = ["hopper-native/cu-trace"]
-# Opt-in for the `sol_remaining_compute_units` syscall (SIMD-0049). The
-# proposal is Withdrawn and its feature gate
-# (5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP) has never been activated on
-# mainnet-beta, devnet, or testnet, so a program that references the symbol
-# fails to deploy on every public cluster while passing local tests (local
-# validators enable every feature). The compute-budget helpers are therefore
-# compiled for on-chain targets only with this feature; host builds keep them
-# for tests. Enable it only for a private cluster that activates the gate.
+# Opt-in remaining-compute syscall (SIMD-0049). The feature account was
+# absent on mainnet-beta, devnet, and testnet in the 2026-09-26 RPC capture.
+# Enable only on a target cluster verified to support this syscall. Host
+# implementations do not establish public-cluster availability.
 remaining-compute-units-syscall = ["hopper-native/remaining-compute-units-syscall"]
 # Opt-in instruction touch maps: the segment borrow registry keeps an
 # append-only, deduplicated log of every (account, offset, size, R/W)

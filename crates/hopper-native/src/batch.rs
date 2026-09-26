@@ -10,39 +10,40 @@ use crate::ProgramResult;
 
 /// Transfer all lamports from `source` to `destination` and zero the source.
 ///
-/// This is the standard "close an account" pattern: move all SOL to
-/// the rent receiver and wipe the source account. Combines what would
-/// normally be 3 separate operations (read lamports, set source to 0,
-/// add to destination) into one safe call.
+/// Both accounts must be writable and distinct. Borrow conflicts and credit
+/// overflow are rejected before either balance changes, even if the caller
+/// catches the error. The caller must verify that the executing program owns
+/// the source and that the application authorizes closure.
 #[inline]
 pub fn close_and_transfer(
     source: &AccountView<'_>,
     destination: &AccountView<'_>,
 ) -> ProgramResult {
-    let lamports = source.lamports();
-    if lamports == 0 {
-        // Already empty -- just close.
-        source.close()?;
-        return Ok(());
+    if crate::address::address_eq(source.address(), destination.address()) {
+        return Err(ProgramError::InvalidArgument);
     }
-
-    // Move lamports.
-    destination.set_lamports(
-        destination
-            .lamports()
-            .checked_add(lamports)
-            .ok_or(ProgramError::ArithmeticOverflow)?,
-    );
-
-    // Close source (zeros data, sets owner to system program).
-    source.close()
+    source.require_writable()?;
+    destination.require_writable()?;
+    source.check_borrow_mut()?;
+    let lamports = source.lamports();
+    let credited = destination
+        .lamports()
+        .checked_add(lamports)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    // Every fallible precondition is checked before either balance changes.
+    // Closing cannot encounter a new borrow: there is no intervening CPI or callback.
+    source.close()?;
+    destination.set_lamports(credited);
+    Ok(())
 }
 
 /// Transfer `amount` lamports between two accounts without CPI.
 ///
 /// For accounts owned by the current program, direct lamport
 /// manipulation is cheaper than a system program CPI transfer.
-/// This method checks for sufficient balance and overflow.
+/// This method checks both writable flags, sufficient balance, and overflow.
+/// A same-address transfer is balance-checked net zero. The caller must verify
+/// ownership and application authority to debit the source.
 ///
 /// # Gated programs (`strict_writes` + `lamports(...)`)
 ///
@@ -62,9 +63,14 @@ pub fn transfer_lamports(
     to: &AccountView<'_>,
     amount: u64,
 ) -> ProgramResult {
+    from.require_writable()?;
+    to.require_writable()?;
     let from_lamports = from.lamports();
     if from_lamports < amount {
         return Err(ProgramError::InsufficientFunds);
+    }
+    if crate::address::address_eq(from.address(), to.address()) {
+        return Ok(());
     }
     let to_lamports = to.lamports();
     let new_to = to_lamports
@@ -211,6 +217,9 @@ pub fn realloc_checked(
         // Need more lamports. Transfer BEFORE resize so that if the
         // transfer fails, the account data length is unchanged.
         if let Some(payer) = payer {
+            if crate::address::address_eq(account.address(), payer.address()) {
+                return Err(ProgramError::InvalidArgument);
+            }
             let deficit = min - current;
             transfer_lamports(payer, account, deficit)?;
         } else {
@@ -239,6 +248,10 @@ pub fn realloc_checked(
 /// ```
 ///
 /// [`Rent`]: crate::sysvar::Rent
+///
+/// The optional payer is debited directly and must be owned by the executing
+/// program. An underfunded target cannot pay itself. For a System-owned wallet
+/// or PDA payer, use `ResizeWithPayer` (feature `cpi`) instead.
 #[inline]
 pub fn realloc_checked_with(
     rent: &crate::sysvar::Rent,
@@ -256,6 +269,9 @@ pub fn realloc_checked_with(
 
     if current < min {
         if let Some(payer) = payer {
+            if crate::address::address_eq(account.address(), payer.address()) {
+                return Err(ProgramError::InvalidArgument);
+            }
             let deficit = min - current;
             transfer_lamports(payer, account, deficit)?;
         } else {
@@ -264,4 +280,74 @@ pub fn realloc_checked_with(
     }
 
     account.resize(new_len)
+}
+
+/// Resize program-owned state, funding only missing rent through System CPI.
+///
+/// The default invocation reads live rent. Growth is checked against the length
+/// at instruction entry before a payer is charged. Newly exposed bytes are zeroed;
+/// shrinking retains excess lamports in the account. This does not authorize an
+/// application's resize: validate its authority before invoking this builder.
+/// `program_id` must be the current entrypoint's program ID.
+#[cfg(feature = "cpi")]
+pub struct ResizeWithPayer<'a, 'info> {
+    pub account: &'a AccountView<'info>,
+    pub payer: &'a AccountView<'info>,
+    pub system_program: &'a AccountView<'info>,
+    pub program_id: &'a Address,
+    pub new_len: usize,
+}
+
+#[cfg(feature = "cpi")]
+impl ResizeWithPayer<'_, '_> {
+    /// Fund from a transaction signer using the live Rent sysvar.
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    /// Also support a System-owned PDA payer derived by the current program.
+    /// Nonempty signer seeds are verified by the SVM, not assumed valid here.
+    #[inline]
+    pub fn invoke_signed(&self, signers: &[crate::instruction::Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_with_rent(&crate::sysvar::Rent::get()?, signers)
+    }
+
+    /// Reuse a Rent value already read from the target cluster in this instruction.
+    /// A fabricated or stale rent value can underfund the account; use `invoke`
+    /// unless the caller already has the live sysvar.
+    #[inline]
+    pub fn invoke_signed_with_rent(
+        &self,
+        rent: &crate::sysvar::Rent,
+        signers: &[crate::instruction::Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.account.require_owned_by(self.program_id)?;
+        self.account.require_writable()?;
+        self.account.check_resize(self.new_len)?;
+        let deficit = rent
+            .minimum_balance(self.new_len)
+            .saturating_sub(self.account.lamports());
+        if deficit > 0 {
+            if crate::address::address_eq(self.account.address(), self.payer.address()) {
+                return Err(ProgramError::InvalidArgument);
+            }
+            require_address(self.system_program, &AccountView::SYSTEM_PROGRAM_ID)?;
+            if !self.system_program.executable() {
+                return Err(ProgramError::IncorrectProgramId);
+            }
+            self.payer
+                .require_owned_by(&AccountView::SYSTEM_PROGRAM_ID)?;
+            if !self.payer.is_data_empty() {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            crate::system::Transfer {
+                from: self.payer,
+                to: self.account,
+                lamports: deficit,
+            }
+            .invoke_signed(signers)?;
+        }
+        self.account.resize(self.new_len)
+    }
 }

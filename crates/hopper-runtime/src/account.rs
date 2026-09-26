@@ -335,8 +335,10 @@ impl<'info> AccountView<'info> {
         // Build the inner `Ref<T>` via the existing flat/projected path.
         #[cfg(target_os = "solana")]
         let inner: Ref<'_, T> = {
-            // SAFETY: size, overflow, and bounds already validated above.
-            let native_ref = unsafe { self.backend().segment_ref_unchecked::<T>(abs_offset) };
+            // A local range registry cannot exclude aliases through another
+            // registry, whole-account access, lifecycle methods, or CPI. Retain
+            // the canonical native borrow for the segment guard's full lifetime.
+            let native_ref = self.backend().segment_ref::<T>(abs_offset, size);
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
@@ -420,8 +422,9 @@ impl<'info> AccountView<'info> {
 
         #[cfg(target_os = "solana")]
         let inner: RefMut<'_, T> = {
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let native_ref = unsafe { self.backend().segment_mut_unchecked::<T>(abs_offset) };
+            // Pair the range lease with a canonical account borrow. The batch
+            // split API shares one such exclusive borrow across disjoint fields.
+            let native_ref = self.backend().segment_mut::<T>(abs_offset, size);
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
@@ -1466,6 +1469,9 @@ impl<'info> AccountView<'info> {
         // permitted only for accounts carrying declared write authority
         // (`GateCheck::Transition`); foreign accounts fail closed.
         crate::write_policy::check_account_transition(self.address())?;
+        if new_len != self.data_len() {
+            self.check_borrow_mut()?;
+        }
         native_boundary::resize(self.backend(), new_len)
     }
 
@@ -1474,6 +1480,9 @@ impl<'info> AccountView<'info> {
     pub fn resize_raw(&self, new_len: usize) -> ProgramResult {
         // Same transition gate as [`resize`](Self::resize).
         crate::write_policy::check_account_transition(self.address())?;
+        if new_len != self.data_len() {
+            self.check_borrow_mut()?;
+        }
         native_boundary::resize_raw(self.backend(), new_len)
     }
 
@@ -1497,6 +1506,7 @@ impl<'info> AccountView<'info> {
         // Ambient gate: closing is a presence transition; on a gated
         // instruction only accounts with declared write authority may close.
         crate::write_policy::check_account_transition(self.address())?;
+        self.check_borrow_mut()?;
         native_boundary::close(self.backend())
     }
 
@@ -1522,11 +1532,9 @@ impl<'info> AccountView<'info> {
     /// - `destination` must be **writable**, receiving lamports
     ///   requires write permission on the credit side.
     ///
-    /// The earlier version mutated lamports and zeroed data without
-    /// checking either side, relying on the runtime to reject the
-    /// transaction later. That encouraged
-    /// patterns that will only be rejected later", the safe API
-    /// should surface the violation at call time.
+    /// A same-address recipient is rejected. Borrow conflicts, both lamport
+    /// policies, and credit overflow are checked before data or balances
+    /// change, including when the caller catches a returned error.
     #[inline]
     pub fn close_to(&self, destination: &AccountView<'_>, program_id: &Address) -> ProgramResult {
         // Ambient gate: same presence-transition rule as [`close`](Self::close).
@@ -1536,27 +1544,18 @@ impl<'info> AccountView<'info> {
         self.require_writable()?;
         self.require_owned_by(program_id)?;
         destination.require_writable()?;
-
-        let lamports = self.lamports();
-        let dest_lamports = destination.lamports();
-        destination.try_set_lamports(
-            dest_lamports
-                .checked_add(lamports)
-                .ok_or(ProgramError::ArithmeticOverflow)?,
-        )?;
-        self.try_set_lamports(0)?;
-        native_boundary::zero_data(self.backend())?;
-        Ok(())
+        self.close_to_preflighted(destination)
     }
 
     /// Unchecked variant of [`Self::close_to`].
     ///
     /// Retained for the rare caller that has already verified the
     /// preconditions (e.g. inside a validated `#[hopper::context]`
-    /// binding). **Does not** check writable or owner, so only use it
-    /// when the preconditions are guaranteed by the surrounding code.
+    /// binding). It omits the owner and destination-writable checks; callers
+    /// must establish both. Source writability, active data borrows, distinct
+    /// addresses, checked credit arithmetic, and installed policies still apply.
     ///
-    /// "Unchecked" waives only those two PREconditions. The ambient
+    /// "Unchecked" waives only those two preconditions. The ambient
     /// write gate is not a precondition a caller can pre-verify; it is
     /// the instruction's installed policy, and closing an account both
     /// zeroes its data and ends its presence, so the same transition
@@ -1566,15 +1565,28 @@ impl<'info> AccountView<'info> {
     #[inline]
     pub fn close_to_unchecked(&self, destination: &AccountView<'_>) -> ProgramResult {
         crate::write_policy::check_account_transition(self.address())?;
-        let lamports = self.lamports();
-        let dest_lamports = destination.lamports();
-        destination.try_set_lamports(
-            dest_lamports
-                .checked_add(lamports)
-                .ok_or(ProgramError::ArithmeticOverflow)?,
-        )?;
-        self.try_set_lamports(0)?;
+        self.close_to_preflighted(destination)
+    }
+
+    #[inline]
+    fn close_to_preflighted(&self, destination: &AccountView<'_>) -> ProgramResult {
+        if crate::address::address_eq(self.address(), destination.address()) {
+            return Err(ProgramError::InvalidArgument);
+        }
+        self.check_borrow_mut()?;
+        // zero_data requires a writable source even for the compatibility path.
+        self.require_writable()?;
+        crate::write_policy::check_lamport_mutation(self.address())?;
+        crate::write_policy::check_lamport_mutation(destination.address())?;
+        let credited = destination
+            .lamports()
+            .checked_add(self.lamports())
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        // No caller code or CPI can change borrows/policy between preflight and
+        // application. An error caught by the caller must leave both sides intact.
         native_boundary::zero_data(self.backend())?;
+        self.try_set_lamports(0)?;
+        destination.try_set_lamports(credited)?;
         Ok(())
     }
 
@@ -2351,6 +2363,32 @@ mod tests {
         account.close().unwrap();
         assert_eq!(account.data_len(), 0);
         assert_eq!(account.lamports(), 0);
+    }
+
+    #[test]
+    fn close_to_refusal_preserves_source_and_recipient() {
+        let (_source_backing, source) = make_account(16, 91);
+        let (_dest_backing, destination) = make_account(16, 92);
+        let before = (source.lamports(), destination.lamports());
+        let borrowed = source.try_borrow().unwrap();
+        assert_eq!(
+            source.close_to(&destination, &Address::new([2; 32])),
+            Err(ProgramError::AccountBorrowFailed)
+        );
+        assert_eq!((source.lamports(), destination.lamports()), before);
+        assert_eq!(&*borrowed, &[0; 16]);
+    }
+
+    #[test]
+    fn close_to_rejects_the_same_account_as_recipient() {
+        let (_backing, source) = make_account(16, 93);
+        let before = source.lamports();
+        assert_eq!(
+            source.close_to(&source, &Address::new([2; 32])),
+            Err(ProgramError::InvalidArgument)
+        );
+        assert_eq!(source.lamports(), before);
+        assert_eq!(source.data_len(), 16);
     }
 
     #[test]

@@ -1,0 +1,12 @@
+[package]
+name = "hopper-native-lifecycle-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+hopper-native = { workspace = true, features = ["cpi"] }
+[lints]
+workspace = true

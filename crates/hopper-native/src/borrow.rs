@@ -17,6 +17,38 @@ pub struct Ref<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized> Ref<'a, T> {
+    /// Narrow a guard to a field or slice without releasing its account borrow.
+    #[inline]
+    pub fn map<U: ?Sized>(orig: Self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+        let value = f(orig.value);
+        let (_, state) = orig.into_raw_parts();
+        Ref { value, state }
+    }
+
+    /// Narrow a guard, returning the original guard and error on failure.
+    #[inline]
+    pub fn try_map<U: ?Sized, E>(
+        orig: Self,
+        f: impl FnOnce(&T) -> Result<&U, E>,
+    ) -> Result<Ref<'a, U>, (Self, E)> {
+        match f(orig.value) {
+            Ok(value) => {
+                let (_, state) = orig.into_raw_parts();
+                Ok(Ref { value, state })
+            }
+            Err(error) => Err((orig, error)),
+        }
+    }
+
+    /// Narrow a guard, returning the original guard if the field is absent.
+    #[inline]
+    pub fn filter_map<U: ?Sized>(
+        orig: Self,
+        f: impl FnOnce(&T) -> Option<&U>,
+    ) -> Result<Ref<'a, U>, Self> {
+        Self::try_map(orig, |value| f(value).ok_or(())).map_err(|(orig, ())| orig)
+    }
+
     /// Create a new shared borrow guard.
     ///
     /// The caller must have already incremented `*state` to reflect
@@ -103,6 +135,49 @@ pub struct RefMut<'a, T: ?Sized> {
 }
 
 impl<'a, T: ?Sized> RefMut<'a, T> {
+    /// Narrow an exclusive guard without releasing its account borrow.
+    #[inline]
+    pub fn map<U: ?Sized>(orig: Self, f: impl FnOnce(&mut T) -> &mut U) -> RefMut<'a, U> {
+        match Self::try_map(orig, |value| Ok::<_, core::convert::Infallible>(f(value))) {
+            Ok(mapped) => mapped,
+            Err((_, never)) => match never {},
+        }
+    }
+
+    /// Narrow a guard, preserving the original guard on an error. A closure
+    /// may itself mutate data before returning an error; those edits are retained.
+    #[inline]
+    pub fn try_map<U: ?Sized, E>(
+        mut orig: Self,
+        f: impl FnOnce(&mut T) -> Result<&mut U, E>,
+    ) -> Result<RefMut<'a, U>, (Self, E)> {
+        match f(&mut *orig) {
+            Ok(value) => {
+                let ptr = value as *mut U;
+                let state = orig.state;
+                core::mem::forget(orig);
+                // SAFETY: the closure's reference is derived from the original
+                // guard or is independently valid for that borrow. The original
+                // guard is consumed without releasing its exclusive lease; the
+                // new guard owns that same lease for the original lifetime.
+                Ok(RefMut {
+                    value: unsafe { &mut *ptr },
+                    state,
+                })
+            }
+            Err(error) => Err((orig, error)),
+        }
+    }
+
+    /// Narrow a guard, returning the original guard if the field is absent.
+    #[inline]
+    pub fn filter_map<U: ?Sized>(
+        orig: Self,
+        f: impl FnOnce(&mut T) -> Option<&mut U>,
+    ) -> Result<RefMut<'a, U>, Self> {
+        Self::try_map(orig, |value| f(value).ok_or(())).map_err(|(orig, ())| orig)
+    }
+
     /// Create a new exclusive borrow guard.
     ///
     /// The caller must have already set `*state = 0` to indicate

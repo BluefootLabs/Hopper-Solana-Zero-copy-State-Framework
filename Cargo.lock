@@ -2406,7 +2406,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-native"
-version = "0.4.1"
+version = "0.4.2"
+
+[[package]]
+name = "hopper-native-lifecycle-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-native",
+]
 
 [[package]]
 name = "hopper-nft-mint"
@@ -2483,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "hopper-native",
  "proptest",
@@ -2494,6 +2501,13 @@ name = "hopper-runtime-gate-fixture"
 version = "0.0.0"
 dependencies = [
  "hopper-lang",
+]
+
+[[package]]
+name = "hopper-runtime-lifecycle-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-runtime",
 ]
 
 [[package]]

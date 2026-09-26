@@ -283,6 +283,16 @@ impl<T: ?Sized> core::fmt::Debug for SegRefMut<'_, T> {
 /// `N` independent `&mut T` simultaneously. This is the generalized
 /// `split_at_mut` for account fields that ordinary `segment_mut` cannot
 /// express.
+///
+/// Construction must go through the account's checked split API. Raw offsets
+/// cannot be supplied to a safe constructor:
+///
+/// ```compile_fail,E0624
+/// use hopper_runtime::{RefMut, SegmentLease, SegmentsMut};
+/// fn unchecked<'a>(data: RefMut<'a, [u8]>, leases: [SegmentLease<'a>; 2]) {
+///     let _ = SegmentsMut::<[u8; 8], 2>::new(data, [0, 0], leases);
+/// }
+/// ```
 pub struct SegmentsMut<'a, T, const N: usize> {
     data: RefMut<'a, [u8]>,
     offsets: [usize; N],
@@ -296,7 +306,11 @@ impl<'a, T: crate::Pod, const N: usize> SegmentsMut<'a, T, N> {
     /// Assemble the guard. Doc-hidden; built by `split_segments_mut`.
     #[doc(hidden)]
     #[inline(always)]
-    pub fn new(data: RefMut<'a, [u8]>, offsets: [usize; N], leases: [SegmentLease<'a>; N]) -> Self {
+    pub(crate) fn new(
+        data: RefMut<'a, [u8]>,
+        offsets: [usize; N],
+        leases: [SegmentLease<'a>; N],
+    ) -> Self {
         Self {
             data,
             offsets,
