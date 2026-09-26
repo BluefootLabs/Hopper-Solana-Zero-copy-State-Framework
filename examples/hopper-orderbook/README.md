@@ -1,4 +1,4 @@
-﻿# Hopper Orderbook
+# Hopper Orderbook
 
 A small on-chain example of storing orders in a large segmented account and
 mutating individual records with Hopper's byte-range borrow guards. The account

@@ -27,7 +27,7 @@ with the identical recipe. That cross-check is how the verifier is proven to
 reproduce pina's published pinocchio numbers on this toolchain before any
 Hopper number is trusted.
 
-The script writes `<out>/results.json` and `<out>/RESULTS.md`. It exits
+The script writes `<out>/results.json` and `<out>/RESULTS.txt`. It exits
 non-zero if any fixture fails to build or fails its functional checks.
 """
 
@@ -402,7 +402,7 @@ def main() -> int:
             or run(["git", "status", "--porcelain"], cwd=REPO) != source_status):
         raise SystemExit("source changed during benchmark capture; no results published")
     (out / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
-    (out / "RESULTS.md").write_text(render_markdown(results), encoding="utf-8")
+    (out / "RESULTS.txt").write_text(render_markdown(results), encoding="utf-8")
     print(render_markdown(results))
     return 0
 

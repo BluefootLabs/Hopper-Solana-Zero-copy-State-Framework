@@ -1,7 +1,7 @@
 # Hopper Vault
 
 A compact macro-first Hopper vault. This is a good starting point when you want
-the Anchor/Quasar-feeling API while keeping Hopper's checked zero-copy account
+typed accounts and Rust handlers while keeping Hopper's checked zero-copy account
 layout and runtime validation.
 
 ## What It Demonstrates

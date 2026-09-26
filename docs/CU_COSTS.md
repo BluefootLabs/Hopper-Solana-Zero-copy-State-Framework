@@ -51,7 +51,7 @@ the exact resolved versions in its archive; the older Agave 4.0 / Mollusk
 | 2 | `check_owner` | 14 | 472 | Validation | owner vs program id, 4×u64 word compare |
 | 3 | `Vault::load()` (T1 full check) | 33 | 495 | Account loading | owner + disc + version + layout_id + size |
 | 4 | `check_keys_eq` | 15 | 491 | Validation | two 32-byte keys, word compare |
-| 5 | `Vault::overlay()` (57 B) | 2 | 475 | Memory access (Tier A) | header + layout_id + bounds check |
+| 5 | `Vault::overlay()` (57 B) | 2 | 475 | Memory access (Tier A) | bounds-checked projection; caller establishes header/layout identity |
 | 6 | `write_header` | 6 | 483 | Account init | write the 16-byte Hopper header |
 | 7 | `zero_init` (57 B) | 21 | 498 | Account init | zero the account, then write header |
 | 8 | `check_account_fast` | 5 | 462 | Validation (fast path) | fused fast-path account check |
@@ -61,8 +61,8 @@ the exact resolved versions in its archive; the older Agave 4.0 / Mollusk
 | 12 | `StateReceipt::begin + commit` | 1,915 | 2,395 | Receipts | snapshot + diff + encode cycle |
 | 13 | `read_layout_id` + compare | 6 | 479 | Fingerprint check | 8-byte layout fingerprint verify |
 | 14 | `StateSnapshot::capture + diff` | 0 † | 476 | State tracking | see footnote, optimizes out in this shape |
-| 15 | `overlay_mut` + field write | 4 | 482 | Memory access (Tier A mut) | mutable overlay + one field set |
-| 16 | `raw_cast_baseline` (unsafe ptr) | 2 | 475 | Competitor baseline | size check + pointer cast only |
+| 15 | `overlay_mut` + field write | 4 | 482 | Memory access (Tier A mut) | bounds-checked mutable projection + one field set |
+| 16 | `raw_cast_baseline` (unsafe ptr) | 2 | 475 | Raw baseline | size check + pointer cast only |
 | 17 | `StateReceipt` (enriched fields) | 1,917 | 2,396 | Receipts | + phase, compat_impact, validation, migration |
 | 18 | `receipt + emit` (64 B log) | 2,231 | 2,711 | Receipts | begin + set + commit + `to_bytes` + emit |
 | 19 | `proc_macro_typed_dispatch` | 183 | 651 | Macro dispatch | full `#[hopper::program]` path: dispatch + binding + u64 decode + handler |
@@ -96,9 +96,9 @@ Same run, net CU:
 
 | Tier | Operation | Net CU | What you get |
 | --- | --- | ---: | --- |
-| Raw (unsafe) | `raw ptr cast` | 2 | size check + pointer cast only, the competitor baseline |
+| Raw (unsafe) | `raw ptr cast` | 2 | size check + pointer cast only, the unchecked baseline |
 | B (pod) | `pod_from_bytes` | 2 | bounds-checked typed view |
-| A (safe) | `Vault::overlay()` | 2 | header + layout_id + bounds check |
+| A (safe) | `Vault::overlay()` | 2 | bounds-checked projection; caller establishes header/layout identity |
 | A (mut) | `overlay_mut` + field set | 4 | mutable overlay + one write |
 | Full load | `Vault::load()` | 33 | owner + disc + version + layout_id + size |
 | Strict trust | `TrustProfile::load` | 29 | full cross-program trust validation |
@@ -166,16 +166,14 @@ enable the feature pay none of it.
 Two structural notes, both disclosed wherever the feature is claimed:
 
 - The dominant cost is the **CPI itself** (the ~1k-CU-class invoke plus the
-  nested entrypoint), which every self-CPI event scheme pays, Anchor's
-  `emit_cpi!` included. The log-based `emit_event` (240 CU) remains the
+  nested entrypoint). The log-based `emit_event` (240 CU) remains the
   cheap tier when log truncation is acceptable.
 - The generated event path verifies its event-authority PDA **at runtime**;
   it does not automatically substitute a `canonical_pda!` constant. The dated
   fixture below used a sha256 compare loop: ~148 CU per attempt
   (the 256-attempt exhaustion below ÷ 256), attempt count = 256 − bump.
   This smoke program's authority sits at the first attempt and its verify
-  measures 171 CU. Anchor v0.31+ pins the authority against a compile-time
-  constant for ~free, a real, stated disadvantage. `bind()` fuses
+  measures 171 CU. `bind()` fuses
   validation and bump capture into exactly ONE derivation (measured: the
   fuse took this instruction from 3,705 to 3,534 CU). A failed bind with a
   wrong authority address exhausts the loop: ~37.9k CU on the failing
@@ -261,6 +259,6 @@ Retired baseline estimates: empty `sol_log_` ~100; `sol_log_64_` ~100;
 `sol_invoke_signed_c` to a no-op recipient ~600.
 
 The April-era comparative multiples that used to accompany these tables
-("10x cheaper than Anchor" per constraint, etc.) were never re-measured
+(unmeasured per-constraint multipliers, for example) were never re-measured
 under the current method and are withdrawn with them; measured
 cross-framework numbers live in `BENCHMARKS.md`.

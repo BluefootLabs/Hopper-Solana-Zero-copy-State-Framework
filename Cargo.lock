@@ -2081,6 +2081,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-bounded-multisig"
+version = "0.4.0"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-builtins"
 version = "0.4.0"
 
@@ -2096,6 +2103,13 @@ name = "hopper-canonical-pda-fixture"
 version = "0.0.0"
 dependencies = [
  "hopper-lang",
+]
+
+[[package]]
+name = "hopper-checked-cpi-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-native",
 ]
 
 [[package]]
@@ -2392,7 +2406,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-native"
-version = "0.4.0"
+version = "0.4.1"
 
 [[package]]
 name = "hopper-nft-mint"
@@ -2447,13 +2461,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hopper-quasar-port-20-min"
-version = "0.4.0"
-dependencies = [
- "hopper-lang",
-]
-
-[[package]]
 name = "hopper-registry"
 version = "0.4.0"
 dependencies = [
@@ -2469,7 +2476,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "hopper-native",
  "proptest",

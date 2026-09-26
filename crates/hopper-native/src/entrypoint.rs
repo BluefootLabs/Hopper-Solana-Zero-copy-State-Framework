@@ -341,8 +341,9 @@ macro_rules! lazy_entrypoint {
 /// Set up a no-op global allocator that aborts on allocation.
 ///
 /// Useful for `no_std` programs that must not allocate. Any attempt to
-/// allocate will immediately abort the program rather than returning a
-/// null pointer (which violates the `GlobalAlloc` contract).
+/// allocate immediately aborts the invocation through the SVM's abort syscall.
+/// No experimental inline assembly is required. Returning null would also be
+/// valid for `GlobalAlloc`; this allocator deliberately fails immediately.
 #[macro_export]
 macro_rules! no_allocator {
     () => {
@@ -352,10 +353,8 @@ macro_rules! no_allocator {
 
             unsafe impl core::alloc::GlobalAlloc for NoAlloc {
                 unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
-                    // Abort: returning null_mut violates the GlobalAlloc
-                    // contract and causes UB. Abort is the correct response
-                    // for a no-alloc program.
-                    core::arch::asm!("mov r0, 1", "exit", options(noreturn));
+                    // SAFETY: abort accepts no pointers and never returns.
+                    unsafe { $crate::syscalls::abort() }
                 }
                 unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {}
             }
@@ -463,18 +462,16 @@ macro_rules! default_allocator {
 
 /// Default no_std panic handler that aborts immediately.
 ///
-/// On BPF, uses inline assembly to return error code 1 (aborts the
-/// program). This is cheaper than `spin_loop()` which would burn CU
-/// until the runtime kills the program.
+/// Uses the SVM abort syscall, without experimental inline assembly or a
+/// compute-consuming spin loop. The runtime rolls back the failed instruction.
 #[macro_export]
 macro_rules! nostd_panic_handler {
     () => {
         #[cfg(target_os = "solana")]
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
-            // Abort immediately, spin_loop() would burn CU indefinitely.
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            unsafe { core::arch::asm!("mov r0, 1", "exit", options(noreturn)) };
+            // SAFETY: abort accepts no pointers and never returns.
+            unsafe { $crate::syscalls::abort() }
         }
     };
 }

@@ -5,7 +5,7 @@
 use hopper::prelude::*;
 
 mod my_program {
-    // Devnet counter id from COMPARISON.md, any valid base58 32-byte key.
+    // Devnet counter id from docs/ARCHITECTURE.md, any valid base58 32-byte key.
     hopper::declare_id!("D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F");
 }
 

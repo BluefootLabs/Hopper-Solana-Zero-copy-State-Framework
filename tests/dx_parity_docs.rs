@@ -27,16 +27,16 @@ fn public_docs_and_templates_stay_on_first_touch_surface() {
             include_str!("../docs/WRITING_HOPPER_PROGRAMS.md"),
         ),
         (
-            "docs/MIGRATION_FROM_QUASAR.md",
-            include_str!("../docs/MIGRATION_FROM_QUASAR.md"),
+            "docs/PROGRAM_MIGRATION.md",
+            include_str!("../docs/PROGRAM_MIGRATION.md"),
         ),
         (
-            "docs/PORT_QUASAR_IN_20_MINUTES.md",
-            include_str!("../docs/PORT_QUASAR_IN_20_MINUTES.md"),
+            "docs/BOUNDED_MULTISIG.md",
+            include_str!("../docs/BOUNDED_MULTISIG.md"),
         ),
         (
-            "docs/DYNAMIC_TAILS_FROM_QUASAR.md",
-            include_str!("../docs/DYNAMIC_TAILS_FROM_QUASAR.md"),
+            "docs/DYNAMIC_TAILS.md",
+            include_str!("../docs/DYNAMIC_TAILS.md"),
         ),
         ("docs/WHY_HOPPER.md", include_str!("../docs/WHY_HOPPER.md")),
         (

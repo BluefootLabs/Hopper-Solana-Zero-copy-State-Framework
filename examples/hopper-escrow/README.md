@@ -107,7 +107,7 @@ ELF SHA-256: `9ae4f1aaf919e152d58789438c5b2859ba9f432862e65a64a77579407021751b`.
 Make measured 7,548 and 7,873 CU for the two offers;
 take with a surplus refund measured 8,731 CU;
 cancel measured 4,773 CU. These are this fixture's
-measurements, not a competitor comparison.
+measurements for this exact program and workload.
 
 
 Public signatures, full snapshots, and artifact checks are in the

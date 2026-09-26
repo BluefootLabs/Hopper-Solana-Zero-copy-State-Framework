@@ -87,11 +87,26 @@ jobs:
           cargo build-sbf \
             --manifest-path examples/hopper-vault/Cargo.toml \
             -- --locked
-      - name: Build Quasar port SBF
+      - name: Build bounded multisig SBF
         run: |
           cargo build-sbf \
-            --manifest-path examples/quasar-port-20-min/Cargo.toml \
+            --manifest-path examples/hopper-bounded-multisig/Cargo.toml \
             -- --locked
+      - name: Build treasury SBF
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-treasury/Cargo.toml \
+            -- --locked
+      - name: Build and test native CPI preflight and immediate abort
+        run: |
+          cargo build-sbf --manifest-path bench/checked-cpi/program/Cargo.toml -- --locked
+          HOPPER_CHECKED_CPI_SBF="$PWD/target/deploy/hopper_checked_cpi_fixture.so" \
+            cargo test -p hopper-framework-verifier --test checked_cpi_sbf --locked -- --ignored --nocapture
+      - name: Test multisig and treasury asset execution
+        env:
+          HOPPER_TREASURY_SBF: ${{ github.workspace }}/target/deploy/hopper_treasury.so
+          HOPPER_MULTISIG_SBF: ${{ github.workspace }}/target/deploy/hopper_bounded_multisig.so
+        run: cargo test -p hopper-framework-verifier --test governance_sbf --locked -- --ignored --nocapture
       - name: Build escrow SBF
         run: |
           cargo build-sbf \

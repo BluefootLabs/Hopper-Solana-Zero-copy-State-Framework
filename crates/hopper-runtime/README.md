@@ -74,3 +74,14 @@ Most users touch this crate transitively through hopper::prelude::*. Reach for h
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE).
+
+## Native execution hardening
+
+The 0.4.1 implementation uses the SVM abort syscall for no-allocation failures
+and `no_std` panics. It requires no experimental inline assembly and terminates
+without a compute-burning spin loop. Failure rolls back the transaction; it is
+not a recoverable `ProgramError` return.
+
+Specialized System and token CPI helpers reject a required signer locally when
+neither an outer signature nor PDA signer seeds are supplied. Nonempty seeds do
+not prove authority: Solana still derives and verifies the PDA at the CPI boundary.

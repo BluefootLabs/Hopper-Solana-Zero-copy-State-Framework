@@ -35,6 +35,40 @@ fn assert_unchanged(account: &AccountView<'_>, lamports: u64, len: usize, first:
 }
 
 #[test]
+fn specialized_unsigned_signers_fail_locally_but_pdas_reach_runtime_validation() {
+    use hopper_native::instruction::{Seed, Signer};
+    let mut from_backing = backing(10, true);
+    from_backing.header.is_signer = 0;
+    let mut to_backing = backing(11, true);
+    to_backing.header.is_signer = 0;
+    let from = unsafe { AccountView::new_unchecked(&mut from_backing.header) };
+    let to = unsafe { AccountView::new_unchecked(&mut to_backing.header) };
+    let transfer = hopper_native::system::Transfer {
+        from: &from,
+        to: &to,
+        lamports: 1,
+    };
+    assert_eq!(
+        transfer.invoke(),
+        Err(ProgramError::MissingRequiredSignature)
+    );
+    let token = TokenTransfer {
+        from: &from,
+        to: &to,
+        authority: &from,
+        amount: 1,
+    };
+    assert_eq!(token.invoke(), Err(ProgramError::MissingRequiredSignature));
+    let seed = [Seed::from(&b"authority"[..])];
+    let signers = [Signer::from(&seed[..])];
+    // Host invoke is a no-op: this proves deferral, NOT valid PDA derivation.
+    transfer.invoke_signed(&signers).unwrap();
+    token.invoke_signed(&signers).unwrap();
+    assert_unchanged(&from, 1000, 16, 10);
+    assert_unchanged(&to, 1000, 16, 11);
+}
+
+#[test]
 fn system_create_account_rejects_live_borrows_before_invoke_without_mutation() {
     let mut from_backing = backing(1, true);
     let mut to_backing = backing(2, true);

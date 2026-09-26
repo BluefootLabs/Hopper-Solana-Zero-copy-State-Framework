@@ -11,8 +11,7 @@ and must explicitly invoke any upgrade gate.
 
 This note describes the unification, the `AccountDescriptor` /
 `LayoutDescriptor` one-source-of-truth model, and grounds it against the
-2026 Solana zero-copy landscape (Anchor v2, Pinocchio, direct mapping,
-SIMD-0219/0268/0339).
+Solana account execution model.
 
 ## The single developer-facing model
 
@@ -159,15 +158,11 @@ the comparison and abort on a rejected result.
 
 The unification is grounded in where Solana zero-copy is actually heading
 (full analysis in
-[`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md)):
+[`ARCHITECTURE.md`](ARCHITECTURE.md)):
 
-- **Anchor v2 is Pinocchio-backed and zero-copy-by-default.** The archived
-  pre-RC comparison does not support a categorical "Anchor is slow / heavy"
-  claim. Rebenchmark the current v2 line. Hopper's durable differentiation is
-  descriptor coherence: one declaration supplies loader
-  checks, an optional registry row, client metadata, and upgrade-compatibility
-  inputs. Runtime registry authentication and upgrade enforcement remain
-  explicit application work.
+- Descriptor coherence means one declaration supplies loader checks, optional
+  registry data, client metadata, and upgrade-analysis inputs. Registry
+  authentication and upgrade enforcement remain application work.
 
 - **Direct account mapping is active on testnet/devnet and pending Mainnet.**
   As reverified 2026-09-06, read-only account data on those clusters can be
@@ -208,14 +203,12 @@ Additive and covered by focused tests, with `no_std` / zero-copy paths kept clea
    "one descriptor feeds loader + registry + offsets" in both the compact and
    headered examples, plus a trybuild pass exercising the trait const.
 
-## Anchor v2-informed descriptor tooling
+## Descriptor tooling
 
-Anchor v2 is Pinocchio-backed and zero-copy-by-default, so the archived pre-RC
-comparison cannot establish a current speed/DX gap. The ideas worth taking are
 about *coherence*, typed account validation,
 fail-closed client decode, and tooling that cannot describe a different layout
 than the program runs. Hopper adapts each in its own descriptor-native way
-(not by copying Anchor syntax or internals). Every API below derives from the
+through one descriptor contract. Every API below derives from the
 one `AccountDescriptor` and is `const` / `no_std` / no-alloc.
 
 ### Client decode fingerprint (`LayoutFingerprint`)

@@ -35,11 +35,11 @@ working examples from helpers and integrations you still need to build.
    manifest/IDL-backed fingerprints, generated TS/Kotlin compact clients, and
    an opt-in devnet round-trip.
 
-6. **[quasar-port-20-min](quasar-port-20-min/src/lib.rs)** - Bounded
+6. **[hopper-bounded-multisig](hopper-bounded-multisig/src/lib.rs)** - Bounded
    dynamic-tail example for a fixed vault and multisig metadata using
-   Quasar-pretty `#[hopper::account]` fields, initialization helpers, and threshold checks.
+   Bounded `#[hopper::account]` fields, authenticated member approvals, and real SOL deposits/withdrawals.
    Companion guide:
-   [../docs/PORT_QUASAR_IN_20_MINUTES.md](../docs/PORT_QUASAR_IN_20_MINUTES.md)
+   [../docs/BOUNDED_MULTISIG.md](../docs/BOUNDED_MULTISIG.md)
 
 ### Tier 2: Advanced Patterns
 

@@ -1,105 +1,84 @@
-# Hopper Architecture
+# Solana programs built with Hopper
 
-Canonical technical reference for the Hopper zero-copy state framework.
+Hopper supplies the execution and authoring layers for a complete Solana program:
+entrypoint, instruction decoding, account validation, zero-copy access, PDA
+signing, cross-program calls, account lifecycle, and client metadata.
 
-This document covers the pipeline model, the wire format, every public module,
-the dependency graph, and the design invariants that hold them together.
+## From a transaction to an on-chain action
 
-## The Pipeline
+1. Solana loads the program and serializes the instruction's accounts.
+2. `hopper-native` parses that memory and resolves duplicate account references.
+3. `hopper-runtime` exposes guarded views, checked CPI, and layout contracts.
+4. Generated account bindings validate the handler's declared constraints.
+5. The handler enforces application rules and updates state or invokes programs.
+6. Solana validates the result and commits the transaction atomically, or rolls
+   back its state changes on failure. Transaction fees still apply to failures.
 
-Hopper connects program authoring to state validation and inspection. The full
-workflow has seven stages; applications can use the stages they need:
+A handler can create accounts, transfer SOL, move tokens, mint, burn, close
+accounts, and invoke application-specific instructions. Zero-copy describes its
+state access; it does not restrict its ability to perform those actions.
 
-```
-1. Define      Layout state with hopper_layout!, declare errors, register discs
-2. Resolve     Parse accounts from the instruction via Frame
-3. Validate    Run checks, verify signatures, enforce policy
-4. Execute     Mutate state in a controlled phase
-5. Record      Capture a StateReceipt of what changed
-6. Verify      Assert invariants and compatibility
-7. Inspect     Use the CLI to explain, diff, and plan migrations
-```
+## Layers and ownership
 
-Steps 1-6 happen on-chain. Step 7 happens off-chain with the CLI. Simple
-programs can skip steps 5 and 6. Complex protocols use all seven.
+| Layer | Crates | Responsibility |
+|---|---|---|
+| Native execution | `hopper-native` | Loader ABI, account memory, entrypoints, syscall wrappers, PDA and native CPI machinery |
+| Runtime | `hopper-runtime` | Borrow guards, layout contracts, checked CPI, safe lifecycle operations, tracked-write policies |
+| Program authoring | `hopper-lang`, `hopper-systems`, `hopper-macros`, `hopper-derive` | Typed accounts, handlers, constraints, state declarations, collections, dispatch |
+| Solana integrations | `hopper-system`, `hopper-token`, `hopper-token-2022`, `hopper-associated-token`, `hopper-metaplex` | System and token instructions, account readers, mint/extension policies, asset integrations |
+| Tooling | `hopper-schema`, `hopper-cli`, client generators | Program descriptions, inspection, build/deploy workflows, clients |
 
-## Tiered Learning
+The native crate has no dependencies. The runtime depends directly on it.
+`hopper-lang` is the umbrella API. Host tools and testing crates are separate
+from the deployed execution path. Keep explicit unsafe access confined to the
+parts of an application that need and can review it.
 
-The framework has depth. You do not need all of it at once.
+## Assets follow Solana's ownership rules
 
-**Tier 1 (Standard Hopper):** Versioned layouts, phased execution, validation
-bundles, receipts, invariants, CLI inspect. This covers most programs.
+- A wallet's SOL is debited through a System Program CPI with its signature.
+- A validated program-owned vault can pay SOL through checked lamport updates.
+- SPL Token and Token-2022 balances change through their owning token programs.
+- PDA authority comes from seeds supplied to a signed CPI; it does not permit
+  writing another program's data directly.
+- Release incompatible account borrows before CPI. Validate the target program,
+  account identities, signer/writable privileges, mint, and token authority.
 
-**Tier 2 (Advanced Hopper):** Segmented accounts with roles, virtual
-multi-account state, migration planning, trust profiles, validation graphs,
-capability-policy binding.
+These rules follow the [Solana account model](https://solana.com/docs/core/accounts)
+and [CPI model](https://solana.com/docs/core/cpi). The funded escrow and treasury
+examples exercise the asset movements, not just application counters.
 
-**Tier 3 (Escape Hatch):** Raw overlay access, `load_unchecked`, manual wire
-formats, custom collections, `segment_data_mut_unchecked`. The framework steps
-aside when you need it to. Hopper Native provides direct syscall access for
-anything below the framework layer.
+## State is a choice, not the whole framework
 
-Variable-length account data keeps the same tier model. Hopper keeps the fixed
-body zero-copy and offers `#[hopper::state(dynamic_tail = T)]` for one bounded
-dynamic payload after the fixed body. See
-[DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) for the Quasar
-dynamic-field migration pattern.
+The usual authoring path is `#[account]`, `#[derive(Accounts)]`, `#[program]`,
+`Ctx<T>`, and `ctx.accounts.*`. Use named initialization inputs for fixed fields.
+Reach for the systems layer when explicit segment geometry or raw wire layout
+is useful.
 
-## Overview
+Headered account layouts start with 16 bytes: discriminator, version, flags,
+8-byte layout ID, and schema epoch. Compact layouts use `[disc][body]` and keep
+layout identity in metadata. The chosen contract determines loading checks.
+Fixed fields use alignment-safe wire representations. Dynamic fields have
+bounded codecs or deliberate final-tail semantics.
 
-Hopper is `#![no_std]`, zero-allocation, built on
-Hopper Native, Hopper's sovereign low-level runtime substrate. Default/headered
-accounts are flat byte overlays with a 16-byte self-describing header; opt-in
-compact accounts use `[disc][body]` bytes and carry layout identity in
-manifest/IDL metadata. Fixed compact layouts require the exact declared size;
-compact-dynamic layouts require the declared prefix and allow an
-application-interpreted tail. No proc macros are required, no heap allocations,
-and no trait objects are required in the on-chain path.
+A raw `overlay` projects an already-borrowed slice. It does not establish account
+ownership or application authority. Use typed account bindings or validated
+loaders at instruction boundaries; validate every segment header before manually
+projecting an independently declared segment.
 
-The framework is organized into concentric rings:
+## Concurrency and policies
 
-| Ring | Crate | Scope |
-|------|-------|-------|
-| 0 | `hopper-core` | ABI types, header, overlay, pod, checks, collections, state, events, CPI, frame, dispatch |
-| 0 | `hopper-macros` | `macro_rules!` code generation (layout, dispatch, init, close, error, PDA, etc.) |
-| 1 | `hopper-solana` | SPL Token/Mint readers, Token-2022 screening, typed CPI helpers |
-| 2 | `hopper-schema` | Layout manifests, field-level diffing, migration planning (usable off-chain and on) |
-| -- | `hopper-cli` | CLI tooling: explain, inspect, decode, segments, compat, diff, plan, schema-export |
+Solana locks whole writable accounts. Separate accounts can enable independent
+transactions; separate byte ranges inside one account do not. Account placement
+therefore trades contention against rent, account metas, and lifecycle costs.
 
-All on-chain crates are `#![no_std]` with `#![deny(unsafe_op_in_unsafe_fn)]`.
+Tracked write policies constrain selected program-side data and lamport paths.
+They complement application authorization and checked CPI. They are not a
+sandbox for every instruction a downstream program can execute.
 
-```
-hopper (umbrella, re-exports macros + prelude)
- |
- +-- hopper-runtime      <- hopper-native (primary), legacy pinocchio / solana-program (compat only)
- +-- hopper-core         <- hopper-runtime, owned const SHA-256 layout IDs
- +-- hopper-macros       <- references hopper-core / hopper-runtime paths
- +-- hopper-schema       <- hopper-core
- +-- hopper-solana       <- hopper-core, hopper-runtime, five8_const
- +-- hopper-cli (std)    <- hopper-schema
-```
-
-## Sovereign Boundary Ownership
-
-Hopper's architecture depends on a hard split between substrate and semantics.
-
-- `hopper-native` owns raw execution: loader parsing, duplicate-account
-   resolution, `raw_input`, `raw_account`, entrypoint macros, syscall wrappers,
-   lazy parsing, account resize/realloc reserve handling, and the substrate
-   `AccountView`.
-- `hopper-runtime` owns Hopper semantics: typed state access, `LayoutContract`,
-   `Context`, checked CPI rules, and Hopper-facing PDA ergonomics.
-- `hopper-runtime::compat` owns the direct Hopper runtime bridge. If runtime
-   code needs to name Pinocchio or `solana-program` identity directly, that is
-   an architectural regression.
-- Pinocchio is not a Hopper runtime dependency. Benchmark comparisons may use
-   external Pinocchio targets, but production Hopper programs run through
-   Hopper's direct account-memory runtime.
-
-This keeps Hopper sovereign at the execution boundary while letting Hopper
-Runtime stay framework-owned instead of adapter-shaped.
-
----
+Ordinary program execution does not require an indexer, remote policy service,
+or an offline verifier. Optional receipts and inspection tools help development
+and operations. Features requiring cluster gates must be enabled only after
+checking the target cluster's activation state.
 
 ## Wire Format
 

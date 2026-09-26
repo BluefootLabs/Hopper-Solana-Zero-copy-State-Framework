@@ -102,7 +102,12 @@ pub(crate) fn invoke_specialized_signed<'a, const ACCOUNTS: usize>(
     signer_mask: usize,
     signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
-    preflight_cpi_accounts(accounts, writable_mask)?;
+    preflight_cpi_accounts(
+        accounts,
+        writable_mask,
+        signer_mask,
+        !signers_seeds.is_empty(),
+    )?;
     let instruction_accounts =
         specialized_instruction_accounts(accounts, writable_mask, signer_mask);
     let instruction = InstructionView {
@@ -121,49 +126,21 @@ pub(crate) fn invoke_specialized_signed<'a, const ACCOUNTS: usize>(
 
 // ---------------------------------------------------------------------
 
-/// Invoke a CPI without borrow validation (lowest CU cost).
-///
-/// This is Tier C of the CPI surface. The checked variant
-/// ([`invoke`]) enforces the full contract below
-/// before calling this function; prefer that unless you have measured
-/// a reason to bypass the validation pass.
+/// Invoke a CPI without the local borrow/privilege preflight.
+/// Prefer [`invoke`] unless the caller can uphold the unchecked contract.
 ///
 /// # Safety
 ///
-/// The caller must uphold every one of the following invariants. A
-/// violation of any of them is undefined behaviour, because the Solana
-/// runtime's `sol_invoke_signed_c` syscall assumes they already hold.
+/// Every descriptor and referenced byte range must remain valid for the call.
+/// Accounts must come from the current invocation and describe their current
+/// data lengths. No exclusive borrow may overlap a referenced account, and no
+/// shared borrow may overlap an account writable by the callee. Duplicate metas
+/// must obey the same aliasing rules for their shared underlying account.
 ///
-/// 1. **No aliasing borrows.** No `&` or `&mut` references into any
-///    account data region referenced by `accounts` may be live for
-///    the duration of the call. The CPI can (and will) mutate those
-///    regions via the callee, and Rust's aliasing rules do not permit
-///    the caller to hold outstanding references to memory that is
-///    about to change under it.
-/// 2. **Account list consistency.** Every `CpiAccount<'_>` in `accounts`
-///    must correspond to a real account previously passed to the
-///    program's entrypoint (same address, same `is_Signer<'_, '_>` /
-///    `is_writable` flags the runtime already knows about). The
-///    runtime will not re-derive account permissions; invalid flags
-///    propagate into the callee.
-/// 3. **Writability coverage.** Every account that the `instruction`
-///    marks writable must have `is_writable = true` in `accounts`,
-///    and every account the instruction marks as Signer<'_, '_> must have
-///    `is_Signer<'_, '_> = true`. Mismatches are rejected by the runtime but
-///    the rejection path is not cheap and the caller is expected to
-///    get this right.
-/// 4. **No shared mutable slices across CPIs.** If the same account
-///    appears more than once in `accounts` (duplicate accounts), the
-///    caller is responsible for ensuring that any subsequent borrow
-///    of that account's data respects the CPI's writes.
-/// 5. **Valid instruction encoding.** `instruction.program_id`,
-///    `instruction.accounts`, and `instruction.data` must all point
-///    to valid memory for the duration of the call. An
-///    `InstructionView<'_, '_, '_, '_>` built from a local `InstructionAccount` slice
-///    is fine; one built from a dropped stack slot is not.
-///
-/// The runtime does not enforce any of these from the caller side -
-/// it assumes a well-formed CPI. That is the cost of the Tier C path.
+/// Solana still checks privileges, program identity, and account permissions.
+/// Those runtime checks do not establish Rust borrow safety. Malformed raw
+/// pointers or conflicting live borrows can violate Rust's memory invariants;
+/// a missing signature is a runtime authorization error, not itself Rust UB.
 #[inline]
 pub unsafe fn invoke_unchecked(
     instruction: &InstructionView<'_, '_, '_, '_>,
@@ -201,32 +178,14 @@ pub unsafe fn invoke_unchecked(
     }
 }
 
-/// Invoke a signed CPI without borrow validation.
-///
-/// Same as [`invoke_unchecked`] but also passes PDA Signer<'_, '_> seeds so
-/// the callee can accept writes that would otherwise require a
-/// signature.
+/// Invoke a signed CPI without the local borrow/privilege preflight.
 ///
 /// # Safety
 ///
-/// All of [`invoke_unchecked`]'s invariants apply, plus two more for
-/// the Signer<'_, '_>-seeds path:
-///
-/// 6. **Signer<'_, '_> seeds must derive the claimed PDA.** For every
-///    `Signer<'_, '_>` in `signers_seeds`, the derived address
-///    (sha256 of `seeds || program_id || PDA_MARKER`) must equal an
-///    address in `accounts` that is marked as Signer<'_, '_>. A mismatch will
-///    cause the runtime to reject the CPI, but the caller is expected
-///    to have verified this before reaching the Tier C path.
-/// 7. **Seed lifetime.** `signers_seeds` (and every `&[u8]` it points
-///    at) must outlive the call. Temporary seed slices built inside a
-///    function frame are fine; seeds referencing dropped storage are
-///    not.
-///
-/// For the happy path the caller should hold a `CpiValidator` or
-/// equivalent proof-object constructed by the checked path and let
-/// that drive both this function's inputs and the aliasing discipline
-/// required above.
+/// The memory and aliasing contract of [`invoke_unchecked`] applies. Every
+/// signer descriptor and seed byte slice must also remain valid for the call.
+/// The SVM derives PDA signer privileges using the calling program ID. Supplying
+/// seeds does not by itself authenticate a requested signer or prove canonicality.
 #[inline]
 pub unsafe fn invoke_signed_unchecked(
     instruction: &InstructionView<'_, '_, '_, '_>,

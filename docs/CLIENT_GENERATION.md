@@ -53,8 +53,7 @@ stubs, and generated security test matrices on the same source of truth.
 
 ## Motivation
 
-Anchor wins social adoption because people know how to get from
-"program" to "client." Hopper needs a clean answer.
+A program needs clients that agree with its instruction and account contracts.
 
 The client generator reads a Hopper `ProgramManifest` and emits typed SDKs that
 frontends, bots, scripts, and tests can drop into their project. All generated

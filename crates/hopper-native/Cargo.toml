@@ -1,6 +1,6 @@
 [package]
 name = "hopper-native"
-version = "0.4.0"
+version = "0.4.1"
 publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 description = "Low-level Solana backend for Hopper with zero-copy account access, syscalls, checked CPI infrastructure, PDA helpers, and entrypoint glue. no_std and no_alloc."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-native/0.4.0"
+documentation = "https://docs.rs/crate/hopper-native/0.4.1"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "runtime", "no-std", "syscall"]
 categories = ["no-std", "embedded"]

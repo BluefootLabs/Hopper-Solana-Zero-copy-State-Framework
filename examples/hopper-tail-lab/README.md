@@ -1,10 +1,10 @@
 # Hopper Tail Lab
 
-Devnet-ready example for Hopper's Quasar-style dynamic fields plus Hopper's explicit bare final tails.
+Devnet-ready example for Hopper's bounded dynamic fields plus Hopper's explicit bare final tails.
 
 This program exists to prove the public story in one place:
 
-> Write like Quasar. Hopper verifies the bytes before it casts them.
+> Declare bounded fields. Validate the account contract before typed access.
 
 ## What It Exercises
 

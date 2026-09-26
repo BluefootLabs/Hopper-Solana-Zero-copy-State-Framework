@@ -88,7 +88,7 @@ Compatibility
   hopper plan @old-layout.json @new-layout.json         Migration plan with steps
 
 Lifecycle
-  hopper init [path]                 Create a Hopper-native project scaffold with minimal, NFT, Token-2022, DeFi, or Quasar-port templates
+  hopper init [path]                 Create a Hopper-native project scaffold with minimal, NFT, Token-2022, or DeFi templates
   hopper add [-i|-s|-e <name>]       Scaffold instruction, state, or error files
   hopper build [--host|--sbf]        Build the current project (default: SBF)
   hopper test                        Run host-side tests for the current project

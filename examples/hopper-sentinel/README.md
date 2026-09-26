@@ -8,9 +8,7 @@
 
 This is the Drift-class rug shape: a `pause()` that has been tampered with to
 **also rotate the admin key**. Hopper's generated `strict_writes` path stops it
-at borrow acquisition. The named pinned Anchor, Quasar, and Pinocchio snapshots
-in the repository audit did not expose an equivalent per-handler byte-range
-authority wired to their runtime borrow path.
+at borrow acquisition.
 
 This proof does not cover arbitrary unsafe/FFI mutation, direct Hopper Native
 access outside the bound `Context`, dependencies that write behind the model,

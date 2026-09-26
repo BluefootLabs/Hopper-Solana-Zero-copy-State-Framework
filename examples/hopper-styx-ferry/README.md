@@ -12,10 +12,8 @@ must be deterministic:
 - Keccak-derived BN254 field domain separation tied to the deployed program id;
 - a pinned verifier-program CPI boundary for the ZK proof.
 
-The point of the example is framework parity: Hopper programs can use the same
-Solana crypto and introspection building blocks that Pinocchio/Jiminy/Quasar
-style programs rely on, while still writing the state model with Hopper accounts,
-bounded vectors, and typed CPI.
+Hopper programs combine Solana crypto, precompile checks, and typed CPI with
+bounded account state to enforce authenticated on-chain messaging rules.
 
 ## Instructions
 

@@ -98,7 +98,7 @@ jobs:
       - name: Run focused audit tests
         run: |
           cargo test -p hopper-systems --test trust_tests --locked
-          cargo test -p hopper-quasar-port-20-min --locked
+          cargo test -p hopper-bounded-multisig --locked
           cargo test -p hopper-lang --features proc-macros --test dynamic_account_integration --locked
           cargo test -p hopper-lang --features proc-macros --test remaining_accounts_context_integration --locked
           cargo test -p hopper-lang --features proc-macros --test token_2022_docs --locked

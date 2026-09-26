@@ -8,14 +8,14 @@ document covers what we expect from PRs and how to land one cleanly.
 
 - **Website**: [hopperzero.dev](https://hopperzero.dev)
 - **Issues**: [github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/issues](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/issues)
-- **Comparison**: [COMPARISON.md](COMPARISON.md) - full feature comparison and parity findings vs Pinocchio, Quasar, Anchor.
+- **Program capabilities**: [docs/PROGRAM_CAPABILITIES.md](docs/PROGRAM_CAPABILITIES.md).
 - **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Unsafe inventory**: [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md)
 
 ## What to work on
 
 Open issues labelled `good-first-issue` are scoped for newcomers. The
-parity matrix in [COMPARISON.md](COMPARISON.md) is the authoritative
+parity matrix in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the authoritative
 reference for parity additions; pick a gap and open an issue to claim it.
 
 We particularly welcome:

@@ -193,42 +193,8 @@ being recorded as registry dry-run evidence.
 If the registry is still missing an earlier dependency, resume
 later with `--start-at <package>`.
 
-## Cross-framework benchmark evidence
+## Program execution evidence
 
-The sibling `hopper-bench` repository's strict runner completed on 2026-08-16
-from clean committed Hopper
-`8696640aad613b081c66e77f13ff679c6d4d1967` and benchmark source
-`af5bc95961a8a8b807a194a7d9fd1cd1249393c5`. Provenance reports
-`publishable: true`, `diagnostic: false`, `freshBuildRequired: true`, and
-`artifactsAbsentBeforeBuild: true`. The run used one program id, 8 samples,
-passed successful-state parity checks, and passed all 30 rejection gates.
-
-| Framework | Deposit CU | Withdraw CU | Binary bytes |
-|---|---:|---:|---:|
-| Hopper | 1,578 | 424 | 9,032 |
-| Quasar 0.1 snapshot | 1,755 | 593 | 5,784 |
-| Anchor v2 pre-RC snapshot | 1,785 | 615 | 6,432 |
-| Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
-| Star Frame 0.30 snapshot | 3,837 | 2,624 | 83,216 |
-
-The evidence ZIP SHA-256 is
-`c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747`.
-The provenance, JSON report, and CSV report hashes are bound in
-[`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json).
-The full archive is tracked by `hopper-bench` at evidence-carrier commit
-`7ab6a3ef6a5ecb2d3a9787f846151ace13d336b2`; that carrier is distinct from
-the clean benchmark source pin. This repository tracks the small
-content-addressed reference so readiness checks can bind the result without
-duplicating benchmark binaries.
-
-This closes the clean committed peer-benchmark blocker for these exact pins.
-It is fixture-specific benchmark evidence, not a universal performance
-ranking, an independent audit, a pinned CI SBF artifact run, crate publication,
-Mainnet readiness, or transaction-v1 activation. Diagnostic runs remain
-available with `-Diagnostic`, and `-NoBuild` remains restricted to diagnostic
-mode. Any measured framework source, dependency, toolchain, fixture, or runner
-change requires a new clean archive.
-
-The manual benchmark workflow can reproduce and upload the same archive class
-from fresh checkouts, but this local clean result must not be described as a CI
-run or a CI SBF attestation.
+Dated program measurements and reproduction requirements are recorded in
+[program measurements](../BENCHMARKS.md). Validate exact account state, balances,
+refusals, rollback, and the deployed artifact when assessing a release.

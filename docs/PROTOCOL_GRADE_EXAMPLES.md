@@ -1,12 +1,22 @@
-# Protocol-grade examples
+# Program examples
 
-These examples are the public evidence layer for Hopper's state-contract claim.
-They show the workflow surfaces that make Hopper more than a minimal zero-copy
-framework.
+These examples exercise complete on-chain instructions: account validation,
+authorization, asset movement, and controlled state updates.
 
 The shared boundary is simple: Solana schedules whole accounts; Hopper governs
 byte ranges inside program access. These examples do not claim sub-account
 parallelism.
+
+## Funded asset programs
+
+- [Token escrow](../examples/hopper-escrow): classic SPL Token funding, atomic
+  exchange, maker cancellation, surplus refunds, and account closure.
+- [Bounded multisig](../examples/hopper-bounded-multisig): configured member
+  signatures authorize state changes and real SOL withdrawals.
+- [Treasury](../examples/hopper-treasury): wallet deposits, delegated SOL
+  spending, budgets, freeze controls, and live-Clock cooldowns.
+
+Read each program's supported ABI and validation evidence before extending it.
 
 ## Receipt indexing
 
@@ -58,7 +68,7 @@ the 513-byte Styx proof envelope, and CPIs into a pinned verifier program.
 
 This is the crypto/syscall parity example: Hopper exposes the Solana hashing,
 precompile-inspection, stack-height, and processed-instruction surfaces needed by
-Pinocchio/Jiminy/Quasar-style programs without dropping the typed account model.
+Solana programs without dropping the typed account model.
 
 ## Cicada protected execution
 
@@ -73,7 +83,7 @@ processors.
 It is not an audited Mainnet release. The 2026-09-06 165,944-byte build and
 1.053057573-SOL loader-v3 principal are dirty-tree diagnostic evidence; see
 [RELEASE_EVIDENCE.md](RELEASE_EVIDENCE.md) and the
-[competitive refresh](COMPETITIVE_REFRESH_2026-09-02.md) for exact hashes,
+[program measurements](../BENCHMARKS.md) for exact hashes,
 rent slot, instance accounts, and limitations.
 
 ## Grillo effect verification

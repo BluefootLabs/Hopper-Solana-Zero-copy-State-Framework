@@ -2,13 +2,13 @@
 
 Hopper's runtime path is direct account memory for Hopper programs.
 
-It is not a wrapper around Anchor, Pinocchio, or `solana-program`. Hopper turns
+Hopper turns
 Solana's loader-provided account memory into its own `AccountView`, borrow
 guards, validation checks, CPI helpers, and zero-copy state access.
 
 Hopper's direct runtime is designed for:
 
-- zero-copy state frameworks;
+- complete zero-copy Solana programs;
 - deterministic borrow behavior;
 - typed account validation;
 - strict CPI safety;
@@ -60,9 +60,9 @@ Hopper Native does not replace the Solana runtime.
 
 It replaces the developer-facing execution surface with one that is:
 
-- more explicit than Anchor;
-- more structured than Pinocchio;
-- more state-native than generic low-level wrappers.
+- explicit about account ownership and privileges;
+- structured around guarded account memory and checked CPI;
+- usable with typed handlers or deliberate low-level control.
 
 The structural invariant is simple: account bytes come from Solana, but the
 contract that makes those bytes safe to use is Hopper's. Validation happens

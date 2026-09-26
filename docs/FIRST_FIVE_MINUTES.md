@@ -2,7 +2,7 @@
 
 Start in framework mode. Import the prelude, declare account bytes, derive account validation, and put handler logic behind `ctx.accounts.*`.
 
-Hopper in one sentence: write handlers with the Anchor/Quasar shape, then let
+Hopper in one sentence: write Rust handlers with typed accounts, then let
 Hopper verify the selected account contract before program code receives a
 typed zero-copy borrow. Default/headered layouts check owner, role,
 discriminator, version, and fingerprint; opt-in compact layouts check owner,
@@ -101,7 +101,7 @@ or automatic lifecycle. Propagate errors for transaction rollback. See
 [named initialization](NAMED_INITIALIZATION.md) for custom inputs and tail limits.
 
 Mutability is declared on the account field with `#[account(mut)]`; Hopper does
-not use Quasar-style `&mut Account<T>` field types because writable
+not use `&mut Account<T>` field types because writable
 exclusivity is enforced by Hopper's account-data guards, not by moving the
 role wrapper.
 
@@ -128,7 +128,7 @@ Direct typed overlay APIs still require wire types; `raw_ref::<u64>` and
 
 `Address` and `Pubkey` vectors keep the borrowed zero-copy view path. Other `TailElement` vectors use `HopperVec<T, N>` through the same compact tail codec and generated editor helpers.
 
-Quasar puts dynamic fields visually inline; Hopper lets you author them inline, then lowers them into a compact dynamic tail so fixed fields remain segment-borrowable and the dynamic schema is layout-fingerprinted.
+Hopper lets you author bounded dynamic fields inline, then lowers them into a compact dynamic tail so fixed fields remain segment-borrowable and the dynamic schema is layout-fingerprinted.
 
 ```rust
 let view = Multisig::tail_view(data)?;

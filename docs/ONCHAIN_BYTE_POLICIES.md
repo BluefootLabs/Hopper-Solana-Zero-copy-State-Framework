@@ -117,7 +117,7 @@ See the [on-chain evidence](../audit/onchain-byte-policies-2026-09-25/README.md)
 and [registry verification](../audit/registry-publication-2026-09-25/README.md).
 
 For current network boundaries, see the [September 25 source and activation
-review](SOURCE_REVIEW_2026-09-25.md). Alpenglow is a consensus change, not a
+review](ARCHITECTURE.md). Alpenglow is a consensus change, not a
 sub-account locking feature or a new Hopper byte-fee mechanism.
 
 

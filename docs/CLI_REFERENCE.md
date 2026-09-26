@@ -17,7 +17,7 @@ Flags:
 
 - `--name <name>` - override the package name (defaults to the directory name)
 - `--template, -t <name>` - choose `minimal`, `nft-mint`,
-  `token-2022-vault`, `defi-vault`, or `quasar-port`
+  `token-2022-vault`, or `defi-vault`
 - `--local-path <repo-root>` - point `Cargo.toml` deps at a local Hopper checkout instead of crates.io
 - `--yes, -y` - skip prompts and use saved defaults from `~/.hopper/wizard.toml`
 - `--interactive` - force the wizard even when `path` is supplied
@@ -99,7 +99,7 @@ answer a different question; run both.
 Run the public release gate. This wraps `hopper verify --release` with the
 source checks that keep release artifacts honest: release-facing docs have no
 benchmark scaffolds or stale in-tree benchmark paths, the default feature
-tree excludes Pinocchio, legacy SPL Token builders stay behind
+tree uses Hopper's own native runtime, legacy SPL Token builders stay behind
 `legacy-token-instructions`, client generators still assert layout IDs, and the
 fuzz target inventory is present.
 

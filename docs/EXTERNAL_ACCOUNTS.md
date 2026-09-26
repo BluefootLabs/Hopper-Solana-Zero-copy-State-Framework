@@ -227,7 +227,7 @@ impl ExplainExternal for MyOracle {
 
 ## Large Zero-Copy Accounts
 
-For Hopper-owned large accounts, use pre-created accounts plus `#[account(zero)]` / initialization helpers where the account is too large for normal CPI allocation. `InitAccount<'info, T>::load_init()` is available as an Anchor-compatible alias for `load_after_init()`.
+For Hopper-owned large accounts, use pre-created accounts plus `#[account(zero)]` / initialization helpers where the account is too large for normal CPI allocation. `InitAccount<'info, T>::load_init()` is available as an alias for `load_after_init()`.
 
 For known foreign large accounts, use `ExternalAccount<T>` plus a view type that owns the `Ref<'a, [u8]>` guard and exposes bounds-checked accessors. Do not cast packed foreign bytes to aligned Rust references unless the adapter can prove the alignment contract.
 

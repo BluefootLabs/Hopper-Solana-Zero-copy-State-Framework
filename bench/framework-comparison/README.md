@@ -1,67 +1,19 @@
-# Framework comparison
+# Compiled program fixtures
 
-Hopper rows for pina's cross-framework benchmark
-(`benchmarks/framework-comparison` in https://github.com/pina-rs/pina), built
-and measured under pina's own rules so the numbers are comparable with the
-table pina publishes for Pina, Pinocchio, Quasar, and Anchor v2.
+This directory contains Hopper hello/counter workloads and the host-side
+`hopper-framework-verifier` crate. The verifier also runs actual-ELF regression
+suites for token escrow, treasury, multisig, mint initialization, PDA validation,
+and tracked-write behavior.
 
-- `programs/hello/{hopper,hopper-substrate}`: the hello-world fixture, on the
-  `#[program]` macro path and on the raw substrate entrypoint.
-- `programs/counter/{hopper,hopper-substrate}`: the PDA counter fixture
-  (`b"counter" + authority`, `initialize` takes the bump, `increment` re-derives
-  the PDA and does a checked add). The substrate row uses a compact 10-byte
-  account, byte-for-byte pina's layout; the macro row carries Hopper's 16-byte
-  header (25-byte account) and says so.
-- `verifier/`: a like-for-like port of pina's Mollusk verifier. Same command
-  line, same account states, same assertions, one run per instruction.
-- `reference/`: pina's pinocchio fixtures, vendored so the verifier can be
-  proven against pina's published pinocchio numbers on this toolchain before
-  any Hopper number is trusted. See `reference/NOTICE.md`.
-- `results/`: the generated `RESULTS.md` and `results.json`.
+Run a named suite with its documented ELF environment variables. The suite
+checks account state and failures as well as successful execution. The custody
+examples link their instructions and test commands from their own READMEs.
 
-The macro counter checks owner, header, layout, and the stored-bump PDA hash;
-it does not install a `strict_writes` policy. The substrate counter uses the
-full PDA syscall. Policy-enabled execution has separate regression and devnet
-fixtures. Keep those validation and policy differences visible with the numbers.
+The measurement driver is `scripts/bench-framework-comparison.py`. It records
+source identity, lockfile and ELF hashes, and validation results. Use a clean
+source checkout and `--require-clean` for a source-bound capture. Reused-artifact
+runs do not establish a new build's source identity.
 
-## Run it
-
-```sh
-py -3.12 scripts/bench-framework-comparison.py
-```
-
-The script builds every fixture with `cargo build-sbf --lto` under pina's
-release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`,
-`overflow-checks = false`, injected through the same `CARGO_PROFILE_RELEASE_*`
-variables pina's driver sets), builds the verifier, measures each artifact,
-and rewrites `results/`. It exits non-zero if any fixture fails its functional
-checks; a fast number from a broken program is not a result.
-
-For a source-bound capture, commit the source and use `--require-clean` with
-an output directory under `target`, then review/copy the generated reports.
-The JSON records source commit, clean-tree status, lockfile SHA-256 and each
-measured ELF's SHA-256. The driver refuses source changes during capture.
-`--skip-build` explicitly records reused artifacts without asserting their
-source identity and cannot be combined with `--require-clean`.
-
-## Adding the rows upstream
-
-pina's driver takes one entry per framework in `frameworksFor()`; the
-fixtures here are written so they drop in unchanged apart from the
-dependency line. Copy `programs/<case>/hopper-substrate` to
-`benchmarks/framework-comparison/programs/<case>/hopper`, replace the
-workspace dependency with a pinned git revision of `hopper`, commit its
-`Cargo.lock`, and register:
-
-```ts
-{
-  directory: "hopper",
-  label: "Hopper",
-  crateName: `${program}_hopper`,
-  data: { hello: "", initialize: "00", increment: "01" },
-  initializeTakesBump: true,
-  counterAccount: BUMP_THEN_COUNT,
-}
-```
-
-Program ids, instruction bytes, and the account layout are already pina's.
+Reference fixture attribution is retained in `reference/NOTICE.md`. Historical
+measurement data remains research evidence. Product measurements and their
+scope are documented in [BENCHMARKS.md](../../BENCHMARKS.md).

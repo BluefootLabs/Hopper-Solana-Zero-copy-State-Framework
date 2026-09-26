@@ -5,9 +5,8 @@ macro attachment **proposed** (this document).
 
 ## Problem
 
-Quasar's `AccountBehavior` is the one place its DX is genuinely ahead of
-Hopper: a protocol can author a reusable, parameterized lifecycle plugin
-once and attach it per context field,
+A reusable account lifecycle component can attach protocol-specific checks
+and updates to a context field. This RFC proposes that extension point.
 
 ```rust
 #[account(fee_vault(max_bps = 30))]
@@ -27,7 +26,7 @@ runners the macro will lower to (hand-wirable today, test-covered):
 - `HopperBehavior<T: LayoutContract>`: unit-struct plugin over a layout
   type. Phases `check` / `update` / `exit`, gated by
   `RUN_CHECK` / `RUN_UPDATE` / `RUN_EXIT` consts so generated code emits
-  only live phases (Quasar-parity codegen cost). `Args` carries the
+  only live phases (unused phases generate no calls). `Args` carries the
   per-attachment parameters; `CheckOutput` is a behavior-defined payload.
 - `BehaviorChecked<B, O>`: the proof token minted by `run_check`.
 - `BehaviorWrite` + `const WRITES`, the field-relative byte ranges the
@@ -36,10 +35,9 @@ runners the macro will lower to (hand-wirable today, test-covered):
   `run_update` **takes the proof token**, making check-before-update
   structural rather than conventional.
 
-## Where this surpasses Quasar (by design, not accident)
+## Interaction with tracked writes
 
-Quasar behaviors are opaque side-effect hooks. Hopper behaviors are
-accountable to the machinery only Hopper has:
+The proposed lifecycle hooks participate in Hopper's existing machinery:
 
 1. **Proof tokens.** `check` mints `BehaviorChecked<B, _>`; downstream
    APIs can require the token (or an `AccountProof` composed with it),
@@ -69,8 +67,7 @@ struct Collect<'info> {
 Lowering (all inside the generated `bind`):
 
 1. Resolve `fee_cap` to a type `FeeCap: HopperBehavior<Vault>` in scope
-   (convention: snake-case attr name → PascalCase type, same as Quasar's
-   module convention but one item instead of three).
+   (convention: snake-case attr name → PascalCase type
 2. Build `FeeCapArgs { max_bps: 30 }` from the attribute payload.
 3. Emit `let __vault_fee_cap = behavior::run_check::<FeeCap, Vault>(
    ctx.account(IDX)?, &ARGS)?;` after built-in validation; store the
@@ -88,8 +85,7 @@ Lowering (all inside the generated `bind`):
 ## Open questions
 
 - Multiple behaviors per field: ordered left-to-right; token names
-  suffixed by behavior. (Quasar allows one `SETS_INIT_PARAMS` per field;
-  we have no init-param phase yet; see below.)
+  suffixed by behavior.
 - Init-phase hooks (`set_init_param` / `after_init` equivalents): defer
   until the behavior system meets `init` fields; the lifecycle helpers
   already own creation, so the natural seam is an `after_init` hook that

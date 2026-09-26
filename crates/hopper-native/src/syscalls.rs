@@ -351,6 +351,10 @@ define_syscall!(pub fn sol_get_epoch_schedule_sysvar(addr: *mut u8) -> u64);
 #[cfg(target_os = "solana")]
 define_syscall!(pub fn sol_panic_(file: *const u8, len: u64, line: u64, column: u64) -> !);
 
+/// Terminate the current invocation without exhausting its compute budget.
+#[cfg(target_os = "solana")]
+define_syscall!(pub fn abort() -> !);
+
 // ── Memory operations (SVM-optimized) ─────────────────────────
 
 /// Copy `n` bytes from `src` to `dst` (non-overlapping).

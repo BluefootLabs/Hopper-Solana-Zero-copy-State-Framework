@@ -1,80 +1,38 @@
-//! Bounded dynamic-tail port example: fixed vault + bounded multisig metadata.
-
-#![cfg_attr(target_os = "solana", no_std)]
-#![allow(dead_code)]
-
 use hopper::prelude::*;
-use hopper::systems::*;
+use hopper::systems::{init_header, HopperHeader};
 
-#[cfg(target_os = "solana")]
-mod __hopper_sbf {
-    hopper::no_allocator!();
-    hopper::nostd_panic_handler!();
-}
-
-#[derive(Clone, Copy)]
+#[hopper::account(discriminator = 8, version = 1)]
 #[repr(C)]
-#[hopper::state(disc = 1, version = 1)]
-pub struct Vault {
-    #[role(authority)]
-    pub authority: Address,
-
-    #[role(balance)]
-    pub balance: WireU64,
-
-    #[role(bump)]
-    pub bump: u8,
+#[derive(Clone, Copy)]
+pub struct Payout {
+    pub multisig: Address,
+    pub destination: Address,
+    pub policy_epoch: WireU64,
+    pub amount: WireU64,
+    pub not_before: WireU64,
+    pub expires: WireU64,
+    pub executed: WireBool,
 }
 
-#[hopper::account(discriminator = 7, version = 1)]
+#[hopper::account(discriminator = 7, version = 2)]
 pub struct Multisig<'a> {
     #[role(threshold)]
     pub threshold: u64,
+    /// Incremented whenever membership or outstanding payout policy changes.
+    pub policy_epoch: u64,
     pub label: String<'a, 32>,
     pub signers: Vec<'a, Address, 10>,
 }
 
-#[derive(Accounts)]
-pub struct RenameMultisig<'info> {
-    #[account(mut)]
-    pub multisig: hopper::prelude::Account<'info, Multisig>,
-    pub authority: hopper::prelude::Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct AddSigner<'info> {
-    #[account(mut)]
-    pub multisig: hopper::prelude::Account<'info, Multisig>,
-    pub authority: hopper::prelude::Signer<'info>,
-}
-
-impl<'info> RenameMultisig<'info> {
-    #[inline]
-    pub fn rename(&self, label: &str) -> ProgramResult {
-        self.multisig.set_label(label)
+pub(crate) fn validate_members(threshold: u64, members: &[Address]) -> ProgramResult {
+    if threshold == 0
+        || threshold > members.len() as u64
+        || members.len() > 10
+        || members.iter().any(|key| *key == Address::new([0; 32]))
+    {
+        return Err(ProgramError::InvalidInstructionData);
     }
-}
-
-impl<'info> AddSigner<'info> {
-    #[inline]
-    pub fn add_signer(&self, signer: Address) -> ProgramResult {
-        self.multisig.push_unique_signer(signer).map(|_| ())
-    }
-}
-
-#[program]
-mod quasar_port {
-    use super::*;
-
-    #[instruction(0)]
-    pub fn rename(ctx: Ctx<RenameMultisig>, label: HopperString<32>) -> ProgramResult {
-        ctx.accounts.rename(label.as_str()?)
-    }
-
-    #[instruction(1)]
-    pub fn add_signer(ctx: Ctx<AddSigner>, signer: Address) -> ProgramResult {
-        ctx.accounts.add_signer(signer)
-    }
+    require_unique_members(members)
 }
 
 pub fn initialize_multisig_data(
@@ -86,10 +44,7 @@ pub fn initialize_multisig_data(
     if data.len() < Multisig::ALLOC_SPACE {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    if threshold == 0 || threshold > signers.len() as u64 {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    require_unique_members(signers)?;
+    validate_members(threshold, signers)?;
 
     // Validate all fallible input conversions before changing the buffer.
     let tail = MultisigTail {
@@ -99,7 +54,7 @@ pub fn initialize_multisig_data(
 
     init_header::<Multisig>(data)?;
     let body = Multisig::overlay_mut(&mut data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
-    *body = Multisig::new(threshold);
+    *body = Multisig::new(threshold, 0);
 
     Multisig::tail_write(data, &tail)?;
     Ok(())
@@ -112,7 +67,7 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
         return Err(ProgramError::AccountDataTooSmall);
     }
     let body = Multisig::overlay(&data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
-    let needed = body.threshold() as usize;
+    let needed = body.threshold();
     if needed == 0 {
         return Ok(false);
     }
@@ -123,7 +78,7 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
     for signer in signers {
         if approvals.iter().any(|candidate| candidate == signer) {
             approved += 1;
-            if approved >= needed {
+            if approved as u64 >= needed {
                 return Ok(true);
             }
         }

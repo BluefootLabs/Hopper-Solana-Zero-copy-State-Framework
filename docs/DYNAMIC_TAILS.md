@@ -1,0 +1,340 @@
+# Dynamic account tails
+
+Hopper supports bounded dynamic fields inside an account declaration. The fixed
+body stays zero-copy; a compact encoded tail holds variable data. Use
+`#[hopper::account]` for ordinary bounded fields or `#[hopper::dynamic_account]`
+with explicit tail declarations for precise wire control.
+
+## Wire format
+
+For `#[hopper::state(dynamic_tail = T)]`, the bytes after the fixed body are:
+
+```text
+[ fixed Hopper body ][ tail_len: u32 LE ][ tail_payload: tail_len bytes ]
+```
+
+The generated layout uses `Self::LEN` as `TAIL_PREFIX_OFFSET`, so the payload
+starts at `Self::TAIL_PREFIX_OFFSET + 4`.
+
+## Declaring bounded fields
+
+See [bounded fields](BOUNDED_FIELDS.md) for the complete declaration.
+
+`#[hopper::account]` lowers fixed multi-byte
+scalars to wire-safe wrappers in the emitted type (`u64` -> `WireU64`).
+This keeps zero-copy overlays alignment-safe while preserving readable
+source declarations.
+
+The macro emits a fixed `Multisig` body, a `MultisigTail`, `ALLOC_SPACE`,
+borrowed `tail_view` helpers, and an owned `tail_editor` for writeback.
+`threshold` remains a zero-copy field. `label`, `signers`, and `weights` move
+into the single compact tail payload and are decoded only when a handler asks
+for them. `Address` / `Pubkey` vectors expose borrowed slices; other
+`TailElement` vectors expose `HopperVec<T, N>` values through the same view and
+editor helpers.
+
+The lifetime in `Multisig<'a>` is authoring syntax for the macro. The emitted
+layout type is concrete, so account contexts use `Account<'info, Multisig>`.
+
+Systems-mode spelling stays available when you want every tail decision visible
+at the field site:
+
+```rust
+#[hopper::dynamic_account(disc = 7, version = 1)]
+pub struct Multisig {
+    pub threshold: u64,
+
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
+}
+```
+
+For explicit systems-mode declarations, prefer `WireU64` / other wire wrappers
+for fixed multi-byte scalar fields.
+
+The explicit spelling is still available when you want a custom `TailCodec` or
+a tail shape beyond the current `dynamic_account` façade:
+
+```rust
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 7, version = 1, dynamic_tail = MultisigTail)]
+pub struct Multisig {
+    pub threshold: WireU64,
+}
+
+hopper_dynamic_fields! {
+    pub struct MultisigTail {
+        label: string<32>,
+        signers: vec<Address, 10>,
+    }
+}
+```
+
+## Bounded helper types
+
+`TailCodec` is a minimal Borsh-subset trait. Hopper implements it for integers,
+`bool`, `[u8; N]`, `Option<T>`, `Address`, `BoundedString<N>`, and
+`BoundedVec<T, N>`. `hopper_dynamic_fields!` lowers the bounded
+`string<N>` and `vec<T, N>` spellings into the `HopperString<N>` and
+`HopperVec<T, N>` aliases, keeping ported layouts concise while preserving
+explicit bounded storage.
+
+The prelude uses the Option-A shape directly: `String<'a, N>` and
+`Vec<'a, T, N>` are the account-authoring forms. For ordinary owned Rust
+values, use `Text<N>` and `List<T, N>` or the explicit `HopperString<N>` and
+`HopperVec<T, N>` names.
+
+```rust
+use hopper::prelude::*;
+
+hopper_dynamic_fields! {
+    pub struct MultisigTail {
+        label: string<32>,
+        signers: vec<Address, 10>,
+    }
+}
+```
+
+`HopperVec<T, N>` also includes small set-like helpers for signer-list style
+tails: `contains`, `push_unique`, `remove_first`, `pop`, `clear`, and capacity
+inspection.
+
+`#[hopper::account]` auto-upgrades to the dynamic account lowering when it sees
+bounded `String<'a, N>`, `Text<N>`, `Vec<'a, T, N>`, or `List<T, N>` fields.
+`#[hopper::dynamic_account]` supports the same pretty types plus
+`#[tail(string<N>)]` and `#[tail(vec<T, N>)] where T: TailElement` with
+`tail_policy = "compact"` (the default). Use the explicit
+`hopper_dynamic_fields!` path when you want to name a custom `TailCodec` payload
+directly or when an indexed/segmented tail policy is a better fit than one
+compact payload.
+
+Hopper also supports named bare final tails for protocols that intentionally
+want remaining-bytes semantics:
+
+```rust
+#[hopper::account(discriminator = 9, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub content: TailStr<'a>,
+}
+```
+
+`TailStr<'a>` and `TailBytes<'a>` must be the final account field. They consume
+the remaining dynamic-tail payload without an inner field-level prefix and are
+included in the layout fingerprint as `tail_str` or `tail_bytes`. The account
+still has Hopper's outer `u32` dynamic-tail payload length. `TailStr` validates
+UTF-8 on `as_str()`; `TailBytes` returns raw bytes.
+
+Bare final tails can follow bounded compact fields. In that case Hopper stores
+the bounded field headers/payload first and the raw field consumes the rest:
+
+```rust
+#[hopper::account(discriminator = 10, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub label: String<'a, 32>,
+    pub reviewers: Vec<'a, Address, 4>,
+    pub content: TailStr<'a>,
+}
+```
+
+The compact tail carries an explicit contract: the
+raw field is named, final-only, layout-fingerprinted, and length-bounded by the
+outer Hopper tail prefix.
+
+## Generated helpers
+
+A dynamic-tail layout emits:
+
+- `HAS_DYNAMIC_TAIL: bool`
+- `TAIL_PREFIX_OFFSET: usize`
+- `tail_len(data: &[u8]) -> Result<u32, ProgramError>`
+- `tail_read(data: &[u8]) -> Result<T, ProgramError>`
+- `tail_write(data: &mut [u8], tail: &T) -> Result<usize, ProgramError>`
+
+For raw final-tail accounts, `tail_read` returns a borrowed `NameTail<'a>`,
+`tail_write_parts(data, &NameTailHead, raw)` writes the bounded head plus raw
+tail bytes, and `space_for_tail(raw_len)` computes allocation for a chosen raw
+tail length.
+
+`#[hopper::dynamic_account]` additionally emits:
+
+- `ALLOC_SPACE: usize`
+- `tail_capacity(data: &[u8]) -> Result<usize, ProgramError>`
+- `tail_view(data: &[u8]) -> Result<NameTailView<'_>, ProgramError>`
+- `tail_editor(data: &mut [u8]) -> Result<NameTailEditor<'_>, ProgramError>`
+- borrowed string/list accessors such as `label(data)` and `signers(data)`;
+    generic vectors return `HopperVec<T, N>`
+- setter/editor helpers such as `set_label`, `push_unique_signer`, and
+    `remove_signer`
+- a local extension trait named `NameAccountTailExt` for `Account<'info, Name>`
+    and `InitAccount<'info, Name>`; getters return owned bounded values so
+    account-data borrows do not escape the wrapper method
+
+Example handler flow:
+
+```rust
+#[derive(Accounts)]
+pub struct Rename<'info> {
+    #[account(mut)]
+    pub multisig: Account<'info, Multisig>,
+    pub authority: Signer<'info>,
+}
+
+impl<'info> Rename<'info> {
+    pub fn rename(&self, new_label: &str) -> ProgramResult {
+        self.multisig.set_label(new_label)
+    }
+}
+
+#[program]
+mod multisig_program {
+    use super::*;
+
+    #[instruction(1)]
+    pub fn rename(ctx: Ctx<Rename>, new_label: HopperString<32>) -> ProgramResult {
+        ctx.accounts.rename(new_label.as_str()?)
+    }
+}
+```
+
+`tail_write` returns `AccountDataTooSmall` if the existing account cannot hold
+the encoded payload. Grow the account first through Hopper's lifecycle helpers
+when the new tail can exceed the currently allocated space.
+
+## When to choose a tail vs an extension segment
+
+Use a dynamic tail when:
+
+- The variable data belongs to one fixed layout.
+- The whole tail is usually read or written together.
+- The maximum encoded size is small enough to bound rent and realloc decisions.
+- Independent borrow tracking for individual tail elements is not required.
+
+Use extension segments when:
+
+- You need multiple independently borrowed variable regions.
+- The data has a separate migration lifecycle.
+- You need a segment registry entry with role/intent metadata.
+- The region is large enough that whole-tail decode/writeback is wasteful.
+
+## Migration checklist
+
+1. Keep hot fields fixed. In `#[hopper::dynamic_account]`, native `u16`, `u32`,
+    `u64`, and `bool` fixed fields are stored as Hopper wire types and exposed
+    through generated native-value getters.
+2. Spell compact dynamic fields as `String<'a, N>` or `Vec<'a, T, N>` inside
+    `#[hopper::account]`. Use `#[tail(string<N>)]` or `#[tail(vec<T, N>)]`
+    inside `#[hopper::dynamic_account]` when the systems-mode split should be
+    explicit.
+3. Allocate account space with `Multisig::ALLOC_SPACE` for the façade path, or
+    `Fixed::LEN + 4 + Tail::MAX_ENCODED_LEN` for the explicit path.
+4. Use generated segment accessors for fixed fields and tail view/editor helpers
+    only in handlers that need dynamic data.
+5. Move to extension segments if tail updates become too large or need separate
+    borrow leases.
+
+## `Seq<T>`: the growable typed sequence tail
+
+`String<'a, N>` and `Vec<'a, T, N>` are **bounded**: their capacity `N` is part
+of the account type (it is in the layout id), so growing the collection means
+migrating to a new layout. When you want an **open-ended, growable** list whose
+capacity is a property of the *account length* rather than the *account type*,
+spell the tail as `Seq<'a, T>`:
+
+```rust
+use hopper::prelude::*;
+
+#[hopper::account(disc = 55, version = 1)]
+pub struct Roster<'a> {
+    pub admin: WireU64,          // fixed, zero-copy head
+    pub epoch: WireU64,
+    pub members: Seq<'a, Address>, // growable tail, NO capacity in the type
+}
+```
+
+The systems-mode spelling is `#[tail(seq<T>)]` inside `#[hopper::dynamic_account]`.
+
+### Wire format and the one-growable-tail-per-account rule
+
+A `Seq<T>` tail region is:
+
+```text
+[ fixed Hopper body ][ count: u32 LE ][ elem_0 ][ elem_1 ] ...
+```
+
+Every element occupies a **fixed `T::STRIDE` bytes** (element `i` lives at
+`TAIL_PREFIX_OFFSET + 4 + i*STRIDE`), so `push` is O(1), write one element,
+bump the count, and access never materializes a `[T; N]`. Elements must be
+fixed-stride `SeqElement`s: the wire primitives (`u8..=u128`, `i16..=i128`,
+`bool`) and `Address`. Variable-length encoders (`Option<T>`, `BoundedString`,
+`BoundedVec`) stay on the owned-decode `Vec<'a, T, N>` path.
+
+Because a `Seq` reframes the whole tail as `[count][elems]` (incompatible with
+the bounded `[byte_len][payload]` framing), **a `Seq` must be the ONLY tail of
+its account**, one growable tail per account. Put other dynamic data in the
+fixed head or a separate account.
+
+### Capacity is account-length-derived; the layout id is capacity-free
+
+The generated schema string is `seq<T>` with **no `N`**, so the layout id is
+**capacity-independent by design**: two `Roster` accounts of different byte
+lengths are the *same account type*. The live capacity is
+`(region_len - 4) / STRIDE`, read from the account's current length:
+
+```rust
+let space = Roster::space_for(8); // fixed head + 4 + 8*STRIDE
+// ... allocate `space` bytes; grow later with realloc + a larger space_for(n).
+Roster::MIN_SPACE; // fixed head + 4 (an empty sequence)
+```
+
+### Streaming cursors (never a `[T; N]`)
+
+```rust
+let mut seq = Roster::members_mut(&mut data)?; // TailSeqMut<Address>
+seq.push(addr)?;             // O(1); AccountDataTooSmall at capacity
+let n = seq.len();           // from the u32 count prefix
+let first = seq.get(0)?;     // decode ONE element
+seq.set(0, other)?;
+seq.swap_remove(0)?;
+let read = Roster::members(&data)?; // TailSeq<Address>: len/get/iter
+```
+
+### Growth cap (10,240 B per instruction)
+
+Growing a `Seq` is a plain `realloc`, so it inherits Solana's
+`MAX_PERMITTED_DATA_INCREASE` of **10,240 bytes per instruction**. Push until
+`push` returns `AccountDataTooSmall`, then `realloc` to a larger `space_for(n)`
+(at most +10,240 B per instruction) and push again.
+
+### Under `strict_writes`: the open-ended tail range
+
+Declare the growable tail in a context with `tail(<field>)` (not `mut(...)`):
+
+```rust
+#[hopper::context(strict_writes)]
+pub struct AddMember<'info> {
+    #[account(tail(members), realloc = Roster::space_for(8),
+              realloc_payer = payer, realloc_zero = true)]
+    pub roster: Account<'info, Roster>,
+    pub payer: Signer<'info>,
+}
+```
+
+`tail(members)` lowers to a single **open-ended `WriteRange::tail_from`** grant
+covering `[TAIL_PREFIX_OFFSET, +inf)`. Inside the handler, acquire the gated
+cursor with `ctx.tail_seq_mut::<T>(index, Roster::TAIL_PREFIX_OFFSET as u32)`
+(or `tail_seq_ref` for reads). See `POLICY_GUARANTEES.md` for the exact
+head-protection guarantees, writable-CPI delegation refusal when the
+context also declares `lamports(...)`, and the limit on per-element isolation.
+Bare `strict_writes` does not govern writable CPI delegation or lamport mutation.
+
+> Why `tail(...)` and not `mut(...)`? The context proc-macro cannot introspect a
+> layout type to tell a `Seq` tail from a fixed segment, so the growable-tail
+> grant is spelled explicitly. It composes with Feature-1 semantics: the same
+> field carries `realloc` to grow the tail, and the declared segment ranges (not
+> a whole-account grant) govern the handler surface.

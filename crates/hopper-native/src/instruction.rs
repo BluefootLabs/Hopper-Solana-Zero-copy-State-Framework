@@ -181,10 +181,19 @@ impl<'a> CpiAccount<'a> {
 pub(crate) fn preflight_cpi_accounts(
     accounts: &[CpiAccount<'_>],
     writable_mask: usize,
+    signer_mask: usize,
+    has_pda_signers: bool,
 ) -> ProgramResult {
     let mut index = 0usize;
     while index < accounts.len() {
         let account = &accounts[index];
+        // With no PDA signer seeds, a missing outer signature cannot be
+        // satisfied by the runtime. Match the generic checked invoke path.
+        // Nonempty seeds are NOT proof of authority: the SVM derives and
+        // authenticates the instruction's PDA signers at the syscall boundary.
+        if signer_mask & (1usize << index) != 0 && !account.is_signer && !has_pda_signers {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
         let is_writable_meta = writable_mask & (1usize << index) != 0;
         if is_writable_meta && !account.is_writable {
             return Err(ProgramError::Immutable);

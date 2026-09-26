@@ -1,7 +1,7 @@
 # Hopper Layers
 
 Hopper is one framework with progressive disclosure. The framework path, the
-Quasar-shaped migration path, and the systems-mode path share the same runtime,
+account-migration path, and the systems-mode path share the same runtime,
 schema machinery, layout-identity model, and CPI machinery. Default/headered
 layouts carry the 16-byte Hopper header; opt-in compact layouts use the explicit
 `[disc][body]` contract and keep their fingerprint in manifest/IDL metadata.
@@ -57,7 +57,7 @@ publisher.
   and wire types.
 - `hopper::schema` exposes manifests, IDL projection, resolver metadata, and
   generated client inputs.
-- `#[hopper::account]` auto-detects Quasar-style bounded `String<'a, N>` and
+- `#[hopper::account]` auto-detects bounded `String<'a, N>` and
   `Vec<'a, T, N>` fields while lowering to Hopper's fixed-body + compact-tail model.
   `Address` / `Pubkey` vectors keep borrowed views; other `TailElement` vectors
   return `HopperVec<T, N>` values.
@@ -107,16 +107,16 @@ control.
 
 ## Mental Mapping
 
-| Concept | Anchor-shaped mental model | Quasar-shaped mental model | Hopper path |
-|---|---|---|---|
-| Program state | `#[account]` struct | fixed account struct | `#[hopper::account]` or `#[hopper::state]` |
-| Context/accounts | `#[derive(Accounts)]` | account list plus checks | `#[derive(Accounts)]`, `#[hopper::accounts]`, typed wrappers |
-| Signer | `Signer<'info>` | signer account check | `hopper::account::Signer<'info>` |
-| Typed account | `Account<'info, T>` | fixed account view | `hopper::account::Account<'info, T>` |
-| Dynamic string/vector | `String`, `Vec<T>` with serialization | bounded dynamic fields | `#[hopper::account]` pretty fields, `#[hopper::dynamic_account]`, or explicit `hopper_dynamic_fields!` |
-| CPI | generated CPI clients | manual/generated CPI | `declare_program!`, `hopper::cpi`, SPL facade modules |
-| Upgrade/migration | discriminator/version conventions | layout evolution discipline | layout fingerprints, `hopper::migration`, schema manifests |
-| Advanced safety | constraints and runtime checks | zero-copy constraints | segment leases, receipts, policy graphs, Kani-checked invariants |
+| Concept | Hopper path |
+|---|---|
+| Program state | `#[hopper::account]` or `#[hopper::state]` |
+| Context/accounts | `#[derive(Accounts)]`, `#[hopper::accounts]`, typed wrappers |
+| Signer | `hopper::account::Signer<'info>` |
+| Typed account | `hopper::account::Account<'info, T>` |
+| Dynamic string/vector | `#[hopper::account]` pretty fields, `#[hopper::dynamic_account]`, or explicit `hopper_dynamic_fields!` |
+| CPI | `declare_program!`, `hopper::cpi`, SPL facade modules |
+| Upgrade/migration | layout fingerprints, `hopper::migration`, schema manifests |
+| Advanced safety | segment leases, receipts, policy graphs, Kani-checked invariants |
 
 ## Import Guide
 

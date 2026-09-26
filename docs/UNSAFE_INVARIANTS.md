@@ -11,7 +11,7 @@ unsafe core as small and auditable as possible.
 
 **Design commitment**: unsafe is never used for convenience. It is used only
 when a safe alternative would require allocation, serialization, or loss of
-the zero-copy property that makes Hopper competitive.
+direct, allocation-free account access.
 
 **Audit scope**: the unsafe surface audited by this ledger spans the raw source
 directories that own Hopper's zero-copy and backend boundary code:
@@ -541,7 +541,7 @@ lets any `#[repr(C)]` struct opt into the full contract without the
 client gen --ts`, `hopper client gen --kt`, `hopper manager …` wiring
 (see [tools/hopper-cli](../tools/hopper-cli)).
 
-### New compile-time fences (Quasar-inspired hardening)
+### Compile-time fences
 
 `#[hopper::state]` now emits three additional `const _: () = assert!(...)`
 fences on every generated layout:
@@ -618,7 +618,7 @@ the ground truth the audit will be compared against on re-review.
 | # | Audit item | Status |
 |---|---|---|
 | ST1 | Unify trait model -> `ZeroCopy` -> `WireLayout` -> `AccountLayout` | **DONE**. `crates/hopper-runtime/src/zerocopy.rs` defines the three-tier stack; blanket impls make every `LayoutContract` automatically an `AccountLayout` |
-| ST2 | Anchor-grade declarative account constraints | **DONE (parser + validation + lifecycle)**. `crates/hopper-macros-proc/src/context.rs` parses `init/init_if_needed/zero/close/realloc/realloc_payer/realloc_zero/payer/space/seeds/bump/has_one/owner/address/constraint`, emits ordered validation, and generates lifecycle helpers. `Signer<'info>`, `Account<'info, T>`, and the other public typed wrappers are shipped; they are not deferred work. |
+| ST2 | Declarative account constraints | **DONE (parser + validation + lifecycle)**. `crates/hopper-macros-proc/src/context.rs` parses `init/init_if_needed/zero/close/realloc/realloc_payer/realloc_zero/payer/space/seeds/bump/has_one/owner/address/constraint`, emits ordered validation, and generates lifecycle helpers. `Signer<'info>`, `Account<'info, T>`, and the other public typed wrappers are shipped; they are not deferred work. |
 | ST3 | Schema epoch in header + wire fingerprinting | **DONE**. `HopperHeader::schema_epoch: u32` at bytes 12-15; `AccountLayout::WIRE_FINGERPRINT: u64` constant |
 | ST4 | `hopper compile` beyond `--emit rust` | **DONE**. `hopper compile --emit` routes Rust preview, TypeScript, Kotlin, Python, Go, C, Rust client, IDL, Codama, and schema output through the shared manifest-source path |
 
@@ -638,7 +638,7 @@ the ground truth the audit will be compared against on re-review.
 | D1 | Canonical unsafe-invariants document | **DONE**. this file |
 | D2 | Compile-fail coverage | **DONE**. Run `cargo test --test ui --features proc-macros --locked` and `cargo test -p hopper-trybuild --locked`. The dated 2026-08-16 source snapshot contains 17 root fail fixtures plus 14 fail and 6 pass trybuild fixtures; the commands, not the rolling counts, are the release evidence. |
 | D3 | Fuzzing low-level loaders/parsers | **DONE**. `fuzz/` has 5 targets at the 2026-08-16 snapshot: `fuzz_instruction_frame`, `fuzz_decode_header`, `fuzz_decode_segments`, `fuzz_pod_overlay`, and `fuzz_account_view_load`. The safe bounds-checked `parse_instruction_frame_checked` parser has its own regression tests. |
-| D4 | Benchmark suite across frameworks | **DONE as a sibling product**. The `hopper-bench` repo owns primitive benchmarks, cross-framework parity vaults, competitor locks, raw logs, and CI thresholds; this framework repo keeps release docs and lightweight result snapshots only. |
+| D4 | Program measurement fixtures | Compiled ELF, account-state, rollback, and dated devnet checks; see [program measurements](../BENCHMARKS.md). |
 
 ## Innovations (5 of 5 DONE)
 
@@ -690,7 +690,7 @@ The three audit findings that remained open after the enforcement pass asked for
 |---|---|---|---|
 | F1: provable single access path | `AccountView.*data_ptr_unchecked\|borrow_unchecked` | Every slice-returning accessor on `hopper_native::AccountView` is `pub unsafe fn` (`borrow_unchecked`, `borrow_unchecked_mut`) or explicitly low-level raw pointer (`data_ptr_unchecked`) consumed by same-crate internals and the documented raw-pointer escape hatches in `hopper-runtime`. Safe paths (`try_borrow`, `try_borrow_mut`, `segment_ref`, `segment_mut`) return `Ref` / `RefMut` with native borrow-state tracking | Any call to `borrow_unchecked*` requires an `unsafe` block visible in the caller's source; obtaining a raw pointer is spelled `_unchecked` and dereferencing it remains unsafe |
 | F2: compile-proven borrow safety | `HopperRefOnly` | Eight impls total (four sealed-trait impls, four marker-trait impls), all visible in `crates/hopper-runtime/src/ref_only.rs`. No macro expansion, no derive. The compile-fail fixture `tests/compile_fail/ref_only_rejects_raw_ref.rs` is the end-to-end proof | Raw reference at the call site: `error[E0277]: the trait bound '&mut u64: HopperRefOnly' is not satisfied` |
-| F3: entrypoint minimal | sibling `hopper-bench` five-way parity artifacts | The current harness pins Hopper, Pinocchio, Quasar, a pre-RC Anchor v2 snapshot, and Star Frame to one program id, instruction/state contract, seed set, release profile, SBF toolchain, and Mollusk runner. It verifies pins against manifests and lockfiles, snapshots exact sources, and archives a checksum. Older three-way CU rows are historical, not current release evidence. | The strict runner fails on successful-state divergence, unsigned deposit/withdraw, wrong-PDA deposit/withdraw, dirty source, pin drift, nonempty strict build output, or archive/provenance failure. The clean 2026-08-16 archive passed 30/30 gates for Hopper `8696640` and benchmark source `af5bc95`; its content-addressed summary is `audit/framework-matrix-2026-08-16.json`, and any pin change requires a new run. |
+| F3: entrypoint and execution | Compiled program fixtures | Exact source and ELF hashes accompany the tested program. | Reject unexpected state or failed validation; rerun after source changes. |
 
 ## hopper-native Unsafe Surface (post-audit supplement, R10)
 
@@ -784,7 +784,7 @@ Post-CPI validation is deliberately split by handle type:
   typed loads recheck the Hopper header, but the wrappers do not retain an
   owner witness. `Deref` and `as_account()` deliberately expose the lower-level
   raw view. Solana prevents a foreign CPI from reassigning caller-owned state,
-  so this is not the Anchor `LazyAccount` sequence; code that deliberately
+  so code that deliberately
   closes, reassigns, and recreates an account must stop using the old wrapper.
 - `SystemAccount` is also a point-in-time role and exposes no system-typed data.
   Recheck ownership after an intentional System Assign before relying on the

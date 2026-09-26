@@ -77,11 +77,11 @@ Do not assume all Token Metadata assets use the same transfer lifecycle.
 **User outcome:** approve treasury actions together and give delegates bounded
 spending authority.
 
-See the [governance guide](https://hopperzero.dev/docs/governance) for the Squads
-source review, Hopper's existing account/CPI building blocks, and the proposal
-and voting rules an application must supply. The bounded multisig example
-teaches member storage and threshold arithmetic; it is not a complete governance
-executor. A spending quota alone does not move treasury tokens.
+The [governance guide](https://hopperzero.dev/docs/governance) introduces a
+bounded multisig that authenticates configured member signatures and moves SOL,
+and a treasury with real deposits, delegated withdrawals, budgets, and cooldowns.
+Persistent proposals, weighted voting, and token-specific treasury policies are
+additional application features.
 
 ## Start with a working program
 

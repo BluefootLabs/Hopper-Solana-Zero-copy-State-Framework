@@ -967,29 +967,11 @@ macro_rules! lazy_entrypoint {
     };
 }
 
+/// Refuse allocations immediately using the native SVM abort boundary.
 #[macro_export]
 macro_rules! no_allocator {
     () => {
-        #[cfg(target_os = "solana")]
-        mod __hopper_allocator {
-            struct NoAlloc;
-
-            unsafe impl core::alloc::GlobalAlloc for NoAlloc {
-                unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
-                    // A no-alloc program must never reach here. Returning null
-                    // fails the allocation and builds on stable SBF without the
-                    // experimental inline-asm arch feature. Reach for
-                    // `hopper_native::no_allocator!` (which traps via asm) when
-                    // the crate already enables `asm_experimental_arch`.
-                    core::ptr::null_mut()
-                }
-
-                unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {}
-            }
-
-            #[global_allocator]
-            static ALLOCATOR: NoAlloc = NoAlloc;
-        }
+        $crate::__hopper_native::no_allocator!();
     };
 }
 
@@ -1009,21 +991,10 @@ macro_rules! default_allocator {
     };
 }
 
+/// Abort a panicking no_std program immediately without burning its remaining CU.
 #[macro_export]
 macro_rules! nostd_panic_handler {
     () => {
-        #[cfg(target_os = "solana")]
-        #[panic_handler]
-        fn panic(_info: &core::panic::PanicInfo) -> ! {
-            // Stable-SBF panic handler: no inline asm, so it builds without the
-            // experimental `asm_experimental_arch` feature. The runtime caps
-            // compute, so the spin terminates the transaction. Use
-            // `hopper_native::nostd_panic_handler!` for the asm trap variant
-            // when the crate already enables that feature.
-            let _ = _info;
-            loop {
-                core::hint::spin_loop();
-            }
-        }
+        $crate::__hopper_native::nostd_panic_handler!();
     };
 }

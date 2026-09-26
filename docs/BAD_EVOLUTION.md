@@ -246,7 +246,7 @@ safe.
 ```rust
 fn bad_init(payer: &AccountView, account: &AccountView, system: &AccountView, pid: &Address) -> ProgramResult {
     // Create the account
-    pinocchio_system::instructions::CreateAccount { ... }.invoke()?;
+    hopper::system::CreateAccount { ... }.invoke()?;
 
     // WRONG: write data without writing the header first
     let data = unsafe { account.borrow_unchecked_mut() };

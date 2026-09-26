@@ -1,91 +1,76 @@
-# Governance, DAOs, and multisig treasuries
+# Governance, multisig, and treasury programs
 
-Hopper is a Solana program framework. Governance programs can use its typed
-accounts, zero-copy collections, signer/PDA checks, token CPIs, and declared
-write boundaries. A complete multisig still needs proposal, voting, execution,
-membership, and recovery rules implemented by the application.
+Use Hopper to authenticate members, hold funds, and execute authorized payments
+on Solana. Governance needs an executable permission policy as well as vote data.
+The repository now contains two concrete SOL custody examples.
 
-## What Squads teaches us
+## Member-approved custody
 
-This September 26 review inspected Squads v4 at
-[af94153](https://github.com/Squads-Protocol/v4/tree/af94153ff77a28b6effe46b9c94baaa93742b48c),
-including proposal votes, vault execution, spending-limit use, and their state.
-It did not reproduce Squads tests, deployments, audits, or performance results.
+[Bounded multisig](../examples/hopper-bounded-multisig) stores a threshold, a
+bounded label, and up to ten unique member keys. Its instructions create and
+fund the account, rename it, add members, and withdraw SOL.
 
-| Application requirement | Observed Squads source behavior | Consequence for Hopper |
-|---|---|---|
-| Approvals from distinct members | Proposal approval rejects a repeated vote | Reject duplicate member configuration and count authenticated identities once. A list of public keys alone is not signature evidence. |
-| Delayed execution | Vault execution requires an approved proposal, executor permission, and elapsed time lock | State layout cannot substitute for proposal and Clock checks. Test before, at, and after the boundary. |
-| Policy changes | Previously approved vault proposals may execute after becoming stale | Make grandfathering versus revocation an explicit product rule. Neither behavior is universally correct. |
-| Delegated spending | Limits bind the vault, mint, allowed members, and optionally destinations; usage transfers real assets | A quota counter is only one part of a treasury allowance. Validate destinations and move funds in the same atomic instruction. |
-| Membership changes | Spending-limit members are deliberately independent of multisig members | Removing a voter does not automatically revoke a spending delegate. Document the relationship or explicitly couple the policies. |
+Management and withdrawal authenticate real transaction signers against the
+stored member set. Duplicate or unrelated signers cannot inflate approval counts.
+The signers approve the exact instruction and destination in the transaction.
+Deposits use the System Program; withdrawals debit the program-owned account
+and preserve its live rent reserve.
 
-These observations come from
-[proposal state](https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/state/proposal.rs),
-[vault execution](https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/instructions/vault_transaction_execute.rs),
-[spending-limit state](https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/state/spending_limit.rs),
-and [spending-limit execution](https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/instructions/spending_limit_use.rs).
+## Threshold approval with bounded later execution
 
-## Available Hopper building blocks
+Members can approve a single-use SOL payout containing the exact destination,
+amount, policy revision, and execution window. Once approved, any transaction
+submitter can execute it without a fresh round of member signatures. The program
+checks every stored term and preserves the multisig's rent reserve.
 
-Treasury multisigs are only one governance use case. The Solana Foundation's
-[governance repository at 9c9131c](https://github.com/solana-foundation/solana-governance/blob/9c9131c6b9ff4d79db9e5e459cda98de48ae2466/README.md)
-describes stake-weighted proposals, delegator overrides, and on-chain
-finalization, with a separate operator track establishing canonical stake
-snapshots. This observation is a README review, not an audit or deployment
-verification. A Hopper voting program must explicitly choose its weight source:
-on-chain deposits/locks, or authenticated snapshot proofs with their external
-data assumptions. The framework does not make these models interchangeable.
+Successful execution records completion and rejects replay. A threshold can
+revoke the payout. Membership and threshold changes invalidate outstanding
+payouts by advancing one policy revision; no scan through proposal accounts is
+needed. Revocation and execution obey transaction order, and approvals do not
+reserve funds. Anyone submitting execution still needs to pay its transaction fee.
 
-- The [bounded multisig data example](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/quasar-port-20-min)
-  stores member and label tails. This review fixes duplicate members counting
-  toward a threshold, rejects malformed duplicate storage, and prevents its
-  removal helper from reducing membership below the configured threshold.
-  Its approval helper consumes caller-supplied keys; it is not an authenticated
-  proposal executor or a replacement for Squads. Its teaching rename/add-member
-  handlers require a signer but do not bind that signer to an administrator or
-  approved proposal; they are not suitable treasury authorization rules.
-- The [byte-allowance program](https://hopperzero.dev/docs/byte-allowance)
-  demonstrates delegated limits, stale-request rejection, and scoped usage
-  writes. It accounts for application credits, not treasury token custody.
-- [Funded token escrow](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-escrow)
-  demonstrates PDA custody, checked transfers, and atomic settlement. Its
-  classic-token policy does not automatically support every Token-2022 extension.
-- Hopper's CPI and state tools let an application compose with existing programs.
-  There is no shipped Squads adapter or complete DAO governance template claimed
-  by this guide.
+This offers a concrete on-chain authorization pattern for scheduled payments.
+It is not yet an arbitrary trading or perpetuals executor: protocol-specific
+adapters must enforce markets, target programs, spending caps, price/oracle bounds,
+and post-execution outcomes. Members sign each approval transaction together;
+this example does not accumulate votes across separate transactions.
 
-## A useful on-chain direction to test
+## Delegated treasury spending
 
-Keep immutable proposal terms, mutable approval records, and treasury allowance
-usage in clearly separated fields or accounts. A vote instruction should only
-change that voter's approval state; an allowance spend should only change its
-usage accounting and the explicitly authorized token balances. Hopper's tracked
-write policies can help enforce the state part inside the program.
+[Treasury](../examples/hopper-treasury) separates authority, permissions, and
+budget state into validated segments. The administrator sets an operator,
+freezes spending, changes the per-withdrawal limit, and advances budget periods.
+The operator can withdraw only within the single-payment limit, remaining period
+budget, available funds, and live-Clock cooldown.
 
-For a product that wants immediate revocation, bind proposals or spending grants
-to a configuration revision and check it during execution. For a product that
-honors earlier approvals, store the approved policy snapshot and define how
-changes affect it. Both approaches require actual signer checks, proposal
-commitment checks, replay prevention, and destination validation.
+Deposits transfer real wallet SOL through a checked System CPI. Withdrawals pay
+the requested destination and retain rent. A budget period is an administrator-
+controlled revision; it is not an automatically resetting Solana epoch.
 
-Validate the exact target program, accounts, privileges, instruction data, and
-PDA signer scope before executing an approved CPI. Hopper's tracked byte
-policies are not a general sandbox for arbitrary downstream programs. No CPI
-should receive governance authority merely because a proposal exists.
+## Token treasuries and voting programs
 
-This is an implementation direction, not a new shipped governance engine or
-a novelty claim. Measure a bounded prototype against an equivalent workload
-before claiming lower compute, smaller accounts, or a safety advantage. Solana
-still locks whole writable accounts; multiple approval cells in one account do
-not create parallel transaction execution. Separate approval accounts may reduce
-contention but add rent, account metas, and lifecycle complexity.
+The same execution stack includes checked token transfers, PDA signing, mint and
+authority constraints, and account lifecycle helpers. The [funded token escrow](https://hopperzero.dev/docs/token-escrow) demonstrates actual token custody,
+atomic exchange, cancellation, surplus refunds, and account closure.
+A token treasury must connect its approvals or allowances to those token CPIs
+and bind the destination and supported mint policy explicitly.
 
-## Required proof before promoting a governance example
+For broader DAO programs, define the voting-weight source, quorum, proposal
+commitment, execution window, replay prevention, and membership-change policy.
+Deposits/locks can establish weight on chain. Snapshot proofs require a trusted
+commitment policy and explicit data assumptions. Removing a voter and revoking
+a spending delegate should be intentional rules in the application.
 
-Exercise real treasury transfers plus duplicate-vote/member rejection, stale
-configuration behavior, altered proposal data/accounts, early execution,
-repeated execution, delegate revocation policy, allowance exhaustion/reset, and
-rollback after a failed downstream CPI. Capture full expected state and token
-balances on compiled SBF and devnet. Broader DAO requirements such as token-weighted
-voting, delegation, quorum, and vote escrow need their own rules and tests.
+## State boundaries and scaling
+
+Keep proposal terms, approvals, and usage accounting separately identifiable.
+Optional tracked-write policies can restrict program-side updates to the
+intended fields. A downstream CPI still needs exact target, account, privilege,
+instruction-data, and PDA-authority checks.
+
+Solana locks whole writable accounts. Separate approval accounts may reduce
+contention but add rent and account metas. Byte ranges inside one account do
+not provide independent transaction locks.
+
+See each example's README and validation receipts for its exact supported ABI,
+executed tests, and remaining product features.

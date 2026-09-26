@@ -4,7 +4,7 @@ Large accounts are a first-class Hopper pattern. The rule is the same as the res
 
 - Hopper-owned large accounts use Hopper layout contracts, headers, segment guards, and borrow-scoped access.
 - Known foreign large accounts use `ExternalAccount<T>` adapters with guard-owned views and bounds-checked accessors.
-- Raw account access stays explicit when a protocol needs Pinocchio-style control.
+- Raw account access stays explicit when a protocol needs direct account-memory control.
 
 ## Init Versus Zero
 
@@ -26,7 +26,7 @@ pub fn init_queue(ctx: Ctx<InitQueue>) -> ProgramResult {
 }
 ```
 
-`load_init()` is an Anchor-compatible alias for Hopper's `load_after_init()`.
+`load_init()` is an alias for Hopper's `load_after_init()`.
 
 ## Segment-Safe Mutation
 

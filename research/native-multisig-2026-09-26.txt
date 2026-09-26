@@ -1,0 +1,18 @@
+Source review, 2026-09-26. These findings are design tradeoffs, not a security audit or a claim of exploitable vulnerabilities.
+
+Squads v4 af94153ff77a28b6effe46b9c94baaa93742b48c:
+- programs/squads_multisig_program/src/instructions/vault_transaction_execute.rs explicitly permits previously approved transactions after they become stale; checks approval timelock but has no generic expiry timestamp. Application instructions can independently impose deadlines and price limits.
+- Execution requires a member with Execute permission. This does not mean automation is impossible: bots can be authorized members and the product has limit-order integrations.
+- state/spending_limit.rs explicitly defines delegates independently of multisig members; removing a member does not remove its spending-limit authority. destinations=[] permits any destination. This is intentional configurable behavior.
+- spending_limit_use.rs is a token/SOL transfer facility, not a generic protocol-specific perps strategy policy.
+- Proposal approval/cancellation vectors support votes across transactions; Hopper's new example does not provide that workflow or arbitrary vault-message execution.
+
+Hopper implementation response: threshold-approved SOL payout accounts pin recipient, amount, window, single-use state, and a policy revision. Add/remove-member and threshold changes advance that revision, as does explicit invalidation. A threshold can revoke/reclaim a receipt. Execution is permissionless within those exact limits, without granting a keeper general signing authority. No global-benchmark or universal-superiority claim follows.
+
+Pinocchio head adbd48d12229ffa30d6fb3d3a8ff777fdb053b80 is unchanged from the previous review. sdk/Cargo.toml delegates account and CPI representations to solana-account-view and solana-instruction-view; its lazy entrypoint leaves duplicate handling to its caller. Hopper retains its own native boundary; using a lazy API alone is not a new invention.
+
+Agave head f77165963c709934e8ea8564187c00f081b597d1; SIMD head 4b643ca8746742183a469681765e694b385bb315. Read the current release record for cluster observations rather than inferring availability from proposal status or a source revision. Fresh finalized RPC reports Alpenglow active on devnet (504144000) and testnet (444620256), absent on mainnet.
+
+Local Tally/Tribe review: program/src/processor.rs CreateSplit/DistributeSplit and program/src/savings.rs configured destinations, amount arithmetic, and fee checkpointing. These are application examples of binding financial outcomes. They are not multisig voting protocols. Source was read locally; no private repository code or keys are reproduced here.
+
+Native fixes: specialized unsigned System/token CPI builders now preflight missing signatures; PDA derivation remains the SVM's responsibility. A native-only SBF fixture exposed experimental inline assembly in native abort paths and compute-burning panic handling in the framework. Both now use the SVM abort syscall. This is a concrete compatibility/failure-cost correction, not a claim that abort syscalls are novel.

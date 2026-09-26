@@ -8,7 +8,7 @@ Three sibling programs that differ only in their `#[hopper::program(...)]` attri
 |---|---|---|---|
 | `strict_vault` | `#[hopper::program(strict)]` | `HopperProgramPolicy::STRICT` | Production default. Typed contexts, full constraint gauntlet, token-check promise, unsafe allowed but isolated. |
 | `sealed_vault` | `#[hopper::program(sealed)]` | `HopperProgramPolicy::SEALED` | External-audit mode. Strict + `#[deny(unsafe_code)]` on every handler. One opt-in fast path via `#[instruction(N, unsafe_memory)]`. |
-| `raw_vault` | `#[hopper::program(raw)]` | `HopperProgramPolicy::RAW` | Pinocchio-parity throughput. Every lever off. Handlers receive `&mut Context<'_>` directly. |
+| `raw_vault` | `#[hopper::program(raw)]` | `HopperProgramPolicy::RAW` | Explicit raw execution policy. Every lever off. Handlers receive `&mut Context<'_>` directly. |
 
 ## Handlers
 

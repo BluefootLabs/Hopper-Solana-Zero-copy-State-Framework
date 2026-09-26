@@ -1,0 +1,73 @@
+# Bounded account fields
+
+Declare bounded labels and member lists directly in an account:
+
+```rust
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
+    pub threshold: u64,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+}
+```
+
+The `#[hopper::account]` macro lowers fixed multi-byte scalars to wire-safe
+wrappers in the emitted fixed-body type (`u64` -> `WireU64`) so typed overlays
+remain alignment-safe.
+
+The generated Hopper layout preserves a zero-copy fixed body and stores variable bytes in the account tail. That lets hot fixed fields stay predictable while string and vector payloads remain bounded, validated, and schema-visible.
+
+## Compact tail contract
+
+Hopper's current dynamic tail is deliberately bounded and compact: it stores the payload bytes described by the account schema instead of wrapping every dynamic value in an extra runtime object header. The account header, layout fingerprint, field metadata, and dynamic-tail schema hash are the contract. The tail itself stays compact.
+
+That gives Hopper three properties that matter for stateful programs:
+
+- fixed fields remain zero-copy and stable across reads,
+- dynamic fields are bounded by the source type and checked by generated helpers,
+- schema and compatibility tools can verify the tail contract without inventing a second serialization model.
+
+Hopper also supports named bare final tails when a protocol really wants remaining-bytes semantics:
+
+```rust
+#[hopper::account(discriminator = 9, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub content: TailStr<'a>,
+}
+```
+
+`TailStr<'a>` and `TailBytes<'a>` are explicit opt-ins. They must be the last account field, they are fingerprinted as `tail_str` or `tail_bytes`, and they consume the remaining tail payload without an inner field-level length prefix. The Hopper account still carries the outer dynamic-tail `u32` payload length so tools can bound the region. `TailStr` validates UTF-8 when read as text; `TailBytes` stays binary-safe.
+
+Unlike a fully implicit remaining slice, Hopper lets a raw final tail sit behind
+bounded compact fields while preserving the account contract:
+
+```rust
+#[hopper::account(discriminator = 10, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub label: String<'a, 32>,
+    pub content: TailStr<'a>,
+}
+```
+
+The label remains bounded and schema-visible. The content consumes the remaining
+payload bytes and is still recorded in the layout fingerprint as `tail_str`.
+
+## Design checklist
+
+1. Keep fixed, hot fields first.
+2. Use `String<'a, N>` and `Vec<'a, T, N>` for bounded dynamic fields.
+3. Pick caps that are protocol rules, not UI guesses.
+4. Use `TailStr<'a>` or `TailBytes<'a>` only for deliberate final raw tails.
+5. Use generated setters and push helpers so bounds and tail offsets stay checked.
+6. Export schema during review so clients and migrations see the same tail contract.
+
+Authenticate the configured member threshold before using generated mutation
+helpers for a multisig. The account role alone does not establish authority.
+
+The complete working example is [../examples/hopper-bounded-multisig](../examples/hopper-bounded-multisig).
+
+## Token-2022 integration
+
+Dynamic fields often sit beside Token-2022 vault metadata. Hopper keeps those checks in the same zero-copy authoring model: use account constraints or `hopper_token_2022` helpers to require or forbid TLV extensions before mutating state. See [TOKEN_2022_GUIDE.md](TOKEN_2022_GUIDE.md) for extension policy examples.

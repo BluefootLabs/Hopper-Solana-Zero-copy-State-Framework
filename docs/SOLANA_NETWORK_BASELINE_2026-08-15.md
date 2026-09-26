@@ -6,7 +6,7 @@ Targets and schedules remain “upcoming” until that happens.
 
 > **2026-09-19 correction:** transaction v1 activated on mainnet-beta on
 > 2026-09-15, and rent fell to 5,080 lamports per byte on 2026-09-11. See
-> [COMPETITIVE_REFRESH_2026-09-19.md](COMPETITIVE_REFRESH_2026-09-19.md).
+> [ARCHITECTURE.md](ARCHITECTURE.md).
 
 > **2026-09-06 correction:** SIMD-0525 made the block and per-account CU
 > ceilings slot-time-dependent. Mainnet is now in the 300 ms regime, so the
@@ -14,7 +14,7 @@ Targets and schedules remain “upcoming” until that happens.
 > 100M/12M. SIMD-0437 step 1 also activated 2026-09-03, moving the live
 > rent-exempt reserve coefficient from 6,960 to **6,333 lamports per byte**.
 > See the
-> [reverified refresh](COMPETITIVE_REFRESH_2026-09-02.md) for the full table and
+> [reverified refresh](ARCHITECTURE.md) for the full table and
 > live feature observations.
 
 ## Confirmed Mainnet state

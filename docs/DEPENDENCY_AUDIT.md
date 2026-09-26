@@ -29,7 +29,6 @@ Do not add a RustSec ignore without a row in this file. The row must name the Ru
 - The in-process validator lane uses `mollusk-svm 0.15.0` and Agave `4.2.1`.
   Keeping the client and validator graphs aligned prevents Cargo from selecting
   incompatible same-major Solana SDK leaf crates.
-- `pinocchio` is kept on the current `0.11` line with `pinocchio-system 0.6` and `pinocchio-token 0.6`.
 - `five8`, `five8_const`, and `five8_core` resolve together at `1.0.0`. This
   avoids the invalid `five8 1.0.0` to `five8_core 0.1.2` lock resolution that
   fails to compile `solana-keypair 3.1.2`.
@@ -95,8 +94,5 @@ cargo tree --workspace -i paste@1.0.15 --locked --depth 6
 cargo tree -p hopper-cli --depth 1
 cargo tree -p hopper-runtime --depth 1
 cargo search solana-client --limit 3
-cargo search pinocchio --limit 3
-cargo search pinocchio-system --limit 3
-cargo search pinocchio-token --limit 3
 cargo search five8_const --limit 3
 ```

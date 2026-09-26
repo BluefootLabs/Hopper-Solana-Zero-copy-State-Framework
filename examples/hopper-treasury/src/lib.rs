@@ -1,34 +1,13 @@
-//! # Hopper Segmented Treasury
+//! A SOL treasury with an administrator, delegated operator, spending limits,
+//! live-Clock cooldowns, and rent-preserving withdrawals.
 //!
-//! Demonstrates Hopper's advanced features with a multi-segment treasury:
-//!
-//! - **Segmented layout**: Core + Permissions + Budget Rules + Journal
-//! - **Phased execution**: Resolve -> Validate -> Execute
-//! - **Invariant checking**: Post-mutation balance conservation
-//! - **Fast account validation**: u32 batched header checks
-//! - **Migration path**: Append-only layout evolution
-//!
-//! ## Account Structure (256 bytes)
-//!
-//! ```text
-//! [0..16]    AccountHeader (disc=10, version=1)
-//! [16..89]   TreasuryCore: authority, vault_mint, total_deposited, total_withdrawn, bump
-//! [89..153]  PermissionSegment: admin, operator, frozen flag, max_single_withdrawal
-//! [153..217] BudgetSegment: epoch_budget, epoch_spent, epoch_number, cooldown_seconds
-//! [217..256] JournalSegment: last_action(u8), last_actor(32B), last_timestamp(u64=8B)
-//!                            Note: timestamp field is approximate in this example
-//! ```
-//!
-//! ## Instructions
-//!
-//! - `0` = InitTreasury
-//! - `1` = Deposit
-//! - `2` = Withdraw (with budget + permission checks)
-//! - `3` = UpdatePermissions (admin only)
-//! - `4` = RotateEpoch (reset budget)
+//! Wallet deposits invoke the System Program. Withdrawals debit the validated
+//! program-owned treasury. The 169-byte account contains three separately
+//! validated segments: core (56 bytes), permissions (57), and budget (56).
+//! Budget periods are administrator-controlled revisions, not Solana epochs.
 
 #![cfg_attr(target_os = "solana", no_std)]
-#![allow(dead_code, unused_variables)]
+#![allow(dead_code)]
 
 use hopper::prelude::*;
 use hopper::systems::*;
@@ -44,49 +23,9 @@ mod __hopper_sbf {
 // Hopper's segmented architecture: one account, multiple logical regions.
 // Each segment is a hopper_layout! struct that can be individually overlaid.
 
-// 16-byte header + 73 bytes = 89 total for core segment
-hopper_layout! {
-    /// Core treasury data.
-    pub struct TreasuryCore, disc = 10, version = 1 {
-        authority:        TypedAddress<Authority>  = 32,
-        vault_mint:       TypedAddress<Mint>       = 32,
-        total_deposited:  WireU64                  = 8,
-        bump:             u8                       = 1,
-    }
-}
-
-// Permissions segment -- overlaid at offset 89
-hopper_layout! {
-    /// Permission and access control segment.
-    pub struct PermissionSegment, disc = 11, version = 1 {
-        admin:                  TypedAddress<Authority>  = 32,
-        operator:               TypedAddress<Authority>  = 32,
-        frozen:                 WireBool                 = 1,
-        max_single_withdrawal:  WireU64                  = 8,
-    }
-}
-
-// Budget segment -- overlaid at offset 89 + 16 + 73 = 178
-hopper_layout! {
-    /// Per-epoch budget tracking segment.
-    pub struct BudgetSegment, disc = 12, version = 1 {
-        epoch_budget:       WireU64  = 8,
-        epoch_spent:        WireU64  = 8,
-        epoch_number:       WireU64  = 8,
-        cooldown_seconds:   WireU64  = 8,
-        last_withdrawal_ts: WireU64  = 8,
-    }
-}
-
-// The full treasury account size: we pack all segments contiguously.
-// Core (89) + Permissions (89) + Budget (56) = 234 bytes
-const TREASURY_ACCOUNT_SIZE: usize =
-    TreasuryCore::LEN + PermissionSegment::LEN + BudgetSegment::LEN;
-
-// Segment offsets
-const CORE_OFFSET: usize = 0;
-const PERM_OFFSET: usize = TreasuryCore::LEN;
-const BUDGET_OFFSET: usize = TreasuryCore::LEN + PermissionSegment::LEN;
+// Header + authority + cumulative deposits.
+mod state;
+pub use state::*;
 
 // -- Errors ----------------------------------------------------------
 
@@ -99,7 +38,8 @@ hopper_error! {
     CooldownNotElapsed,
     EpochMismatch,
     ZeroAmount,
-    InsufficientBalance
+    InsufficientBalance,
+    AliasedAccount
 }
 
 // -- Disc Registry ---------------------------------------------------
@@ -140,7 +80,7 @@ fn process_init_treasury(
     accounts: &[AccountView],
     data: &[u8],
 ) -> ProgramResult {
-    if accounts.len() < 3 {
+    if accounts.len() != 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let payer = &accounts[0];
@@ -148,19 +88,19 @@ fn process_init_treasury(
     let system_program = &accounts[2];
 
     check_signer(payer)?;
+    check_signer(treasury)?;
+    check_writable(payer)?;
     check_writable(treasury)?;
+    distinct(payer, treasury)?;
+    validate_system(system_program)?;
 
-    // Parse init params: vault_mint (32B) + epoch_budget (8B) + max_withdrawal (8B)
-    if data.len() < 48 {
+    // Exact payload: budget, maximum single withdrawal, cooldown seconds.
+    if data.len() != 24 {
         return Err(ProgramError::InvalidInstructionData);
     }
-    let vault_mint = &data[0..32];
-    let epoch_budget = u64::from_le_bytes([
-        data[32], data[33], data[34], data[35], data[36], data[37], data[38], data[39],
-    ]);
-    let max_withdrawal = u64::from_le_bytes([
-        data[40], data[41], data[42], data[43], data[44], data[45], data[46], data[47],
-    ]);
+    let epoch_budget = parse_amount(&data[..8])?;
+    let max_withdrawal = parse_amount(&data[8..16])?;
+    let cooldown = parse_amount(&data[16..24])?;
 
     // Create the account with full treasury size
     let rent = hopper::hopper_runtime::rent::minimum_balance_live(TREASURY_ACCOUNT_SIZE)?;
@@ -183,19 +123,12 @@ fn process_init_treasury(
     TreasuryCore::write_init_header(core_slice)?;
     let core = TreasuryCore::overlay_mut(core_slice)?;
     core.authority = TypedAddress::from_account(payer);
-    core.vault_mint = TypedAddress::from_slice(
-        vault_mint
-            .try_into()
-            .map_err(|_| ProgramError::InvalidInstructionData)?,
-    );
     core.total_deposited = WireU64::new(0);
-    core.bump = 0; // Set by caller if PDA
 
     // Write permission segment
     let perm_slice = &mut buf[PERM_OFFSET..PERM_OFFSET + PermissionSegment::LEN];
     PermissionSegment::write_init_header(perm_slice)?;
     let perm = PermissionSegment::overlay_mut(perm_slice)?;
-    perm.admin = TypedAddress::from_account(payer);
     perm.operator = TypedAddress::from_account(payer);
     perm.frozen = WireBool::new(false);
     perm.max_single_withdrawal = WireU64::new(max_withdrawal);
@@ -207,7 +140,7 @@ fn process_init_treasury(
     budget.epoch_budget = WireU64::new(epoch_budget);
     budget.epoch_spent = WireU64::new(0);
     budget.epoch_number = WireU64::new(0);
-    budget.cooldown_seconds = WireU64::new(60); // 60s default cooldown
+    budget.cooldown_seconds = WireU64::new(cooldown);
     budget.last_withdrawal_ts = WireU64::new(0);
 
     Ok(())
@@ -215,52 +148,39 @@ fn process_init_treasury(
 
 // -- Deposit ---------------------------------------------------------
 //
-// Accounts: [0] depositor (signer, writable), [1] treasury (writable)
+// Accounts: [0] depositor (signer, writable), [1] treasury (writable), [2] system
 
 fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    if accounts.len() < 2 {
+    let [depositor, treasury, system_program] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
-    }
-    let depositor = &accounts[0];
-    let treasury = &accounts[1];
-
+    };
     check_signer(depositor)?;
+    check_writable(depositor)?;
     check_writable(treasury)?;
     check_owner(treasury, program_id)?;
-
-    // Parse amount
-    if data.len() < 8 {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-    ]);
+    distinct(depositor, treasury)?;
+    validate_system(system_program)?;
+    let amount = parse_amount(data)?;
     hopper_require!(amount > 0, ZeroAmount);
-
-    // Transfer SOL
-    let dep_lamports = depositor.lamports();
-    depositor.set_lamports(
-        dep_lamports
-            .checked_sub(amount)
-            .ok_or(ProgramError::InsufficientFunds)?,
-    )?;
-    let t_lamports = treasury.lamports();
-    treasury.set_lamports(
-        t_lamports
+    let new_total = {
+        let buf = treasury.try_borrow()?;
+        validate_treasury(&buf)?;
+        TreasuryCore::overlay(&buf[..TreasuryCore::LEN])?
+            .total_deposited
+            .get()
             .checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?,
-    )?;
-
-    // Update core balance
+            .ok_or(ProgramError::ArithmeticOverflow)?
+    };
+    // Release the state borrow before crossing the CPI boundary.
+    hopper::system::Transfer {
+        from: depositor,
+        to: treasury,
+        lamports: amount,
+    }
+    .invoke()?;
     let mut buf = treasury.try_borrow_mut()?;
-    let core = TreasuryCore::overlay_mut(&mut buf[CORE_OFFSET..CORE_OFFSET + TreasuryCore::LEN])?;
-    let new_total = core
-        .total_deposited
-        .get()
-        .checked_add(amount)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    core.total_deposited = WireU64::new(new_total);
-
+    TreasuryCore::overlay_mut(&mut buf[..TreasuryCore::LEN])?.total_deposited =
+        WireU64::new(new_total);
     Ok(())
 }
 
@@ -270,7 +190,7 @@ fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) 
 // Accounts: [0] operator (signer), [1] treasury (writable), [2] destination (writable)
 
 fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    if accounts.len() < 3 {
+    if accounts.len() != 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let operator = &accounts[0];
@@ -283,7 +203,7 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
     check_owner(treasury, program_id)?;
 
     // Parse amount
-    if data.len() < 8 {
+    if data.len() != 8 {
         return Err(ProgramError::InvalidInstructionData);
     }
     let amount = u64::from_le_bytes([
@@ -291,11 +211,12 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
     ]);
     hopper_require!(amount > 0, ZeroAmount);
 
+    distinct(treasury, destination)?;
     let mut buf = treasury.try_borrow_mut()?;
+    validate_treasury(&buf)?;
 
     // -- Phase 1: Resolve segments -----------------------------------
 
-    let core = TreasuryCore::overlay(&buf[CORE_OFFSET..CORE_OFFSET + TreasuryCore::LEN])?;
     let perm = PermissionSegment::overlay(&buf[PERM_OFFSET..PERM_OFFSET + PermissionSegment::LEN])?;
 
     // -- Phase 2: Validate -------------------------------------------
@@ -326,6 +247,26 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
         return Err(BudgetExceeded.into());
     }
 
+    let now =
+        u64::try_from(Clock::get()?.unix_timestamp).map_err(|_| ProgramError::InvalidArgument)?;
+    if now == 0 {
+        return Err(ProgramError::InvalidArgument);
+    }
+    if budget.last_withdrawal_ts.get() != 0 {
+        let ready = budget
+            .last_withdrawal_ts
+            .get()
+            .checked_add(budget.cooldown_seconds.get())
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if now < ready {
+            return Err(CooldownNotElapsed.into());
+        }
+    }
+    let destination_balance = destination
+        .lamports()
+        .checked_add(amount)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
     // Balance check
     let balance = treasury.lamports();
     let rent = hopper::hopper_runtime::rent::minimum_balance_live(TREASURY_ACCOUNT_SIZE)?;
@@ -340,16 +281,13 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
     let budget_mut =
         BudgetSegment::overlay_mut(&mut buf[BUDGET_OFFSET..BUDGET_OFFSET + BudgetSegment::LEN])?;
     budget_mut.epoch_spent = WireU64::new(new_spent);
+    budget_mut.last_withdrawal_ts = WireU64::new(now);
+    drop(buf);
 
     // Transfer SOL
     let t_lamports = treasury.lamports();
     treasury.set_lamports(t_lamports - amount)?;
-    let d_lamports = destination.lamports();
-    destination.set_lamports(
-        d_lamports
-            .checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?,
-    )?;
+    destination.set_lamports(destination_balance)?;
 
     // -- Phase 4: Post-mutation invariant ----------------------------
 
@@ -377,7 +315,7 @@ fn process_update_permissions(
     accounts: &[AccountView],
     data: &[u8],
 ) -> ProgramResult {
-    if accounts.len() < 2 {
+    if accounts.len() != 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let admin = &accounts[0];
@@ -388,10 +326,11 @@ fn process_update_permissions(
     check_owner(treasury, program_id)?;
 
     let mut buf = treasury.try_borrow_mut()?;
+    validate_treasury(&buf)?;
 
     // Verify admin
-    let perm = PermissionSegment::overlay(&buf[PERM_OFFSET..PERM_OFFSET + PermissionSegment::LEN])?;
-    if !perm.admin.eq_account(admin) {
+    let core = TreasuryCore::overlay(&buf[..PERM_OFFSET])?;
+    if !core.authority.eq_account(admin) {
         return Err(Unauthorized.into());
     }
 
@@ -407,7 +346,7 @@ fn process_update_permissions(
     match data[0] {
         // Set operator
         0 => {
-            if data.len() < 33 {
+            if data.len() != 33 {
                 return Err(ProgramError::InvalidInstructionData);
             }
             perm_mut.operator = TypedAddress::from_slice(
@@ -418,11 +357,14 @@ fn process_update_permissions(
         }
         // Toggle freeze
         1 => {
+            if data.len() != 1 {
+                return Err(ProgramError::InvalidInstructionData);
+            }
             perm_mut.frozen = WireBool::new(!perm_mut.frozen.get());
         }
         // Set max withdrawal
         2 => {
-            if data.len() < 9 {
+            if data.len() != 9 {
                 return Err(ProgramError::InvalidInstructionData);
             }
             let max = u64::from_le_bytes([
@@ -446,7 +388,7 @@ fn process_rotate_epoch(
     accounts: &[AccountView],
     data: &[u8],
 ) -> ProgramResult {
-    if accounts.len() < 2 {
+    if accounts.len() != 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let admin = &accounts[0];
@@ -457,15 +399,16 @@ fn process_rotate_epoch(
     check_owner(treasury, program_id)?;
 
     let mut buf = treasury.try_borrow_mut()?;
+    validate_treasury(&buf)?;
 
     // Verify admin
-    let perm = PermissionSegment::overlay(&buf[PERM_OFFSET..PERM_OFFSET + PermissionSegment::LEN])?;
-    if !perm.admin.eq_account(admin) {
+    let core = TreasuryCore::overlay(&buf[..PERM_OFFSET])?;
+    if !core.authority.eq_account(admin) {
         return Err(Unauthorized.into());
     }
 
     // Parse new epoch params: new_epoch_number(8B) + optional new_budget(8B)
-    if data.len() < 8 {
+    if data.len() != 8 && data.len() != 16 {
         return Err(ProgramError::InvalidInstructionData);
     }
     let new_epoch = u64::from_le_bytes([
@@ -491,5 +434,33 @@ fn process_rotate_epoch(
         budget_mut.epoch_budget = WireU64::new(new_budget);
     }
 
+    Ok(())
+}
+
+fn parse_amount(data: &[u8]) -> Result<u64, ProgramError> {
+    Ok(u64::from_le_bytes(
+        data.try_into()
+            .map_err(|_| ProgramError::InvalidInstructionData)?,
+    ))
+}
+fn distinct(a: &AccountView, b: &AccountView) -> ProgramResult {
+    if a.address() == b.address() {
+        return Err(AliasedAccount.into());
+    }
+    Ok(())
+}
+fn validate_system(account: &AccountView) -> ProgramResult {
+    if account.address() != &SYSTEM_PROGRAM_ID || !account.executable() {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    Ok(())
+}
+fn validate_treasury(data: &[u8]) -> ProgramResult {
+    if data.len() != TREASURY_ACCOUNT_SIZE {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    TreasuryCore::validate_header(&data[..PERM_OFFSET])?;
+    PermissionSegment::validate_header(&data[PERM_OFFSET..BUDGET_OFFSET])?;
+    BudgetSegment::validate_header(&data[BUDGET_OFFSET..])?;
     Ok(())
 }

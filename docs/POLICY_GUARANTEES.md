@@ -135,7 +135,7 @@ Hopper's internals use `unsafe` for the zero-copy core (pointer casts, syscall w
 
 ## Growable `Seq<T>` tails under `strict_writes`
 
-A `Seq<'a, T>` tail (see [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md))
+A `Seq<'a, T>` tail (see [DYNAMIC_TAILS.md](DYNAMIC_TAILS.md))
 is an open-ended, growable list. Under `#[hopper::context(strict_writes)]` it is
 declared with `tail(<field>)`, which compiles to a single **open-ended write
 range**, `WriteRange::tail_from(idx, HEADER_LEN + <Layout>::<FIELD>_OFFSET)` =
