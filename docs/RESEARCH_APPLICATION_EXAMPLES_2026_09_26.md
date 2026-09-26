@@ -5,6 +5,11 @@ files or guides. It did not execute peer tests or audit whole repositories.
 Exact pins and fetched-file hashes are in
 [the source manifest](../audit/application-positioning-2026-09-26/sources.json).
 
+**Subsequent implementation:** the coverage table below records the state at
+review time. The [funded escrow replacement](../examples/hopper-escrow/README.md)
+now implements classic SPL Token custody and settlement with layout v2. See
+its current validation evidence; the old state-only evidence remains historical.
+
 ## What peers actually show
 
 | Project | Reviewed examples | Lesson for Hopper |

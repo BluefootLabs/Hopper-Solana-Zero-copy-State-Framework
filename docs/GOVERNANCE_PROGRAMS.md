@@ -28,6 +28,15 @@ and [spending-limit execution](https://github.com/Squads-Protocol/v4/blob/af9415
 
 ## Available Hopper building blocks
 
+Treasury multisigs are only one governance use case. The Solana Foundation's
+[governance repository at 9c9131c](https://github.com/solana-foundation/solana-governance/blob/9c9131c6b9ff4d79db9e5e459cda98de48ae2466/README.md)
+describes stake-weighted proposals, delegator overrides, and on-chain
+finalization, with a separate operator track establishing canonical stake
+snapshots. This observation is a README review, not an audit or deployment
+verification. A Hopper voting program must explicitly choose its weight source:
+on-chain deposits/locks, or authenticated snapshot proofs with their external
+data assumptions. The framework does not make these models interchangeable.
+
 - The [bounded multisig data example](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/quasar-port-20-min)
   stores member and label tails. This review fixes duplicate members counting
   toward a threshold, rejects malformed duplicate storage, and prevents its
