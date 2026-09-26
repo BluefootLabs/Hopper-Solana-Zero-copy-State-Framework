@@ -1,0 +1,76 @@
+{
+  "version": {
+    "id": 3331492,
+    "crate": "hopper-solana",
+    "num": "0.4.1",
+    "dl_path": "/api/v1/crates/hopper-solana/0.4.1/download",
+    "readme_path": "/api/v1/crates/hopper-solana/0.4.1/readme",
+    "updated_at": "2026-09-26T13:59:49.941683Z",
+    "created_at": "2026-09-26T13:59:49.941683Z",
+    "downloads": 0,
+    "features": {
+      "default": [],
+      "legacy-token-instructions": [
+        "hopper-token/legacy-token-instructions"
+      ],
+      "remaining-compute-units-syscall": [
+        "hopper-runtime/remaining-compute-units-syscall"
+      ]
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-solana/0.4.1/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-solana/0.4.1/downloads",
+      "authors": "/api/v1/crates/hopper-solana/0.4.1/authors"
+    },
+    "crate_size": 37156,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-09-26T13:59:49.941683Z"
+      }
+    ],
+    "checksum": "2a0526c4b6bddcf97dadec3aa1611ef47b4ba8f40cf16323eb205a44f6fd4471",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Solana integration layer for Hopper. SPL Token/Mint zero-copy readers, Token-2022 screening, CPI guards, token account helpers.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-solana/0.4.1",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 3235,
+          "comment_lines": 108,
+          "files": 20
+        }
+      },
+      "total_code_lines": 3235,
+      "total_comment_lines": 108
+    }
+  }
+}

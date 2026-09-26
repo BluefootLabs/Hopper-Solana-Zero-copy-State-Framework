@@ -1,0 +1,34 @@
+   Compiling hopper-runtime v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-memo v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-solana v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-token-2022 v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-macros v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized] target(s) in 37.36s
+     Running tests\token_outcomes_sbf.rs (target\debug\deps\token_outcomes_sbf-efecf7186111edcd.exe)
+
+running 1 test
+token extended=false, policy=100/99, actual=100: 2010 CU
+token extended=false, policy=100/100, actual=100: 2010 CU
+token extended=false, policy=100/99, actual=99: 1907 CU
+token extended=false, policy=100/1, actual=0: 1924 CU
+token extended=false, policy=100/0, actual=101: 1905 CU
+token extended=false, policy=0/0, actual=0: 109 CU
+token extended=false, policy=100/101, actual=100: 108 CU
+token extended=true, policy=100/99, actual=100: 4727 CU
+token extended=true, policy=100/100, actual=100: 4626 CU
+token extended=true, policy=100/99, actual=99: 4624 CU
+token extended=true, policy=100/1, actual=0: 4271 CU
+token extended=true, policy=100/0, actual=101: 4624 CU
+token extended=true, policy=0/0, actual=0: 109 CU
+token extended=true, policy=100/101, actual=100: 108 CU
+test token_receipt_policy_and_dedup_cpi_match_complete_svm_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

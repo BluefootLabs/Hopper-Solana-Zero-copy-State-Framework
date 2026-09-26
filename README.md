@@ -105,7 +105,7 @@ See [program measurements](https://github.com/BluefootLabs/Hopper-Solana-Zero-co
 [release status](https://hopperzero.dev/docs/release-status) for scope and artifacts.
 
 The registry framework version is **0.4.0**. Repository examples evolve
-independently and are not published crates. The native/runtime **0.4.2** safety patch is published and devnet-tested. The next runtime 0.4.3 / Solana integration 0.4.1 patch adds [token receipt policies](docs/TOKEN_RECEIPTS.md) and corrects two host-runtime regressions; publication follows devnet validation. See the [release record](docs/RELEASE_0_4_VALIDATION.md). Support packages `grillo-*` and
+independently and are not published crates. The native/runtime **0.4.2** safety patch is published and devnet-tested. Runtime **0.4.3** and Solana integration **0.4.1** are also published: [token receipt policies](docs/TOKEN_RECEIPTS.md) passed 34 finalized devnet transactions, and two host-runtime regressions are fixed. See the [release record](docs/RELEASE_0_4_VALIDATION.md). Support packages `grillo-*` and
 `hopper-topology` use their own 0.1.0 versions.
 
 ## Documentation

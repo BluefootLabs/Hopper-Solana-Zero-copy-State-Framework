@@ -1,0 +1,10 @@
+   Compiling hopper-runtime v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Finished `test` profile [unoptimized] target(s) in 0.45s
+     Running unittests src\lib.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\hopper_runtime-28fff348bd4a0fa5.exe)
+
+running 2 tests
+test cpi::dedup_tests::dedup_system_transfer_rejects_missing_meta_before_mutation ... ok
+test cpi::dedup_tests::dedup_system_transfer_resolves_reordered_infos_and_ignores_extras ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 317 filtered out; finished in 2.06s
+

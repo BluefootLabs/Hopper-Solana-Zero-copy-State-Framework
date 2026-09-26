@@ -1,0 +1,195 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-solana",
+      "-p",
+      "hopper-token-outcomes-fixture",
+      "-p",
+      "hopper-framework-verifier"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "lock",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "check",
+      "-p",
+      "hopper-token-outcomes-fixture",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-runtime",
+      "--features",
+      "thread-local-registry",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "solana",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-solana",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "clippy",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-solana",
+      "-p",
+      "hopper-token-outcomes-fixture",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-Dwarnings"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "miri-transfer",
+    "command": [
+      "cargo",
+      "+nightly",
+      "miri",
+      "test",
+      "-p",
+      "hopper-solana",
+      "--test",
+      "transfer",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "miri-dedup",
+    "command": [
+      "cargo",
+      "+nightly",
+      "miri",
+      "test",
+      "-p",
+      "hopper-runtime",
+      "--lib",
+      "dedup_tests",
+      "--features",
+      "thread-local-registry",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "build-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\token-outcomes\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\cpi-outcomes-2026-09-26\\v0",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "svm-v0",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "token_outcomes_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "arch": "v0",
+    "elfSha256": "b079a67351b944aef7eb4d08f6f07529eee1348eede62b36e4b372a830803da0",
+    "bytes": 11368
+  },
+  {
+    "name": "build-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\token-outcomes\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\cpi-outcomes-2026-09-26\\v3",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "svm-v3",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "token_outcomes_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "arch": "v3",
+    "elfSha256": "129f3b15a3679c1c85772b3f02e41830705848ae234bcbe30d54f7d0634bfc7c",
+    "bytes": 10544
+  }
+]

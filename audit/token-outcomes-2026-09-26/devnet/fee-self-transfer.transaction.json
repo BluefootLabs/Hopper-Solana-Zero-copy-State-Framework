@@ -1,0 +1,112 @@
+{
+  "blockTime": 1790431146,
+  "meta": {
+    "computeUnitsConsumed": 122,
+    "costUnits": 1632,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidArgument"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program BxaSZUsqMYwYvmBi4N3s5tAH2mAUPCmNQqiUzgdvVE5R invoke [1]",
+      "Program BxaSZUsqMYwYvmBi4N3s5tAH2mAUPCmNQqiUzgdvVE5R consumed 122 of 200000 compute units",
+      "Program BxaSZUsqMYwYvmBi4N3s5tAH2mAUPCmNQqiUzgdvVE5R failed: invalid program argument"
+    ],
+    "postBalances": [
+      903096705,
+      1554480,
+      1159846,
+      2062480,
+      833120
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "8o8WXwuHk7smsgso414jQJWJa1CSpjE7SffaBLfSvisG",
+        "owner": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "900",
+          "decimals": 6,
+          "uiAmount": 0.0009,
+          "uiAmountString": "0.0009"
+        }
+      }
+    ],
+    "preBalances": [
+      903101705,
+      1554480,
+      1159846,
+      2062480,
+      833120
+    ],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "8o8WXwuHk7smsgso414jQJWJa1CSpjE7SffaBLfSvisG",
+        "owner": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "900",
+          "decimals": 6,
+          "uiAmount": 0.0009,
+          "uiAmountString": "0.0009"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      }
+    }
+  },
+  "slot": 504431015,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "HZjKVRiG3zMPoBApVwQb7Qu3vx359KdguXa7NUgJtLL5",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "8o8WXwuHk7smsgso414jQJWJa1CSpjE7SffaBLfSvisG",
+        "BxaSZUsqMYwYvmBi4N3s5tAH2mAUPCmNQqiUzgdvVE5R"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            3,
+            1,
+            0,
+            2
+          ],
+          "data": "1A7kaBckgecsfbCeut8sB6rpvBFgH8hc8F",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "DGN6ScxBHV7TvPo9cbp34N5joGtN4NJeeE6xYAfiacUz"
+    },
+    "signatures": [
+      "2ckhQjogttz1m5SHbK3uStaDvehdRVuWDcUaoEWtELQMh3Z1zz1aAMJzZqDzb7YVWfEhGHDWFiTEfdM8TgdqiL8P"
+    ]
+  },
+  "transactionIndex": 11,
+  "version": "legacy"
+}

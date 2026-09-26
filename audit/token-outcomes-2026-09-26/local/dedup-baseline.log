@@ -1,0 +1,25 @@
+   Compiling hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Finished `test` profile [unoptimized] target(s) in 3.21s
+     Running unittests src\lib.rs (target\debug\deps\hopper_runtime-053da25a1d5e01e0.exe)
+
+running 2 tests
+test cpi::dedup_tests::dedup_system_transfer_rejects_missing_meta_before_mutation ... ok
+test cpi::dedup_tests::dedup_system_transfer_resolves_reordered_infos_and_ignores_extras ... FAILED
+
+failures:
+
+---- cpi::dedup_tests::dedup_system_transfer_resolves_reordered_infos_and_ignores_extras stdout ----
+
+thread 'cpi::dedup_tests::dedup_system_transfer_resolves_reordered_infos_and_ignores_extras' (117784) panicked at crates\hopper-runtime\src\cpi_dedup_tests.rs:27:5:
+assertion `left == right` failed
+  left: (100, 30, 40)
+ right: (90, 30, 50)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cpi::dedup_tests::dedup_system_transfer_resolves_reordered_infos_and_ignores_extras
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 317 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p hopper-runtime --lib`

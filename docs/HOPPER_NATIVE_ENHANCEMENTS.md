@@ -18,6 +18,43 @@ Read [program architecture](ARCHITECTURE.md) for layer responsibilities and
 [unsafe invariants](UNSAFE_INVARIANTS.md) before using raw pointers or unchecked
 invocation. Performance work belongs in reproducible complete-program fixtures.
 
+## Runtime 0.4.3 and Solana integration 0.4.1 — token receipts
+
+**Published on crates.io:** `hopper-runtime` 0.4.3 and `hopper-solana` 0.4.1.
+Native remains 0.4.2; framework and CLI remain 0.4.0. Downloaded package sources
+and checksums match the release commit, and a registry-only payout consumer
+compiles with framework 0.4.0.
+
+`TokenTransferSnapshot` binds a source and destination to an exact debit and an
+explicit minimum receipt. It re-reads their program owner, base account shape,
+initialized state, mint, and token authorities after CPI. No data borrow remains
+held during the transfer. Applications keep control of authorization, extension
+policy, and their choice of transfer builder. [Payout guide](TOKEN_RECEIPTS.md).
+
+The devnet fixture finalized **34 transactions** using real classic SPL Token and
+Token-2022 accounts with a 1% transfer fee. All complete account snapshots matched,
+including withheld fees, lamports and transaction fees. Thirteen transactions
+were expected refusals; seven proved rollback after a successful nested token
+CPI. The deployed v0 ELF matched the tested binary before and after the run.
+
+The runtime patch also fixes two host regressions. Deduplicated System-transfer
+infos now resolve by address instead of list position. Host mutable borrow guards
+retain a release lease without moving a parent mutable reference after deriving
+a pointer. The baseline transfer debited an unrelated extra account; Miri caught
+the borrow-wrapper provenance error. Both fixes pass their regressions and Miri.
+The existing on-chain representations did not have these two host defects.
+
+Compiled v0/v3 token scenarios, changed-crate tests, framework/core tests, Clippy,
+local API docs, and the 29-package unsafe-contract scan passed. Host token CPI
+no-ops are not used as evidence of token movement. This is targeted validation,
+not an independent security audit or a whole-framework speed comparison.
+
+[Signatures, snapshots, builds and registry evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/token-outcomes-2026-09-26).
+
+```sh
+cargo update -p hopper-runtime -p hopper-solana
+```
+
 ## Native/runtime 0.4.2 — account lifecycle and borrow safety
 
 **Published on crates.io:** `hopper-native` and `hopper-runtime` 0.4.2.

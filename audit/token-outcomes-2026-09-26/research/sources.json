@@ -1,0 +1,83 @@
+{
+  "observedAt": "2026-09-26T13:39:40.068051+00:00",
+  "projects": [
+    {
+      "name": "pina",
+      "repository": "pina-rs/pina",
+      "branch": "HEAD",
+      "commit": "35174e39a2b9cb76aa045372178fe5b8085d7892",
+      "commitDate": "2026-09-26T11:53:31Z",
+      "files": [
+        {
+          "path": "crates/pina/src/token.rs",
+          "sha256": "cc2ecb229981ae907cf30cc60a0c91c90818cb19360ce49834d4b8dd8fa8ebbe",
+          "url": "https://raw.githubusercontent.com/pina-rs/pina/35174e39a2b9cb76aa045372178fe5b8085d7892/crates/pina/src/token.rs"
+        }
+      ]
+    },
+    {
+      "name": "pinocchio",
+      "repository": "anza-xyz/pinocchio",
+      "branch": "HEAD",
+      "commit": "adbd48d12229ffa30d6fb3d3a8ff777fdb053b80",
+      "commitDate": "2026-08-03T08:42:23Z",
+      "files": []
+    },
+    {
+      "name": "quasar",
+      "repository": "blueshift-gg/quasar",
+      "branch": "HEAD",
+      "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "commitDate": "2026-07-13T06:20:59Z",
+      "files": []
+    },
+    {
+      "name": "anchor-v2",
+      "repository": "otter-sec/anchor",
+      "branch": "anchor-next",
+      "commit": "038c193a9eedd5ffd4aaf831d501a74a0c90084e",
+      "commitDate": "2026-09-25T12:14:31Z",
+      "files": []
+    },
+    {
+      "name": "token-2022",
+      "repository": "solana-program/token-2022",
+      "branch": "HEAD",
+      "commit": "23b03f88e44a9ef2587e5a08206a09eca0c8f17b",
+      "commitDate": "2026-09-26T03:25:18Z",
+      "files": [
+        {
+          "path": "program/src/processor.rs",
+          "sha256": "dfe85d6b4893a77ed8bf6b205f725c6383018eb1e75a13e23767c009bff555c4",
+          "url": "https://raw.githubusercontent.com/solana-program/token-2022/23b03f88e44a9ef2587e5a08206a09eca0c8f17b/program/src/processor.rs"
+        },
+        {
+          "path": "interface/src/extension/transfer_fee/mod.rs",
+          "sha256": "2f51ac04733271b7578f0fb8c05805aac237f1521ffa1505b4055c03b6cbda5c",
+          "url": "https://raw.githubusercontent.com/solana-program/token-2022/23b03f88e44a9ef2587e5a08206a09eca0c8f17b/interface/src/extension/transfer_fee/mod.rs"
+        },
+        {
+          "path": "interface/src/extension/mod.rs",
+          "sha256": "502b8309d3243f81d3bb7b2ff5f9e412c48d4d68f354b8994792389fc904defd",
+          "url": "https://raw.githubusercontent.com/solana-program/token-2022/23b03f88e44a9ef2587e5a08206a09eca0c8f17b/interface/src/extension/mod.rs"
+        }
+      ]
+    },
+    {
+      "name": "agave",
+      "repository": "anza-xyz/agave",
+      "branch": "HEAD",
+      "commit": "f77165963c709934e8ea8564187c00f081b597d1",
+      "commitDate": "2026-09-26T02:49:10Z",
+      "files": []
+    },
+    {
+      "name": "simds",
+      "repository": "solana-foundation/solana-improvement-documents",
+      "branch": "HEAD",
+      "commit": "4b643ca8746742183a469681765e694b385bb315",
+      "commitDate": "2026-09-25T15:18:56Z",
+      "files": []
+    }
+  ]
+}

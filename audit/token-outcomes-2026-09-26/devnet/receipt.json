@@ -1,0 +1,391 @@
+{
+  "schema": "hopper.token-outcomes-devnet.v1",
+  "sourceCommit": "05afb389d2e4bcbbc6d6a21a16de8c9b5b0b2717",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "commitment": "finalized",
+  "programId": "BxaSZUsqMYwYvmBi4N3s5tAH2mAUPCmNQqiUzgdvVE5R",
+  "elfSha256": "b079a67351b944aef7eb4d08f6f07529eee1348eede62b36e4b372a830803da0",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "allPassed": true,
+  "transactions": [
+    {
+      "name": "fund-recipient",
+      "signature": "4Br4Q6Y2Fwern69XV7HgGac2EsanE3KFtpQQpxEvBCPpEzmi3zUaewohToKrS6ou9zRRr61s49bUnnScxrU2uSSB",
+      "slot": 504430241,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fund-extra",
+      "signature": "5mGSDy4MGGozMNYrdxZNJyfEEDFXe1buSL38Z3Zn53bj4rXV7nVj5gyS5To2eqsEDWVmaTowGXQ8ugCPeGHzn3T3",
+      "slot": 504430252,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "dedup-reordered-extra",
+      "signature": "3PhqsiAa5kTN9iuMQ1udnhMyQ8yDeHGTExzbMjXdhmZR2AdFmtz1hpdvwnM2fLswB3fuU9ZqEhsvA9g8HkzvEzrt",
+      "slot": 504430300,
+      "error": null,
+      "computeUnits": 1345,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "create-classic_mint",
+      "signature": "UF9W8NpoorWJnm8DGpsp84ijpsZ35uQBFgaYVUtG91uvrsgsi29yWwV4qkhJqWmTZ2ADnMN8jwUhaUYWStRVJKC",
+      "slot": 504430317,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 10000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "create-classic_source",
+      "signature": "465xKh68SGsMhmp9x44EvQpHZUFCS8FaZ76Uug7VsF6FxKNN6ssQwjzF34Ym4KNLGvTKcvpkL3gwKTdcnWYdPdmq",
+      "slot": 504430353,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 10000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "create-classic_destination",
+      "signature": "2Eoex9VcqQhjZpGgxcK1CrLokieRif22oLLwNAq9pqwoufRzG1W47mEHXubwf3kZmUjzp3Vwbpbnz4s7jQBKxuE9",
+      "slot": 504430361,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 10000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-classic_mint",
+      "signature": "nFwkvaCtCcV8rGKAFySP12FF9LYcyYRdVpxGZoqpWyyGUgRtLWtJhNGyAh2Zz7ZWfZLfH4QqQ7qVcoyoY51E84G",
+      "slot": 504430371,
+      "error": null,
+      "computeUnits": 202,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-classic_source",
+      "signature": "4Np8FRk9ysXQHND2po2Bn7fJuGpJhN8HRPpoYUq649uXcM5wDfnib6sfj6CSfZ6NpqVFRfNDBHjRey819YsYuMcw",
+      "slot": 504430389,
+      "error": null,
+      "computeUnits": 233,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-classic_destination",
+      "signature": "5G8bbjEnecmNrT45ikKyAR3YkgMsx7fRyGpc9b17CLG5nSg3nLefbsRfRQJBLPa8tvjhKKuEgWUCqW87jscCbhmB",
+      "slot": 504430400,
+      "error": null,
+      "computeUnits": 233,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "mint-classic_source",
+      "signature": "Sm7HhPXzezsS2BqzyLiQFVHqJQBGPFyzmn6ZkLnv6TS9XqJDTDWFMpbq9JFFdSTViMr62Eybm6jsw33joKotAPj",
+      "slot": 504430448,
+      "error": null,
+      "computeUnits": 153,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-receipt",
+      "signature": "tbUgtSHGss51Dt7VAUN5FgYrgK7jj8p51cBtVcouDis5QugaMoeNnbLpPWkrvo4g5YPUvpihkKPpLKj3m2CF3FH",
+      "slot": 504430456,
+      "error": null,
+      "computeUnits": 2009,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-exact",
+      "signature": "MZZtoLvyii58zkZFZHn2ySjNH6XZCMF69NH9x1jZjnR3vaiF2f6DPT1K76ndbN2KceHUjHhBE8UkRqz133FWJ3E",
+      "slot": 504430511,
+      "error": null,
+      "computeUnits": 2009,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-short-debit",
+      "signature": "3NHx5hcdKUrFTikhJyyTH9JYWKNriHDs66UukS4Q7spvBhmFwtJR7cNhaTeC67dUyfgKQUNyHfGTqNP8NRZp1DXS",
+      "slot": 504430518,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 1906,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-excess-debit",
+      "signature": "33MhCEcqgHFCK5sXVtPTqBXcqCyyn5XSYcuMFoUyGQXqhsrPFFhEGKi6YUCJ7B7qTVTSXFngdFhfuafwYYgheWvF",
+      "slot": 504430532,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 1904,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-no-movement",
+      "signature": "5huCZnJxa1P1a4D4SubbN47PpgRYMTpvdkMsbrevYJbwCnUQw5oRRJJegctnfnm7aDZbi7jPwPSxAAVH1a1y3Zsj",
+      "slot": 504430549,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 1923,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-zero-policy",
+      "signature": "5DwYEHLNnEMVcmrVFmEpfs3tuzJ2JNSLX28Jpka8pEsWK53meL1SJp9tHsnu7ypqVwyacbyQmExHxcRLGebP1wAD",
+      "slot": 504430611,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 109,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-invalid-minimum",
+      "signature": "4wBMdJZP9bdVvP4gGvvB4728xySqmyfTGFNNa2CB2jmQauCaNquBtXnPbXn1hFJjEm24MUzjccmkcPPzsPebPRGF",
+      "slot": 504430627,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 108,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "classic-self-transfer",
+      "signature": "4DRr3K5UrFazm1nVXhdzronNwDZqqtoDTtuur4yhAtZMjNKcH5D1GxoqFcLZ3QmJweNXkFRjALRs2TDZ6cZYq2rX",
+      "slot": 504430684,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 122,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "create-fee_mint",
+      "signature": "5XKeeNHs4VME5w8Hg4eM5LbhL46v2SRTGZSemEuFrvNFdKVRZMEowrDqaTJPEuysHRncrDLf8H7J1vJjnggusiRb",
+      "slot": 504430707,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 10000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "create-fee_source",
+      "signature": "5qGtTyJkBz639Ax8AZurCyVTcZgyrEo4PT9mLuLCrhMQ744Lw3XdyhCbebnCpMcZ5928NfVA2ebDy7iEtAhMUdMq",
+      "slot": 504430715,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 10000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "create-fee_destination",
+      "signature": "3QPBEesuWPFqewXSd1JtktarfNqYvcgPTiHReA4XmLZgLHUAZdT6fQaB92bKDktHfokVfYiCehTTznAKqnYSLS2U",
+      "slot": 504430752,
+      "error": null,
+      "computeUnits": 150,
+      "fee": 10000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-fee-config",
+      "signature": "2MA9CkmjDu1kwzf1RE8WpHu4R1JPwvocY6BXVkMr2PCtmm6kcjBTvMx186qjFtxhdkBjB2Yw5via5CFk3czGTHsP",
+      "slot": 504430760,
+      "error": null,
+      "computeUnits": 1569,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-fee_mint",
+      "signature": "4cbr5bsUy2egFGJUvfgQg9wvn3Ygo2iS6avwNd3XJ8G2zSxi5BGvddWxmd3UDj8tK2VCwJNeywo5gXKsh2yTdQdd",
+      "slot": 504430767,
+      "error": null,
+      "computeUnits": 2091,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-fee_source",
+      "signature": "2EmGxCnSj6To1TXE6Qr9vPQsiccbsAhMMAu1LKySViUayT7Vr9hTEghYHpeApndwNpjGJthWqcagUtXfip11tJwj",
+      "slot": 504430774,
+      "error": null,
+      "computeUnits": 3056,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "initialize-fee_destination",
+      "signature": "2cvxeg6Xj8tJL5v3S4tzo3FYvj2kbtxxHF3RGKBbqn2APPLLZ2x1zP2rFbktz3afekYUB84QdgdDgV43tinThH9u",
+      "slot": 504430830,
+      "error": null,
+      "computeUnits": 3056,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "mint-fee_source",
+      "signature": "5xp456HpnqguJcu3jYxapzeDDy6qxRUTARwRgrdFfTLvsMJ9PxJmRozF7pwh7zcLaAjh4srjvZa1VDu2jyBCUNbt",
+      "slot": 504430837,
+      "error": null,
+      "computeUnits": 1970,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-receipt",
+      "signature": "53qCrNnsHy33oknUjVBm2138VaLbxpwpBk6Gzw91dysDn4bsXKbe4kqKTL1f44hvZxaUEwkhpL84n1e2Cc6JpNUv",
+      "slot": 504430889,
+      "error": null,
+      "computeUnits": 5180,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-exact",
+      "signature": "5KedfdDo7mzZiyy2U56PmqdTj7E2Uu7Ncq1rfPWrCHFzTPbYP9zH1xEimDv8FanQFnUx54Dy12unjgXAyoENke6H",
+      "slot": 504430902,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 5079,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-short-debit",
+      "signature": "5mA8nEeWWSvsDzgbiw5peE7U7GNHC6ARWmY8ZUJxMzS31RWH9o3att6RjdiBvZUdC1GEKctyd6f87gKfUUDJiXjD",
+      "slot": 504430916,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 5077,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-excess-debit",
+      "signature": "58Y69x47PfoxWzdUAHAQnsL7hhrepy4NmzQ3kDNninrYLny3D2eGbyd2eEv48yvS9TVXRpNH3rc1So8kPCaFsRjR",
+      "slot": 504430931,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 5077,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-no-movement",
+      "signature": "3uQGkRgyHw2Wd6Nuk6jEiv9iSahNBtX1yQTMJPV7fUdzZgaQJxfPbuVVGUYmD3faEAs4TNMcMGjBw7AGi59YWntr",
+      "slot": 504430968,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 4773,
+      "fee": 5000,
+      "rollbackAfterSuccessfulTokenCpi": true,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-zero-policy",
+      "signature": "3qoy2qZaiTqy5PkXackF71k3rJPammj8P44YymgLMVcSgmXP9C6sVU7zieHrmu3om6kSuNwP4hn5xFofAdWrj18k",
+      "slot": 504430988,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 109,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-invalid-minimum",
+      "signature": "679iwfGFCotTTxBmm1VjFBBDkh7GJTJrS1MSjjqDGjB31zzTiMEr8fxrdgsDamZeamiqQZpCaPthUWbZedFqzfM6",
+      "slot": 504431002,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 108,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "fee-self-transfer",
+      "signature": "2ckhQjogttz1m5SHbK3uStaDvehdRVuWDcUaoEWtELQMh3Z1zz1aAMJzZqDzb7YVWfEhGHDWFiTEfdM8TgdqiL8P",
+      "slot": 504431015,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 122,
+      "fee": 5000,
+      "expectedFullSnapshotsVerified": true
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+    Finished `test` profile [unoptimized] target(s) in 0.54s
+     Running tests\token_outcomes_sbf.rs (target\debug\deps\token_outcomes_sbf-efecf7186111edcd.exe)
+
+running 1 test
+token extended=false, policy=100/99, actual=100: 2008 CU
+token extended=false, policy=100/100, actual=100: 2008 CU
+token extended=false, policy=100/99, actual=99: 1905 CU
+token extended=false, policy=100/1, actual=0: 1922 CU
+token extended=false, policy=100/0, actual=101: 1903 CU
+token extended=false, policy=0/0, actual=0: 109 CU
+token extended=false, policy=100/101, actual=100: 108 CU
+token extended=true, policy=100/99, actual=100: 4725 CU
+token extended=true, policy=100/100, actual=100: 4624 CU
+token extended=true, policy=100/99, actual=99: 4622 CU
+token extended=true, policy=100/1, actual=0: 4269 CU
+token extended=true, policy=100/0, actual=101: 4622 CU
+token extended=true, policy=0/0, actual=0: 109 CU
+token extended=true, policy=100/101, actual=100: 108 CU
+test token_receipt_policy_and_dedup_cpi_match_complete_svm_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

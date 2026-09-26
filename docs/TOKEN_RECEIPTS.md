@@ -63,3 +63,11 @@ use a compiled SVM fixture or devnet for that check.
 The compiled fixture is [token-outcomes](../bench/token-outcomes/program/src/lib.rs).
 Its test runner checks complete account snapshots, including fee withholding and
 rollback after a successful nested token CPI.
+
+## Validation
+
+The September 26, 2026 run finalized 34 devnet transactions with complete expected
+account snapshots. It includes classic-token receipts, Token-2022 fee withholding,
+13 expected refusals, and seven rollbacks after a successful nested token CPI.
+The deployed v0 binary matched before and after; compiled v0 and v3 scenarios also
+passed. [Inspect the evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/token-outcomes-2026-09-26).

@@ -1,0 +1,49 @@
+[
+  {
+    "name": "framework",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-lang",
+      "-p",
+      "hopper-systems",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "docs",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "doc",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-solana",
+      "--no-deps",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-solana",
+      "-p",
+      "hopper-token-outcomes-fixture",
+      "--check"
+    ],
+    "exitCode": 0
+  }
+]

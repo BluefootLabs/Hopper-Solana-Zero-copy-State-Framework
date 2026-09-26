@@ -1,0 +1,18 @@
+   Compiling hopper-runtime v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+ Documenting hopper-runtime v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Checking hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+    Checking hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+    Checking hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+ Documenting hopper-solana v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+warning: unresolved link to `examples/hopper-token-2022-transfer-hook`
+   --> crates\hopper-solana\src\token2022_ext.rs:388:7
+    |
+388 | /// [`examples/hopper-token-2022-transfer-hook`] for the end-to-end
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `examples/hopper-token-2022-transfer-hook` in scope
+    |
+    = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+    = note: `#[warn(rustdoc::broken_intra_doc_links)]` on by default
+
+warning: `hopper-solana` (lib doc) generated 1 warning
+    Finished `dev` profile [unoptimized] target(s) in 2.10s
+   Generated D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\doc\hopper_runtime\index.html and 1 other file

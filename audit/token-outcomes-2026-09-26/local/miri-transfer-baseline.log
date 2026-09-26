@@ -1,0 +1,46 @@
+   Compiling hopper-runtime v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-native v0.4.2 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-solana v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Finished `test` profile [unoptimized] target(s) in 2.43s
+     Running tests\transfer.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\transfer-5e474889e9cd7978.exe)
+
+running 3 tests
+test capture_rejects_aliases_invalid_policy_funds_mint_and_live_mutable_borrows ... ok
+test transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes ... error: Undefined Behavior: trying to retag from <214187> for Unique permission at alloc60251[0x58], but that tag does not exist in the borrow stack for this location
+ --> crates\hopper-runtime\src\borrow.rs:386:17
+  |
+  = note: this error occurs as part of retag at alloc60251[0x58..0xfd]
+  |
+  = help: this indicates a potential bug in the program: it performed an invalid operation, but the Stacked Borrows rules it violated are still experimental
+  = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md for further information
+help: <214187> was created by a SharedReadWrite retag at offsets [0x58..0xfd]
+ --> crates\hopper-runtime\src\borrow.rs:267:22
+help: <214187> was later invalidated at offsets [0x58..0xfd] by a Unique retag
+ --> crates\hopper-runtime\src\borrow.rs:270:23
+  = note: this is on thread `transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes`
+  = note: stack backtrace:
+          0: <hopper_runtime::RefMut<'_, [u8]> as std::ops::DerefMut>::deref_mut
+              at crates\hopper-runtime\src\borrow.rs:386:18: 386:32
+          1: amount
+              at crates\hopper-solana\tests\transfer.rs:54:5: 54:38
+          2: transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes::{closure#0}
+              at crates\hopper-solana\tests\transfer.rs:76:17: 76:44
+          3: with_accounts::<{closure@crates\hopper-solana\tests\transfer.rs:72:37: 72:40}>
+              at crates\hopper-solana\tests\transfer.rs:50:5: 50:46
+          4: transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes
+              at crates\hopper-solana\tests\transfer.rs:72:13: 90:15
+          5: transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes::{closure#0}
+              at crates\hopper-solana\tests\transfer.rs:59:82: 59:82
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error
+
+error: test failed, to rerun pass `-p hopper-solana --test transfer`
+
+Caused by:
+  process didn't exit successfully: `C:\Users\matts\.rustup\toolchains\nightly-x86_64-pc-windows-msvc\bin\cargo-miri.exe runner D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\miri\x86_64-pc-windows-msvc\debug\deps\transfer-5e474889e9cd7978.exe` (exit code: 1)
+note: test exited abnormally; to see the full output pass --no-capture to the harness.

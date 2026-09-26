@@ -1,0 +1,16 @@
+   Compiling hopper-runtime v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-solana v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Finished `test` profile [unoptimized] target(s) in 1.54s
+     Running tests\transfer.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\transfer-839f8176de81c2ae.exe)
+
+running 4 tests
+test capture_rejects_aliases_invalid_policy_funds_mint_and_live_mutable_borrows ... ok
+test mutable_projection_moves_keep_the_lease_until_drop ... ok
+test transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes ... ok
+test verify_rechecks_mint_authority_state_shape_owner_and_live_borrows ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.26s
+

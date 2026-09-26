@@ -1,0 +1,93 @@
+   Compiling hopper-runtime v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-system v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-systems v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-solana v0.4.1 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+    Finished `test` profile [unoptimized] target(s) in 2.28s
+     Running unittests src\lib.rs (target\debug\deps\hopper_solana-0cd2e9ad651eced8.exe)
+
+running 57 tests
+test crypto::ed25519::tests::checks_selected_signature_payload ... ok
+test crypto::ed25519::tests::checks_single_signature_payload ... ok
+test crypto::ed25519::tests::rejects_cross_instruction_offsets ... ok
+test oracle::tests::read_ema_valid ... ok
+test crypto::ed25519::tests::rejects_signature_offset_out_of_bounds ... ok
+test crypto::secp256k1::tests::checks_selected_inline_signature ... ok
+test crypto::secp256k1::tests::checks_single_inline_signature ... ok
+test crypto::secp256k1::tests::rejects_cross_instruction_reference_by_default ... ok
+test crypto::secp256k1::tests::cross_instruction_variant_checks_referenced_payload ... ok
+test interface::tests::token_2022_extended_shapes_require_discriminator_and_zero_mint_padding ... ok
+test interface::tests::interface_shapes_match_canonical_token_unpackers ... ok
+test interface::tests::token_program_kind_from_owner_rejects_other_programs ... ok
+test interface::tests::token_program_kind_program_id_is_stable ... ok
+test oracle::tests::confidence_check ... ok
+test oracle::tests::freshness_check ... ok
+test crypto::ed25519::tests::rejects_selected_signature_out_of_range ... ok
+test oracle::tests::read_price_valid ... ok
+test oracle::tests::rejects_non_trading ... ok
+test token2022_ext::tests::detects_transfer_hook ... ok
+test oracle::tests::rejects_wrong_version ... ok
+test token2022_ext::tests::check_transfer_hook_program_accepts_match ... ok
+test token2022_ext::tests::check_transfer_hook_program_rejects_mismatch ... ok
+test token2022_ext::tests::detects_confidential_transfer ... ok
+test token2022_ext::tests::check_transfer_hook_program_rejects_missing_extension ... ok
+test token2022_ext::tests::detects_permanent_delegate ... ok
+test token2022_ext::tests::detects_transfer_fee ... ok
+test token2022_ext::tests::no_extensions_passes_all_checks ... ok
+test interface::tests::token_program_kind_from_owner_matches_known_programs ... ok
+test oracle::tests::pub_slot_reads ... ok
+test token2022_ext::tests::read_transfer_fee_config_parses_correctly ... ok
+test oracle::tests::rejects_wrong_magic ... ok
+test token2022_ext::tests::finds_second_extension ... ok
+test oracle::tests::rejects_too_short ... ok
+test token2022_ext::tests::detects_non_transferable ... ok
+test crypto::secp256k1::tests::rejects_signature_bounds ... ok
+test token2022_ext::tests::offset_constants_match_authoritative_spec ... ok
+test token2022_ext::tests::read_transfer_fee_config_rejects_missing ... ok
+test oracle::tests::ema_reads_non_trading ... ok
+test token2022_ext::tests::read_transfer_hook_parses_authority_and_program_id ... ok
+test token2022_ext::tests::read_transfer_hook_rejects_truncated_extension ... ok
+test token2022_ext::tests::read_transfer_hook_returns_none_when_absent ... ok
+test token2022_ext::tests::rejects_reading_mint_extension_out_of_token_account ... ok
+test token2022_ext::tests::safe_check_rejects_new_unknown_duplicate_and_malformed_extensions ... ok
+test token2022_ext::tests::safe_check_requires_canonical_extended_mint_envelope ... ok
+test token2022_ext::tests::safe_with_benign_extensions_only ... ok
+test token2022_ext::tests::tlv_payload_lives_at_byte_166 ... ok
+test twap::tests::compute_twap_basic ... ok
+test twap::tests::compute_twap_mixed ... ok
+test twap::tests::deviation_check_rejects_excess ... ok
+test token2022_ext::tests::truncated_tlv_returns_none ... ok
+test twap::tests::compute_twap_rejects_zero_elapsed ... ok
+test twap::tests::cumulative_accumulates ... ok
+test twap::tests::deviation_check_passes_within_bounds ... ok
+test twap::tests::deviation_check_rejects_zero_twap ... ok
+test twap::tests::full_twap_cycle ... ok
+test token2022_ext::tests::unknown_base_size_is_rejected ... ok
+test twap::tests::no_time_elapsed_unchanged ... ok
+
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\transfer.rs (target\debug\deps\transfer-428a88931ae05a53.exe)
+
+running 4 tests
+test capture_rejects_aliases_invalid_policy_funds_mint_and_live_mutable_borrows ... ok
+test mutable_projection_moves_keep_the_lease_until_drop ... ok
+test verify_rechecks_mint_authority_state_shape_owner_and_live_borrows ... ok
+test transfer_policies_cover_exact_fees_shortfalls_reversed_movement_and_extremes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hopper_solana
+
+running 8 tests
+test crates\hopper-solana\src\authority.rs - authority (line 14) ... ignored
+test crates\hopper-solana\src\balance.rs - balance (line 7) ... ignored
+test crates\hopper-solana\src\compute.rs - compute::check_compute_remaining (line 42) ... ignored
+test crates\hopper-solana\src\compute.rs - compute::require_compute_remaining (line 59) ... ignored
+test crates\hopper-solana\src\crypto\ed25519.rs - crypto::ed25519 (line 28) ... ignored
+test crates\hopper-solana\src\crypto\merkle.rs - crypto::merkle (line 7) ... ignored
+test crates\hopper-solana\src\crypto\merkle.rs - crypto::merkle::verify_merkle_proof (line 23) ... ignored
+test crates\hopper-solana\src\interface.rs - interface::InterfaceTokenAccount (line 124) ... ignored
+
+test result: ok. 0 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

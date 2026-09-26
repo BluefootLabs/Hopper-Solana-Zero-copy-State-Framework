@@ -1,0 +1,11 @@
+{
+  "results": {
+    "build": 0,
+    "lint": 0
+  },
+  "lintFiles": [
+    "components/framework-evidence.tsx",
+    "components/use-cases.tsx",
+    "lib/docs.ts"
+  ]
+}

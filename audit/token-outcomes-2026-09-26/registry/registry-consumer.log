@@ -1,0 +1,19 @@
+    Updating crates.io index
+     Locking 44 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+ Downloading crates ...
+  Downloaded hopper-solana v0.4.1
+   Compiling hopper-runtime v0.4.3
+    Checking hopper-native v0.4.2
+    Checking hopper-systems v0.4.0
+    Checking hopper-system v0.4.0
+    Checking hopper-token v0.4.0
+    Checking hopper-memo v0.4.0
+    Checking hopper-solana v0.4.1
+    Checking hopper-schema v0.4.0
+    Checking hopper-associated-token v0.4.0
+    Checking hopper-token-2022 v0.4.0
+    Checking hopper-macros v0.4.0
+    Checking hopper-lang v0.4.0
+    Checking hopper-outcomes-consumer v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\cpi-outcomes-2026-09-26\registry\consumer)
+    Finished `dev` profile [unoptimized] target(s) in 15.02s

@@ -1,0 +1,3 @@
+Command: ["node", "node_modules/eslint/bin/eslint.js", "components/framework-evidence.tsx", "components/use-cases.tsx", "lib/docs.ts"]
+
+Exit code: 0

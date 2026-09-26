@@ -40,6 +40,11 @@ for time-based entitlement.
 [Distribution math](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/crates/hopper-distribute)
 calculates proportional shares and fees; it does not distribute tokens itself.
 
+[Token receipt policies](/docs/token-receipts) verify the actual source debit and
+recipient credit around a transfer. Require an exact payout or explicitly allow
+a fee while enforcing a minimum receipt. These checks run on chain; they do not
+provide campaign eligibility or claim replay protection.
+
 A complete claim program must authenticate the recipient, establish eligibility,
 prevent repeated claims, validate the mint and token accounts, and release tokens
 from funded custody. It also needs campaign administration and recovery rules.
@@ -77,7 +82,7 @@ Do not assume all Token Metadata assets use the same transfer lifecycle.
 **User outcome:** approve treasury actions together and give delegates bounded
 spending authority.
 
-The [governance guide](https://hopperzero.dev/docs/governance) introduces a
+The [governance guide](/docs/governance) introduces a
 bounded multisig that authenticates configured member signatures and moves SOL,
 and a treasury with real deposits, delegated withdrawals, budgets, and cooldowns.
 Persistent proposals, weighted voting, and token-specific treasury policies are
@@ -88,11 +93,11 @@ additional application features.
 The [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-vault)
 teaches account initialization, authority checks, and real deposits and
 withdrawals. The
-[byte-allowance program](https://hopperzero.dev/docs/byte-allowance)
+[byte-allowance program](/docs/byte-allowance)
 teaches delegated limits and writes restricted to selected usage fields.
 
 The published 0.4.0 vault has a captured 19-transaction devnet run. A fresh
 0.4.0 allowance run captured 40 finalized transactions with full expected
 account-state checks. These runs do not validate an airdrop or NFT marketplace.
-See the [release evidence](https://hopperzero.dev/docs/release-status) before
+See the [release evidence](/docs/release-status) before
 using a result as a deployment claim.

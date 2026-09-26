@@ -1,0 +1,84 @@
+{
+  "blockTime": 1790431090,
+  "meta": {
+    "computeUnitsConsumed": 3056,
+    "costUnits": 4560,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: InitializeAccount3",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 3056 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": [
+      903146705,
+      1554480,
+      1159846,
+      2062480
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "8o8WXwuHk7smsgso414jQJWJa1CSpjE7SffaBLfSvisG",
+        "owner": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "0",
+          "decimals": 6,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "preBalances": [
+      903151705,
+      1554480,
+      1159846,
+      2062480
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 504430774,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "HZjKVRiG3zMPoBApVwQb7Qu3vx359KdguXa7NUgJtLL5",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "8o8WXwuHk7smsgso414jQJWJa1CSpjE7SffaBLfSvisG"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            3
+          ],
+          "data": "6R1HrQo4uJ9XURYqphuP6rktYibqiUVAbpySr9VkqrP8k",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "sUSQUyAbVZkouygnHZhxnEdTbmRcVi2WqaZXFvv53CM"
+    },
+    "signatures": [
+      "2EmGxCnSj6To1TXE6Qr9vPQsiccbsAhMMAu1LKySViUayT7Vr9hTEghYHpeApndwNpjGJthWqcagUtXfip11tJwj"
+    ]
+  },
+  "transactionIndex": 10,
+  "version": "legacy"
+}
