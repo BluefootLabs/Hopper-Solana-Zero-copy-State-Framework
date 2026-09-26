@@ -26,7 +26,7 @@ fn backing() -> Backing {
 }
 fn view(backing: &mut Backing) -> AccountView<'_> {
     // SAFETY: repr(C) backing has the loader header followed by its 16 data bytes.
-    unsafe { AccountView::new_unchecked(&mut backing.header) }
+    unsafe { AccountView::new_unchecked((backing as *mut Backing).cast()) }
 }
 
 #[test]

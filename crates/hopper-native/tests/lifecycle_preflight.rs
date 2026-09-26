@@ -26,7 +26,7 @@ fn backing(tag: u8) -> Backing {
 fn view(backing: &mut Backing) -> AccountView<'_> {
     // SAFETY: Backing has the loader header layout, initialized original length,
     // and sufficient initialized storage for every resize exercised below.
-    unsafe { AccountView::new_unchecked(&mut backing.header) }
+    unsafe { AccountView::new_unchecked((backing as *mut Backing).cast()) }
 }
 
 #[test]

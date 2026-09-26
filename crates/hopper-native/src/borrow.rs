@@ -148,14 +148,30 @@ impl<'a, T: ?Sized> RefMut<'a, T> {
     /// may itself mutate data before returning an error; those edits are retained.
     #[inline]
     pub fn try_map<U: ?Sized, E>(
-        mut orig: Self,
+        orig: Self,
         f: impl FnOnce(&mut T) -> Result<&mut U, E>,
     ) -> Result<RefMut<'a, U>, (Self, E)> {
-        match f(&mut *orig) {
+        // Move the original exclusive reference before deriving the projection.
+        // Moving it afterwards would retag the parent and invalidate the child
+        // pointer under Stacked Borrows. Keep unwind release separate from that
+        // reference so a panicking closure does not strand the account lease.
+        struct ReleaseOnUnwind(*mut u8);
+        impl Drop for ReleaseOnUnwind {
+            fn drop(&mut self) {
+                if !self.0.is_null() {
+                    // SAFETY: this guard owns the original exclusive lease;
+                    // its account header outlives the mapping call.
+                    unsafe { *self.0 = crate::NOT_BORROWED };
+                }
+            }
+        }
+        let mut orig = core::mem::ManuallyDrop::new(orig);
+        let state = orig.state;
+        let unwind = ReleaseOnUnwind(state);
+        match f(&mut **orig) {
             Ok(value) => {
                 let ptr = value as *mut U;
-                let state = orig.state;
-                core::mem::forget(orig);
+                core::mem::forget(unwind);
                 // SAFETY: the closure's reference is derived from the original
                 // guard or is independently valid for that borrow. The original
                 // guard is consumed without releasing its exclusive lease; the
@@ -166,7 +182,10 @@ impl<'a, T: ?Sized> RefMut<'a, T> {
                     state,
                 })
             }
-            Err(error) => Err((orig, error)),
+            Err(error) => {
+                core::mem::forget(unwind);
+                Err((core::mem::ManuallyDrop::into_inner(orig), error))
+            }
         }
     }
 
