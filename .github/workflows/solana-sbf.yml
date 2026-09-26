@@ -97,6 +97,13 @@ jobs:
           cargo build-sbf \
             --manifest-path examples/hopper-escrow/Cargo.toml \
             -- --locked
+      - name: Test funded escrow against canonical SPL Token
+        env:
+          HOPPER_ESCROW_SBF: target/deploy/hopper_escrow.so
+        run: |
+          test -f "$HOPPER_ESCROW_SBF"
+          cargo test --manifest-path bench/framework-comparison/verifier/Cargo.toml \
+            --test token_escrow_sbf --locked -- --ignored --nocapture
       - name: Build versioned-state (migration) SBF
         run: |
           cargo build-sbf \

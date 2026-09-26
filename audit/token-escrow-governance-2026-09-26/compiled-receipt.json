@@ -1,0 +1,15 @@
+{
+  "builds": [
+    {
+      "arch": "v0",
+      "bytes": 41656,
+      "sha256": "9ae4f1aaf919e152d58789438c5b2859ba9f432862e65a64a77579407021751b"
+    },
+    {
+      "arch": "v3",
+      "bytes": 40656,
+      "sha256": "7ac2d2d1e554a8d12b2bb4896d7b6058e8bb3a27d2d8188d3a4a7a2dc8a12aaf"
+    }
+  ],
+  "testsPassed": true
+}

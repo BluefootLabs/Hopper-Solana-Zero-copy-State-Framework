@@ -6,21 +6,21 @@
     {
       "name": "Escrow",
       "disc": 2,
-      "version": 1,
-      "layoutId": "16c7dfcd3f9045eb",
-      "totalSize": 161,
+      "version": 2,
+      "layoutId": "b2e9d63057f59047",
+      "totalSize": 192,
       "hasDynamicTail": false,
       "fieldCount": 7,
       "fields": [
-        { "name": "maker", "type": "TypedAddress<Authority>", "size": 32, "offset": 16, "intent": "custom" },
-        { "name": "maker_ta", "type": "TypedAddress<Token>", "size": 32, "offset": 48, "intent": "custom" },
-        { "name": "mint_a", "type": "TypedAddress<Mint>", "size": 32, "offset": 80, "intent": "custom" },
-        { "name": "mint_b", "type": "TypedAddress<Mint>", "size": 32, "offset": 112, "intent": "custom" },
-        { "name": "amount_offered", "type": "WireU64", "size": 8, "offset": 144, "intent": "custom" },
-        { "name": "amount_wanted", "type": "WireU64", "size": 8, "offset": 152, "intent": "custom" },
-        { "name": "bump", "type": "u8", "size": 1, "offset": 160, "intent": "custom" }
+        { "name": "maker", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "maker_receive", "type": "Address", "size": 32, "offset": 48, "intent": "custom" },
+        { "name": "mint_a", "type": "Address", "size": 32, "offset": 80, "intent": "custom" },
+        { "name": "mint_b", "type": "Address", "size": 32, "offset": 112, "intent": "custom" },
+        { "name": "vault", "type": "Address", "size": 32, "offset": 144, "intent": "custom" },
+        { "name": "amount_offered", "type": "WireU64", "size": 8, "offset": 176, "intent": "custom" },
+        { "name": "amount_wanted", "type": "WireU64", "size": 8, "offset": 184, "intent": "custom" }
       ],
-      "semanticFingerprint": "897be08f9bb75d40"
+      "semanticFingerprint": "db9765ec9d47cfef"
     }
   ],
   "instructions": [
@@ -29,14 +29,22 @@
       "tag": 0,
       "discriminatorBytes": [0],
       "args": [
-        { "name": "mint_a", "type": "Address", "size": 32, "encoding": "fixed" },
-        { "name": "mint_b", "type": "Address", "size": 32, "encoding": "fixed" },
         { "name": "amount_offered", "type": "u64", "size": 8, "encoding": "fixed" },
         { "name": "amount_wanted", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
         { "name": "maker", "writable": true, "signer": true },
-        { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" },
+        { "name": "escrow", "writable": true, "signer": true, "layoutRef": "Escrow" },
+        { "name": "vault_authority", "writable": false, "signer": false, "seeds": [
+          "VAULT_SEED",
+          "escrow.address().as_array()"
+        ] },
+        { "name": "vault", "writable": true, "signer": true },
+        { "name": "mint_a", "writable": false, "signer": false },
+        { "name": "mint_b", "writable": false, "signer": false },
+        { "name": "maker_source", "writable": true, "signer": false },
+        { "name": "maker_receive", "writable": false, "signer": false },
+        { "name": "token_program", "writable": false, "signer": false },
         { "name": "system_program", "writable": false, "signer": false }
       ],
       "capabilities": [],
@@ -50,11 +58,26 @@
       "name": "take",
       "tag": 1,
       "discriminatorBytes": [1],
-      "args": [],
+      "args": [
+        { "name": "amount_offered", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "amount_wanted", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
       "accounts": [
         { "name": "taker", "writable": false, "signer": true },
         { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" },
-        { "name": "maker", "writable": true, "signer": false }
+        { "name": "maker", "writable": true, "signer": false },
+        { "name": "vault_authority", "writable": false, "signer": false, "seeds": [
+          "VAULT_SEED",
+          "escrow.address().as_array()"
+        ] },
+        { "name": "vault", "writable": true, "signer": false },
+        { "name": "mint_a", "writable": false, "signer": false },
+        { "name": "mint_b", "writable": false, "signer": false },
+        { "name": "taker_receive", "writable": true, "signer": false },
+        { "name": "taker_source", "writable": true, "signer": false },
+        { "name": "maker_receive", "writable": true, "signer": false },
+        { "name": "maker_refund", "writable": true, "signer": false },
+        { "name": "token_program", "writable": false, "signer": false }
       ],
       "capabilities": [],
       "policyPack": "",
@@ -70,7 +93,15 @@
       "args": [],
       "accounts": [
         { "name": "maker", "writable": true, "signer": true },
-        { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" }
+        { "name": "escrow", "writable": true, "signer": false, "layoutRef": "Escrow" },
+        { "name": "vault_authority", "writable": false, "signer": false, "seeds": [
+          "VAULT_SEED",
+          "escrow.address().as_array()"
+        ] },
+        { "name": "vault", "writable": true, "signer": false },
+        { "name": "mint_a", "writable": false, "signer": false },
+        { "name": "maker_refund", "writable": true, "signer": false },
+        { "name": "token_program", "writable": false, "signer": false }
       ],
       "capabilities": [],
       "policyPack": "",
@@ -88,7 +119,17 @@
       "name": "Make",
       "accounts": [
         { "name": "maker", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
-        { "name": "escrow", "kind": "Escrow", "writable": true, "signer": false, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "init", "payer": "maker", "initSpace": 161, "hasOne": [] },
+        { "name": "escrow", "kind": "Escrow", "writable": true, "signer": true, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "init", "payer": "maker", "initSpace": 192, "hasOne": [] },
+        { "name": "vault_authority", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [
+          "VAULT_SEED",
+          "escrow.address().as_array()"
+        ], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "mint_a", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "mint_b", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "maker_source", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "maker_receive", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "token_program", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
       "instructions": [
@@ -106,9 +147,25 @@
       "accounts": [
         { "name": "taker", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "escrow", "kind": "Escrow", "writable": true, "signer": false, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
-          "maker"
+          "maker",
+          "vault",
+          "mint_a",
+          "mint_b",
+          "maker_receive"
         ] },
-        { "name": "maker", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+        { "name": "maker", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault_authority", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [
+          "VAULT_SEED",
+          "escrow.address().as_array()"
+        ], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "mint_a", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "mint_b", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "taker_receive", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "taker_source", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "maker_receive", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "maker_refund", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "token_program", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
       "instructions": [
         "take"
@@ -125,8 +182,18 @@
       "accounts": [
         { "name": "maker", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
         { "name": "escrow", "kind": "Escrow", "writable": true, "signer": false, "layoutRef": "Escrow", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
-          "maker"
-        ] }
+          "maker",
+          "vault",
+          "mint_a"
+        ] },
+        { "name": "vault_authority", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [
+          "VAULT_SEED",
+          "escrow.address().as_array()"
+        ], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "vault", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "mint_a", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "maker_refund", "kind": "UncheckedAccount", "writable": true, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "token_program", "kind": "UncheckedAccount", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
       ],
       "instructions": [
         "cancel"

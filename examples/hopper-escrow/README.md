@@ -1,101 +1,94 @@
-# Hopper Escrow
+# Hopper token escrow
 
-This example covers the state and close-account semantics of an escrow-shaped
-lifecycle. It does not perform SPL Token custody or token-transfer CPIs, so it
-must not be used as evidence of a token escrow implementation.
+An all-or-nothing exchange of two classic SPL tokens, implemented with Hopper
+accounts, canonical PDA validation, and checked token CPIs.
 
-## What It Demonstrates
+- **Make:** create the 192-byte escrow state and a 165-byte token vault, then
+  transfer the maker's offered tokens into custody.
+- **Take:** verify the expected quote, pay the maker, release the offered tokens
+  to the taker, refund any excess vault tokens to the maker, and close both
+  vault and escrow. Any failure rolls back the entire instruction.
+- **Cancel:** only the maker can refund all vault tokens and close the offer.
 
-- zero-copy escrow state via `#[account]`
-- typed contexts via `#[derive(Accounts)]`
-- `Ctx<T>` handlers with `ctx.accounts.*` business methods
-- Hopper account creation and typed state writes
-- authority-gated state transitions and close-account lamport recovery
-- `UncheckedAccount` for raw accounts that are intentionally not decoded
+Both accounts' rent returns to the maker. Anyone may take an offer with the
+correct payment; the maker cannot change its quote after creation. No client,
+indexer, receipt service, or off-chain authorization is needed to enforce it.
 
-## Instruction Map
+## Token policy
 
-- `0` = `Make`: initialize the state and record maker and offer metadata.
-- `1` = `Take`: enforce the stored maker link and close the state account.
-- `2` = `Cancel`: enforce the maker signer link and close the state account.
+This example deliberately accepts classic SPL Token only. Mints must be
+initialized and have no freeze authority. Token accounts must have the expected
+mint and owner, be initialized and unfrozen, and not represent wrapped SOL.
+The custody vault must have neither a delegate nor a separate close authority.
+Token-2022, transfer fees/hooks, native SOL, partial fills, expiration, and
+multisig token owners are not implemented here. Other Hopper token APIs are
+separate from this example's policy.
 
-The mint and amount fields are state metadata in this example. None of these
-instructions validates token accounts, moves tokens, or performs an SPL CPI.
+User token accounts must already exist. Make creates a fresh token vault from a
+new keypair; its **token authority** is the canonical PDA derived from
+`[b"escrow-vault", escrow_address]`. The vault keypair cannot authorize spending
+its tokens after initialization. The vault is not an ATA. A prefunded vault
+address is rejected by System CreateAccount; choose a fresh vault keypair.
 
-## Devnet
+Take requires the stored maker payment account. Refunds may go to any validated
+maker-owned account for the offered mint, allowing a replacement refund account
+if the original source was closed. Keep the maker payment account available
+until settlement or cancel the offer. Unsolicited vault deposits return to the
+maker; they do not change the taker's quote.
 
-Historical deployment record (not a fresh finalized attestation):
+## Account and instruction ABI
 
-- Program id: `5Ficb6k1Lv8tV8pThmQLU9H4MAYGbArwGRH2vrTHoPuN`
-- `.so` size: 18 736 bytes
+Data starts with a one-byte discriminator. Make and Take then contain
+`amount_offered: u64 LE` and `amount_wanted: u64 LE` (17 bytes total). Cancel is
+exactly one byte. Take's amounts are an expected quote, not a partial-fill amount.
 
-```bash
-hopper build -p hopper-escrow
-hopper deploy --cluster devnet \
-  --keypair /abs/path/devnet-keypair.json \
-  --program-id target/deploy/hopper_escrow-keypair.json
-```
+| Tag | Accounts in order (`w` writable, `s` signer) |
+|---|---|
+| 0 Make | maker(ws), escrow(ws), vault_authority, vault(ws), mint_a, mint_b, maker_source(w), maker_receive, token_program, system_program |
+| 1 Take | taker(s), escrow(w), maker(w), vault_authority, vault(w), mint_a, mint_b, taker_receive(w), taker_source(w), maker_receive(w), maker_refund(w), token_program |
+| 2 Cancel | maker(ws), escrow(w), vault_authority, vault(w), mint_a, maker_refund(w), token_program |
 
-After deploying the final source to a fresh program id, run the state-lifecycle
-integration test below. It is gated so the default `cargo test` stays offline:
+All application account roles must be distinct. The bounded generated
+entrypoint can ignore surplus account metas; the payload lengths above are
+exact. The source-generated `hopper.manifest.json` describes this ABI.
 
-```bash
-HOPPER_DEVNET=1 \
-HOPPER_ESCROW_PROGRAM_ID=REPLACE_WITH_FRESH_PROGRAM_ID \
-HOPPER_KEYPAIR=/abs/path/devnet-keypair.json \
-cargo test -p hopper-escrow --test devnet -- --nocapture
-```
-
-When `HOPPER_DEVNET` is set it must be exactly `1`; any other value fails
-instead of silently skipping. The test verifies the devnet genesis hash and
-deployed program account, then polls every transaction and state read at
-finalized commitment. It asserts every initialized field exactly, submits a
-wrong-maker cancel and proves the complete account snapshot is unchanged, then
-closes with the correct maker and polls until the account is absent.
-
-A passing run emits one line prefixed with
-`HOPPER_DEVNET_EVIDENCE_JSON=`. The deterministic JSON shape binds the cluster
-genesis and node version, program id, public account ids, finalized signatures
-and slots, initialized state values, pre/post account SHA-256 values, and the
-close result. It contains no keypair path or RPC URL; custom RPC endpoints are
-reported as `redacted`.
-
-`account_sha256` hashes this canonical byte sequence: lamports as little-endian
-u64, owner pubkey, executable as one byte, rent epoch as little-endian u64,
-data length as little-endian u64, then the complete account data.
+State discriminator remains 2, but **layout version is now 2**. The old
+161-byte state-only example is incompatible. Deploy this version to a fresh
+program ID; historical deployments and state-only test receipts do not validate
+the funded implementation. The obsolete state-only devnet test was replaced by
+the token custody runner below.
 
 ## Verify
 
-```bash
-cargo check -p hopper-escrow
-hopper build --host -p hopper-escrow
-hopper build -p hopper-escrow
-```
-
-## Manifest Path
-
-This example ships a checked-in `hopper.manifest.json` describing the
-`Escrow` layout and the make/take/cancel instructions. `hopper explain`
-uses it to decode a real devnet `make` transaction without requiring an
-on-chain Hopper manifest:
+Build the actual program and execute it against the canonical SPL Token ELF:
 
 ```bash
-hopper explain <make-tx-signature> \
-  --manifest examples/hopper-escrow/hopper.manifest.json
+cargo build-sbf --manifest-path examples/hopper-escrow/Cargo.toml -- --locked
+HOPPER_ESCROW_SBF=target/deploy/hopper_escrow.so \
+  cargo test --manifest-path bench/framework-comparison/verifier/Cargo.toml \
+  --test token_escrow_sbf --locked -- --ignored --nocapture
 ```
 
-Canonical local generation path:
+The compiled suites check exact complete account states for make, take, cancel,
+and excess deposits. Refusals cover signer/writable privileges, account links,
+mint/owner/state, custody delegation, wrong programs, stale quotes, malformed
+payloads, insufficient funds, reinitialization, and repeated settlement.
+A synthetic rent-return overflow proves full rollback after successful token
+transfers and token-vault closure. This fault injection is a local VM test, not
+a claim of a naturally occurring devnet condition.
 
-1. generate and review the checked-in manifest from program source
-2. drive `hopper manager` and `hopper client gen` from that local artifact
-3. if application-specific tooling provisions the legacy `MANIFEST_SEED` PDA,
-   `hopper fetch <program-id>` can read it; Hopper ships no generic publisher
-
-## CLI Walkthrough
+After deploying the exact ELF to devnet, with a clean committed checkout:
 
 ```bash
-hopper build --host -p hopper-escrow
-hopper test -p hopper-escrow
-hopper build -p hopper-escrow
-hopper profile bench
+python scripts/test-token-escrow-devnet.py \
+  --program PROGRAM_ID --payer /path/to/devnet-payer.json \
+  --hopper /path/to/hopper --elf target/deploy/hopper_escrow.so \
+  --header-hex HEADER_PRINTED_BY_COMPILED_TEST \
+  --out target/hopper/token-escrow-devnet
 ```
+
+The runner verifies devnet genesis, compares deployed ELF bytes before and after,
+creates real mints and token accounts, and checks finalized full account
+snapshots after each transaction, including expected failures. Private keypairs
+remain under its ignored output directory. This example has not received an
+independent security audit.

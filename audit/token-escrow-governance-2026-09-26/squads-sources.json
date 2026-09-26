@@ -1,0 +1,42 @@
+{
+  "project": "Squads v4",
+  "commit": "af94153ff77a28b6effe46b9c94baaa93742b48c",
+  "files": [
+    {
+      "path": "programs/squads_multisig_program/src/state/multisig.rs",
+      "sha256": "4ad0764e559a0376ad39c9e4d84a106dd0ec8fc040cdf0bf223c55763f07c9a0",
+      "bytes": 10164,
+      "url": "https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/state/multisig.rs"
+    },
+    {
+      "path": "programs/squads_multisig_program/src/state/proposal.rs",
+      "sha256": "8d359e950e53280d398c8a1c8e63fbaeae9dcf458c2a2eb86ae4713f53dc07a0",
+      "bytes": 7691,
+      "url": "https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/state/proposal.rs"
+    },
+    {
+      "path": "programs/squads_multisig_program/src/state/spending_limit.rs",
+      "sha256": "43046a6e85039d53f0c09757cc020f3eda13bb25f86fe16c6aa10d78a0bd0167",
+      "bytes": 3638,
+      "url": "https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/state/spending_limit.rs"
+    },
+    {
+      "path": "programs/squads_multisig_program/src/instructions/proposal_vote.rs",
+      "sha256": "bd5d7a9840752fe646a416cbaf9f5921ad44a7d3898945d503a112b29f4ea8f4",
+      "bytes": 5234,
+      "url": "https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/instructions/proposal_vote.rs"
+    },
+    {
+      "path": "programs/squads_multisig_program/src/instructions/vault_transaction_execute.rs",
+      "sha256": "ac9161ec101bc96a13e32a329f69734823df478d308718918f4f8608a5376d97",
+      "bytes": 5226,
+      "url": "https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/instructions/vault_transaction_execute.rs"
+    },
+    {
+      "path": "programs/squads_multisig_program/src/instructions/spending_limit_use.rs",
+      "sha256": "45aaf25af6f7c8fb2a7ecb4655296a181f4b458373e0371536461af9069b82bb",
+      "bytes": 8997,
+      "url": "https://github.com/Squads-Protocol/v4/blob/af94153ff77a28b6effe46b9c94baaa93742b48c/programs/squads_multisig_program/src/instructions/spending_limit_use.rs"
+    }
+  ]
+}

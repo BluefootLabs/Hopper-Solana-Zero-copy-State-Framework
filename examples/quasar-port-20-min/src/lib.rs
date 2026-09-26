@@ -86,22 +86,27 @@ pub fn initialize_multisig_data(
     if data.len() < Multisig::ALLOC_SPACE {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    if threshold == 0 || threshold as usize > signers.len() {
+    if threshold == 0 || threshold > signers.len() as u64 {
         return Err(ProgramError::InvalidInstructionData);
     }
+    require_unique_members(signers)?;
+
+    // Validate all fallible input conversions before changing the buffer.
+    let tail = MultisigTail {
+        label: HopperString::from_str(label)?,
+        signers: HopperVec::from_slice(signers)?,
+    };
 
     init_header::<Multisig>(data)?;
     let body = Multisig::overlay_mut(&mut data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
     *body = Multisig::new(threshold);
 
-    let tail = MultisigTail {
-        label: HopperString::from_str(label)?,
-        signers: HopperVec::from_slice(signers)?,
-    };
     Multisig::tail_write(data, &tail)?;
     Ok(())
 }
 
+/// Count distinct configured identities. The caller must authenticate approvals;
+/// passing public keys to this data helper does not prove transaction signatures.
 pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, ProgramError> {
     if data.len() < Multisig::TAIL_PREFIX_OFFSET {
         return Err(ProgramError::AccountDataTooSmall);
@@ -113,6 +118,7 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
     }
 
     let signers = Multisig::signers(data)?;
+    require_unique_members(signers)?;
     let mut approved = 0usize;
     for signer in signers {
         if approvals.iter().any(|candidate| candidate == signer) {
@@ -125,6 +131,15 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
     Ok(false)
 }
 
+fn require_unique_members(signers: &[Address]) -> ProgramResult {
+    for (index, signer) in signers.iter().enumerate() {
+        if signers[..index].contains(signer) {
+            return Err(ProgramError::InvalidAccountData);
+        }
+    }
+    Ok(())
+}
+
 pub fn rename_multisig_data(data: &mut [u8], label: &str) -> ProgramResult {
     Multisig::set_label(data, label)
 }
@@ -134,12 +149,46 @@ pub fn add_signer_data(data: &mut [u8], signer: Address) -> ProgramResult {
 }
 
 pub fn remove_signer_data(data: &mut [u8], signer: &Address) -> Result<bool, ProgramError> {
+    let members = Multisig::signers(data)?;
+    require_unique_members(members)?;
+    if !members.contains(signer) {
+        return Ok(false);
+    }
+    let body = Multisig::overlay(&data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
+    if body.threshold() == 0 || body.threshold() > (members.len() - 1) as u64 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
     Multisig::remove_signer(data, signer)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn duplicate_members_cannot_satisfy_a_threshold() {
+        let a = Address::new([1; 32]);
+        let b = Address::new([2; 32]);
+        let mut data = [0u8; Multisig::ALLOC_SPACE];
+        let before = data;
+        assert!(initialize_multisig_data(&mut data, 2, "ops", &[a, a]).is_err());
+        assert_eq!(data, before);
+        initialize_multisig_data(&mut data, 2, "ops", &[a, b]).unwrap();
+        assert!(!threshold_met(&data, &[a, a]).unwrap());
+        let before = data;
+        assert!(remove_signer_data(&mut data, &b).is_err());
+        assert_eq!(data, before);
+        // Reject old or malformed storage containing duplicate members too.
+        Multisig::tail_write(
+            &mut data,
+            &MultisigTail {
+                label: HopperString::from_str("ops").unwrap(),
+                signers: HopperVec::from_slice(&[a, a]).unwrap(),
+            },
+        )
+        .unwrap();
+        assert!(threshold_met(&data, &[a]).is_err());
+    }
 
     #[test]
     fn bounded_tail_roundtrips_label_and_signers() {

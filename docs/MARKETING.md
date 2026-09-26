@@ -84,3 +84,15 @@ implementation requirements, not benefits that can be inferred from a name.
 Claims and cNFT markets are application directions with explicit integration
 gaps. They are not newly shipped templates, newly measured benchmarks, or a
 new crates.io release.
+
+## Funded escrow and governance follow-up
+
+The replacement escrow now implements classic SPL Token funding, atomic exchange,
+cancellation, surplus refund, and account closure. It uses layout v2; the earlier
+state-only deployment and evidence do not validate this version. Link its current
+README and evidence rather than carrying forward the old no-token description.
+
+Governance is a first-class application direction. The Squads review identifies
+proposal, membership, spending, and execution requirements; it does not establish
+that Hopper outperforms Squads. The bounded multisig example's duplicate-member
+threshold bug is fixed, but it remains a data example, not a complete DAO.

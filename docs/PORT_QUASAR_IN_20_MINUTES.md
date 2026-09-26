@@ -239,3 +239,12 @@ initialization helper, signer-list mutation helpers, and threshold check. The
 CI/release gate runs `cargo check -p hopper-quasar-port-20-min` and
 `cargo test -p hopper-quasar-port-20-min` before the guide is treated as
 compile-checked material.
+
+## Multisig data helper boundaries
+
+The sample rejects duplicate configured members during initialization and
+threshold evaluation. Removing a member through its data helper cannot leave
+fewer members than the threshold. Approval inputs are public keys supplied by
+the caller: the helper does not authenticate signatures or implement proposals,
+time locks, custody, or transaction execution. A real multisig must supply those
+on-chain rules; see the [governance guide](GOVERNANCE_PROGRAMS.md).

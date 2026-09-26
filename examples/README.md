@@ -21,9 +21,9 @@ working examples from helpers and integrations you still need to build.
    dispatch, and state basics in one place. Companion guide:
    [hopper-vault/README.md](hopper-vault/README.md)
 
-3. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Escrow-shaped state lifecycle
-   with authority checks and account closure. It does not hold or transfer SPL
-   tokens; use Cicada to study token custody and settlement. Companion guide: [hopper-escrow/README.md](hopper-escrow/README.md)
+3. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Funded classic SPL Token escrow:
+   make, atomic take, maker cancellation, surplus refund, and rent recovery.
+   Layout v2 replaces the incompatible state-only example. Companion guide: [hopper-escrow/README.md](hopper-escrow/README.md)
 
 4. **[hopper-token-2022-vault](hopper-token-2022-vault/src/lib.rs)** - Hopper-owned
    Token-2022 vault flow with a local `hopper.manifest.json`, so the CLI can

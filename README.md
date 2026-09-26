@@ -4,7 +4,7 @@
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
 Hopper is a zero-copy Solana program framework for Rust developers building
-on-chain trading, token-claim, and marketplace logic. Declare accounts and
+on-chain trading, token-claim, marketplace, and governance logic. Declare accounts and
 handlers, work with stored state in place, and define what each instruction
 may change. Combine the framework with your application rules and integrations.
 
@@ -12,9 +12,13 @@ may change. Combine the framework with your application rules and integrations.
 
 | What you want to build | Available starting point | What you add |
 |---|---|---|
-| Trading and settlement | [Intent settlement and order storage](https://hopperzero.dev/docs/use-cases#trading-and-settlement) | Product rules and production integrations; the orderbook example has no matching or settlement |
+| Trading and settlement | [Funded token escrow, intent settlement, and order storage](https://hopperzero.dev/docs/use-cases#trading-and-settlement) | Product rules and production integrations; the orderbook example has no matching or settlement |
 | Token claims and airdrops | [Claim building blocks](https://hopperzero.dev/docs/use-cases#token-claims-and-airdrops): account state, token CPI, vesting and distribution math | Eligibility, claim replay protection, funded custody, and recovery; no complete airdrop template is claimed |
 | NFT and cNFT markets | [Marketplace integration guide](https://hopperzero.dev/docs/use-cases#nft-and-cnft-markets): state and Token Metadata helpers | Listing and settlement logic; Bubblegum cNFT support requires a custom integration |
+
+For multisig and DAO treasuries, see the
+[governance guide](https://hopperzero.dev/docs/governance): available building
+blocks, a pinned Squads source review, and the application rules still needed.
 
 For a first working program, start with the
 [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/src/lib.rs).

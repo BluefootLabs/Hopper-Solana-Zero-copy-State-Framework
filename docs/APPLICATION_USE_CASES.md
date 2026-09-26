@@ -21,8 +21,11 @@ collateral, matching engine, price sorting, or token settlement.
 Use these to study state and settlement separately. You still design market
 rules, supported assets, pricing, custody, cancellation, and recovery for your
 application. The smaller
-[escrow example](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-escrow)
-demonstrates state transitions and closure only; it does not transfer tokens.
+[funded escrow example](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-escrow)
+creates a classic SPL Token vault, deposits the offer, exchanges both tokens
+atomically, and refunds the maker on cancellation. Surplus deposits return to
+the maker. Layout v2 replaces the old state-only example; read its token policy
+and current validation evidence before deploying.
 
 ## Token claims and airdrops
 
@@ -66,6 +69,17 @@ A cNFT marketplace therefore requires additional Bubblegum CPI integration,
 proof handling, asset validation, and atomic payment/transfer logic. Hopper
 does not yet ship a Bubblegum adapter or a validated cNFT-marketplace example.
 Do not assume all Token Metadata assets use the same transfer lifecycle.
+
+## Governance and DAO treasuries
+
+**User outcome:** approve treasury actions together and give delegates bounded
+spending authority.
+
+See the [governance guide](https://hopperzero.dev/docs/governance) for the Squads
+source review, Hopper's existing account/CPI building blocks, and the proposal
+and voting rules an application must supply. The bounded multisig example
+teaches member storage and threshold arithmetic; it is not a complete governance
+executor. A spending quota alone does not move treasury tokens.
 
 ## Start with a working program
 
