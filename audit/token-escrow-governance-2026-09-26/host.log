@@ -1,0 +1,30 @@
+   Compiling hopper-derive v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros-proc)
+   Compiling hopper-lang v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-escrow v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-escrow)
+   Compiling hopper-quasar-port-20-min v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\quasar-port-20-min)
+    Finished `test` profile [unoptimized] target(s) in 28.28s
+     Running unittests src\lib.rs (target\debug\deps\hopper_escrow-5b5fabf2f64c7551.exe)
+
+running 1 test
+test __hopper_manifest_export::__hopper_print_manifest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\hopper_quasar_port_20_min-17624995de2ed588.exe)
+
+running 3 tests
+test tests::bounded_tail_roundtrips_label_and_signers ... ok
+test tests::duplicate_members_cannot_satisfy_a_threshold ... ok
+test tests::multisig_data_helpers_cover_initialize_update_and_thresholds ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hopper_escrow
+
+running 3 tests
+test examples\hopper-escrow\src\lib.rs - CancelCtx<'ctx,'a,__HOPPER_BASE>::bumps (line 72) ... ignored
+test examples\hopper-escrow\src\lib.rs - MakeCtx<'ctx,'a,__HOPPER_BASE>::bumps (line 31) ... ignored
+test examples\hopper-escrow\src\lib.rs - TakeCtx<'ctx,'a,__HOPPER_BASE>::bumps (line 49) ... ignored
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
