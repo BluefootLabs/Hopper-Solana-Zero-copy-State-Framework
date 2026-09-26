@@ -107,6 +107,11 @@ jobs:
           HOPPER_TREASURY_SBF: ${{ github.workspace }}/target/deploy/hopper_treasury.so
           HOPPER_MULTISIG_SBF: ${{ github.workspace }}/target/deploy/hopper_bounded_multisig.so
         run: cargo test -p hopper-framework-verifier --test governance_sbf --locked -- --ignored --nocapture
+      - name: Verify CPI return producer and typed prefix
+        run: |
+          cargo build-sbf --manifest-path bench/return-provenance/program/Cargo.toml -- --locked
+          HOPPER_RETURN_PROVENANCE_SBF="$PWD/target/deploy/hopper_return_provenance_fixture.so" \
+            cargo test -p hopper-framework-verifier --test return_provenance_sbf --locked -- --ignored --nocapture
       - name: Build escrow SBF
         run: |
           cargo build-sbf \
@@ -166,7 +171,7 @@ jobs:
           for name in \
             hopper_counter \
             hopper_vault \
-            hopper_quasar_port_20_min \
+            hopper_bounded_multisig \
             hopper_escrow \
             hopper_migration \
             hopper_orderbook \

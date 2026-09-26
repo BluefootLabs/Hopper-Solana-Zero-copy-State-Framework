@@ -5,10 +5,8 @@
 //! a direct `&T` pointer-cast into account data. No copies, no alloc,
 //! no separate validation steps.
 //!
-//! This is Hopper's low-level projection surface. Pinocchio exposes raw account
-//! bytes, while Anchor's `AccountLoader<T>` uses a derived `ZeroCopy` contract
-//! backed by bytemuck `Pod` and `Zeroable`. Hopper performs the projection with
-//! its own bounds, alignment, and optional discriminator checks.
+//! This low-level projection surface checks bounds, alignment, and an optional
+//! discriminator. Application identity and authorization remain separate checks.
 //!
 //! # Safety model after internal review
 //!
@@ -47,7 +45,7 @@
 //! #[derive(Clone, Copy)]
 //! struct VaultState {
 //!     authority: [u8; 32],
-//!     balance: u64,
+//!     balance: hopper_native::wire::LeU64,
 //!     bump: u8,
 //! }
 //!

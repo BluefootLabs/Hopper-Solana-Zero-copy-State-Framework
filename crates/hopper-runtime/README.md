@@ -85,3 +85,7 @@ not a recoverable `ProgramError` return.
 Specialized System and token CPI helpers reject a required signer locally when
 neither an outer signature nor PDA signer seeds are supplied. Nonempty seeds do
 not prove authority: Solana still derives and verifies the PDA at the CPI boundary.
+
+The native `invoke_and_read<T>` helper also checks the return-data producer and
+typed prefix, rejecting a nested program's unforwarded result. Applications
+remain responsible for validating the returned value's meaning.

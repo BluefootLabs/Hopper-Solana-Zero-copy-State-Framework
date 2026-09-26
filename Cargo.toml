@@ -68,6 +68,7 @@ members = [
     "bench/framework-comparison/verifier",
     "bench/runtime-gate/program",
     "bench/checked-cpi/program",
+    "bench/return-provenance/program",
     "bench/pda-boundaries/program",
     "bench/canonical-pda/program",
     "bench/mint-plan/program",

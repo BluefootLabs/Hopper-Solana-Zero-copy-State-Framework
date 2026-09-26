@@ -2468,6 +2468,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-return-provenance-fixture"
+version = "0.0.0"
+dependencies = [
+ "hopper-native",
+]
+
+[[package]]
 name = "hopper-router"
 version = "0.1.0"
 dependencies = [

@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 ## Native/runtime patch 0.4.1 and repository programs - 2026-09-26
 
 - Reject missing unsigned signer privileges in specialized System/token CPI preflight.
+- Authenticate CPI return-data producers and validate the requested typed prefix;
+  reject a nested callee's unforwarded result.
 - Abort no-allocation and panic failures through the SVM syscall without experimental
   inline assembly or a compute-burning panic loop.
 - Replace the metadata-only multisig example with actual SOL custody, authenticated

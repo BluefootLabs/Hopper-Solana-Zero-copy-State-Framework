@@ -753,7 +753,7 @@ impl<'info> AccountView<'info> {
         }
     }
 
-    // -- Chainable validation (Steel-inspired, improved) ---------------
+    // -- Chainable validation ---------------
     //
     // Return `Result<&Self>` so callers can chain:
     //

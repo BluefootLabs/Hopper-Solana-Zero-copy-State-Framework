@@ -31,7 +31,7 @@
 //! - **Typed CPI return data**: `invoke_and_read::<T>()` -- CPI +
 //!   deserialization in one step. (`return_data`)
 //! - **Chainable validation**: `account.check_signer()?.check_writable()?`
-//!   -- Steel-inspired fluent validation, improved and built in. (`account_view`)
+//!   -- fluent role validation. (`account_view`)
 //! - **Packed flags**: `account.flags()`, `account.expect_flags(SIGNER|WRITABLE)`
 //!   -- check multiple account properties in a single comparison. (`account_view`)
 //! - **Full sysvar access**: Clock, Rent, EpochSchedule with computed

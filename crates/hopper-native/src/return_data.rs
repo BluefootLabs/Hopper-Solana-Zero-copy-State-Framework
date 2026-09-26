@@ -88,6 +88,20 @@ impl ReturnData {
         Ok(unsafe { &*(ptr as *const T) })
     }
 
+    /// Read a typed prefix only when the expected program produced this data.
+    /// Nested CPIs can leave a different producer's return data behind.
+    /// The application remains responsible for the payload's business rules.
+    #[inline]
+    pub fn as_type_from<T: Projectable>(
+        &self,
+        expected_program: &Address,
+    ) -> Result<&T, ProgramError> {
+        if !crate::address::address_eq(self.program_id(), expected_program) {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        self.as_type::<T>()
+    }
+
     /// Read a u64 from the first 8 bytes of return data.
     #[inline]
     pub fn as_u64(&self) -> Result<u64, ProgramError> {
@@ -115,14 +129,10 @@ impl ReturnData {
 ///
 /// Returns `None` if no return data was set (length == 0).
 ///
-/// The 1 KiB buffer is *not* zero-filled before the syscall, the syscall
-/// initializes exactly the reported prefix, and `None` is returned before any
-/// read when the length is 0. This is the bug class behind Quasar #238/#234
-/// (an `assume_init` over a buffer the syscall never wrote, exposing
-/// uninitialized stack bytes as return data); Hopper's shape is immune
-/// because uninitialized bytes can never escape: empty return data (including
-/// the off-chain path, where `len` stays 0) short-circuits to `None`, and
-/// every accessor reads only the syscall-initialized `len`-byte prefix.
+/// Only the initialized prefix reported by the syscall is exposed. Empty
+/// return data yields `None`; accessors never read the uninitialized remainder.
+/// This raw snapshot does not authenticate a producer. Use `as_type_from` or
+/// `invoke_and_read` when interpreting a particular program's result.
 #[inline]
 pub fn get_return_data() -> Option<ReturnData> {
     #[allow(unused_mut)]
@@ -161,20 +171,17 @@ pub fn get_return_data() -> Option<ReturnData> {
     }
 }
 
-/// Invoke a CPI and immediately read back typed return data.
+/// Invoke a CPI and capture a producer-checked, type-validated return snapshot.
 ///
-/// Combines `invoke_signed` + `get_return_data` + `as_type::<T>()` into
-/// a single operation. This is the cleanest way to call a program that
-/// returns structured data.
-///
-/// # Example
+/// The producing program must equal `instruction.program_id`. The snapshot
+/// must contain an aligned `T` prefix; trailing bytes are permitted, matching
+/// `ReturnData::as_type`. No data is `InvalidAccountData`, a different producer
+/// is `IncorrectProgramId`, and a short result is `AccountDataTooSmall`.
+/// Call `as_type::<T>()` on the returned snapshot to borrow the value.
 ///
 /// ```ignore
-/// let oracle_price: &PriceData = invoke_and_read::<PriceData, 2>(
-///     &instruction,
-///     &[&oracle_program, &price_feed],
-///     &[],
-/// )?;
+/// let snapshot = invoke_and_read::<PriceData, 2>(&instruction, &accounts, &[])?;
+/// let oracle_price = snapshot.as_type::<PriceData>()?;
 /// ```
 #[cfg(feature = "cpi")]
 #[inline]
@@ -185,7 +192,9 @@ pub fn invoke_and_read<T: Projectable, const ACCOUNTS: usize>(
 ) -> Result<ReturnData, ProgramError> {
     crate::cpi::invoke_signed::<ACCOUNTS>(instruction, account_views, signers_seeds)?;
 
-    get_return_data().ok_or(ProgramError::InvalidAccountData)
+    let returned = get_return_data().ok_or(ProgramError::InvalidAccountData)?;
+    returned.as_type_from::<T>(instruction.program_id)?;
+    Ok(returned)
 }
 
 #[cfg(test)]
@@ -209,6 +218,28 @@ impl ReturnData {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_return_requires_the_expected_producer_and_initialized_type() {
+        let expected = Address::new_from_array([1; 32]);
+        let nested = Address::new_from_array([2; 32]);
+        let correct = ReturnData::test_snapshot(&42u64.to_le_bytes(), expected.clone());
+        assert_eq!(*correct.as_type_from::<u64>(&expected).unwrap(), 42);
+        assert_eq!(
+            correct.as_type_from::<u64>(&nested),
+            Err(ProgramError::IncorrectProgramId)
+        );
+        let short = ReturnData::test_snapshot(&[42], expected.clone());
+        assert_eq!(
+            short.as_type_from::<u64>(&expected),
+            Err(ProgramError::AccountDataTooSmall)
+        );
+        let forwarded = ReturnData::test_snapshot(&42u64.to_le_bytes(), nested);
+        assert_eq!(
+            forwarded.as_type_from::<u64>(&expected),
+            Err(ProgramError::IncorrectProgramId)
+        );
+    }
 
     #[test]
     fn offchain_get_return_data_is_none() {

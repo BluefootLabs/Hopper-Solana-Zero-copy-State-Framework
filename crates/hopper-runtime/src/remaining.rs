@@ -792,7 +792,7 @@ mod tests {
 
     #[test]
     fn max_remaining_matches_quasar() {
-        // If we ever change this, also update the Quasar parity doc.
+        // If we ever change this, also update the remaining-account documentation.
         assert_eq!(MAX_REMAINING_ACCOUNTS, 64);
     }
     #[test]
