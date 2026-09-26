@@ -32,4 +32,11 @@ Reproduce the on-chain cases with scripts/test-lifecycle-devnet.py and the
 programs in bench/lifecycle. The local build helpers are under reproduction/.
 This is internal validation, not an independent security audit or a complete
 line-by-line audit of all upstream repositories. Hosted CI was previously
-blocked by the GitHub account billing lock; local results are recorded here.
+blocked by the GitHub account billing lock; the pushed release's job annotations
+confirm the jobs were not started. Local results are recorded here. At the final
+capture, docs.rs lists both 0.4.2 crates in its queue; API-page 404s at that point
+are recorded, not represented as successful hosted documentation builds.
+
+The website production deployment is tied to its Git commit. All 50 pages and
+4,303 internal links/heading targets passed live rendered-HTML checks. This is
+content and routing verification, not visual browser inspection.

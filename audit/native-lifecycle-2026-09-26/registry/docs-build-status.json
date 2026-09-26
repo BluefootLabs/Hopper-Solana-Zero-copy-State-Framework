@@ -1,0 +1,20 @@
+[
+  {
+    "url": "https://docs.rs/releases/queue",
+    "status": 200,
+    "observedAt": "2026-09-26T10:52:11.126825+00:00",
+    "excerpt": "link-plugin-host 0.1.3 eventful-rs-macros 0.1.1 nichlink-studio 0.1.3 eventful-rs 0.1.1 brz-io 0.0.5 nichlink-cli 0.1.3 hopper-native 0.4.2 (priority: -1) hopper-runtime 0.4.2 (priority: -1) Rebuild Queue We continuously rebuild the latest versions for all crates so they can benefit from new features in rustdoc. There are currently 0 crates in the rebuild queue. Show "
+  },
+  {
+    "url": "https://docs.rs/crate/hopper-native/0.4.2/builds",
+    "status": 404,
+    "observedAt": "2026-09-26T10:52:11.270566+00:00",
+    "excerpt": "rage.value); } }); applyTheme(window.localStorage.getItem(\"rustdoc-theme\")); })(); Docs.rs docs.rs About docs.rs Badges Builds Metadata Shorthand URLs Download Rustdoc JSON Build queue Privacy policy Rust Rust website The Book Standard Library API Reference Rust by Example The Cargo Guide Clippy Documentation The requested version does not exist no such version for this crate "
+  },
+  {
+    "url": "https://docs.rs/crate/hopper-runtime/0.4.2/builds",
+    "status": 404,
+    "observedAt": "2026-09-26T10:52:11.379538+00:00",
+    "excerpt": "rage.value); } }); applyTheme(window.localStorage.getItem(\"rustdoc-theme\")); })(); Docs.rs docs.rs About docs.rs Badges Builds Metadata Shorthand URLs Download Rustdoc JSON Build queue Privacy policy Rust Rust website The Book Standard Library API Reference Rust by Example The Cargo Guide Clippy Documentation The requested version does not exist no such version for this crate "
+  }
+]
