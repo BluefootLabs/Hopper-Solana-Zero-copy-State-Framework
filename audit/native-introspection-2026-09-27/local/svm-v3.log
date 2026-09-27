@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized] target(s) in 0.54s
+     Running tests\sibling_introspection_sbf.rs (target\debug\deps\sibling_introspection_sbf-bb54a80dd7eb07d8.exe)
+
+running 1 test
+sibling case 1: 2563 CU; Ok(())
+sibling case 2: 2564 CU; Ok(())
+sibling case 3: 2543 CU; Ok(())
+sibling case 4: 2614 CU; Ok(())
+sibling case 5: 2401 CU; Err(AccountDataTooSmall)
+sibling case 6: 1754 CU; Ok(())
+sibling case 7: 2408 CU; Ok(())
+sibling case 8: 3608 CU; Ok(())
+sibling case 9: 11986 CU; Ok(())
+sibling case 10: 4145 CU; Ok(())
+sibling case 11: 2403 CU; Err(AccountDataTooSmall)
+test sibling_reads_respect_lengths_privileges_order_and_scope ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

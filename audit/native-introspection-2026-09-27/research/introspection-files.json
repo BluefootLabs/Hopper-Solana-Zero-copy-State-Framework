@@ -1,0 +1,82 @@
+[
+  {
+    "project": "agave",
+    "commit": "f77165963c709934e8ea8564187c00f081b597d1",
+    "path": "syscalls/src/lib.rs",
+    "sha256": "41de524375e9f321c093e58d993651add519df2185d3618c5c013fa86956ff75",
+    "lines": 8366,
+    "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/syscalls/src/lib.rs"
+  },
+  {
+    "project": "agave",
+    "commit": "f77165963c709934e8ea8564187c00f081b597d1",
+    "path": "programs/sbf/rust/sibling_instructions/src/lib.rs",
+    "sha256": "4c6b960721a03b9a850bdcb8313cc79701fdca7d8d5cd2b78209c9a60fb56ef6",
+    "lines": 97,
+    "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/programs/sbf/rust/sibling_instructions/src/lib.rs"
+  },
+  {
+    "project": "agave",
+    "commit": "f77165963c709934e8ea8564187c00f081b597d1",
+    "path": "programs/sbf/rust/sibling_inner_instructions/src/lib.rs",
+    "sha256": "0c52c2116eb66c101a552727c5457c3f2666a8d8ecf3b60da4a1cdcfde41002b",
+    "lines": 68,
+    "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/programs/sbf/rust/sibling_inner_instructions/src/lib.rs"
+  },
+  {
+    "project": "agave",
+    "commit": "f77165963c709934e8ea8564187c00f081b597d1",
+    "path": "program-runtime/src/invoke_context.rs",
+    "sha256": "5c5ee2ef1d33d212df622ee72bb78e39ae0b6317d34eacd45574dc439c1942b6",
+    "lines": 2678,
+    "url": "https://raw.githubusercontent.com/anza-xyz/agave/f77165963c709934e8ea8564187c00f081b597d1/program-runtime/src/invoke_context.rs"
+  },
+  {
+    "project": "sdk",
+    "commit": "6f74525ac8fba532017b379769549f4640c90e62",
+    "path": "instruction/src/syscalls.rs",
+    "sha256": "412f70c8f9f1ecd66f7f2fb34bfaecdfcca805090e32728b6c5915f3178e7cae",
+    "lines": 106,
+    "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/instruction/src/syscalls.rs"
+  },
+  {
+    "project": "sdk",
+    "commit": "6f74525ac8fba532017b379769549f4640c90e62",
+    "path": "instruction/src/account_meta.rs",
+    "sha256": "98ffc824e24ac479c320bb09b86d88f1009de2aa318a85971fb3e9037a8e89a8",
+    "lines": 105,
+    "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/instruction/src/account_meta.rs"
+  },
+  {
+    "project": "sdk",
+    "commit": "6f74525ac8fba532017b379769549f4640c90e62",
+    "path": "instruction/src/lib.rs",
+    "sha256": "6d25c3e7505e5bf4daf64d69013c0b78ab4ed0d865754832ffd0850c2906dd8a",
+    "lines": 346,
+    "url": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6f74525ac8fba532017b379769549f4640c90e62/instruction/src/lib.rs"
+  },
+  {
+    "project": "pinocchio",
+    "commit": "adbd48d12229ffa30d6fb3d3a8ff777fdb053b80",
+    "path": "sdk/src/sysvars/instructions.rs",
+    "sha256": "e32aeb1b92cdbfd7f22c2bb6ad6ad058765c369c968845d71695a9cf131fe16e",
+    "lines": 292,
+    "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80/sdk/src/sysvars/instructions.rs"
+  },
+  {
+    "project": "pina",
+    "commit": "33ef8c66e4be65ea2d9b0dba6b7fe541121a62dc",
+    "path": "crates/pina/src/introspection.rs",
+    "sha256": "46c7ba55650f8eca68a61d30c50eee0dabe1b54142c6fa88a227d475d9640a0d",
+    "lines": 258,
+    "url": "https://raw.githubusercontent.com/pina-rs/pina/33ef8c66e4be65ea2d9b0dba6b7fe541121a62dc/crates/pina/src/introspection.rs"
+  },
+  {
+    "project": "pina",
+    "commit": "33ef8c66e4be65ea2d9b0dba6b7fe541121a62dc",
+    "path": "crates/pina/tests/introspection.rs",
+    "sha256": "f28dfc03835f1663ab88724b4c7d36b19e2c0eef22124a43ced2c4191b4d2861",
+    "lines": 497,
+    "url": "https://raw.githubusercontent.com/pina-rs/pina/33ef8c66e4be65ea2d9b0dba6b7fe541121a62dc/crates/pina/tests/introspection.rs"
+  }
+]

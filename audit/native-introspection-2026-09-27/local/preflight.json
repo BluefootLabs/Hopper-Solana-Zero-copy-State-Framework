@@ -1,0 +1,72 @@
+[
+  {
+    "name": "lock-release",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "check",
+      "-p",
+      "hopper-sibling-introspection-fixture",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "framework",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-lang",
+      "-p",
+      "hopper-systems",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "docs",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "doc",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "--no-deps",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-sibling-introspection-fixture",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "unsafe",
+    "command": [
+      "python",
+      "scripts/check-unsafe-safety-comments.py",
+      "--require-clean",
+      "--inventory-out",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-sdk-audit-2026-09-27\\unsafe-inventory.md"
+    ],
+    "exitCode": 0
+  }
+]

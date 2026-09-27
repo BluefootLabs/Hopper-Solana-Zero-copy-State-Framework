@@ -1,0 +1,10 @@
+[package]
+name="hopper-sibling-consumer"
+version="0.0.0"
+edition="2021"
+[workspace]
+[dependencies]
+hopper-runtime="=0.4.5"
+hopper-solana="=0.4.1"
+hopper-native="=0.4.4"
+hopper={package="hopper-lang",version="=0.4.0",features=["proc-macros"]}

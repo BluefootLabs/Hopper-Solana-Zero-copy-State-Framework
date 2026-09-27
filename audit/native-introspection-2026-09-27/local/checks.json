@@ -1,0 +1,177 @@
+[
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-sibling-introspection-fixture",
+      "-p",
+      "hopper-framework-verifier"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "lock",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "check",
+      "-p",
+      "hopper-sibling-introspection-fixture",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "native",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-native",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-runtime",
+      "--features",
+      "thread-local-registry",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "clippy",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "-p",
+      "hopper-sibling-introspection-fixture",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-Dwarnings"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "miri-introspection",
+    "command": [
+      "cargo",
+      "+nightly",
+      "miri",
+      "test",
+      "-p",
+      "hopper-native",
+      "--lib",
+      "introspect::tests",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "build-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\sibling-introspection\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-sdk-audit-2026-09-27\\v0",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "svm-v0",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "sibling_introspection_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "arch": "v0",
+    "elfSha256": "f6cb0a518131bc2d03da16e8d43dfa88f815b54d054217bed8a6b2c7fd4ab58b",
+    "bytes": 13824
+  },
+  {
+    "name": "build-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\sibling-introspection\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-sdk-audit-2026-09-27\\v3",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "svm-v3",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "sibling_introspection_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0
+  },
+  {
+    "arch": "v3",
+    "elfSha256": "818313eb4246e0ba41ce90c7ce1de5b58132cff0619b10c19414732a7feaff54",
+    "bytes": 12392
+  }
+]

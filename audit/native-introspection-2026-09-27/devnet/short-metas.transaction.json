@@ -1,0 +1,104 @@
+{
+  "blockTime": 1790540207,
+  "meta": {
+    "computeUnitsConsumed": 2409,
+    "costUnits": 3437,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountDataTooSmall"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "1j",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "C",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT invoke [1]",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT invoke [2]",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT consumed 46 of 198899 compute units",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT success",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT invoke [2]",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT consumed 203 of 197794 compute units",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT failed: account data too small for instruction",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT consumed 2409 of 200000 compute units",
+      "Program 4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT failed: account data too small for instruction"
+    ],
+    "postBalances": [
+      831008774,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      831013774,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountDataTooSmall"
+        ]
+      }
+    }
+  },
+  "slot": 504903205,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "4b9CU3PwSDiAj7TZHAJfBLoJ2vPumfQ8tkNYZhe7NZpT"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "2XU",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "EdF1HXLgMsXg8hMGp8UT1MXUJoyJ6xUHwZyTB2PKKvUH"
+    },
+    "signatures": [
+      "49SEy3r65AweKYV3JwK8aieqwzc6gquUrUPKBG93vNxEyoorqdFwDdAwCRPvkPNeft2EunL5fD1hXAMcWJkD1mVT"
+    ]
+  },
+  "transactionIndex": 6,
+  "version": "legacy"
+}

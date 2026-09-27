@@ -1,0 +1,14 @@
+[package]
+name = "hopper-sibling-baseline-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+[lib]
+crate-type = ["cdylib"]
+[workspace]
+[features]
+default = ["baseline"]
+baseline = []
+[dependencies]
+hopper-native = "=0.4.2"
+hopper-runtime = "=0.4.3"

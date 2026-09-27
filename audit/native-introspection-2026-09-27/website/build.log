@@ -1,0 +1,31 @@
+Command: ["node", "node_modules/next/dist/bin/next", "build"]
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 1343ms
+- Experiments (use with caution):
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.0min
+  Running TypeScript ...
+  Finished TypeScript in 78s ...
+  Collecting page data using 6 workers ...
+  Generating static pages using 6 workers (0/54) ...
+  Generating static pages using 6 workers (13/54) 
+  Generating static pages using 6 workers (26/54) 
+  Generating static pages using 6 workers (40/54) 
+✓ Generating static pages using 6 workers (54/54) in 541ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /docs
+└ ƒ /docs/[slug]
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+
+
+Exit code: 0

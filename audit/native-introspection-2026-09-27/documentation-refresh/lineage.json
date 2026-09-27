@@ -1,0 +1,7 @@
+{
+  "implementationCommit": "228e24225cd858c78ba4d9d11b460a3785bbdbaa",
+  "publicationCommit": "f642abad62034fd688c493991c9d123e05f03388",
+  "rustSourcesUnchanged": true,
+  "v0AndV3ByteIdentical": true,
+  "devnetReceipt": "../devnet/receipt.json"
+}

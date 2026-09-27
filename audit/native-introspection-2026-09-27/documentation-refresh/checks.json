@@ -1,0 +1,70 @@
+[
+  {
+    "name": "lock",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "check",
+      "-p",
+      "hopper-sibling-introspection-fixture",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "docs",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "doc",
+      "-p",
+      "hopper-native",
+      "-p",
+      "hopper-runtime",
+      "--no-deps",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "build-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\sibling-introspection\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-sdk-audit-2026-09-27\\documentation-refresh\\v0",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "elfSha256": "f6cb0a518131bc2d03da16e8d43dfa88f815b54d054217bed8a6b2c7fd4ab58b",
+    "matchesTestedImplementationElf": true
+  },
+  {
+    "name": "build-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.54",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\bench\\sibling-introspection\\program\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\native-sdk-audit-2026-09-27\\documentation-refresh\\v3",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "elfSha256": "818313eb4246e0ba41ce90c7ce1de5b58132cff0619b10c19414732a7feaff54",
+    "matchesTestedImplementationElf": true
+  }
+]

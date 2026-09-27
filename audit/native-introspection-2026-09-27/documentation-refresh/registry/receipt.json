@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "f642abad62034fd688c493991c9d123e05f03388",
+  "crates": [
+    {
+      "crate": "hopper-native",
+      "version": "0.4.4",
+      "sha256": "84d43ac486c35b4f1dffb0dcfa98eae0813901e7762260b3fa63456ec1a1a984",
+      "published": true,
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 34
+    },
+    {
+      "crate": "hopper-runtime",
+      "version": "0.4.5",
+      "sha256": "5b8b182288a0bc2b58c0755ab07c1146e74be8291dc02d339103c7e0733cb2a2",
+      "published": true,
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 53
+    }
+  ]
+}

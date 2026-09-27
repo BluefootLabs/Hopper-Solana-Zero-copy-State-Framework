@@ -1,0 +1,4 @@
+   Compiling hopper-runtime v0.4.5 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+    Checking hopper-native v0.4.4 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Checking hopper-sibling-introspection-fixture v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\sibling-introspection\program)
+    Finished `dev` profile [unoptimized] target(s) in 2.88s

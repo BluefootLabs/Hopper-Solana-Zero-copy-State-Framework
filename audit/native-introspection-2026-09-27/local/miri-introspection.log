@@ -1,0 +1,13 @@
+   Compiling hopper-native v0.4.3 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized] target(s) in 0.23s
+     Running unittests src\lib.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\hopper_native-d4fefd994f72422c.exe)
+
+running 5 tests
+test introspect::tests::absence_does_not_fabricate_an_instruction_or_touch_outputs ... ok
+test introspect::tests::insufficient_buffers_are_rejected_before_copy ... ok
+test introspect::tests::probes_then_copies_exact_lengths_and_preserves_unused_capacity ... ok
+test introspect::tests::unexpected_return_or_changing_lengths_fail_closed ... ok
+test introspect::tests::zero_length_sibling_is_distinct_from_absence ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 95 filtered out; finished in 1.38s
+
