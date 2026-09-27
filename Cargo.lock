@@ -2406,7 +2406,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-native"
-version = "0.4.3"
+version = "0.4.4"
 
 [[package]]
 name = "hopper-native-lifecycle-fixture"
@@ -2490,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "hopper-native",
  "proptest",

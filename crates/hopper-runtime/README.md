@@ -119,12 +119,13 @@ policies do not govern APIs deliberately called at the native layer.
 and account buffers, without heap allocation. It queries exact sizes before
 copying, returns only the initialized prefixes, and distinguishes absence from
 insufficient capacity. Account records include the address and signer/writable
-flags. A parent's children and the current instruction's children are outside
-the current sibling list.
+flags. The list contains earlier calls at the same depth and caller; the
+current instruction's parent and children are excluded.
 
 This release corrects the previous wrappers' syscall return-code and length
-handling. Legacy convenience readers retain their 1,232-byte / 64-account limits;
-the new API lets the program choose its scratch capacities. Host calls return
+handling. The owned convenience reader retains its 1,232-byte / 64-account limit;
+the bounded data reader selects its byte capacity but still uses 64 account
+records. The new API lets the program choose both scratch capacities. Host calls return
 absence because host stubs have no instruction trace. Program-ID inspection does
 not authorize a transfer or validate a signature payload.
 
