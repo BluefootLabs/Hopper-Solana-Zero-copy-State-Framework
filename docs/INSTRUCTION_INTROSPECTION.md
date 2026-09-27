@@ -86,3 +86,9 @@ privileges, empty and missing instructions, reverse sibling order, exclusion of
 a nested child, 1,300-byte CPI data, and both kinds of capacity refusal.
 [Fixture and runner](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/sibling-introspection).
 Release and devnet status are recorded in [validation](RELEASE_0_4_VALIDATION.md).
+
+The September 27, 2026 run finalized all 11 devnet transactions, including the
+two expected capacity refusals. Complete payer/program snapshots matched, and
+the deployed ELF matched before and after. Native 0.4.4/runtime 0.4.5 clarify
+the packaged documentation; their implementation and rebuilt v0/v3 binaries
+match the tested release. [Inspect the evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-introspection-2026-09-27).

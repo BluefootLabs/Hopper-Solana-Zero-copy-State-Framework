@@ -109,9 +109,12 @@ transactions verified direct and nested CPI return data.
 See [program measurements](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md) and
 [release status](https://hopperzero.dev/docs/release-status) for scope and artifacts.
 
-The registry framework version is **0.4.0**. Repository examples evolve
-independently and are not published crates. The native/runtime **0.4.2** safety patch is published and devnet-tested. Runtime **0.4.3** and Solana integration **0.4.1** are also published: [token receipt policies](docs/TOKEN_RECEIPTS.md) passed 34 finalized devnet transactions, and two host-runtime regressions are fixed. See the [release record](docs/RELEASE_0_4_VALIDATION.md). Support packages `grillo-*` and
-`hopper-topology` use their own 0.1.0 versions.
+The registry framework and CLI version is **0.4.0**. Latest native/runtime patches
+are **0.4.4 / 0.4.5**; Solana integration is **0.4.1**. Native instruction inspection
+passed 11 finalized devnet transactions. [Token receipt policies](docs/TOKEN_RECEIPTS.md)
+passed a separate 34-transaction run. See the [release record](docs/RELEASE_0_4_VALIDATION.md)
+for package lineage and scoped validation. Repository examples are not published
+crates; `grillo-*` and `hopper-topology` keep their own 0.1.0 versions.
 
 ## Documentation
 

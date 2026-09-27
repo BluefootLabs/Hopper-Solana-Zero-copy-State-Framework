@@ -5,6 +5,36 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
+## Native 0.4.4 / runtime 0.4.5 - 2026-09-27
+
+- Correct processed-sibling syscall result handling and exact-length reads;
+  missing instructions no longer fabricate a zero-filled result.
+- Add caller-owned data/account buffers with explicit capacity errors, account
+  identities and instruction signer/writable flags, without heap allocation.
+- Verify all 11 scenarios on SBF v0/v3 and finalized devnet, including two
+  expected capacity refusals. The published old readers reproduce four failures.
+- Clarify sibling scope and signature-payload responsibilities in API docs,
+  READMEs and the website. Native 0.4.3/runtime 0.4.4 introduced the implementation;
+  the final documentation patches produce byte-identical tested SBF binaries.
+- Refresh September 27 cluster observations and keep review scope and source
+  pins separate from product claims. Framework/CLI remain 0.4.0.
+
+## Runtime 0.4.3 / Solana integration 0.4.1 - 2026-09-26
+
+- Add `TokenTransferSnapshot` for exact source debits and explicit minimum
+  recipient credits, with bound account identity and post-CPI base-state checks.
+- Correct reordered/deduplicated host System transfers and mutable-guard pointer
+  provenance. Regressions pass Miri; 34 finalized devnet transactions exercise
+  token outcomes, fees and transaction rollback.
+
+## Native/runtime 0.4.2 - 2026-09-26
+
+- Keep native account borrows alive through mapped and segment guards; expose
+  checked multi-segment mutable access and preflight account lifecycle refusals.
+- Add System-funded native account resizing with live rent and zeroed growth.
+- Validate lifecycle behavior in 24 finalized devnet transactions and compiled
+  v0/v3 fixtures. See the release record for exact scope and source lineage.
+
 ## Native/runtime patch 0.4.1 and repository programs - 2026-09-26
 
 - Reject missing unsigned signer privileges in specialized System/token CPI preflight.

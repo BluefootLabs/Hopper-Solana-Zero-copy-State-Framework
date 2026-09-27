@@ -18,10 +18,48 @@ Read [program architecture](ARCHITECTURE.md) for layer responsibilities and
 [unsafe invariants](UNSAFE_INVARIANTS.md) before using raw pointers or unchecked
 invocation. Performance work belongs in reproducible complete-program fixtures.
 
+## Native 0.4.4 and runtime 0.4.5 — instruction inspection
+
+**Published on crates.io:** `hopper-native` 0.4.4 and `hopper-runtime` 0.4.5.
+Framework and CLI remain 0.4.0; Solana integration remains 0.4.1. Registry
+downloads match the publication source and checksums. A registry-only consumer
+compiles the new inspection API alongside token payouts and framework 0.4.0.
+
+Programs can inspect prior sibling calls directly on chain using caller-owned
+data and account buffers. `get_processed_instruction_into` queries exact sizes,
+copies only when both buffers fit, exposes account identities and privileges,
+and distinguishes absence from insufficient capacity. It needs no heap or
+off-chain trace service. [Instruction inspection guide](INSTRUCTION_INTROSPECTION.md).
+
+This fixes the old wrappers' reversed syscall result handling and incorrect
+length assumptions. Published native 0.4.2/runtime 0.4.3 reproduce four failures
+in compiled SBF. The fix passes all 11 scenarios on both SBF v0 and v3, including
+empty and missing instructions, sibling order, child exclusion, a 1,300-byte CPI
+payload and two capacity refusals. Host tests, Miri, framework/core tests, Clippy,
+local API docs and the 29-package unsafe-contract scan passed.
+
+The September 27 devnet run finalized **11 transactions** with matching complete
+payer/program snapshots, including two expected capacity refusals. The deployed
+v0 ELF matched before and after the run. The implementation shipped in native
+0.4.3/runtime 0.4.4; the final patch corrects packaged README wording. Its Rust
+implementation is unchanged and rebuilt v0/v3 ELFs are byte-identical to those
+tested. Source and binary lineage is recorded in the evidence.
+
+Sibling inspection is scoped to the same depth and caller. It is not a complete
+transaction trace, transfer-outcome proof, or signature-payload validator.
+Applications retain explicit authorization and outcome checks. These targeted
+results do not establish a whole-framework security audit or universal speed lead.
+
+[Signatures, snapshots, source pins and publication evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/native-introspection-2026-09-27).
+
+```sh
+cargo update -p hopper-native -p hopper-runtime
+```
+
 ## Runtime 0.4.3 and Solana integration 0.4.1 — token receipts
 
 **Published on crates.io:** `hopper-runtime` 0.4.3 and `hopper-solana` 0.4.1.
-Native remains 0.4.2; framework and CLI remain 0.4.0. Downloaded package sources
+At that release, native was 0.4.2; framework and CLI were 0.4.0. Downloaded package sources
 and checksums match the release commit, and a registry-only payout consumer
 compiles with framework 0.4.0.
 
