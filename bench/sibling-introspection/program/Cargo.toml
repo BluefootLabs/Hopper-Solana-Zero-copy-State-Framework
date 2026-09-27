@@ -1,0 +1,19 @@
+[package]
+name = "hopper-sibling-introspection-fixture"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+baseline = []
+
+[dependencies]
+hopper-native = { path = "../../../crates/hopper-native", features = ["cpi"] }
+hopper-runtime = { path = "../../../crates/hopper-runtime" }
+
+[lints]
+workspace = true

@@ -1,6 +1,6 @@
 # Solana network compatibility
 
-Alpenglow was rechecked **2026-09-26 10:07 UTC** through finalized public RPC,
+Alpenglow was rechecked **2026-09-27 19:53 UTC** through finalized public RPC,
 with expected genesis, Feature ownership, and activation encoding checks.
 These are observations, not authenticated ledger proofs or permanent constants.
 
@@ -10,9 +10,9 @@ The feature account `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS` reports:
 
 | Cluster | Finalized snapshot slot | Alpenglow gate |
 |---|---:|---|
-| Devnet | 504370928 | Active since 504144000 |
-| Testnet | 445280060 | Active since 444620256 |
-| Mainnet-beta | 450643028 | Absent |
+| Devnet | 504897120 | Active since 504144000 |
+| Testnet | 445830900 | Active since 444620256 |
+| Mainnet-beta | 451096445 | Absent |
 
 Anza's [feature tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule)
 records testnet epoch 1042 and devnet epoch 1167, with mainnet activation pending.
@@ -36,7 +36,7 @@ Consensus finality does not remove account locks, compute charges, or applicatio
 authorization requirements. Hopper byte policies continue to govern tracked
 mutation inside the program; they do not change the scheduler's account locks.
 
-## Other runtime observations from September 26
+## Other runtime observations from September 27
 
 The same finalized capture checked 22 feature accounts per cluster, with source
 keys pinned to Agave `f77165963c709934e8ea8564187c00f081b597d1`.

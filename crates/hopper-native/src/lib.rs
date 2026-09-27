@@ -13,8 +13,8 @@
 //!   specific fields from foreign program accounts by byte offset without
 //!   importing their types at compile time. (`lens`)
 //! - **Instruction introspection**: `is_cpi()`, `require_top_level()`,
-//!   `require_ed25519_instruction()` -- CPI guard and precompile
-//!   signature verification patterns. (`introspect`)
+//!   `get_processed_instruction_into()` -- call-depth guards and caller-buffer
+//!   reads of processed siblings. Payload authorization remains explicit. (`introspect`)
 //! - **SVM-optimized memory**: `memcpy`, `memset`, `memcmp` -- dispatch
 //!   to the VM's JIT-compiled intrinsics instead of Rust's libc. (`mem`)
 //! - **Lazy account parsing**: `LazyContext` -- dispatch on instruction
@@ -34,7 +34,7 @@
 //!   -- fluent role validation. (`account_view`)
 //! - **Packed flags**: `account.flags()`, `account.expect_flags(SIGNER|WRITABLE)`
 //!   -- check multiple account properties in a single comparison. (`account_view`)
-//! - **Full sysvar access**: Clock, Rent, EpochSchedule with computed
+//! - **Sysvar access**: Clock, Rent, EpochSchedule and additional typed
 //!   helpers. (`sysvar`)
 //! - **Batch operations**: `close_and_transfer`, `realloc_checked`,
 //!   `require_account_type` with proper atomicity. (`batch`)
@@ -67,8 +67,8 @@ pub mod syscalls;
 // Additional modules.
 
 pub mod batch;
-// The compute-budget tracker needs the SIMD-0049 syscall, which no public
-// cluster has activated; on-chain builds get it only through the
+// The compute-budget tracker needs the SIMD-0049 syscall, absent from the
+// September 27, 2026 public-cluster capture; on-chain builds get it through the
 // `remaining-compute-units-syscall` feature.
 #[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub mod budget;

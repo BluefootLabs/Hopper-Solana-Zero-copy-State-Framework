@@ -90,10 +90,15 @@ pub struct ProcessedInstructionData<const MAX_DATA: usize> {
     pub data_len: usize,
 }
 
-#[repr(C)]
-struct ProcessedInstructionMeta {
-    data_len: u64,
-    accounts_len: u64,
+/// Native account-meta ABI used by caller-buffer sibling introspection.
+pub use hopper_native::introspect::ProcessedInstructionAccount;
+
+/// Processed sibling with runtime address and borrowed scratch prefixes.
+#[derive(Debug)]
+pub struct ProcessedInstructionView<'a> {
+    pub program_id: Address,
+    pub data: &'a [u8],
+    pub accounts: &'a [ProcessedInstructionAccount],
 }
 
 #[cfg(feature = "crypto-big-mod-exp")]
@@ -570,74 +575,62 @@ pub fn require_top_level() -> Result<(), ProgramError> {
     }
 }
 
+/// Read a sibling into caller-provided buffers, preserving exact runtime sizes.
+/// See [`hopper_native::introspect::get_processed_instruction_into`] for scope,
+/// capacity errors and host behavior. Account records use native address values;
+/// convert an individual address with `Address::from(record.address.clone())`.
+#[inline]
+pub fn get_processed_instruction_into<'a>(
+    index: u64,
+    data: &'a mut [u8],
+    accounts: &'a mut [ProcessedInstructionAccount],
+) -> Result<Option<ProcessedInstructionView<'a>>, ProgramError> {
+    hopper_native::introspect::get_processed_instruction_into(index, data, accounts)
+        .map(|view| {
+            view.map(|view| ProcessedInstructionView {
+                program_id: view.program_id.into(),
+                data: view.data,
+                accounts: view.accounts,
+            })
+        })
+        .map_err(ProgramError::from)
+}
+
+/// Read up to 1,232 bytes and 64 account metas. `None` means missing or too large.
+/// Use [`get_processed_instruction_into`] to distinguish these cases.
 #[inline]
 pub fn get_processed_instruction(index: u64) -> Option<ProcessedInstruction> {
-    let mut meta = ProcessedInstructionMeta {
-        data_len: MAX_INSTRUCTION_DATA_LEN as u64,
-        accounts_len: (MAX_INSTRUCTION_ACCOUNTS_BYTES / 34) as u64,
-    };
-    let mut program_id = Address::default();
-    let mut data = [0u8; MAX_INSTRUCTION_DATA_LEN];
-    let mut accounts = [0u8; MAX_INSTRUCTION_ACCOUNTS_BYTES];
-
-    // SAFETY: output pointers refer to writable stack buffers sized for the
-    // processed-sibling-instruction syscall contract.
-    let rc = unsafe {
-        crate::syscalls::sol_get_processed_sibling_instruction(
-            index,
-            &mut meta as *mut ProcessedInstructionMeta as *mut u8,
-            program_id.as_mut().as_mut_ptr(),
-            data.as_mut_ptr(),
-            accounts.as_mut_ptr(),
-        )
-    };
-    if rc != 0 {
-        return None;
-    }
-
+    let view = hopper_native::introspect::get_processed_instruction(index)?;
     Some(ProcessedInstruction {
-        program_id,
-        data,
-        data_len: meta.data_len as usize,
-        accounts_len: meta.accounts_len as usize,
+        program_id: view.program_id.into(),
+        data: view.data,
+        data_len: view.data_len,
+        accounts_len: view.accounts_len,
     })
 }
 
+/// Read bounded instruction data from a sibling with up to 64 account metas.
+/// The entire data must fit `MAX_DATA`; this never returns truncated data.
+/// Account scratch is still required by the syscall even when the caller only
+/// wants data. Use [`get_processed_instruction_into`] to select both capacities.
 #[inline]
 pub fn get_processed_instruction_data<const MAX_DATA: usize>(
     index: u64,
 ) -> Option<ProcessedInstructionData<MAX_DATA>> {
-    let mut meta = ProcessedInstructionMeta {
-        data_len: MAX_DATA as u64,
-        accounts_len: 0,
-    };
-    let mut program_id = Address::default();
-    let mut data = [0u8; MAX_DATA];
-    let mut accounts = [0u8; 0];
-
-    // SAFETY: output pointers refer to writable buffers. The account-meta
-    // capacity is advertised as zero because callers of this helper only need
-    // program id and instruction data.
-    let rc = unsafe {
-        crate::syscalls::sol_get_processed_sibling_instruction(
-            index,
-            &mut meta as *mut ProcessedInstructionMeta as *mut u8,
-            program_id.as_mut().as_mut_ptr(),
-            data.as_mut_ptr(),
-            accounts.as_mut_ptr(),
-        )
-    };
-    if rc != 0 {
-        return None;
-    }
-
+    let mut data = [0; MAX_DATA];
+    let mut accounts = core::array::from_fn::<_, 64, _>(|_| ProcessedInstructionAccount::default());
+    let view = get_processed_instruction_into(index, &mut data, &mut accounts).ok()??;
+    let program_id = view.program_id;
+    let data_len = view.data.len();
     Some(ProcessedInstructionData {
         program_id,
         data,
-        data_len: meta.data_len as usize,
+        data_len,
     })
 }
 
+/// Checks only the sibling's program ID. The caller must validate the signature
+/// count, offsets, referenced instruction bytes and expected key/message.
 #[inline]
 pub fn require_ed25519_instruction(
     sibling_index: u64,
@@ -650,6 +643,8 @@ pub fn require_ed25519_instruction(
     Ok(instruction)
 }
 
+/// Bounded variant of [`require_ed25519_instruction`], with the same payload checks
+/// required of the caller.
 #[inline]
 pub fn require_ed25519_instruction_data<const MAX_DATA: usize>(
     sibling_index: u64,
@@ -662,6 +657,7 @@ pub fn require_ed25519_instruction_data<const MAX_DATA: usize>(
     Ok(instruction)
 }
 
+/// Checks only the sibling's program ID, not signature payload or authorization.
 #[inline]
 pub fn require_secp256k1_instruction(
     sibling_index: u64,
@@ -675,9 +671,8 @@ pub fn require_secp256k1_instruction(
 }
 
 /// Require that a sibling instruction targeted the Secp256r1 (P-256)
-/// precompile, the verification path for passkeys / WebAuthn. Returns
-/// the precompile instruction so the caller can bind the verified
-/// `(public_key, message, signature)` to its own authorization logic.
+/// precompile. Checks only the program ID. The caller validates signature count,
+/// offsets, expected key/message, and any WebAuthn challenge and relying-party policy.
 #[inline]
 pub fn require_secp256r1_instruction(
     sibling_index: u64,
@@ -709,6 +704,19 @@ mod tests {
     use super::*;
 
     const EMPTY: &[u8] = b"";
+
+    #[test]
+    fn host_without_a_trace_has_no_processed_siblings() {
+        assert!(get_processed_instruction(0).is_none());
+        assert!(get_processed_instruction_data::<16>(0).is_none());
+        assert!(get_processed_instruction_into(0, &mut [], &mut [])
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            require_ed25519_instruction(0).unwrap_err(),
+            ProgramError::InvalidArgument
+        );
+    }
 
     #[test]
     fn hash_helpers_accept_sixteen_segments() {

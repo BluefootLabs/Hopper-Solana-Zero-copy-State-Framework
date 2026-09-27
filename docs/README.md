@@ -12,6 +12,7 @@ Start here for the current Hopper framework surface:
 - [LARGE_ZERO_COPY_ACCOUNTS.md](LARGE_ZERO_COPY_ACCOUNTS.md) - pre-created large accounts, `load_init()`, segment-safe queues, and external large-account adapters.
 - [COLLECTIONS_AND_RESIZING.md](COLLECTIONS_AND_RESIZING.md) - choose bounded fields, growable `Seq`, stable-ID `Slab`, and safe grow/fit migrations without weakening write contracts.
 - [CRYPTO_CAPABILITIES.md](CRYPTO_CAPABILITIES.md) - shipped Solana crypto helpers, precompile checkers, and feature-gated heavy crypto wrappers.
+- [INSTRUCTION_INTROSPECTION.md](INSTRUCTION_INTROSPECTION.md) - inspect prior calls on chain with caller-owned buffers and explicit authorization boundaries.
 - [PROGRAM_CAPABILITIES.md](PROGRAM_CAPABILITIES.md) - implemented execution capabilities and application responsibilities.
 - [BOUNDED_MULTISIG.md](BOUNDED_MULTISIG.md) - bounded member storage, authenticated approvals, and SOL custody.
 - [../examples/hopper-tail-lab/README.md](../examples/hopper-tail-lab/README.md) - devnet tail lab for bounded fields, `TailStr`, `TailBytes`, init helpers, and account wrappers.

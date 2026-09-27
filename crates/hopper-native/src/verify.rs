@@ -4,13 +4,14 @@
 //! a successful return code as proof of the application-level result.
 //!
 //! The pattern: snapshot relevant state before CPI, invoke, then assert
-//! post-conditions. If the assertion fails, the instruction aborts before
-//! the corrupted state can be read by downstream logic.
+//! post-conditions. These helpers return an error on mismatch. Propagate that
+//! error to the instruction boundary (`?`) to roll back the transaction; catching
+//! or ignoring it does not undo the CPI. They do not grant transfer authority.
 //!
 //! # Usage
 //!
 //! ```ignore
-//! use hopper_native::verify::{LamportSnapshot, verify_transfer};
+//! use hopper_native::verify::LamportSnapshot;
 //!
 //! // Before CPI transfer:
 //! let snap = LamportSnapshot::capture(source, destination);

@@ -1,0 +1,100 @@
+Native framework review — 2026-09-27
+
+Scope: continued, targeted source review, not an exhaustive line-by-line audit
+of these repositories or a claim of universal superiority. Download inventories
+are not review coverage. Product guides describe Hopper behavior without this
+competitor comparison. Pins, file hashes and finalized feature-account responses
+are in audit/native-introspection-2026-09-27 when the release evidence is archived.
+
+Pinned projects:
+Anza Pinocchio adbd48d12229ffa30d6fb3d3a8ff777fdb053b80
+Anza Solana SDK 6f74525ac8fba532017b379769549f4640c90e62
+Pina 33ef8c66e4be65ea2d9b0dba6b7fe541121a62dc
+Quasar b0de7db4cd271654a2dcf78807dd865e98e0b339
+Beethoven b1f2c0f5ac71d7e557f772e16c6058800c82c438
+Anchor v2 (anchor-next) a5024bc6d17a534d09549e19da2342d9f3517c8b
+Agave f77165963c709934e8ea8564187c00f081b597d1
+SIMDs 4b643ca8746742183a469681765e694b385bb315
+Blueshift abiv2 1fa9c6af359901a1ad0d44973a701ae792ce9129
+Pinapod 4ce33bb2ea5757d6220be2f2313d58851f7db79f
+Lootbox df6746fae84548d5cdde0f136ae13ac70a9afd18
+
+Reviewed boundaries and consequences:
+
+1. Agave syscalls/src/lib.rs:2015-2135 and the SDK's instruction/src/syscalls.rs
+   sibling helper. The syscall returns one for found, zero for absent. It copies
+   only when both requested counts equal the actual data and account counts;
+   otherwise it returns the sizes. The SDK uses a probe followed by exact-size
+   allocation. Hopper's wrappers instead treated zero as success and supplied
+   capacities, so found siblings were rejected and missing ones could fabricate
+   a zero-filled result. Published native 0.4.2/runtime 0.4.3 reproduce all four
+   fixture regressions in compiled SBF. Fixed helpers query then copy into caller
+   buffers. A data-only helper must still supply account scratch.
+
+2. SDK instruction/src/account_meta.rs layout and both Agave SBF sibling fixtures
+   were read. Returned account metadata owns its address, then signer/writable
+   booleans (34-byte records), unlike CPI pointer descriptors. Compile-time ABI
+   assertions and actual SBF tests cover this distinction. Agave scopes siblings
+   by depth and caller. Pinned invoke_context.rs precompile processing uses push,
+   process_precompile, pop; this source observation is not a new claim that the
+   whole precompile authorization flow was devnet-tested in this release.
+
+3. Pinocchio sdk/src/sysvars/instructions.rs: constructor, relative/absolute
+   indexing, account records, program/data access. Its Instructions sysvar view
+   is a separate transaction-level API, not a processed-sibling syscall wrapper.
+   The validated account constructor binds the sysvar identity; unsafe byte
+   constructors depend on caller validity. Pina crates/pina/src/introspection.rs
+   distinguishes transaction-level instruction scans from stack-height guards;
+   a current top-level program-ID comparison cannot detect self-CPI. Hopper's
+   guide explicitly distinguishes these scopes and payload authorization.
+
+4. Quasar lang/src/cpi/dyn_cpi.rs:1-316, initialization capacities and invoke/
+   return-data boundary. It uses initialized-prefix tracking and a stack-budget
+   check with an escape hatch. Its return path binds the return producer. These
+   are useful baseline expectations, not unique Hopper ideas. Hopper already has
+   checked caller-slice CPI and producer-bound typed return data; this patch adds
+   caller-selected scratch sizes for instruction inspection. It does not claim
+   a speed win over Quasar's CPI builder. Head unchanged from previous capture.
+
+5. Pina's new validation.rs parsing boundary: comma/&& groups, named-parameter
+   disambiguation, chained comparison parsing, exactly one receiver and equality
+   restrictions; generate_comparison emits pairwise && checks. Reviewed the
+   complete 52-line comparison compile fixture. This offers concise field rules;
+   Hopper's ordinary Rust checks are not the same declarative API. No claim that
+   a field rule proves transfer outcomes. Kit-8 scaffold and IDL-doc changes were
+   inventoried from the compare response/changesets, not exhaustively reviewed.
+   The large GitHub compare file list is truncated; fetched != audited.
+
+6. Anchor v2 event.ts/index.ts migration patch: abort-scoped Kit subscriptions,
+   per-notification errors versus fatal subscription failure, and provider API
+   changes. This is client DX work, not a new native execution requirement or an
+   on-chain performance result. Provider/test deltas were inspected selectively;
+   no blanket SDK parity claim follows.
+
+7. Sister scopes: abiv2 README deployment limitations and sdk/src/cpi.rs:1-210
+   scratchpad/borrow contracts; Pinapod traits.rs:1-150 representation validation
+   and trivial-array fast paths; Lootbox Switchboard CPI crate's full 61-line
+   module boundary. ABIv2 is experimental and requires runtime support; a scratch
+   mapping cannot be imported into production Hopper by assumption. Pinapod's
+   representation validity is distinct from business validation. Lootbox's typed
+   external-program interface is a concrete integration DX pattern; its module
+   documentation is not evidence that Hopper has a Switchboard integration.
+
+Network: finalized captures at devnet 504897120, testnet 445830900, mainnet-beta
+451096445. Genesis, Feature ownership and activation encoding checked for 22
+keys/cluster. Alpenglow, 0449, direct mapping and SHA-512 are active on dev/test,
+absent on mainnet in this observation. 0459 and SBF v3 active on all three;
+0460 mainnet System-owned => unproven. 0500/0049 absent. SIMD-0558 remains a
+proposal. Consensus changes do not grant byte-level scheduler locks or autonomous
+execution. See the dated network guide for the full matrix.
+
+Replacement work still needing separate evidence:
+- Real downstream ports against public APIs; matching C ABI is not Rust type
+  identity or automatic compatibility with Pinocchio-based ecosystem crates.
+- Broader generated-client/scaffolding parity, external-program integrations,
+  and complete-program performance/stack-size comparisons.
+- Continued unsafe-boundary and full-repository review. A source inventory,
+  passing fixture, or internal safety-comment scan is not an independent audit.
+
+This release closes a demonstrated native/runtime correctness gap and adds an
+on-chain, no-allocation API. It does not establish “better in all ways.”

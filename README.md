@@ -77,6 +77,11 @@ layer directly. Application programs run on Solana's SVM; no off-chain service
 is required to authorize their ordinary instructions or execute transfers.
 Host tools generate clients, inspect accounts, and collect evidence.
 
+Programs can [inspect prior calls on chain](docs/INSTRUCTION_INTROSPECTION.md),
+including their data, account identities, and instruction privileges, using
+caller-owned scratch buffers. Applications keep authorization and transfer
+outcome checks explicit.
+
 SOL wallet deposits invoke the System Program. SPL Token balances change through
 the appropriate token program. A program may directly debit lamports only from
 accounts it owns. Zero-copy account access does not bypass those runtime rules.

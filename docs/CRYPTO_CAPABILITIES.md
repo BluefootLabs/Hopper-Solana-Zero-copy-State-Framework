@@ -45,6 +45,11 @@ segments. That guard matters: hash APIs must never ignore bytes.
 
 ## Ed25519 precompile checks
 
+The strict checkers below differ from native/runtime `require_*_instruction`
+helpers, which check only a processed sibling's program ID. See
+[instruction inspection](INSTRUCTION_INTROSPECTION.md) for trace scope, scratch
+capacity, and the authorization checks required when using those low-level APIs.
+
 ```rust
 use hopper::crypto::check_ed25519_signature_at;
 

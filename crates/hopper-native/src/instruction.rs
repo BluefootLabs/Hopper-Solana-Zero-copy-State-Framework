@@ -1,7 +1,8 @@
 //! CPI instruction types: InstructionView, InstructionAccount, Seed, Signer.
 //!
 //! These types match the Solana runtime's C ABI for cross-program invocation.
-//! Wire-compatible with pinocchio/solana-instruction-view types.
+//! Matching the C descriptor ABI does not make Rust types interchangeable with
+//! types defined in other crates. Construct Hopper descriptors explicitly.
 
 use crate::account_view::AccountView;
 use crate::address::Address;
