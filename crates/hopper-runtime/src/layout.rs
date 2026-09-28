@@ -27,6 +27,81 @@ pub trait AccountFields {
     fn write(self, layout: &mut Self::Layout) -> ProgramResult;
 }
 
+/// A layout whose `#[bump]`-marked field stores its PDA bump.
+///
+/// Implemented by `#[hopper::state]` for every layout that marks a field
+/// with `#[bump]`. `#[derive(Accounts)]`'s `init` helper writes the
+/// canonical bump it just signed the creation with into this byte, so an
+/// account created by Hopper always stores a canonical bump, and
+/// `bump = stored` then verifies the PDA with one hash.
+pub trait StoredBump {
+    /// Account-absolute offset of the bump byte.
+    const BUMP_ABS_OFFSET: usize;
+}
+
+/// Selector for [`StoredBump`] in generated code: `(&BumpProbe::<T>(..))
+/// .write_stored_bump(..)` resolves to the writing impl when `T:
+/// StoredBump` and to the no-op otherwise, with no trait bound on `T`.
+#[doc(hidden)]
+pub struct BumpProbe<T>(pub core::marker::PhantomData<T>);
+
+#[doc(hidden)]
+pub trait WriteStoredBump {
+    /// Write `bump` into the layout's bump byte of `data`.
+    fn write_stored_bump_into(&self, data: &mut [u8], bump: u8) -> ProgramResult;
+
+    /// Borrow `account` mutably and write `bump` into its bump byte. The
+    /// borrow is taken here, inside the marked-layout impl only, so an
+    /// unmarked layout's `init` pays nothing for the probe.
+    fn write_stored_bump(
+        &self,
+        account: &crate::account::AccountView<'_>,
+        bump: u8,
+    ) -> ProgramResult;
+}
+
+impl<T: StoredBump> WriteStoredBump for BumpProbe<T> {
+    #[inline(always)]
+    fn write_stored_bump_into(&self, data: &mut [u8], bump: u8) -> ProgramResult {
+        match data.get_mut(T::BUMP_ABS_OFFSET) {
+            Some(slot) => {
+                *slot = bump;
+                Ok(())
+            }
+            None => Err(ProgramError::AccountDataTooSmall),
+        }
+    }
+
+    #[inline(always)]
+    fn write_stored_bump(
+        &self,
+        account: &crate::account::AccountView<'_>,
+        bump: u8,
+    ) -> ProgramResult {
+        let mut data = account.try_borrow_mut()?;
+        self.write_stored_bump_into(&mut data, bump)
+    }
+}
+
+#[doc(hidden)]
+pub trait NoStoredBump {
+    #[inline(always)]
+    fn write_stored_bump_into(&self, _data: &mut [u8], _bump: u8) -> ProgramResult {
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn write_stored_bump(
+        &self,
+        _account: &crate::account::AccountView<'_>,
+        _bump: u8,
+    ) -> ProgramResult {
+        Ok(())
+    }
+}
+
+impl<T> NoStoredBump for &BumpProbe<T> {}
+
 // ══════════════════════════════════════════════════════════════════════
 //  HopperHeader -- the 16-byte on-chain header used by headered Hopper
 //  accounts. Compact accounts use `[disc][body]` without this header.

@@ -169,20 +169,20 @@ impl<'info> UpdateNote<'info> {
         hopper::hopper_require!(!body.is_empty(), EmptyBody);
         bump_note_revision(&self.note)?;
 
+        // Each setter edits its own field in place: the label's suffix
+        // (reviewers and body) moves once, then the body is replaced.
         let mut data = self.note.as_account().try_borrow_mut()?;
-        let mut editor = TailNote::tail_editor(&mut data)?;
-        editor.set_label(label.as_str()?)?;
-        editor.commit_with_raw(body.as_bytes())
+        TailNote::set_label(&mut data, label.as_str()?)?;
+        TailNote::set_body(&mut data, body.as_str()?)
     }
 
     pub fn add_reviewer(&self, reviewer: Address) -> ProgramResult {
-        let body = read_note_body::<NOTE_BODY_MAX>(self.note.as_account())?;
         bump_note_revision(&self.note)?;
 
+        // In place: the body behind the reviewers moves by 32 bytes; it is
+        // never read, decoded, or re-encoded.
         let mut data = self.note.as_account().try_borrow_mut()?;
-        let mut editor = TailNote::tail_editor(&mut data)?;
-        let _inserted = editor.push_unique_reviewer(reviewer)?;
-        editor.commit_with_raw(body.as_bytes())
+        TailNote::push_unique_reviewer(&mut data, reviewer).map(|_| ())
     }
 }
 
@@ -254,20 +254,15 @@ pub fn rewrite_note_data(data: &mut [u8], label: &str, body: &str) -> ProgramRes
     let fixed = TailNote::overlay_mut(&mut data[HopperHeader::SIZE..TailNote::TAIL_PREFIX_OFFSET])?;
     fixed.revision.checked_add_assign(1)?;
 
-    let mut editor = TailNote::tail_editor(data)?;
-    editor.set_label(label)?;
-    editor.commit_with_raw(body.as_bytes())
+    TailNote::set_label(data, label)?;
+    TailNote::set_body(data, body)
 }
 
 pub fn add_reviewer_data(data: &mut [u8], reviewer: Address) -> ProgramResult {
-    let body = TailNote::body(data)?.as_str()?;
-    let body = HopperString::<NOTE_BODY_MAX>::from_str(body)?;
     let fixed = TailNote::overlay_mut(&mut data[HopperHeader::SIZE..TailNote::TAIL_PREFIX_OFFSET])?;
     fixed.revision.checked_add_assign(1)?;
 
-    let mut editor = TailNote::tail_editor(data)?;
-    let _inserted = editor.push_unique_reviewer(reviewer)?;
-    editor.commit_with_raw(body.as_bytes())
+    TailNote::push_unique_reviewer(data, reviewer).map(|_| ())
 }
 
 pub fn initialize_blob_data(
@@ -321,12 +316,6 @@ fn write_note_tail(
             body: TailStr::new(body),
         },
     )
-}
-
-fn read_note_body<const N: usize>(account: &AccountView) -> Result<HopperString<N>, ProgramError> {
-    let data = account.try_borrow()?;
-    let body = TailNote::body(&data)?.as_str()?;
-    HopperString::<N>::from_str(body)
 }
 
 fn bump_note_revision(note: &Account<'_, TailNote>) -> ProgramResult {

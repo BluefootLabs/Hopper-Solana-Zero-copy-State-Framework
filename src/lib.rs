@@ -1075,22 +1075,23 @@ pub use hopper_macros_proc::{
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]
 pub mod __runtime {
+    pub use hopper_runtime::layout;
     pub use hopper_runtime::layout::AccountFields;
     pub use hopper_runtime::token_2022_ext;
     pub use hopper_runtime::ProgramResult;
     pub use hopper_runtime::{
         apply_pending_migrations, borrow_address_slice, borrow_bounded_str, read_tail,
-        read_tail_len, seq_capacity_for, seq_region_bytes_for, tail_capacity, tail_payload,
-        transfer_lamports, write_tail, write_tail_payload, Account, AccountLayout, AccountView,
-        Address, BoundedString, BoundedVec, Context, FieldInfo, FieldMap, HopperHeader,
-        HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile, HopperSigner,
-        HopperString, HopperVec, InitAccount, InstructionAccount, InstructionView, Interface,
-        InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec,
-        LayoutContract, LayoutInfo, LayoutMigration, MigrationEdge, Pod, Program, ProgramError,
-        ProgramId, Ref, RefMut, Seed, SegRef, SegRefMut, SegmentLease, SegmentsMut, SeqElement,
-        SeqTailRead, SeqTailWrite, Signer, SystemAccount, SystemId, TailBytes, TailCodec,
-        TailElement, TailSeq, TailSeqIter, TailSeqMut, TailStr, UncheckedAccount, Zeroable,
-        SEQ_LEN_PREFIX,
+        read_tail_len, replace_tail_field, seq_capacity_for, seq_region_bytes_for, tail_capacity,
+        tail_payload, transfer_lamports, vec_field_extent, write_tail, write_tail_payload, Account,
+        AccountLayout, AccountView, Address, BoundedString, BoundedVec, Context, FieldInfo,
+        FieldMap, HopperHeader, HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile,
+        HopperSigner, HopperString, HopperVec, InitAccount, InstructionAccount, InstructionView,
+        Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve,
+        InterfaceSpec, LayoutContract, LayoutInfo, LayoutMigration, MigrationEdge, Pod, Program,
+        ProgramError, ProgramId, Ref, RefMut, Seed, SegRef, SegRefMut, SegmentLease, SegmentsMut,
+        SeqElement, SeqTailRead, SeqTailWrite, Signer, SystemAccount, SystemId, TailBytes,
+        TailCodec, TailElement, TailSeq, TailSeqIter, TailSeqMut, TailStr, UncheckedAccount,
+        Zeroable, SEQ_LEN_PREFIX,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

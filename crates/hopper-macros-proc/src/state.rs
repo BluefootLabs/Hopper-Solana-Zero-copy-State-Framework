@@ -311,10 +311,17 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     if let Some(bump_offset) = &canonical_bump_offset {
         inherent_items.push(quote! {
             /// Account-absolute byte offset of the `#[bump]`-marked field:
-            /// the stored PDA bump. This marker neither initializes the byte
-            /// nor proves that the selected bump is canonical.
+            /// the stored PDA bump. `#[derive(Accounts)]`'s `init` writes
+            /// the canonical bump it signed the creation with here;
+            /// `bump = stored` then verifies the PDA with one hash. A byte
+            /// written by anything else is not proven canonical.
             #vis const CANONICAL_BUMP_ABS_OFFSET: u32 =
                 ::hopper::hopper_core::account::HEADER_LEN as u32 + #bump_offset;
+        });
+        module_items.push(quote! {
+            impl ::hopper::__runtime::layout::StoredBump for #name {
+                const BUMP_ABS_OFFSET: usize = Self::CANONICAL_BUMP_ABS_OFFSET as usize;
+            }
         });
     }
 
@@ -1034,10 +1041,17 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     if let Some(bump_offset) = &canonical_bump_offset {
         inherent_items.push(quote! {
             /// Account-absolute byte offset of the `#[bump]`-marked field:
-            /// the stored PDA bump. This marker neither initializes the byte
-            /// nor proves that the selected bump is canonical.
+            /// the stored PDA bump. `#[derive(Accounts)]`'s `init` writes
+            /// the canonical bump it signed the creation with here;
+            /// `bump = stored` then verifies the PDA with one hash. A byte
+            /// written by anything else is not proven canonical.
             #vis const CANONICAL_BUMP_ABS_OFFSET: u32 =
                 ::hopper::account::COMPACT_BODY_OFFSET as u32 + #bump_offset;
+        });
+        module_items.push(quote! {
+            impl ::hopper::__runtime::layout::StoredBump for #name {
+                const BUMP_ABS_OFFSET: usize = Self::CANONICAL_BUMP_ABS_OFFSET as usize;
+            }
         });
     }
 

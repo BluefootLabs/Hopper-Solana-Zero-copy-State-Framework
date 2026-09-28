@@ -441,3 +441,104 @@ fn layout_fingerprint_distinguishes_bare_tail_kind() {
         bare_tail_bytes_fp::SameFixedBody::LAYOUT_ID
     );
 }
+
+/// The account-level setters edit one field in place: a string that grows
+/// and shrinks while a vector sits behind it, a vector that pushes and
+/// removes from the middle, and every neighbour intact after each step.
+#[test]
+fn in_place_setters_move_only_the_suffix() {
+    let a = Address::new([1u8; 32]);
+    let b = Address::new([2u8; 32]);
+    let c = Address::new([3u8; 32]);
+    let mut data = vec![0u8; InlineMultisig::ALLOC_SPACE];
+    InlineMultisig::tail_write(&mut data, &InlineMultisigTail::default()).unwrap();
+    for signer in [a, b, c] {
+        InlineMultisig::push_signer(&mut data, signer).unwrap();
+    }
+    assert_eq!(InlineMultisig::signers(&data).unwrap(), &[a, b, c]);
+
+    InlineMultisig::set_label(&mut data, "a much longer label here").unwrap();
+    assert_eq!(
+        InlineMultisig::label(&data).unwrap(),
+        "a much longer label here"
+    );
+    assert_eq!(InlineMultisig::signers(&data).unwrap(), &[a, b, c]);
+    InlineMultisig::set_label(&mut data, "").unwrap();
+    assert_eq!(InlineMultisig::label(&data).unwrap(), "");
+    assert_eq!(InlineMultisig::signers(&data).unwrap(), &[a, b, c]);
+    InlineMultisig::set_label(&mut data, "ops").unwrap();
+    assert_eq!(
+        InlineMultisig::tail_len(&data).unwrap() as usize,
+        2 + 3 + 2 + 3 * 32
+    );
+
+    assert!(InlineMultisig::remove_signer(&mut data, &b).unwrap());
+    assert_eq!(InlineMultisig::signers(&data).unwrap(), &[a, c]);
+    assert!(!InlineMultisig::remove_signer(&mut data, &b).unwrap());
+    assert_eq!(InlineMultisig::label(&data).unwrap(), "ops");
+    assert!(InlineMultisig::remove_signer(&mut data, &a).unwrap());
+    assert!(InlineMultisig::remove_signer(&mut data, &c).unwrap());
+    assert!(InlineMultisig::signers(&data).unwrap().is_empty());
+    assert_eq!(InlineMultisig::tail_len(&data).unwrap(), 2 + 3 + 2);
+
+    let too_long = "x".repeat(33);
+    assert!(InlineMultisig::set_label(&mut data, &too_long).is_err());
+    for value in 0u8..10 {
+        InlineMultisig::push_signer(&mut data, Address::new([value; 32])).unwrap();
+    }
+    assert!(matches!(
+        InlineMultisig::push_signer(&mut data, Address::new([42u8; 32])),
+        Err(ProgramError::AccountDataTooSmall)
+    ));
+    assert_eq!(InlineMultisig::label(&data).unwrap(), "ops");
+}
+
+/// With a raw final field, the bounded setters still work in place: the
+/// raw bytes ride along with the suffix move, and the raw setter replaces
+/// only the final field.
+#[test]
+fn in_place_setters_keep_a_raw_final_field_intact() {
+    let reviewer = Address::new([7u8; 32]);
+    let mut label = HopperString::<16>::empty();
+    label.set_str("audit").unwrap();
+    let mut reviewers = HopperVec::<Address, 2>::empty();
+    reviewers.push(reviewer).unwrap();
+    let tail = LabeledBareNoteTail {
+        label,
+        reviewers,
+        content: TailStr::from_str("the note body"),
+    };
+    let mut data = vec![0u8; LabeledBareNote::space_for_tail(tail.content.len()) + 64];
+    LabeledBareNote::tail_write(&mut data, &tail).unwrap();
+
+    LabeledBareNote::set_label(&mut data, "a longer label").unwrap();
+    assert_eq!(LabeledBareNote::label(&data).unwrap(), "a longer label");
+    assert_eq!(LabeledBareNote::reviewers(&data).unwrap(), &[reviewer]);
+    assert_eq!(
+        LabeledBareNote::content(&data).unwrap().as_str().unwrap(),
+        "the note body"
+    );
+    let other = Address::new([8u8; 32]);
+    assert!(LabeledBareNote::push_unique_reviewer(&mut data, other).unwrap());
+    assert!(!LabeledBareNote::push_unique_reviewer(&mut data, other).unwrap());
+    assert_eq!(
+        LabeledBareNote::reviewers(&data).unwrap(),
+        &[reviewer, other]
+    );
+    assert_eq!(
+        LabeledBareNote::content(&data).unwrap().as_str().unwrap(),
+        "the note body"
+    );
+    LabeledBareNote::set_content(&mut data, "a different, longer note body").unwrap();
+    assert_eq!(LabeledBareNote::label(&data).unwrap(), "a longer label");
+    assert_eq!(
+        LabeledBareNote::content(&data).unwrap().as_str().unwrap(),
+        "a different, longer note body"
+    );
+    assert!(LabeledBareNote::remove_reviewer(&mut data, &reviewer).unwrap());
+    assert_eq!(LabeledBareNote::reviewers(&data).unwrap(), &[other]);
+    assert_eq!(
+        LabeledBareNote::content(&data).unwrap().as_str().unwrap(),
+        "a different, longer note body"
+    );
+}

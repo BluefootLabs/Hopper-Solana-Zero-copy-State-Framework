@@ -689,6 +689,21 @@ macro_rules! hopper_init {
         )
     }};
     ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr, signers = $signers:expr) => {{
+        $crate::hopper_init!(
+            $payer,
+            $account,
+            $system,
+            $program_id,
+            $layout,
+            $space,
+            signers = $signers,
+            bump = ::core::option::Option::<u8>::None
+        )
+    }};
+    // `bump = Some(b)`: after the header, store `b` in the layout's `#[bump]`
+    // byte under the same borrow. A layout without the marker resolves to the
+    // no-op probe and the argument folds away.
+    ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr, signers = $signers:expr, bump = $bump:expr) => {{
         let payer = $payer;
         let account = $account;
         let program_id = $program_id;
@@ -738,7 +753,21 @@ macro_rules! hopper_init {
         // compiled to a `sol_memset_` syscall on every init: 100 CU for
         // nothing (removed 2026-09-21). Only the header is written.
         let mut data = account.try_borrow_mut()?;
-        <$layout>::write_init_header(&mut *data)
+        <$layout>::write_init_header(&mut *data)?;
+        {
+            #[allow(unused_imports)]
+            use $crate::hopper_runtime::layout::{NoStoredBump as _, WriteStoredBump as _};
+            let __hopper_init_bump: ::core::option::Option<u8> = $bump;
+            match __hopper_init_bump {
+                ::core::option::Option::Some(__hopper_init_bump) => {
+                    (&$crate::hopper_runtime::layout::BumpProbe::<$layout>(
+                        ::core::marker::PhantomData,
+                    ))
+                        .write_stored_bump_into(&mut *data, __hopper_init_bump)
+                }
+                ::core::option::Option::None => ::core::result::Result::Ok(()),
+            }
+        }
     }};
 }
 

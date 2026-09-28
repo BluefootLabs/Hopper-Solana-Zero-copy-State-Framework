@@ -58,3 +58,53 @@ fn stored_bump_context_compiles_against_the_marker_const() {
     let _ = UseStored::ACCOUNT_COUNT;
     let _ = BumpedConfig::CANONICAL_BUMP_ABS_OFFSET;
 }
+
+/// `#[bump]` also implements `StoredBump`, which is what a seeded `init`
+/// writes through: the probe resolves to the writing impl for a marked
+/// layout and to the no-op for an unmarked one, with no bound on either.
+#[test]
+// The borrow is the point: `(&probe).method()` is the autoref selection the
+// derive emits, and it must resolve the same way here.
+#[allow(clippy::needless_borrow)]
+fn init_probe_writes_the_bump_only_for_marked_layouts() {
+    use hopper::__runtime::layout::{
+        BumpProbe, NoStoredBump as _, StoredBump, WriteStoredBump as _,
+    };
+
+    #[derive(Clone, Copy)]
+    #[repr(C)]
+    #[hopper::state(disc = 78, version = 1)]
+    pub struct Unmarked {
+        pub admin: Address,
+        pub bump: u8,
+        pub reserved: [u8; 7],
+    }
+
+    assert_eq!(
+        <BumpedConfig as StoredBump>::BUMP_ABS_OFFSET,
+        BumpedConfig::CANONICAL_BUMP_ABS_OFFSET as usize
+    );
+    let mut marked = vec![0u8; BumpedConfig::LEN];
+    (&BumpProbe::<BumpedConfig>(core::marker::PhantomData))
+        .write_stored_bump_into(&mut marked, 253)
+        .unwrap();
+    assert_eq!(
+        marked[BumpedConfig::CANONICAL_BUMP_ABS_OFFSET as usize],
+        253
+    );
+    assert_eq!(marked.iter().filter(|b| **b != 0).count(), 1);
+
+    let mut unmarked = vec![0u8; Unmarked::LEN];
+    (&BumpProbe::<Unmarked>(core::marker::PhantomData))
+        .write_stored_bump_into(&mut unmarked, 253)
+        .unwrap();
+    assert!(
+        unmarked.iter().all(|b| *b == 0),
+        "an unmarked layout is left alone"
+    );
+
+    let mut short = vec![0u8; 4];
+    assert!((&BumpProbe::<BumpedConfig>(core::marker::PhantomData))
+        .write_stored_bump_into(&mut short, 1)
+        .is_err());
+}

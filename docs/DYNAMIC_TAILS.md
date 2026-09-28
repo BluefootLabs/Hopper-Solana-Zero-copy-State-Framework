@@ -169,8 +169,14 @@ tail length.
 - `tail_editor(data: &mut [u8]) -> Result<NameTailEditor<'_>, ProgramError>`
 - borrowed string/list accessors such as `label(data)` and `signers(data)`;
     generic vectors return `HopperVec<T, N>`
-- setter/editor helpers such as `set_label`, `push_unique_signer`, and
-    `remove_signer`
+- setter helpers such as `set_label`, `push_signer`, `push_unique_signer`,
+    and `remove_signer`, which edit that one field in place: the earlier
+    fields are walked borrowed, the bytes after the field move by the
+    length difference in one copy, the field is written, and the tail's
+    length prefix is fixed. Nothing else is decoded or re-encoded, and a raw
+    final `TailStr` / `TailBytes` moves with the suffix, so the setters also
+    exist on accounts with a raw tail (`set_body` replaces the raw field
+    itself). Use the editor when several fields change at once.
 - a local extension trait named `NameAccountTailExt` for `Account<'info, Name>`
     and `InitAccount<'info, Name>`; getters return owned bounded values so
     account-data borrows do not escape the wrapper method

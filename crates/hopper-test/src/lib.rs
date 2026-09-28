@@ -37,7 +37,10 @@ use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 use solana_svm_log_collector::LogCollector;
 
+pub mod fixtures;
+pub mod frames;
 pub mod trace;
+pub use frames::{parse_frames, Frame};
 pub use trace::{AccountDelta, Trace};
 
 /// A lightweight, in-process SVM for exercising a single Hopper program.
@@ -101,6 +104,14 @@ impl LiteSvmHarness {
             .as_ref()
             .map(|collector| collector.borrow().get_recorded_content().to_vec())
             .unwrap_or_default()
+    }
+
+    /// The CPI frame tree of the last `process`, parsed from the captured
+    /// logs: one [`Frame`] per top-level instruction with its callees,
+    /// compute units per frame, and each frame's own units. Empty unless
+    /// [`capture_logs`](Self::capture_logs) was called before `process`.
+    pub fn frames(&self) -> Vec<Frame> {
+        parse_frames(&self.logs())
     }
 
     /// Create a system-owned, lamport-funded account (a fee payer or

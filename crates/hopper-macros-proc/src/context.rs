@@ -3477,6 +3477,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                 ::core::slice::from_ref(&__hopper_bump)
                             ),
                         ];
+                        // A layout that marks a `#[bump]` field stores the
+                        // bump the creation was just signed with, under the
+                        // same borrow that writes the header; any other
+                        // layout resolves to the no-op probe.
                         ::hopper::hopper_init!(
                             payer,
                             account,
@@ -3484,7 +3488,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             self.ctx.program_id(),
                             #field_ty,
                             #space_expr,
-                            signers = &[::hopper::__runtime::Signer::from(&__hopper_seeds[..])]
+                            signers = &[::hopper::__runtime::Signer::from(&__hopper_seeds[..])],
+                            bump = ::core::option::Option::Some(__hopper_bump)
                         )
                     }
                 }
@@ -9438,6 +9443,50 @@ mod instruction_arg_tests {
         assert!(
             !s.contains("fn payer_account_opt"),
             "required fields must not get a `<field>_account_opt` accessor: {s}"
+        );
+    }
+
+    /// A seeded `init` writes the canonical bump it signed the creation
+    /// with into the layout's `#[bump]` byte, through the probe that is a
+    /// no-op for layouts without the marker; an unseeded `init` never
+    /// touches a bump.
+    #[test]
+    fn seeded_init_writes_the_stored_bump_through_the_probe() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Initialize<'info> {
+                #[account(mut)]
+                pub authority: Signer<'info>,
+
+                #[account(
+                    init,
+                    payer = authority,
+                    space = 64,
+                    seeds = [b"config", authority.address().as_array()],
+                    bump,
+                )]
+                pub config: InitAccount<'info, Config>,
+
+                #[account(init, payer = authority, space = 64)]
+                pub plain: InitAccount<'info, Config>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+        let compact =
+            |window: &str| -> String { window.chars().filter(|c| !c.is_whitespace()).collect() };
+        let seeded = compact(fn_window(&s, "init_config"));
+        assert!(
+            seeded.contains("bump=::core::option::Option::Some(__hopper_bump)"),
+            "seeded init must hand the bump it signed with to hopper_init!: {seeded}"
+        );
+        let plain = compact(fn_window(&s, "init_plain"));
+        assert!(
+            !plain.contains("bump="),
+            "an unseeded init has no bump to store: {plain}"
         );
     }
 

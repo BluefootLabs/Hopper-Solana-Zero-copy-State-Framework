@@ -79,12 +79,10 @@ mod counter_program {
     #[instruction(0, ctx_args = 1)]
     pub fn initialize(ctx: Ctx<Initialize>, bump: u8) -> ProgramResult {
         // One `CreateAccount` CPI signed with the PDA seeds, then the
-        // header stamp; the generated lifecycle helper owns both.
-        ctx.init_counter(bump)?;
-        let mut counter = ctx.accounts.counter.get_mut_after_init()?;
-        counter.bump = bump;
-        counter.count = WireU64::ZERO;
-        Ok(())
+        // header stamp and the proven bump into the `#[bump]` field, all
+        // owned by the generated lifecycle helper. The runtime zero-fills
+        // the allocation, so `count` starts at zero without a write.
+        ctx.init_counter(bump)
     }
 
     #[instruction(1)]

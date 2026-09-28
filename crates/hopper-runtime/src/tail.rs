@@ -1291,6 +1291,84 @@ pub fn write_tail<T: TailCodec>(
     Ok(written)
 }
 
+/// Replace one field of a `[u32 len]` compact tail in place.
+///
+/// The tail's fields are self-delimiting and laid out one after another
+/// behind the length prefix at `body_end`. `field_start` is the field's
+/// offset inside the payload and `old_len` its current encoded length;
+/// `new_len` is the length of its replacement. The bytes after the field
+/// (every later field, including a raw final `TailStr` / `TailBytes`)
+/// move by `new_len - old_len` in one `copy_within`, `write` fills the
+/// field's new slot, and the prefix is updated. Nothing else in the
+/// account is read or rewritten, so a setter costs one memmove of the
+/// suffix and one write of the field instead of a decode and re-encode
+/// of the whole tail.
+///
+/// Every bound is checked before any byte moves: the field must lie
+/// inside the current payload and the new payload must fit the account.
+/// `write` receives exactly `new_len` bytes and cannot fail, so a checked
+/// call never leaves the tail half-edited. Returns the new payload length.
+#[inline]
+pub fn replace_tail_field(
+    data: &mut [u8],
+    body_end: usize,
+    field_start: usize,
+    old_len: usize,
+    new_len: usize,
+    write: impl FnOnce(&mut [u8]),
+) -> Result<usize, ProgramError> {
+    let total = read_tail_len(data, body_end)? as usize;
+    let prefix_end = body_end + 4;
+    let field_end = field_start
+        .checked_add(old_len)
+        .ok_or(ProgramError::InvalidAccountData)?;
+    if field_end > total {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let new_total = total - old_len + new_len;
+    let new_payload_end = prefix_end
+        .checked_add(new_total)
+        .ok_or(ProgramError::AccountDataTooSmall)?;
+    if data.len() < new_payload_end || new_total > u32::MAX as usize {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let abs_start = prefix_end + field_start;
+    let abs_old_end = abs_start + old_len;
+    let abs_new_end = abs_start + new_len;
+    if old_len != new_len {
+        data.copy_within(abs_old_end..prefix_end + total, abs_new_end);
+    }
+    write(&mut data[abs_start..abs_new_end]);
+    data[body_end..prefix_end].copy_from_slice(&(new_total as u32).to_le_bytes());
+    Ok(new_total)
+}
+
+/// The element count and encoded length of one `[u16 count][items]`
+/// vector field at the start of `input`, walking the items without
+/// materializing them; `count` is checked against the capacity `N`.
+#[inline]
+pub fn vec_field_extent<T: TailCodec, const N: usize>(
+    input: &[u8],
+) -> Result<(usize, usize), ProgramError> {
+    if input.len() < 2 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let count = u16::from_le_bytes([input[0], input[1]]) as usize;
+    if count > N {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let mut cursor = 2usize;
+    let mut i = 0;
+    while i < count {
+        let (_, consumed) = T::decode(&input[cursor..])?;
+        cursor = cursor
+            .checked_add(consumed)
+            .ok_or(ProgramError::InvalidAccountData)?;
+        i += 1;
+    }
+    Ok((count, cursor))
+}
+
 /// Write an already-encoded dynamic-tail payload.
 ///
 /// This is used by generated bare-final-tail accounts: bounded fields are
@@ -1319,6 +1397,74 @@ pub fn write_tail_payload(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replace_tail_field_moves_only_the_suffix() {
+        // body (2 bytes) | u32 len | [len 3]"abc" | [len 1]"z" | raw "RAW"
+        let mut data = std::vec![0u8; 64];
+        let body_end = 2;
+        let payload = [3, 0, b'a', b'b', b'c', 1, 0, b'z', b'R', b'A', b'W'];
+        data[6..6 + payload.len()].copy_from_slice(&payload);
+        data[2..6].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+
+        // Grow the first field from "abc" to "hello".
+        let total = replace_tail_field(&mut data, body_end, 0, 5, 7, |slot| {
+            slot[..2].copy_from_slice(&5u16.to_le_bytes());
+            slot[2..].copy_from_slice(b"hello");
+        })
+        .unwrap();
+        assert_eq!(total, 13);
+        assert_eq!(read_tail_len(&data, body_end).unwrap(), 13);
+        assert_eq!(
+            tail_payload(&data, body_end).unwrap(),
+            &[5, 0, b'h', b'e', b'l', b'l', b'o', 1, 0, b'z', b'R', b'A', b'W']
+        );
+
+        // Shrink it to empty; the suffix moves back.
+        let total = replace_tail_field(&mut data, body_end, 0, 7, 2, |slot| {
+            slot.copy_from_slice(&0u16.to_le_bytes());
+        })
+        .unwrap();
+        assert_eq!(total, 8);
+        assert_eq!(
+            tail_payload(&data, body_end).unwrap(),
+            &[0, 0, 1, 0, b'z', b'R', b'A', b'W']
+        );
+
+        // Replace the middle field in place (same length).
+        replace_tail_field(&mut data, body_end, 2, 3, 3, |slot| slot[2] = b'y').unwrap();
+        assert_eq!(&tail_payload(&data, body_end).unwrap()[2..5], &[1, 0, b'y']);
+
+        // A field past the payload, or a growth past the account, is refused
+        // before any byte moves.
+        let before = data.clone();
+        assert_eq!(
+            replace_tail_field(&mut data, body_end, 6, 4, 4, |_| {}),
+            Err(ProgramError::InvalidAccountData)
+        );
+        assert_eq!(
+            replace_tail_field(&mut data, body_end, 0, 2, 200, |_| {}),
+            Err(ProgramError::AccountDataTooSmall)
+        );
+        assert_eq!(data, before);
+    }
+
+    #[test]
+    fn vec_field_extent_walks_items_without_decoding_the_vector() {
+        let mut input = std::vec![2u8, 0];
+        input.extend_from_slice(&7u32.to_le_bytes());
+        input.extend_from_slice(&9u32.to_le_bytes());
+        input.extend_from_slice(b"tail");
+        assert_eq!(vec_field_extent::<u32, 4>(&input).unwrap(), (2, 10));
+        assert_eq!(
+            vec_field_extent::<u32, 1>(&input),
+            Err(ProgramError::InvalidAccountData)
+        );
+        assert_eq!(
+            vec_field_extent::<u32, 4>(&input[..5]),
+            Err(ProgramError::InvalidAccountData)
+        );
+    }
 
     #[test]
     fn u32_roundtrip() {

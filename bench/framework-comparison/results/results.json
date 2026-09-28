@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-28 11:08 UTC",
+  "generated": "2026-09-28 13:42 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -15,10 +15,10 @@
     "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
     "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
   },
-  "source_commit": "8c7db32a0a5d1ae4305d0f64fcfb498df5dd2eca",
+  "source_commit": "d72e58bdcd122321bdfafe31a0b8bb2963c190af",
   "source_tree_clean": false,
   "build_mode": "rebuilt",
-  "lockfile_sha256": "8f07dce257efc1fa31081d2f50f06dfbb39d1a413a3ad3d9ec4e34be557c1c11",
+  "lockfile_sha256": "a996f80c9953ebc733bb7fb1d6ce530ecfc3fcf13e7a86b2e552235feefb503e",
   "hello": [
     {
       "label": "Hopper (substrate)",
@@ -103,10 +103,10 @@
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 8696,
+      "bytes": 8352,
       "so": "counter_hopper.so",
-      "elf_sha256": "a6eb234b94fcd867d35ac689a2eb7fb764a68536697a434cc1b3b64be604b3fc",
-      "initialize": 1544,
+      "elf_sha256": "ef2116260aa955773d7e37502b76e0c9979c5fb3fa25cb762a07f794754dd9bc",
+      "initialize": 1517,
       "increment": 348,
       "account_size": 25,
       "source": "measured here",
@@ -125,10 +125,10 @@
     },
     {
       "label": "Hopper (macro, sBPFv3)",
-      "bytes": 7696,
+      "bytes": 7352,
       "so": "counter_hopper.so",
-      "elf_sha256": "970512865df61f1d06f341792caa7aa31649dcefd887e9971a12f3a171878d44",
-      "initialize": 1544,
+      "elf_sha256": "369e43adf745ae8ca90d5cad45ebd2fbb86334bf4337a2a6cf6158568f5cac17",
+      "initialize": 1517,
       "increment": 348,
       "account_size": 25,
       "source": "measured here",

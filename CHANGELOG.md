@@ -9,6 +9,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **In-place tail setters.** The account-level and wrapper setters of a
+  `#[hopper::dynamic_account]` / bounded `#[hopper::account]` (`set_<field>`
+  for strings and raw tails, `push_<item>`, `push_unique_<item>`,
+  `remove_<item>` for vectors) edit one field where it lies: locate it by
+  walking the earlier fields borrowed, move the bytes after it by the
+  length difference in one `copy_within`, write the field, fix the tail's
+  length prefix (`hopper_runtime::replace_tail_field`). Nothing else in the
+  tail is decoded or re-encoded, and a raw final `TailStr` / `TailBytes`
+  rides along with the suffix, so the setters now exist on accounts with a
+  raw tail too. The `tail_editor` (decode all, edit, `commit`) is unchanged
+  for callers that change several fields at once. Measured on the tail lab
+  under Mollusk: `add_reviewer` (push one address behind a 160-byte body)
+  1,504 to 628 CU, `rewrite_note` (label and body) 1,147 to 1,016 CU, the
+  ELF 24,328 to 23,784 bytes.
+- **`init` stores the bump it signed with.** A seeded `#[account(init,
+  seeds = [..], bump)]` field whose layout marks a `#[bump]` field now has
+  that byte written by `hopper_init!` under the same borrow that writes
+  the header (`hopper_init!(.., signers = .., bump = Some(b))`), through
+  `hopper_runtime::layout::StoredBump`, which `#[hopper::state]` implements
+  for every marked layout; a layout without the marker resolves to a no-op
+  probe with no bound on the type and no cost. A handler no longer writes
+  the bump itself, a stored bump written by Hopper's `init` is the proven
+  one by construction, and `bump = stored` verifies the PDA with one hash
+  on every later load. The framework-comparison counter's `initialize`
+  drops its own bump and count writes on the strength of that: 1,544 to
+  1,517 CU, and the macro counter ELF 8,696 to 8,352 bytes (the sBPFv3 row
+  7,696 to 7,352), Anchor's 8,696 now beaten by 344 bytes.
+- **`hopper-test` frames and fixtures.** `LiteSvmHarness::frames()` parses
+  the captured logs into the CPI frame tree (`Frame`: program, depth,
+  consumed and own compute units, success or failure text, the frame's own
+  log lines, children), so a test can assert "one token-program invocation
+  for the whole batch" or attribute cost per frame. `hopper_test::fixtures`
+  builds base mints, token accounts, wallets, and the associated token
+  address for either token program without the token crates.
 - **The whole SPL Token instruction set, on both token programs.**
   `hopper_runtime::token` (and `hopper::token`) gains `InitializeMint`,
   `InitializeMultisig`, `InitializeMultisig2`, `InitializeImmutableOwner`,

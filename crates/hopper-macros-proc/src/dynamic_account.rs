@@ -326,7 +326,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     };
     let account_tail_methods: Vec<_> = tail_fields
         .iter()
-        .map(|field| account_tail_methods(field, &vis, has_raw_tail))
+        .enumerate()
+        .map(|(idx, field)| account_tail_methods(field, &tail_fields[..idx], &vis))
         .collect();
     let tail_editor_methods: Vec<_> = tail_fields
         .iter()
@@ -1390,23 +1391,35 @@ fn tail_editor_methods(
     }
 }
 
-fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool) -> TokenStream {
+/// Locate one tail field inside the account: `__field_start` is its
+/// offset in the payload and `__cursor` the payload from that field on.
+/// Every earlier field is walked with the borrowed skip decoders, never
+/// materialized.
+fn tail_locate_tokens(previous: &[TailField]) -> TokenStream {
+    let skips = tail_skip_tokens(previous);
+    quote! {
+        let __payload = ::hopper::__runtime::tail_payload(data, Self::TAIL_PREFIX_OFFSET)?;
+        let mut __cursor = __payload;
+        #(#skips)*
+        let __field_start = __payload.len() - __cursor.len();
+    }
+}
+
+/// The account-level setters write their field in place: locate it, move
+/// the bytes after it by the length difference, write the new bytes, and
+/// update the tail's length prefix (`replace_tail_field`). Nothing else in
+/// the tail is decoded or re-encoded, and the raw final `TailStr` /
+/// `TailBytes` field, when present, simply moves with the suffix.
+fn account_tail_methods(
+    field: &TailField,
+    previous: &[TailField],
+    vis: &Visibility,
+) -> TokenStream {
     let ident = &field.ident;
+    let locate = tail_locate_tokens(previous);
     match &field.kind {
-        TailKind::String { .. } => {
+        TailKind::String { cap } => {
             let setter = format_ident!("set_{}", ident);
-            let setter_method = if has_raw_tail {
-                TokenStream::new()
-            } else {
-                quote! {
-                    #[inline]
-                    #vis fn #setter(data: &mut [u8], value: &str) -> ::hopper::prelude::ProgramResult {
-                        let mut __editor = Self::tail_editor(data)?;
-                        __editor.#setter(value)?;
-                        __editor.commit()
-                    }
-                }
-            };
             quote! {
                 #[inline]
                 #vis fn #ident<'a>(data: &'a [u8]) -> ::core::result::Result<&'a str, ::hopper::__runtime::ProgramError> {
@@ -1414,7 +1427,31 @@ fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool)
                     __view.#ident()
                 }
 
-                #setter_method
+                /// Replace this string in place: one move of the bytes after
+                /// it and one write of the new bytes.
+                #[inline]
+                #vis fn #setter(data: &mut [u8], value: &str) -> ::hopper::prelude::ProgramResult {
+                    if value.len() > #cap || value.len() > u16::MAX as usize {
+                        return ::core::result::Result::Err(::hopper::__runtime::ProgramError::InvalidInstructionData);
+                    }
+                    let __old_len = {
+                        #locate
+                        let (_, __old_len) = ::hopper::__runtime::borrow_bounded_str::<#cap>(__cursor)?;
+                        (__field_start, __old_len)
+                    };
+                    ::hopper::__runtime::replace_tail_field(
+                        data,
+                        Self::TAIL_PREFIX_OFFSET,
+                        __old_len.0,
+                        __old_len.1,
+                        2 + value.len(),
+                        |__slot| {
+                            __slot[..2].copy_from_slice(&(value.len() as u16).to_le_bytes());
+                            __slot[2..].copy_from_slice(value.as_bytes());
+                        },
+                    )?;
+                    ::core::result::Result::Ok(())
+                }
             }
         }
         TailKind::Vec {
@@ -1431,32 +1468,15 @@ fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool)
             } else {
                 quote! { ::hopper::__runtime::HopperVec<#ty, #cap> }
             };
-            let mutation_methods = if has_raw_tail {
-                TokenStream::new()
+            let contains_check = if *borrowed_slice {
+                quote! {
+                    let (__items, _) = ::hopper::__runtime::borrow_address_slice::<#cap>(__cursor)?;
+                    __items.iter().any(|__item| __item == &value)
+                }
             } else {
                 quote! {
-                    #[inline]
-                    #vis fn #push(data: &mut [u8], value: #ty) -> ::hopper::prelude::ProgramResult {
-                        let mut __editor = Self::tail_editor(data)?;
-                        __editor.#push(value)?;
-                        __editor.commit()
-                    }
-
-                    #[inline]
-                    #vis fn #push_unique(data: &mut [u8], value: #ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
-                        let mut __editor = Self::tail_editor(data)?;
-                        let __inserted = __editor.#push_unique(value)?;
-                        __editor.commit()?;
-                        Ok(__inserted)
-                    }
-
-                    #[inline]
-                    #vis fn #remove(data: &mut [u8], value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
-                        let mut __editor = Self::tail_editor(data)?;
-                        let __removed = __editor.#remove(value);
-                        __editor.commit()?;
-                        Ok(__removed)
-                    }
+                    let (__items, _) = <::hopper::__runtime::HopperVec<#ty, #cap> as ::hopper::__runtime::TailCodec>::decode(__cursor)?;
+                    __items.contains(&value)
                 }
             };
             quote! {
@@ -1466,7 +1486,88 @@ fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool)
                     __view.#ident()
                 }
 
-                #mutation_methods
+                /// Append one element in place: one move of the bytes after
+                /// this vector and one write of the element.
+                #[inline]
+                #vis fn #push(data: &mut [u8], value: #ty) -> ::hopper::prelude::ProgramResult {
+                    let (__field_start, __count, __old_len) = {
+                        #locate
+                        let (__count, __old_len) = ::hopper::__runtime::vec_field_extent::<#ty, #cap>(__cursor)?;
+                        (__field_start, __count, __old_len)
+                    };
+                    if __count >= #cap || __count >= u16::MAX as usize {
+                        return ::core::result::Result::Err(::hopper::__runtime::ProgramError::AccountDataTooSmall);
+                    }
+                    let mut __item = [0u8; <#ty as ::hopper::__runtime::TailCodec>::MAX_ENCODED_LEN];
+                    let __written = <#ty as ::hopper::__runtime::TailCodec>::encode(&value, &mut __item)?;
+                    ::hopper::__runtime::replace_tail_field(
+                        data,
+                        Self::TAIL_PREFIX_OFFSET,
+                        __field_start,
+                        __old_len,
+                        __old_len + __written,
+                        |__slot| {
+                            __slot[..2].copy_from_slice(&((__count + 1) as u16).to_le_bytes());
+                            __slot[__old_len..].copy_from_slice(&__item[..__written]);
+                        },
+                    )?;
+                    ::core::result::Result::Ok(())
+                }
+
+                /// Append one element in place unless it is already present.
+                #[inline]
+                #vis fn #push_unique(data: &mut [u8], value: #ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
+                    let __present = {
+                        #locate
+                        let _ = __field_start;
+                        #contains_check
+                    };
+                    if __present {
+                        return ::core::result::Result::Ok(false);
+                    }
+                    Self::#push(data, value)?;
+                    ::core::result::Result::Ok(true)
+                }
+
+                /// Remove the first equal element in place: the later
+                /// elements shift down inside the vector, then the bytes
+                /// after the vector move up by the element's length.
+                #[inline]
+                #vis fn #remove(data: &mut [u8], value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
+                    let (__field_start, __count, __old_len, __found) = {
+                        #locate
+                        let (__count, __old_len) = ::hopper::__runtime::vec_field_extent::<#ty, #cap>(__cursor)?;
+                        let mut __at = 2usize;
+                        let mut __found: ::core::option::Option<(usize, usize)> = ::core::option::Option::None;
+                        let mut __i = 0usize;
+                        while __i < __count {
+                            let (__item, __consumed) = <#ty as ::hopper::__runtime::TailCodec>::decode(&__cursor[__at..])?;
+                            if &__item == value {
+                                __found = ::core::option::Option::Some((__at, __consumed));
+                                break;
+                            }
+                            __at += __consumed;
+                            __i += 1;
+                        }
+                        (__field_start, __count, __old_len, __found)
+                    };
+                    let ::core::option::Option::Some((__item_start, __item_len)) = __found else {
+                        return ::core::result::Result::Ok(false);
+                    };
+                    let __abs_start = Self::TAIL_PREFIX_OFFSET + 4 + __field_start;
+                    data[__abs_start + __item_start..__abs_start + __old_len].copy_within(__item_len.., 0);
+                    ::hopper::__runtime::replace_tail_field(
+                        data,
+                        Self::TAIL_PREFIX_OFFSET,
+                        __field_start,
+                        __old_len,
+                        __old_len - __item_len,
+                        |__slot| {
+                            __slot[..2].copy_from_slice(&((__count - 1) as u16).to_le_bytes());
+                        },
+                    )?;
+                    ::core::result::Result::Ok(true)
+                }
             }
         }
         TailKind::TailStr => {
@@ -1478,10 +1579,22 @@ fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool)
                     __view.#ident()
                 }
 
+                /// Replace the raw final text in place; nothing before it is touched.
                 #[inline]
                 #vis fn #setter(data: &mut [u8], value: &str) -> ::hopper::prelude::ProgramResult {
-                    let mut __editor = Self::tail_editor(data)?;
-                    __editor.#setter(value)
+                    let (__field_start, __old_len) = {
+                        #locate
+                        (__field_start, __cursor.len())
+                    };
+                    ::hopper::__runtime::replace_tail_field(
+                        data,
+                        Self::TAIL_PREFIX_OFFSET,
+                        __field_start,
+                        __old_len,
+                        value.len(),
+                        |__slot| __slot.copy_from_slice(value.as_bytes()),
+                    )?;
+                    ::core::result::Result::Ok(())
                 }
             }
         }
@@ -1494,10 +1607,22 @@ fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool)
                     __view.#ident()
                 }
 
+                /// Replace the raw final bytes in place; nothing before them is touched.
                 #[inline]
                 #vis fn #setter(data: &mut [u8], value: &[u8]) -> ::hopper::prelude::ProgramResult {
-                    let mut __editor = Self::tail_editor(data)?;
-                    __editor.#setter(value)
+                    let (__field_start, __old_len) = {
+                        #locate
+                        (__field_start, __cursor.len())
+                    };
+                    ::hopper::__runtime::replace_tail_field(
+                        data,
+                        Self::TAIL_PREFIX_OFFSET,
+                        __field_start,
+                        __old_len,
+                        value.len(),
+                        |__slot| __slot.copy_from_slice(value),
+                    )?;
+                    ::core::result::Result::Ok(())
                 }
             }
         }
@@ -1551,9 +1676,7 @@ fn account_wrapper_impl_methods(
                 #[inline]
                 fn #setter(&self, value: &str) -> ::hopper::prelude::ProgramResult {
                     let mut __data = self.as_account().try_borrow_mut()?;
-                    let mut __editor = #account_name::tail_editor(&mut __data)?;
-                    __editor.#setter(value)?;
-                    __editor.commit()
+                    #account_name::#setter(&mut __data, value)
                 }
             }
         }
@@ -1572,27 +1695,19 @@ fn account_wrapper_impl_methods(
                 #[inline]
                 fn #push(&self, value: #ty) -> ::hopper::prelude::ProgramResult {
                     let mut __data = self.as_account().try_borrow_mut()?;
-                    let mut __editor = #account_name::tail_editor(&mut __data)?;
-                    __editor.#push(value)?;
-                    __editor.commit()
+                    #account_name::#push(&mut __data, value)
                 }
 
                 #[inline]
                 fn #push_unique(&self, value: #ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
                     let mut __data = self.as_account().try_borrow_mut()?;
-                    let mut __editor = #account_name::tail_editor(&mut __data)?;
-                    let __inserted = __editor.#push_unique(value)?;
-                    __editor.commit()?;
-                    Ok(__inserted)
+                    #account_name::#push_unique(&mut __data, value)
                 }
 
                 #[inline]
                 fn #remove(&self, value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
                     let mut __data = self.as_account().try_borrow_mut()?;
-                    let mut __editor = #account_name::tail_editor(&mut __data)?;
-                    let __removed = __editor.#remove(value);
-                    __editor.commit()?;
-                    Ok(__removed)
+                    #account_name::#remove(&mut __data, value)
                 }
             }
         }
