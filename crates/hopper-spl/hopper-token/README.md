@@ -1,10 +1,22 @@
 # hopper-token
 
-Hopper-owned SPL Token builders. The default public API is safety-first:
-`TransferChecked`, `MintToChecked`, `BurnChecked`, `ApproveChecked`, plus
-`CloseAccount`, `Revoke`, `InitializeAccount` (and `InitializeAccount2` /
-`InitializeAccount3`), `SetAuthority`, `FreezeAccount`, `ThawAccount`, and
-`SyncNative`. Stack-allocated instruction data, no heap.
+Hopper-owned SPL Token builders, the whole instruction set. The default
+public API is safety-first: `TransferChecked`, `MintToChecked`, `BurnChecked`,
+`ApproveChecked`, plus `CloseAccount`, `Revoke`, `InitializeAccount` (and
+`InitializeAccount2` / `InitializeAccount3`), `SetAuthority`, `FreezeAccount`,
+`ThawAccount`, `SyncNative`, `InitializeMint`, `InitializeMultisig`,
+`InitializeMultisig2`, `InitializeImmutableOwner`, `GetAccountDataSize`,
+`AmountToUiAmount`, `UiAmountToAmount`, `WithdrawExcessLamports`, and
+`UnwrapLamports`. Stack-allocated instruction data, no heap.
+
+Every builder targets SPL Token from `invoke()` and Token-2022 from
+`invoke_on(TokenProgram::Token2022, multisig_signers, signers)`;
+`invoke_for_owner(..)` picks whichever of the two owns the builder's first
+account and refuses any other owner before the CPI. `TokenBatch` collects
+any number of builders and sends them as one p-token `Batch` CPI. The bytes
+and account metas of every builder are checked against the canonical
+`spl-token-2022-interface` constructors in the runtime's tests, and the
+`hopper-token-lab` example runs each family on devnet.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-token.svg)](https://crates.io/crates/hopper-token)
 [![Docs.rs](https://img.shields.io/docsrs/hopper-token)](https://docs.rs/crate/hopper-token)

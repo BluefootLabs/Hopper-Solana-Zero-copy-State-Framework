@@ -5,10 +5,26 @@
 //!
 //! Provides checked-by-default TransferChecked, MintToChecked, BurnChecked,
 //! ApproveChecked, CloseAccount, Revoke, SetAuthority, FreezeAccount,
-//! ThawAccount, SyncNative, and InitializeAccount builders.
+//! ThawAccount, SyncNative, and InitializeAccount builders, plus the
+//! administrative set (InitializeMint, InitializeMultisig, InitializeMultisig2,
+//! InitializeImmutableOwner, GetAccountDataSize, WithdrawExcessLamports,
+//! AmountToUiAmount, UiAmountToAmount, UnwrapLamports) and the p-token
+//! `Batch` instruction through [`TokenBatch`].
 //! Multisig owner flows are first-class via bounded signer-account slices.
 //! Deprecated plain Transfer/MintTo/Burn/Approve builders are compiled only
 //! when `legacy-token-instructions` is explicitly enabled.
+//!
+//! ## One encoding, two programs, two sinks
+//!
+//! Every builder encodes its instruction bytes and account metas exactly
+//! once, in its [`TokenInstruction::emit`] impl. `invoke()` and the
+//! `invoke_signed` / `invoke_multisig` family send that encoding to SPL
+//! Token; [`invoke_on`](TransferChecked::invoke_on) sends it to an explicit
+//! [`TokenProgram`], and [`invoke_for_owner`](TransferChecked::invoke_for_owner)
+//! to whichever of the two programs owns the builder's first account (one
+//! 32-byte compare, and a refusal for any other owner). The same `emit` can
+//! also append the instruction to a [`TokenBatch`], which sends several
+//! token instructions in one CPI.
 
 use crate::account::AccountView;
 use crate::address::Address;
@@ -19,7 +35,243 @@ use crate::instruction::{InstructionAccount, InstructionView, Signer};
 use crate::ProgramResult;
 use core::mem::MaybeUninit;
 
+pub use crate::token_admin::{
+    return_data_string, return_data_u64, AmountToUiAmount, GetAccountDataSize,
+    InitializeImmutableOwner, InitializeMint, InitializeMultisig, InitializeMultisig2,
+    UiAmountToAmount, UnwrapLamports, WithdrawExcessLamports, MAX_UI_AMOUNT_LEN,
+};
+pub use crate::token_batch::TokenBatch;
 pub use crate::token_mint::{InitializeMint2, MintConfig, MintPlan, MintProgram};
+
+/// Token-2022 program address.
+pub const TOKEN_2022_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+));
+
+/// The two token programs every builder in this module can target.
+///
+/// The wire format of the shared instruction set is identical on both, so a
+/// builder's encoding does not change; only the program id in the CPI does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TokenProgram {
+    /// SPL Token, `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`.
+    Legacy,
+    /// Token-2022, `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`.
+    Token2022,
+}
+
+impl TokenProgram {
+    /// The program id.
+    #[inline(always)]
+    pub const fn address(self) -> &'static Address {
+        match self {
+            Self::Legacy => &TOKEN_PROGRAM_ID,
+            Self::Token2022 => &TOKEN_2022_PROGRAM_ID,
+        }
+    }
+
+    /// The program behind an address, if it is one of the two.
+    #[inline]
+    pub fn from_address(address: &Address) -> Option<Self> {
+        if address == &TOKEN_PROGRAM_ID {
+            Some(Self::Legacy)
+        } else if address == &TOKEN_2022_PROGRAM_ID {
+            Some(Self::Token2022)
+        } else {
+            None
+        }
+    }
+
+    /// The program that owns `account`: a token account, a mint, or a
+    /// multisig. Anything owned by another program is refused with
+    /// `IncorrectProgramId`, so a builder driven by this never sends a
+    /// token instruction to a program that is not a token program.
+    #[inline]
+    pub fn owning(account: &AccountView<'_>) -> Result<Self, ProgramError> {
+        if account.owned_by(&TOKEN_PROGRAM_ID) {
+            Ok(Self::Legacy)
+        } else if account.owned_by(&TOKEN_2022_PROGRAM_ID) {
+            Ok(Self::Token2022)
+        } else {
+            Err(ProgramError::IncorrectProgramId)
+        }
+    }
+
+    /// The program an executable account in the instruction stands for.
+    /// Refuses any address that is not one of the two token programs.
+    #[inline]
+    pub fn from_program_account(program: &AccountView<'_>) -> Result<Self, ProgramError> {
+        Self::from_address(program.address()).ok_or(ProgramError::IncorrectProgramId)
+    }
+}
+
+/// A run of accounts appended after a builder's fixed accounts, all with
+/// the same privileges: the multisig signers of an authority, the member
+/// list of a new multisig, or the source accounts of a withheld-fee sweep.
+#[derive(Clone, Copy)]
+pub struct Trailing<'s, 'a> {
+    pub views: &'s [&'a AccountView<'a>],
+    pub writable: bool,
+    pub signer: bool,
+}
+
+impl<'s, 'a> Trailing<'s, 'a> {
+    /// Read-only signers (a multisig authority's signer set).
+    #[inline(always)]
+    pub const fn signers(views: &'s [&'a AccountView<'a>]) -> Self {
+        Self {
+            views,
+            writable: false,
+            signer: true,
+        }
+    }
+
+    /// Read-only non-signers (the member list of `InitializeMultisig`).
+    #[inline(always)]
+    pub const fn readonly(views: &'s [&'a AccountView<'a>]) -> Self {
+        Self {
+            views,
+            writable: false,
+            signer: false,
+        }
+    }
+
+    /// Writable non-signers (the sources of a withheld-fee harvest).
+    #[inline(always)]
+    pub const fn writable(views: &'s [&'a AccountView<'a>]) -> Self {
+        Self {
+            views,
+            writable: true,
+            signer: false,
+        }
+    }
+}
+
+/// Where a builder's encoded instruction goes.
+///
+/// Two sinks exist: the CPI itself (what every `invoke*` method uses) and
+/// [`TokenBatch`], which collects several instructions for one `Batch` CPI.
+/// A builder never encodes differently for the two.
+pub trait TokenSink<'a> {
+    /// Receive one encoded instruction: its data, its fixed account metas
+    /// and views in order, and zero or more trailing runs appended after
+    /// them.
+    fn emit<const N: usize>(
+        &mut self,
+        data: &[u8],
+        accounts: [InstructionAccount<'a>; N],
+        views: [&'a AccountView<'a>; N],
+        trailing: &[Trailing<'_, 'a>],
+    ) -> ProgramResult;
+}
+
+/// An SPL Token / Token-2022 instruction builder: something that can encode
+/// itself into a [`TokenSink`].
+///
+/// `multisig_signers` are the signer accounts of a multisig authority
+/// (at most [`MAX_TOKEN_MULTISIG_SIGNERS`]); builders without an authority
+/// ignore the slice.
+pub trait TokenInstruction<'a> {
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult;
+}
+
+/// The CPI sink: sends the encoded instruction to `program`, signed by
+/// `signers`.
+pub(crate) struct Invoke<'p, 's, 'x, 'y> {
+    pub(crate) program: &'p Address,
+    pub(crate) signers: &'s [Signer<'x, 'y>],
+}
+
+impl<'s, 'x, 'y> Invoke<'static, 's, 'x, 'y> {
+    /// The SPL Token program, the historical default of every `invoke*`.
+    #[inline(always)]
+    pub(crate) const fn legacy(signers: &'s [Signer<'x, 'y>]) -> Self {
+        Self {
+            program: &TOKEN_PROGRAM_ID,
+            signers,
+        }
+    }
+
+    /// The Token-2022 program.
+    #[inline(always)]
+    pub(crate) const fn token_2022(signers: &'s [Signer<'x, 'y>]) -> Self {
+        Self {
+            program: &TOKEN_2022_PROGRAM_ID,
+            signers,
+        }
+    }
+}
+
+impl<'a> TokenSink<'a> for Invoke<'_, '_, '_, '_> {
+    #[inline(always)]
+    fn emit<const N: usize>(
+        &mut self,
+        data: &[u8],
+        accounts: [InstructionAccount<'a>; N],
+        views: [&'a AccountView<'a>; N],
+        trailing: &[Trailing<'_, 'a>],
+    ) -> ProgramResult {
+        invoke_token_signed(self.program, data, accounts, views, trailing, self.signers)
+    }
+}
+
+/// The program-selecting entry points every builder gets: `invoke_on` for
+/// an explicit [`TokenProgram`] and `invoke_for_owner` for the program that
+/// owns the builder's first account. With no PDA `signers`, the same direct
+/// signer checks as `invoke()` / `invoke_multisig()` run first.
+macro_rules! token_program_methods {
+    ($name:ident, owner = $owner:ident $(, authority = $auth:ident)?) => {
+        impl $name<'_> {
+            /// Send this instruction to an explicit token program.
+            ///
+            /// `multisig_signers` is empty for a single-key authority; when
+            /// `signers` is empty the authority (or every multisig signer)
+            /// must have signed the transaction directly.
+            #[inline]
+            pub fn invoke_on(
+                &self,
+                program: TokenProgram,
+                multisig_signers: &[&AccountView<'_>],
+                signers: &[Signer<'_, '_>],
+            ) -> ProgramResult {
+                $(
+                    if signers.is_empty() {
+                        if multisig_signers.is_empty() {
+                            require_authority_signed_direct(self.$auth)?;
+                        } else {
+                            require_multisig_signers_direct(multisig_signers)?;
+                        }
+                    }
+                )?
+                self.emit(
+                    multisig_signers,
+                    &mut Invoke {
+                        program: program.address(),
+                        signers,
+                    },
+                )
+            }
+
+            /// Send this instruction to whichever token program owns
+            #[doc = concat!("`", stringify!($owner), "`")]
+            /// (one 32-byte compare). Any other owner is refused with
+            /// `IncorrectProgramId` before the CPI.
+            #[inline]
+            pub fn invoke_for_owner(
+                &self,
+                multisig_signers: &[&AccountView<'_>],
+                signers: &[Signer<'_, '_>],
+            ) -> ProgramResult {
+                self.invoke_on(TokenProgram::owning(self.$owner)?, multisig_signers, signers)
+            }
+        }
+    };
+}
+pub(crate) use token_program_methods;
 
 /// SPL Token multisig accounts support at most 11 signer accounts.
 pub const MAX_TOKEN_MULTISIG_SIGNERS: usize = 11;
@@ -39,7 +291,7 @@ pub const MAX_TOKEN_MULTISIG_SIGNERS: usize = 11;
 /// the SPL token program is about to do anyway. In the PDA path
 /// the CPI itself is the authoritative check.
 #[inline(always)]
-fn require_authority_signed_direct(authority: &AccountView<'_>) -> ProgramResult {
+pub(crate) fn require_authority_signed_direct(authority: &AccountView<'_>) -> ProgramResult {
     if authority.is_signer() {
         Ok(())
     } else {
@@ -48,7 +300,7 @@ fn require_authority_signed_direct(authority: &AccountView<'_>) -> ProgramResult
 }
 
 #[inline(always)]
-fn authority_meta<'a>(
+pub(crate) fn authority_meta<'a>(
     authority: &'a AccountView<'a>,
     multisig_signers: &[&'a AccountView<'a>],
 ) -> InstructionAccount<'a> {
@@ -60,7 +312,9 @@ fn authority_meta<'a>(
 }
 
 #[inline]
-fn require_multisig_signers_direct(multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+pub(crate) fn require_multisig_signers_direct(
+    multisig_signers: &[&AccountView<'_>],
+) -> ProgramResult {
     if multisig_signers.len() > MAX_TOKEN_MULTISIG_SIGNERS {
         return Err(ProgramError::InvalidArgument);
     }
@@ -245,22 +499,143 @@ pub mod encoders {
             }
         }
     }
+
+    /// SPL Token `InitializeMint { decimals, mint_authority, freeze_authority }`,
+    /// `[0][decimals][mint_authority: 32][COption<freeze_authority>]`: 35 bytes
+    /// without a freeze authority, 67 with one.
+    #[inline(always)]
+    pub fn encode_initialize_mint(
+        decimals: u8,
+        mint_authority: &[u8; 32],
+        freeze_authority: Option<&[u8; 32]>,
+    ) -> ([u8; 67], usize) {
+        let mut data = [0u8; 67];
+        data[0] = 0;
+        data[1] = decimals;
+        data[2..34].copy_from_slice(mint_authority);
+        match freeze_authority {
+            Some(key) => {
+                data[34] = 1;
+                data[35..67].copy_from_slice(key);
+                (data, 67)
+            }
+            None => (data, 35),
+        }
+    }
+
+    /// SPL Token `InitializeMultisig { m }`, `[2][m]`.
+    #[inline(always)]
+    pub fn encode_initialize_multisig(m: u8) -> [u8; 2] {
+        [2, m]
+    }
+
+    /// SPL Token `InitializeMultisig2 { m }`, `[19][m]`.
+    #[inline(always)]
+    pub fn encode_initialize_multisig2(m: u8) -> [u8; 2] {
+        [19, m]
+    }
+
+    /// SPL Token `InitializeImmutableOwner`, `[22]`.
+    #[inline(always)]
+    pub fn encode_initialize_immutable_owner() -> [u8; 1] {
+        [22]
+    }
+
+    /// The most extension types one `GetAccountDataSize` or `Reallocate`
+    /// carries. Token-2022 defines 29; the buffer leaves room for growth.
+    pub const MAX_EXTENSION_TYPES: usize = 32;
+
+    /// `[disc][extension_type: u16 LE]*`, the shape of Token-2022
+    /// `GetAccountDataSize` (21) and `Reallocate` (29); SPL Token accepts the
+    /// bare discriminator. `None` when more than [`MAX_EXTENSION_TYPES`]
+    /// types are given.
+    #[inline(always)]
+    pub fn encode_extension_types(
+        disc: u8,
+        extension_types: &[u16],
+    ) -> Option<([u8; 1 + 2 * MAX_EXTENSION_TYPES], usize)> {
+        if extension_types.len() > MAX_EXTENSION_TYPES {
+            return None;
+        }
+        let mut data = [0u8; 1 + 2 * MAX_EXTENSION_TYPES];
+        data[0] = disc;
+        let mut at = 1;
+        for ext in extension_types {
+            data[at..at + 2].copy_from_slice(&ext.to_le_bytes());
+            at += 2;
+        }
+        Some((data, at))
+    }
+
+    /// SPL Token `WithdrawExcessLamports`, `[38]`.
+    #[inline(always)]
+    pub fn encode_withdraw_excess_lamports() -> [u8; 1] {
+        [38]
+    }
+
+    /// SPL Token `AmountToUiAmount { amount }`, `[23][amount: u64 LE]`.
+    #[inline(always)]
+    pub fn encode_amount_to_ui_amount(amount: u64) -> [u8; 9] {
+        amount_ix(23, amount)
+    }
+
+    /// The longest UI-amount string `UiAmountToAmount` carries: the
+    /// instruction is one byte of discriminator plus at most 254 bytes of
+    /// UTF-8.
+    pub const MAX_UI_AMOUNT_LEN: usize = 254;
+
+    /// SPL Token `UiAmountToAmount { ui_amount }`, `[24][utf-8 bytes]`.
+    /// `None` when the string is longer than [`MAX_UI_AMOUNT_LEN`].
+    #[inline(always)]
+    pub fn encode_ui_amount_to_amount(
+        ui_amount: &str,
+    ) -> Option<([u8; 1 + MAX_UI_AMOUNT_LEN], usize)> {
+        let bytes = ui_amount.as_bytes();
+        if bytes.len() > MAX_UI_AMOUNT_LEN {
+            return None;
+        }
+        let mut data = [0u8; 1 + MAX_UI_AMOUNT_LEN];
+        data[0] = 24;
+        data[1..1 + bytes.len()].copy_from_slice(bytes);
+        Some((data, 1 + bytes.len()))
+    }
+
+    /// p-token `UnwrapLamports { amount }`, `[45][0]` for the whole balance
+    /// or `[45][1][amount: u64 LE]` for a part of it.
+    #[inline(always)]
+    pub fn encode_unwrap_lamports(amount: Option<u64>) -> ([u8; 10], usize) {
+        let mut data = [0u8; 10];
+        data[0] = 45;
+        match amount {
+            Some(amount) => {
+                data[1] = 1;
+                data[2..10].copy_from_slice(&amount.to_le_bytes());
+                (data, 10)
+            }
+            None => (data, 2),
+        }
+    }
 }
 
 #[inline]
-fn invoke_token_signed<'a, const FIXED: usize>(
+pub(crate) fn invoke_token_signed<'a, const FIXED: usize>(
+    program: &Address,
     data: &[u8],
     fixed_accounts: [InstructionAccount<'a>; FIXED],
     fixed_views: [&'a AccountView<'a>; FIXED],
-    multisig_signers: &[&'a AccountView<'a>],
+    trailing: &[Trailing<'_, 'a>],
     signer_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
-    let total = FIXED
-        .checked_add(multisig_signers.len())
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    if multisig_signers.len() > MAX_TOKEN_MULTISIG_SIGNERS
-        || total > crate::cpi::MAX_STATIC_CPI_ACCOUNTS
-    {
+    let mut total = FIXED;
+    for run in trailing {
+        if run.signer && run.views.len() > MAX_TOKEN_MULTISIG_SIGNERS {
+            return Err(ProgramError::InvalidArgument);
+        }
+        total = total
+            .checked_add(run.views.len())
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+    }
+    if total > crate::cpi::MAX_STATIC_CPI_ACCOUNTS {
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -275,10 +650,16 @@ fn invoke_token_signed<'a, const FIXED: usize>(
         views[index].write(fixed_views[index]);
         index += 1;
     }
-    for signer in multisig_signers {
-        accounts[index].write(InstructionAccount::readonly_signer(signer.address()));
-        views[index].write(*signer);
-        index += 1;
+    for run in trailing {
+        for view in run.views {
+            accounts[index].write(InstructionAccount::new(
+                view.address(),
+                run.writable,
+                run.signer,
+            ));
+            views[index].write(*view);
+            index += 1;
+        }
     }
 
     // SAFETY: slots in 0..total were initialized above, and `total` never
@@ -291,7 +672,7 @@ fn invoke_token_signed<'a, const FIXED: usize>(
         unsafe { core::slice::from_raw_parts(views.as_ptr() as *const &'a AccountView<'a>, total) };
 
     let instruction = InstructionView {
-        program_id: &TOKEN_PROGRAM_ID,
+        program_id: program,
         data,
         accounts,
     };
@@ -533,18 +914,26 @@ impl Transfer<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.authority)?;
-        self.invoke_signed_unchecked(&[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     /// Invoke with explicit PDA seeds. Skips the direct-signer
     /// pre-check; the supplied signer seeds authorize the CPI.
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked(signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
+}
 
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+impl<'a, 'x: 'a> TokenInstruction<'a> for Transfer<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_transfer(self.amount);
 
         let accounts = [
@@ -553,15 +942,18 @@ impl Transfer<'_> {
             InstructionAccount::readonly_signer(self.authority.address()),
         ];
         let views = [self.from, self.to, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+token_program_methods!(Transfer, owner = from, authority = authority);
 
 // ---------------------------------------------------------------------
 
@@ -586,11 +978,24 @@ impl MintTo<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.mint_authority)?;
-        self.invoke_signed(&[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(signers))
+    }
+}
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+impl<'a, 'x: 'a> TokenInstruction<'a> for MintTo<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_mint_to(self.amount);
 
         let accounts = [
@@ -599,15 +1004,18 @@ impl MintTo<'_> {
             InstructionAccount::readonly_signer(self.mint_authority.address()),
         ];
         let views = [self.mint, self.account, self.mint_authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+token_program_methods!(MintTo, owner = mint, authority = mint_authority);
 
 // ---------------------------------------------------------------------
 
@@ -632,11 +1040,24 @@ impl Burn<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.authority)?;
-        self.invoke_signed(&[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(signers))
+    }
+}
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+impl<'a, 'x: 'a> TokenInstruction<'a> for Burn<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_burn(self.amount);
 
         let accounts = [
@@ -645,15 +1066,18 @@ impl Burn<'_> {
             InstructionAccount::readonly_signer(self.authority.address()),
         ];
         let views = [self.account, self.mint, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+token_program_methods!(Burn, owner = account, authority = authority);
 
 // ---------------------------------------------------------------------
 
@@ -673,7 +1097,7 @@ impl CloseAccount<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
 
     #[inline]
@@ -688,14 +1112,16 @@ impl CloseAccount<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for CloseAccount<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_close_account();
         let accounts = [
@@ -704,9 +1130,16 @@ impl CloseAccount<'_> {
             authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.account, self.destination, self.authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(CloseAccount, owner = account, authority = authority);
 
 // ---------------------------------------------------------------------
 
@@ -731,11 +1164,24 @@ impl Approve<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.authority)?;
-        self.invoke_signed(&[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(signers))
+    }
+}
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+impl<'a, 'x: 'a> TokenInstruction<'a> for Approve<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_approve(self.amount);
 
         let accounts = [
@@ -744,15 +1190,18 @@ impl Approve<'_> {
             InstructionAccount::readonly_signer(self.authority.address()),
         ];
         let views = [self.source, self.delegate, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+#[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
+token_program_methods!(Approve, owner = source, authority = authority);
 
 // ---------------------------------------------------------------------
 
@@ -771,7 +1220,7 @@ impl Revoke<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
 
     #[inline]
@@ -786,14 +1235,16 @@ impl Revoke<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for Revoke<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_revoke();
         let accounts = [
@@ -801,9 +1252,16 @@ impl Revoke<'_> {
             authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.source, self.authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(Revoke, owner = source, authority = authority);
 
 // ---------------------------------------------------------------------
 //
@@ -811,7 +1269,7 @@ impl Revoke<'_> {
 ///
 /// The token program checks the supplied mint and decimals. This builder calls
 /// `TOKEN_PROGRAM_ID`; it does not dispatch to Token-2022 or resolve transfer
-/// hooks. Use `hopper_solana::interface` or `hopper_token_2022` for those program
+/// hooks. Use `invoke_on(TokenProgram::Token2022, ..)` or `invoke_for_owner` for that program
 /// integrations, supplying hook accounts when required.
 pub struct TransferChecked<'a> {
     pub from: &'a AccountView<'a>,
@@ -869,7 +1327,7 @@ impl TransferChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
 
     /// Strict PDA-signed invoke: ownership pre-check (the SPL token
@@ -883,14 +1341,16 @@ impl TransferChecked<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for TransferChecked<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_transfer_checked(self.amount, self.decimals);
 
@@ -901,16 +1361,23 @@ impl TransferChecked<'_> {
             authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.from, self.mint, self.to, self.authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(TransferChecked, owner = from, authority = authority);
 
 // ---------------------------------------------------------------------
 
 /// Builder for SPL Token MintToChecked (instruction index 14).
 ///
 /// Checks decimals through the classic SPL Token program, like [`TransferChecked`].
-/// For Token-2022, use the corresponding `hopper_token_2022` builder.
+/// For Token-2022, use `invoke_on(TokenProgram::Token2022, ..)` or `invoke_for_owner`.
 pub struct MintToChecked<'a> {
     pub mint: &'a AccountView<'a>,
     pub account: &'a AccountView<'a>,
@@ -943,19 +1410,21 @@ impl MintToChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for MintToChecked<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_mint_to_checked(self.amount, self.decimals);
 
@@ -965,9 +1434,16 @@ impl MintToChecked<'_> {
             authority_meta(self.mint_authority, multisig_signers),
         ];
         let views = [self.mint, self.account, self.mint_authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(MintToChecked, owner = mint, authority = mint_authority);
 
 // ---------------------------------------------------------------------
 
@@ -1018,7 +1494,7 @@ impl BurnChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
 
     /// Strict PDA-signed invoke. Pre-check the burn-source owner
@@ -1032,14 +1508,16 @@ impl BurnChecked<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for BurnChecked<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_burn_checked(self.amount, self.decimals);
 
@@ -1049,9 +1527,16 @@ impl BurnChecked<'_> {
             authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.account, self.mint, self.authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(BurnChecked, owner = account, authority = authority);
 
 // ---------------------------------------------------------------------
 
@@ -1103,7 +1588,7 @@ impl ApproveChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
 
     /// Strict PDA-signed invoke. Pre-check the source-account owner
@@ -1116,14 +1601,16 @@ impl ApproveChecked<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for ApproveChecked<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_approve_checked(self.amount, self.decimals);
 
@@ -1134,9 +1621,16 @@ impl ApproveChecked<'_> {
             authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.source, self.mint, self.delegate, self.authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(ApproveChecked, owner = source, authority = authority);
 
 // ---------------------------------------------------------------------
 
@@ -1162,12 +1656,12 @@ impl SetAuthority<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.current_authority)?;
-        self.invoke_signed_unchecked_with_multisig(&[], &[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
 
     #[inline]
@@ -1182,14 +1676,16 @@ impl SetAuthority<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for SetAuthority<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let (data, len) = encoders::encode_set_authority(
             self.authority_type as u8,
@@ -1200,9 +1696,16 @@ impl SetAuthority<'_> {
             authority_meta(self.current_authority, multisig_signers),
         ];
         let views = [self.account, self.current_authority];
-        invoke_token_signed(&data[..len], accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data[..len],
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(SetAuthority, owner = account, authority = current_authority);
 
 // ---------------------------------------------------------------------
 
@@ -1217,12 +1720,12 @@ impl FreezeAccount<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.freeze_authority)?;
-        self.invoke_signed_unchecked_with_multisig(&[], &[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
 
     #[inline]
@@ -1237,14 +1740,16 @@ impl FreezeAccount<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for FreezeAccount<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_freeze_account();
         let accounts = [
@@ -1253,9 +1758,16 @@ impl FreezeAccount<'_> {
             authority_meta(self.freeze_authority, multisig_signers),
         ];
         let views = [self.account, self.mint, self.freeze_authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(FreezeAccount, owner = account, authority = freeze_authority);
 
 /// Builder for SPL Token ThawAccount (instruction index 11).
 pub struct ThawAccount<'a> {
@@ -1268,12 +1780,12 @@ impl ThawAccount<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
         require_authority_signed_direct(self.freeze_authority)?;
-        self.invoke_signed_unchecked_with_multisig(&[], &[])
+        self.emit(&[], &mut Invoke::legacy(&[]))
     }
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(&[], signers)
+        self.emit(&[], &mut Invoke::legacy(signers))
     }
 
     #[inline]
@@ -1288,14 +1800,16 @@ impl ThawAccount<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+        self.emit(multisig_signers, &mut Invoke::legacy(signers))
     }
+}
 
+impl<'a, 'x: 'a> TokenInstruction<'a> for ThawAccount<'x> {
     #[inline(always)]
-    fn invoke_signed_unchecked_with_multisig(
+    fn emit(
         &self,
-        multisig_signers: &[&AccountView<'_>],
-        signers: &[Signer<'_, '_>],
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
     ) -> ProgramResult {
         let data = encoders::encode_thaw_account();
         let accounts = [
@@ -1304,9 +1818,16 @@ impl ThawAccount<'_> {
             authority_meta(self.freeze_authority, multisig_signers),
         ];
         let views = [self.account, self.mint, self.freeze_authority];
-        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(ThawAccount, owner = account, authority = freeze_authority);
 
 // ---------------------------------------------------------------------
 
@@ -1318,12 +1839,30 @@ pub struct SyncNative<'a> {
 impl SyncNative<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(&[]))
+    }
+}
+
+impl<'a, 'x: 'a> TokenInstruction<'a> for SyncNative<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_sync_native();
         let accounts = [InstructionAccount::writable(self.account.address())];
         let views = [self.account];
-        invoke_token_signed(&data, accounts, views, &[], &[])
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(SyncNative, owner = account);
 
 // ---------------------------------------------------------------------
 
@@ -1338,6 +1877,17 @@ pub struct InitializeAccount<'a> {
 impl InitializeAccount<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(&[]))
+    }
+}
+
+impl<'a, 'x: 'a> TokenInstruction<'a> for InitializeAccount<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_initialize_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -1346,15 +1896,16 @@ impl InitializeAccount<'_> {
             InstructionAccount::readonly(self.rent_sysvar.address()),
         ];
         let views = [self.account, self.mint, self.owner, self.rent_sysvar];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke(&instruction, &views)
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(InitializeAccount, owner = account);
 
 /// Builder for SPL Token InitializeAccount2 (instruction index 16).
 pub struct InitializeAccount2<'a> {
@@ -1367,6 +1918,17 @@ pub struct InitializeAccount2<'a> {
 impl InitializeAccount2<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(&[]))
+    }
+}
+
+impl<'a, 'x: 'a> TokenInstruction<'a> for InitializeAccount2<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_initialize_account_with_owner(16, self.owner.as_array());
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -1374,9 +1936,16 @@ impl InitializeAccount2<'_> {
             InstructionAccount::readonly(self.rent_sysvar.address()),
         ];
         let views = [self.account, self.mint, self.rent_sysvar];
-        invoke_token_signed(&data, accounts, views, &[], &[])
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(InitializeAccount2, owner = account);
 
 /// Builder for SPL Token InitializeAccount3 (instruction index 18).
 pub struct InitializeAccount3<'a> {
@@ -1388,15 +1957,33 @@ pub struct InitializeAccount3<'a> {
 impl InitializeAccount3<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
+        self.emit(&[], &mut Invoke::legacy(&[]))
+    }
+}
+
+impl<'a, 'x: 'a> TokenInstruction<'a> for InitializeAccount3<'x> {
+    #[inline(always)]
+    fn emit(
+        &self,
+        multisig_signers: &[&'a AccountView<'a>],
+        sink: &mut impl TokenSink<'a>,
+    ) -> ProgramResult {
         let data = encoders::encode_initialize_account_with_owner(18, self.owner.as_array());
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),
         ];
         let views = [self.account, self.mint];
-        invoke_token_signed(&data, accounts, views, &[], &[])
+        sink.emit(
+            &data,
+            accounts,
+            views,
+            &[Trailing::signers(multisig_signers)],
+        )
     }
 }
+
+token_program_methods!(InitializeAccount3, owner = account);
 
 /// SPL Token program address.
 pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
@@ -1745,9 +2332,12 @@ fn read_coption_address(data: &[u8], tag_offset: usize, address_offset: usize) -
 /// Legacy module-path re-exports.
 pub mod instructions {
     pub use super::{
-        ApproveChecked, BurnChecked, CloseAccount, FreezeAccount, InitializeAccount,
-        InitializeAccount2, InitializeAccount3, MintToChecked, Revoke, SetAuthority, SyncNative,
-        ThawAccount, TokenAuthorityType, TransferChecked,
+        AmountToUiAmount, ApproveChecked, BurnChecked, CloseAccount, FreezeAccount,
+        GetAccountDataSize, InitializeAccount, InitializeAccount2, InitializeAccount3,
+        InitializeImmutableOwner, InitializeMint, InitializeMultisig, InitializeMultisig2,
+        MintToChecked, Revoke, SetAuthority, SyncNative, ThawAccount, TokenAuthorityType,
+        TokenBatch, TokenInstruction, TokenProgram, TransferChecked, UiAmountToAmount,
+        UnwrapLamports, WithdrawExcessLamports,
     };
 
     #[cfg(feature = "legacy-token-instructions")]

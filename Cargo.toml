@@ -48,6 +48,7 @@ members = [
     "examples/hopper-token-2022-ata",
     "examples/hopper-token-2022-vault",
     "examples/hopper-token-2022-transfer-hook",
+    "examples/hopper-token-lab",
     "examples/hopper-nft-mint",
     "examples/hopper-proc-vault",
     "examples/hopper-policy-vault",

@@ -108,6 +108,26 @@ impl TokenProgramKind {
     }
 }
 
+impl From<TokenProgramKind> for hopper_runtime::token::TokenProgram {
+    #[inline(always)]
+    fn from(kind: TokenProgramKind) -> Self {
+        match kind {
+            TokenProgramKind::Spl => Self::Legacy,
+            TokenProgramKind::Token2022 => Self::Token2022,
+        }
+    }
+}
+
+impl From<hopper_runtime::token::TokenProgram> for TokenProgramKind {
+    #[inline(always)]
+    fn from(program: hopper_runtime::token::TokenProgram) -> Self {
+        match program {
+            hopper_runtime::token::TokenProgram::Legacy => Self::Spl,
+            hopper_runtime::token::TokenProgram::Token2022 => Self::Token2022,
+        }
+    }
+}
+
 /// Polymorphic SPL Token / Token-2022 token-account overlay.
 ///
 /// Construct via [`InterfaceTokenAccount::from_data`] using a borrowed

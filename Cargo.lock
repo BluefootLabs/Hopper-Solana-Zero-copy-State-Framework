@@ -2494,6 +2494,9 @@ version = "0.4.5"
 dependencies = [
  "hopper-native",
  "proptest",
+ "solana-instruction",
+ "solana-pubkey 4.2.1",
+ "spl-token-2022-interface",
 ]
 
 [[package]]
@@ -2693,6 +2696,13 @@ dependencies = [
  "solana-transaction",
  "spl-associated-token-account-interface",
  "spl-token-2022-interface",
+]
+
+[[package]]
+name = "hopper-token-lab"
+version = "0.4.0"
+dependencies = [
+ "hopper-lang",
 ]
 
 [[package]]

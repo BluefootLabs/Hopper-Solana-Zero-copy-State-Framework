@@ -80,6 +80,11 @@ hopper-native = { workspace = true, default-features = false, features = ["cpi"]
 # Property-based testing for the segment-borrow disjointness invariant.
 # Host-only (`cargo test`); never compiled into the no_std SBF build.
 proptest = "1"
+# Differential tests of every token builder against the canonical
+# constructors (host-only; never compiled into the no_std SBF build).
+spl-token-2022-interface = "=3.1.1"
+solana-pubkey = "=4.2.1"
+solana-instruction = "=3.4.0"
 
 [lints]
 workspace = true

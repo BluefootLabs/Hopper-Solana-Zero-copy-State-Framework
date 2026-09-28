@@ -12,7 +12,21 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 - **Instruction builders** - `Transfer`, `MintTo`, `Burn`, `CloseAccount`,
   `Approve`, `Revoke`, `InitializeAccount` retargeted at the Token-2022
-  program.
+  program, and the `checked` module with the shared checked set
+  (`TransferChecked`, `MintToChecked`, `BurnChecked`, `ApproveChecked`,
+  `SetAuthority`, `FreezeAccount`, `ThawAccount`, `InitializeMultisig2`,
+  `InitializeImmutableOwner`, `GetAccountDataSize`, `AmountToUiAmount`,
+  `UiAmountToAmount`, `WithdrawExcessLamports`, and the rest), sent with
+  `invoke_on(TokenProgram::Token2022, ..)` or `invoke_for_owner(..)`.
+- **Extension instructions** - `extension_instructions` carries every
+  Token-2022-only instruction: `CreateNativeMint`,
+  `InitializeNonTransferableMint`, `Reallocate`, and the transfer fee,
+  default account state, memo transfer, interest bearing, CPI guard,
+  permanent delegate, transfer hook, metadata / group / group member
+  pointer, scaled UI amount, pausable, permissioned burn, and mint close
+  authority families (initializers, updates, and toggles), each with
+  direct, PDA-signed, and multisig entry points. Their bytes and metas are
+  checked against the canonical `spl-token-2022-interface` constructors.
 - **Extension screening** - fail-closed `check_safe_token_2022_mint`,
   `check_no_transfer_fee`, `check_no_permanent_delegate`,
   `check_no_confidential_transfer`, `check_no_transfer_hook`,
@@ -25,9 +39,11 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 ## Mint creation in 0.3.1
 
-`MintPlan` binds exact allocation to six supported fixed-size extension
+`MintPlan` binds exact allocation to the thirteen fixed-size extension
 initializers: transfer fee, mint close authority, non-transferable, permanent
-delegate, transfer hook, and metadata pointer. It initializes extensions before
+delegate, transfer hook, metadata pointer, default account state, interest
+bearing, scaled UI amount, pausable, group pointer, group member pointer,
+and permissioned burn (the last seven are in the tree after 0.4.0). It initializes extensions before
 `InitializeMint2`, uses live rent, and supports prefunded and PDA mints.
 `check_space` rejects both smaller and larger allocations than the plan.
 

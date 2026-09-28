@@ -46,6 +46,12 @@ packages do not carry them until the next patch train.
   downstream crate; user error codes cannot land in the framework's refusal
   pages; oversized CPI events fail at compile time; `hopper build` fails on
   a builder-reported stack frame overflow.
+- The token builders cover the whole SPL Token instruction set and every
+  Token-2022-only instruction, target either program (`invoke_on`,
+  `invoke_for_owner`), batch into one p-token `Batch` CPI (`TokenBatch`),
+  and are checked byte for byte, metas included, against the canonical
+  `spl-token-2022-interface` constructors; `MintPlan` initializes thirteen
+  fixed-size extensions.
 
 The changelog's Unreleased section carries the measured numbers.
 

@@ -71,6 +71,11 @@ pub mod syscalls;
 pub mod system;
 pub mod token;
 pub mod token_2022_ext;
+pub mod token_2022_ix;
+pub mod token_admin;
+pub mod token_batch;
+#[cfg(test)]
+mod token_differential_tests;
 pub mod token_mint;
 pub mod write_policy;
 

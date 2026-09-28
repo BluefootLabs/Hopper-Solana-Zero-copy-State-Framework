@@ -16,12 +16,14 @@ other Solana programs through checked CPI helpers.
 | SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
 | Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
 | Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
-| Token claims and rewards | Token CPI builders plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
+| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI) plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
 | NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
 The escrow example supports classic SPL Token with explicit mint/account
 restrictions. The [Token-2022 guide](https://hopperzero.dev/docs/token-2022)
-covers the separate extension-aware APIs. The orderbook example stores orders;
+covers the extension-aware APIs, and the
+[token lab](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-token-lab/README.md)
+runs every builder family against both token programs on devnet. The orderbook example stores orders;
 a matching engine and exchange settlement are application logic.
 
 ## Start with ordinary Rust

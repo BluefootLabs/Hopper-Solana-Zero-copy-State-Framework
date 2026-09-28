@@ -2,33 +2,19 @@
 //!
 //! A [`MintPlan`] ties the exact allocation to the extension initializers it
 //! will execute. It uses no heap allocation and initializes extensions before
-//! the base mint. It deliberately supports a bounded set of fixed-size mint
-//! extensions; variable-length metadata and confidential extensions are not
+//! the base mint. It supports the thirteen fixed-size mint extensions;
+//! variable-length metadata and the confidential extensions are not
 //! inferred or initialized automatically.
 
 use crate::instruction::{InstructionAccount, InstructionView, Signer};
+use crate::token_2022_ix::encoders as ext;
 use crate::{AccountView, Address, ProgramError, ProgramResult};
 
-/// Token-2022 program address.
-pub const TOKEN_2022_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-));
+pub use crate::token::TOKEN_2022_PROGRAM_ID;
 
-/// The two token programs supported by mint initialization.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MintProgram {
-    Legacy,
-    Token2022,
-}
-
-impl MintProgram {
-    pub const fn address(self) -> &'static Address {
-        match self {
-            Self::Legacy => &crate::token::TOKEN_PROGRAM_ID,
-            Self::Token2022 => &TOKEN_2022_PROGRAM_ID,
-        }
-    }
-}
+/// The token program a mint is created on: the same selector every token
+/// builder takes, under the name mint creation has always used.
+pub type MintProgram = crate::token::TokenProgram;
 
 /// Base mint configuration. Initializing a mint does not mint any supply.
 #[derive(Clone, Copy)]
@@ -62,6 +48,32 @@ pub enum MintExtension<'a> {
         authority: Option<&'a Address>,
         metadata_address: Option<&'a Address>,
     },
+    /// New token accounts start in this state: 1 initialized, 2 frozen.
+    DefaultAccountState(u8),
+    /// Balances display with continuously compounding interest at `rate`
+    /// basis points; `rate_authority` may change the rate.
+    InterestBearing {
+        rate_authority: Option<&'a Address>,
+        rate: i16,
+    },
+    /// Balances display multiplied by `multiplier` (positive and finite);
+    /// `authority` may schedule a new multiplier.
+    ScaledUiAmount {
+        authority: Option<&'a Address>,
+        multiplier: f64,
+    },
+    /// The authority that may pause and resume the mint.
+    Pausable(&'a Address),
+    GroupPointer {
+        authority: Option<&'a Address>,
+        group_address: Option<&'a Address>,
+    },
+    GroupMemberPointer {
+        authority: Option<&'a Address>,
+        member_address: Option<&'a Address>,
+    },
+    /// Burns need this authority's signature next to the holder's.
+    PermissionedBurn(&'a Address),
 }
 
 impl MintExtension<'_> {
@@ -70,19 +82,36 @@ impl MintExtension<'_> {
         match self {
             Self::TransferFeeConfig { .. } => 1,
             Self::MintCloseAuthority(_) => 3,
+            Self::DefaultAccountState(_) => 6,
             Self::NonTransferable => 9,
+            Self::InterestBearing { .. } => 10,
             Self::PermanentDelegate(_) => 12,
             Self::TransferHook { .. } => 14,
             Self::MetadataPointer { .. } => 18,
+            Self::GroupPointer { .. } => 20,
+            Self::GroupMemberPointer { .. } => 22,
+            Self::ScaledUiAmount { .. } => 25,
+            Self::Pausable(_) => 26,
+            Self::PermissionedBurn(_) => 28,
         }
     }
 
-    const fn value_len(&self) -> usize {
+    /// The extension's TLV value length: the size of its on-chain state.
+    pub const fn value_len(&self) -> usize {
         match self {
             Self::TransferFeeConfig { .. } => 108,
-            Self::MintCloseAuthority(_) | Self::PermanentDelegate(_) => 32,
+            Self::MintCloseAuthority(_)
+            | Self::PermanentDelegate(_)
+            | Self::PermissionedBurn(_) => 32,
             Self::NonTransferable => 0,
-            Self::TransferHook { .. } | Self::MetadataPointer { .. } => 64,
+            Self::TransferHook { .. }
+            | Self::MetadataPointer { .. }
+            | Self::GroupPointer { .. }
+            | Self::GroupMemberPointer { .. } => 64,
+            Self::DefaultAccountState(_) => 1,
+            Self::InterestBearing { .. } => 52,
+            Self::ScaledUiAmount { .. } => 56,
+            Self::Pausable(_) => 33,
         }
     }
 
@@ -124,6 +153,44 @@ impl MintExtension<'_> {
                 nullable(metadata_address)?;
             }
             Self::NonTransferable => {}
+            // The Token-2022 encoders validate these shapes themselves.
+            Self::DefaultAccountState(state) => {
+                ext::encode_initialize_default_account_state(state)?;
+            }
+            Self::InterestBearing {
+                rate_authority,
+                rate,
+            } => {
+                ext::encode_initialize_interest_bearing_mint(rate_authority, rate)?;
+            }
+            Self::ScaledUiAmount {
+                authority,
+                multiplier,
+            } => {
+                ext::encode_initialize_scaled_ui_amount(authority, multiplier)?;
+            }
+            Self::Pausable(authority) => {
+                ext::encode_initialize_authority(ext::IX_PAUSABLE, authority)?;
+            }
+            Self::GroupPointer {
+                authority,
+                group_address,
+            } => {
+                ext::encode_initialize_pointer(ext::IX_GROUP_POINTER, authority, group_address)?;
+            }
+            Self::GroupMemberPointer {
+                authority,
+                member_address,
+            } => {
+                ext::encode_initialize_pointer(
+                    ext::IX_GROUP_MEMBER_POINTER,
+                    authority,
+                    member_address,
+                )?;
+            }
+            Self::PermissionedBurn(authority) => {
+                ext::encode_initialize_authority(ext::IX_PERMISSIONED_BURN, authority)?;
+            }
         }
         Ok(())
     }
@@ -169,6 +236,60 @@ impl MintExtension<'_> {
                 out.push(&[39, 0]);
                 out.nullable(authority);
                 out.nullable(metadata_address);
+            }
+            Self::DefaultAccountState(state) => {
+                out.push(&ext::encode_initialize_default_account_state(state)?);
+            }
+            Self::InterestBearing {
+                rate_authority,
+                rate,
+            } => {
+                out.push(
+                    ext::encode_initialize_interest_bearing_mint(rate_authority, rate)?.as_slice(),
+                );
+            }
+            Self::ScaledUiAmount {
+                authority,
+                multiplier,
+            } => {
+                out.push(
+                    ext::encode_initialize_scaled_ui_amount(authority, multiplier)?.as_slice(),
+                );
+            }
+            Self::Pausable(authority) => {
+                out.push(ext::encode_initialize_authority(ext::IX_PAUSABLE, authority)?.as_slice());
+            }
+            Self::GroupPointer {
+                authority,
+                group_address,
+            } => {
+                out.push(
+                    ext::encode_initialize_pointer(
+                        ext::IX_GROUP_POINTER,
+                        authority,
+                        group_address,
+                    )?
+                    .as_slice(),
+                );
+            }
+            Self::GroupMemberPointer {
+                authority,
+                member_address,
+            } => {
+                out.push(
+                    ext::encode_initialize_pointer(
+                        ext::IX_GROUP_MEMBER_POINTER,
+                        authority,
+                        member_address,
+                    )?
+                    .as_slice(),
+                );
+            }
+            Self::PermissionedBurn(authority) => {
+                out.push(
+                    ext::encode_initialize_authority(ext::IX_PERMISSIONED_BURN, authority)?
+                        .as_slice(),
+                );
             }
         }
         Ok(out)

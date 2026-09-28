@@ -12,9 +12,32 @@ pub use hook::{
     extra_account_metas_pda, ExtraAccountMeta, ExtraAccountMetaList, HookAccountBuf, HookError,
     ResolvedHookAccount, EXTRA_ACCOUNT_METAS_SEED,
 };
+pub use hopper_runtime::token::{TokenBatch, TokenInstruction, TokenProgram, TokenSink, Trailing};
 pub use hopper_runtime::token_mint::{
     InitializeMint2, MintConfig, MintExtension, MintInstructionData, MintPlan, MintProgram,
 };
+
+/// The Token-2022-only instructions: `CreateNativeMint`,
+/// `InitializeNonTransferableMint`, `Reallocate`, and every extension
+/// family's initializers, updates, and toggles. Each targets Token-2022
+/// from `invoke()`; see [`hopper_runtime::token_2022_ix`].
+pub mod extension_instructions {
+    pub use hopper_runtime::token_2022_ix::*;
+}
+
+/// The instruction set Token-2022 shares with SPL Token, in the checked
+/// forms: send any of these to Token-2022 with
+/// `invoke_on(TokenProgram::Token2022, multisig_signers, signers)`, or
+/// with `invoke_for_owner(..)` to whichever program owns the account.
+pub mod checked {
+    pub use hopper_runtime::token::{
+        AmountToUiAmount, ApproveChecked, BurnChecked, CloseAccount, FreezeAccount,
+        GetAccountDataSize, InitializeAccount2, InitializeAccount3, InitializeImmutableOwner,
+        InitializeMint, InitializeMultisig, InitializeMultisig2, MintToChecked, Revoke,
+        SetAuthority, SyncNative, ThawAccount, TokenAuthorityType, TokenBatch, TokenInstruction,
+        TokenProgram, TransferChecked, UiAmountToAmount, WithdrawExcessLamports,
+    };
+}
 
 use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
 use hopper_runtime::{AccountView, ProgramResult};
@@ -275,6 +298,7 @@ impl InitializeAccount<'_> {
 }
 
 pub mod instructions {
+    pub use super::extension_instructions::*;
     pub use super::{
         Approve, Burn, CloseAccount, InitializeAccount, InitializeMint2, MintTo, Revoke, Transfer,
     };

@@ -111,9 +111,55 @@ rolls back earlier CPIs. Catching an error and returning success can retain
 partial work. The low-level `InitializeMint2` builder is also available when
 you manage allocation and extension initialization yourself.
 
-Variable-length token metadata, confidential extensions, and automatic
-extension inference are outside this API. Initialize unsupported extensions
-through their own reviewed instruction builders, then validate the result.
+The plan covers the thirteen fixed-size mint extensions: transfer fee, mint
+close authority, non-transferable, permanent delegate, transfer hook,
+metadata pointer, default account state, interest bearing, scaled UI amount,
+pausable, group pointer, group member pointer, and permissioned burn. Each
+variant's allocation and bytes are checked against the canonical
+`spl-token-2022-interface` constructors. Variable-length token metadata,
+confidential extensions, and automatic extension inference are outside this
+API.
+
+## Every Token-2022 instruction
+
+The shared instruction set (transfers, mints, burns, approvals, close,
+freeze, authority changes, account and multisig initialization, the
+data-size and UI-amount queries, excess-lamport withdrawal) lives in
+`hopper::token`. Every builder there targets SPL Token from `invoke()` and
+Token-2022 from `invoke_on`; `invoke_for_owner` reads the first account's
+owner, picks the program, and refuses anything that is not one of the two:
+
+```rust
+use hopper::token::{GetAccountDataSize, InitializeAccount3, InitializeImmutableOwner, TokenProgram};
+
+let program = TokenProgram::owning(mint)?;
+let size = GetAccountDataSize { mint, extension_types: &[7] }.query(program)?;
+// allocate `size` bytes owned by `program.address()`, then:
+InitializeImmutableOwner { account }.invoke_on(program, &[], &[])?;
+InitializeAccount3 { account, mint, owner }.invoke_for_owner(&[], &[])?;
+```
+
+The Token-2022-only instructions live in
+`hopper::token_2022::extension_instructions`: `CreateNativeMint`,
+`InitializeNonTransferableMint`, `Reallocate`, and every extension family's
+initializers, updates, and toggles (transfer fee, default account state,
+memo transfer, interest bearing, CPI guard, permanent delegate, transfer
+hook, metadata pointer, group pointer, group member pointer, scaled UI
+amount, pausable, permissioned burn, mint close authority). Each has
+`invoke`, `invoke_signed`, and, where an authority is involved,
+`invoke_multisig` and `invoke_signed_multisig`:
+
+```rust
+use hopper::token_2022::extension_instructions::{Pause, Resume, UpdateScaledUiAmountMultiplier};
+
+Pause { mint, authority }.invoke()?;
+UpdateScaledUiAmountMultiplier { mint, authority, multiplier: 3.0, effective_timestamp: 0 }.invoke()?;
+Resume { mint, authority }.invoke()?;
+```
+
+`TokenBatch` collects any of these builders and sends them as one `Batch`
+CPI; SPL Token (p-token) accepts it, and the token-lab devnet runner records
+whether the deployed Token-2022 does.
 
 ## Extension constraints
 
@@ -195,7 +241,13 @@ or run the transfer hook.
 - `bench/mint-plan/program` exercises mint creation and initialization against
   canonical token processors, including PDA and prefunded mint creation.
 - `crates/hopper-spl/hopper-token-2022/tests/mint_plan.rs` compares allocation
-  sizes and emitted bytes with the canonical SPL interface.
+  sizes and emitted bytes with the canonical SPL interface;
+  `crates/hopper-runtime/src/token_differential_tests.rs` does the same for
+  every builder's bytes and account metas.
+- `examples/hopper-token-lab` runs one instruction per builder family against
+  SPL Token and Token-2022 on devnet through
+  `scripts/test-token-lab-devnet.py`, with byte-level checks of every
+  touched account.
 
 Mint initialization does not replace the token readers and authority checks
 needed by later instructions. Validate each operation's own contract.

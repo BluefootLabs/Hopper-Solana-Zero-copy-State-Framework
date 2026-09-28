@@ -9,6 +9,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **The whole SPL Token instruction set, on both token programs.**
+  `hopper_runtime::token` (and `hopper::token`) gains `InitializeMint`,
+  `InitializeMultisig`, `InitializeMultisig2`, `InitializeImmutableOwner`,
+  `GetAccountDataSize`, `AmountToUiAmount`, `UiAmountToAmount`,
+  `WithdrawExcessLamports`, and `UnwrapLamports` next to the transfer,
+  mint, burn, approve, close, freeze, authority, and account initializers
+  it already had. Every builder now has `invoke_on(TokenProgram, ..)` for an
+  explicit program and `invoke_for_owner(..)` for whichever of SPL Token
+  and Token-2022 owns its first account (one 32-byte compare; any other
+  owner is refused before the CPI), next to the `invoke`, `invoke_signed`,
+  and multisig forms that keep targeting SPL Token. The query builders read
+  their answer back from the return data (`GetAccountDataSize::query`,
+  `UiAmountToAmount::query`, `AmountToUiAmount::query`), checking that the
+  token program set it.
+- **`TokenBatch`**, the p-token `Batch` instruction (255): a const-generic,
+  stack-resident collector that any token builder is pushed into through
+  the same `TokenInstruction::emit` its `invoke()` uses, then sent as one
+  CPI. Two `TransferChecked`s in a batch are one token-program invocation
+  on chain. The push refuses an overflow of either buffer and leaves the
+  batch unchanged.
+- **Every Token-2022-only instruction** in `hopper_runtime::token_2022_ix`
+  (re-exported as `hopper::token_2022::extension_instructions`):
+  `CreateNativeMint`, `InitializeNonTransferableMint`, `Reallocate`, and
+  the transfer fee (initialize, transfer checked with fee, withdraw
+  withheld from mint and from accounts, harvest, set fee), default account
+  state (initialize, update), memo transfer and CPI guard (enable,
+  disable), interest bearing (initialize, update rate), permanent
+  delegate, transfer hook, metadata pointer, group pointer and group
+  member pointer (initialize, update), scaled UI amount (initialize,
+  update multiplier), pausable (initialize, pause, resume), permissioned
+  burn (initialize, burn, burn checked), and mint close authority
+  builders, thirty-five in all, each with direct, PDA-signed, and multisig
+  entry points. `MintPlan` initializes seven more fixed-size extensions
+  (default account state, interest bearing, scaled UI amount, pausable,
+  group pointer, group member pointer, permissioned burn), thirteen in
+  total, with the canonical allocation for each.
+- **Differential tests against the canonical constructors.** The bytes and
+  the account metas (order, writable, signer, multisig signers appended)
+  of every builder above, captured through `emit`, equal what
+  `spl-token-2022-interface` 3.1.1 builds for the same inputs, on top of
+  the golden-byte tests each encoder keeps.
+- **`examples/hopper-token-lab`** and `scripts/test-token-lab-devnet.py`:
+  one instruction per builder family, driven against SPL Token and
+  Token-2022 on devnet with byte-level checks of every touched account and
+  a receipt that records which cases the live programs accepted.
 - **`hopper_runtime::rent::live_rent`**, the Rent sysvar read once per
   invocation. The first call reads the sysvar and stores the rate, the
   threshold bits, and the burn percent in the reserved heap scratch
@@ -44,6 +89,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Changed
 
+- **Token builders encode once, through `TokenInstruction::emit`.** Each
+  builder's bytes and metas are produced by one `emit` impl that writes
+  into a `TokenSink`: the CPI (with the program chosen by the caller) or a
+  `TokenBatch`. The public `invoke*` methods are unchanged and still
+  target SPL Token. `token_mint::MintProgram` is now an alias of
+  `token::TokenProgram` (`Legacy`, `Token2022`); existing
+  `MintProgram::Token2022` code compiles as before, and
+  `hopper_solana::interface::TokenProgramKind` converts both ways.
 - **Trailing optional accounts may be omitted.** A context whose last
   fields are `Option<W>` no longer demands them: `bind` and `validate`
   require `REQUIRED_ACCOUNT_COUNT` (the declared count minus the trailing

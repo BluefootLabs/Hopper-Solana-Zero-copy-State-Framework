@@ -1,0 +1,19 @@
+[package]
+name = "hopper-token-lab"
+version = "0.4.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Every SPL Token and Token-2022 builder Hopper ships, exercised on chain: multisig, immutable-owner accounts, data-size and UI-amount queries, excess-lamport withdrawal, wrapped SOL unwrap, batched transfers, and the extended mints."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
+
+[features]
+default = []
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
