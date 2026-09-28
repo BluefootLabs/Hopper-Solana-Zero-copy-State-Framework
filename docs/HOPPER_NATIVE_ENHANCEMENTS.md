@@ -37,6 +37,9 @@ packages do not carry them until the next patch train.
   uninitialized buffer, and skip the dead result-code branch; `sha256` is
   real off-chain. `sha512` exists behind the `sha512-syscall` feature for
   clusters where SIMD-0512 is active (devnet and testnet on 2026-09-27).
+- `#[derive(Accounts)]` refuses one account passed in two undeclared
+  mutable roles (`ERR_ALIASED_MUTABLE_ACCOUNTS`) with one record-pointer
+  compare per mutable pair; `dup = other` still declares an intended alias.
 - The count-exact entrypoint refuses accounts past the matched bound
   (`ERR_TOO_MANY_ACCOUNTS`) instead of running on a truncated list;
   `cu_trace!`, `cu_measure!`, and the DSL's `context_schema` work from a
@@ -46,7 +49,7 @@ packages do not carry them until the next patch train.
 
 The changelog's Unreleased section carries the measured numbers.
 
-## Native 0.4.4 and runtime 0.4.5 — instruction inspection
+## Native 0.4.4 and runtime 0.4.5: instruction inspection
 
 **Published on crates.io:** `hopper-native` 0.4.4 and `hopper-runtime` 0.4.5.
 Framework and CLI remain 0.4.0; Solana integration remains 0.4.1. Registry
@@ -84,7 +87,7 @@ results do not establish a whole-framework security audit or universal speed lea
 cargo update -p hopper-native -p hopper-runtime
 ```
 
-## Runtime 0.4.3 and Solana integration 0.4.1 — token receipts
+## Runtime 0.4.3 and Solana integration 0.4.1: token receipts
 
 **Published on crates.io:** `hopper-runtime` 0.4.3 and `hopper-solana` 0.4.1.
 At that release, native was 0.4.2; framework and CLI were 0.4.0. Downloaded package sources
@@ -121,7 +124,7 @@ not an independent security audit or a whole-framework speed comparison.
 cargo update -p hopper-runtime -p hopper-solana
 ```
 
-## Native/runtime 0.4.2 — account lifecycle and borrow safety
+## Native/runtime 0.4.2: account lifecycle and borrow safety
 
 **Published on crates.io:** `hopper-native` and `hopper-runtime` 0.4.2.
 Registry downloads match the release source and checksums.
@@ -162,7 +165,7 @@ Update existing lockfiles with `cargo update -p hopper-native -p hopper-runtime`
 The framework and CLI remain 0.4.0. These are targeted correctness and developer
 experience improvements; they do not establish universal performance leadership.
 
-## Native/runtime 0.4.1 patch — September 26, 2026
+## Native/runtime 0.4.1 patch: September 26, 2026
 
 `hopper-native` and `hopper-runtime` **0.4.1 are published**. The framework and
 CLI remain 0.4.0; support packages keep their independent versions. Existing

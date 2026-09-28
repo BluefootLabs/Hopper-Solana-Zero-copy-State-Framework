@@ -253,11 +253,12 @@ struct AccountAttr {
     /// `master_edition::rent = field`. Optional rent sysvar account.
     master_edition_rent: Option<Ident>,
 
-    /// `dup = other_field`. This slot is allowed to
-    /// alias `other_field` (the caller intentionally passed the same
-    /// account in two roles). Skips the "no duplicate writables" and
-    /// "no duplicate signers" pipeline checks for this pair. Does
-    /// NOT imply `mut`.
+    /// `dup = other_field`. This slot must alias `other_field` (the
+    /// caller intentionally passes the same account in two roles); the
+    /// bind refuses two different accounts. The pair is left out of the
+    /// distinct-mutable-accounts check every context runs first, which
+    /// refuses one account in two undeclared mutable roles. Does NOT
+    /// imply `mut`.
     dup: Option<Ident>,
 
     /// `sweep = target_field`. After the handler returns Ok, move
@@ -1116,6 +1117,64 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let mut bind_validation_stmts = Vec::new();
     let mut per_field_validators = Vec::new();
     let mut check_descriptions: Vec<String> = Vec::new();
+
+    // -- Distinct mutable accounts ------------------------------------
+    //
+    // Two mutable roles bound to one account (`from` and `to` both the
+    // same vault) let a handler's sequential writes land on one account
+    // without any borrow overlapping, which is the one aliasing the
+    // segment borrow registry cannot see (it tracks borrows that are live
+    // at the same time). The loader hands a repeated account to the
+    // program as one record plus duplicate markers, so on chain two slots
+    // alias exactly when their views share the record pointer: one
+    // pointer compare per mutable pair, emitted as the first validation
+    // statement. A pair the author declared with `dup = other` is the
+    // intended alias and is left out (its own check requires the alias);
+    // optional slots are left out because two absent optionals both hold
+    // the program-id filler.
+    let distinct_pairs: Vec<TokenStream> = {
+        let mutable: Vec<&ContextField> = ctx_fields
+            .iter()
+            .filter(|cf| {
+                !cf.attr.composite
+                    && (cf.attr.is_mut || !cf.attr.mut_segments.is_empty())
+                    && !matches!(classify_wrapper(&cf.ty), Some(WrapperKind::Optional { .. }))
+            })
+            .collect();
+        let mut pairs = Vec::new();
+        for (i, left) in mutable.iter().enumerate() {
+            for right in mutable.iter().skip(i + 1) {
+                let declared = left.attr.dup.as_ref() == Some(&right.name)
+                    || right.attr.dup.as_ref() == Some(&left.name);
+                if declared {
+                    continue;
+                }
+                let a = slot_abs(left.index);
+                let b = slot_abs(right.index);
+                pairs.push(quote! { (#a, #b) });
+            }
+        }
+        pairs
+    };
+    if !distinct_pairs.is_empty() {
+        // One pair (the common `from`/`to` shape) is a direct compare; a
+        // larger context shares one loop over a static pair table.
+        let distinct_stmt = if distinct_pairs.len() == 1 {
+            let only = &distinct_pairs[0];
+            quote! { ctx.require_distinct_pair #only?; }
+        } else {
+            quote! {
+                ctx.require_distinct_slots(&[ #(#distinct_pairs),* ])?;
+            }
+        };
+        validation_stmts.push(distinct_stmt.clone());
+        bind_validation_stmts.push(distinct_stmt);
+        check_descriptions.push(
+            "mutable accounts are distinct: one account cannot fill two mutable roles \
+             unless a `dup` declaration names the alias"
+                .to_string(),
+        );
+    }
     // Lazy-migration pre-steps (`migrate(from = Old, with = path)`), one
     // per migrate field in declaration order. Spliced into `bind()` BEFORE
     // its validation fragment, never into `validate()` (read-only),
@@ -9406,6 +9465,82 @@ mod instruction_arg_tests {
             other.contains("::hopper::pda::verify_pda_address(")
                 && !other.contains("is_signer()||"),
             "a typed non-init field keeps the inline one-sha256 verify: {other}"
+        );
+    }
+
+    /// Two undeclared mutable roles are checked for aliasing first, with
+    /// one pointer compare per pair; a `dup` declaration removes its pair
+    /// and an optional slot never takes part.
+    #[test]
+    fn mutable_slots_must_be_distinct_unless_declared() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Move<'info> {
+                #[account(mut)]
+                pub from: Account<'info, Vault>,
+                #[account(mut)]
+                pub to: Account<'info, Vault>,
+                pub authority: Signer<'info>,
+                #[account(mut)]
+                pub maybe: Option<Account<'info, Vault>>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+        let compact: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            compact
+                .contains("ctx.require_distinct_pair(__HOPPER_BASE+0usize,__HOPPER_BASE+1usize)?;"),
+            "the two mutable required slots form the only pair, checked directly: {compact}"
+        );
+        assert_eq!(
+            compact.matches("require_distinct_pair").count(),
+            1,
+            "emitted once, in validate_at (bind calls it; the fused bind path only \
+             exists for event-authority or fused-bump contexts): {compact}"
+        );
+        assert!(!compact.contains("require_distinct_slots"), "{compact}");
+
+        let three: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Sweep<'info> {
+                #[account(mut)]
+                pub a: Account<'info, Vault>,
+                #[account(mut)]
+                pub b: Account<'info, Vault>,
+                #[account(mut)]
+                pub c: Account<'info, Vault>,
+            }
+        };
+        let s = expand_for_derive(three)
+            .expect("derive expand ok")
+            .to_string();
+        let compact: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            compact.contains(
+                "ctx.require_distinct_slots(&[(__HOPPER_BASE+0usize,__HOPPER_BASE+1usize),\
+                 (__HOPPER_BASE+0usize,__HOPPER_BASE+2usize),\
+                 (__HOPPER_BASE+1usize,__HOPPER_BASE+2usize)])?;"
+            ),
+            "three mutable slots share one loop over their three pairs: {compact}"
+        );
+
+        let declared: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Same<'info> {
+                #[account(mut)]
+                pub from: Account<'info, Vault>,
+                #[account(mut, dup = from)]
+                pub to: Account<'info, Vault>,
+            }
+        };
+        let s = expand_for_derive(declared)
+            .expect("derive expand ok")
+            .to_string();
+        assert!(
+            !s.contains("require_distinct_slots"),
+            "a declared alias is not a pair: {s}"
         );
     }
 

@@ -937,6 +937,15 @@ pub const ENTRY_REFUSAL_PAGE: u32 = 0xB000;
 /// remaining-accounts handler run on a truncated list.
 pub const ERR_TOO_MANY_ACCOUNTS: ProgramError = ProgramError::Custom(ENTRY_REFUSAL_PAGE | 0x01);
 
+/// One account was passed in two mutable roles of a context that did not
+/// declare the alias with `dup = other`. `#[derive(Accounts)]` emits
+/// `Context::require_distinct_slots` for every pair of mutable slots, so a
+/// handler's sequential writes through two roles can never land on one
+/// account by accident (the segment borrow registry only sees borrows that
+/// are live at the same time).
+pub const ERR_ALIASED_MUTABLE_ACCOUNTS: ProgramError =
+    ProgramError::Custom(ENTRY_REFUSAL_PAGE | 0x02);
+
 /// The widest of a program's per-instruction account bounds; sizes the
 /// scratch the count-exact entrypoint materializes into.
 #[doc(hidden)]

@@ -1,0 +1,9 @@
+5DdjHkqM 505024761 None 2670
+A1XFN95o 505024790 {'InstructionError': [0, 'PrivilegeEscalation']} 1337
+3dDdHaRJ 505024802 {'InstructionError': [0, 'InvalidSeeds']} 312
+K72ScggD 505024813 None 1542
+4VzzrZ7w 505024819 None 348
+TYfU6LCN 505024826 {'InstructionError': [0, 'AccountAlreadyInitialized']} 502
+2QE8eFvy 505024896 None 1540
+2aaiuyPg 505024905 None 348
+5jKkshDn 505024913 {'InstructionError': [0, {'Custom': 45057}]} 14

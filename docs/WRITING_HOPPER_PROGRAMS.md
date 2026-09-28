@@ -76,6 +76,14 @@ UncheckedAccount
 
 Keep handlers boring: validate authority, load typed state, mutate, return.
 
+Two mutable roles in one context (`from` and `to`, an offer and its vault)
+are two different accounts by contract: `bind` refuses a transaction that
+passes one account for both with `ERR_ALIASED_MUTABLE_ACCOUNTS`
+(`Custom(0xB002)`), one record-pointer compare per pair, before any other
+check runs. When one account legitimately plays two roles, declare it with
+`dup = other_field` on the second field; that pair is then required to
+alias and is left out of the check. Optional slots never take part.
+
 ## Token And CPI Work
 
 Everyday program modules are available without entering systems mode:

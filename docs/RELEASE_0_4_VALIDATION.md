@@ -5,7 +5,7 @@ Rust handlers and explicit account APIs. It corrects typed DSL header offsets,
 safe projection size checks, segment geometry, and the SOL vault's System CPI
 account list. See [migration](MIGRATION_0_4.md) for compatibility details.
 
-## Native 0.4.4 and runtime 0.4.5 — instruction inspection
+## Native 0.4.4 and runtime 0.4.5: instruction inspection
 
 **Published on crates.io:** `hopper-native` 0.4.4 and `hopper-runtime` 0.4.5.
 Framework and CLI remain 0.4.0; Solana integration remains 0.4.1. Registry
@@ -43,7 +43,7 @@ results do not establish a whole-framework security audit or universal speed lea
 cargo update -p hopper-native -p hopper-runtime
 ```
 
-## Runtime 0.4.3 and Solana integration 0.4.1 — token receipts
+## Runtime 0.4.3 and Solana integration 0.4.1: token receipts
 
 **Published on crates.io:** `hopper-runtime` 0.4.3 and `hopper-solana` 0.4.1.
 At that release, native was 0.4.2; framework and CLI were 0.4.0. Downloaded package sources
@@ -80,7 +80,7 @@ not an independent security audit or a whole-framework speed comparison.
 cargo update -p hopper-runtime -p hopper-solana
 ```
 
-## Native/runtime 0.4.2 — account lifecycle and borrow safety
+## Native/runtime 0.4.2: account lifecycle and borrow safety
 
 **Published on crates.io:** `hopper-native` and `hopper-runtime` 0.4.2.
 Registry downloads match the release source and checksums.
@@ -121,7 +121,7 @@ Update existing lockfiles with `cargo update -p hopper-native -p hopper-runtime`
 The framework and CLI remain 0.4.0. These are targeted correctness and developer
 experience improvements; they do not establish universal performance leadership.
 
-## Native/runtime 0.4.1 patch — September 26, 2026
+## Native/runtime 0.4.1 patch: September 26, 2026
 
 `hopper-native` and `hopper-runtime` **0.4.1 are published**. The framework and
 CLI remain 0.4.0; support packages keep their independent versions. Existing

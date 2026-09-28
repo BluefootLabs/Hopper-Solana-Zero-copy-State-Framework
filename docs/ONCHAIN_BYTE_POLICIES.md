@@ -121,7 +121,7 @@ review](ARCHITECTURE.md). Alpenglow is a consensus change, not a
 sub-account locking feature or a new Hopper byte-fee mechanism.
 
 
-## Published 0.4.0 revalidation — September 26
+## Published 0.4.0 revalidation: September 26
 
 The 0.4.0 byte-allowance artifact passed 40 fresh finalized devnet transactions,
 including all four quota slots and refusal cases. Complete expected account

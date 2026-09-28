@@ -489,6 +489,41 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// Refuse a transaction that fills both slots of any listed pair with
+    /// one account.
+    ///
+    /// `#[derive(Accounts)]` calls this with every pair of mutable slots
+    /// the context declares (declared `dup` aliases and optional slots
+    /// left out), so `from` and `to` can never be the same vault unless
+    /// the author said so. On chain the loader serializes a repeated
+    /// account once and marks the later slots as duplicates of that
+    /// record, so two slots alias exactly when their views share the
+    /// record: one pointer compare per pair, no address bytes read. Off
+    /// chain, where the host harness builds a record per slot, the
+    /// addresses are compared by value. Refuses with
+    /// [`crate::ERR_ALIASED_MUTABLE_ACCOUNTS`].
+    #[inline(always)]
+    pub fn require_distinct_slots(&self, pairs: &[(usize, usize)]) -> ProgramResult {
+        let mut i = 0;
+        while i < pairs.len() {
+            let (a, b) = pairs[i];
+            self.require_distinct_pair(a, b)?;
+            i += 1;
+        }
+        Ok(())
+    }
+
+    /// [`Self::require_distinct_slots`] for one pair, with no pair table or
+    /// loop: what `#[derive(Accounts)]` emits for a context with exactly
+    /// two mutable slots (two loads and one compare).
+    #[inline(always)]
+    pub fn require_distinct_pair(&self, a: usize, b: usize) -> ProgramResult {
+        if same_record(self.account(a)?, self.account(b)?) {
+            return Err(crate::ERR_ALIASED_MUTABLE_ACCOUNTS);
+        }
+        Ok(())
+    }
+
     /// Require all account addresses to be unique.
     #[inline(always)]
     pub fn require_unique_accounts(&self) -> ProgramResult {
@@ -1209,6 +1244,24 @@ impl<'ctx, 'a> ScopedContext<'ctx, 'a> {
 
 // ── Tests ────────────────────────────────────────────────────────────
 
+/// Whether two views name the same loader record.
+///
+/// The loader serializes a repeated account once and marks later slots as
+/// duplicates of it, so on chain identity is the record pointer. The host
+/// harness builds one record per slot, so there the addresses are compared
+/// by value.
+#[inline(always)]
+fn same_record(left: &AccountView<'_>, right: &AccountView<'_>) -> bool {
+    #[cfg(target_os = "solana")]
+    {
+        core::ptr::eq(left.address(), right.address())
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        left.address() == right.address()
+    }
+}
+
 #[cfg(test)]
 mod write_policy_tests {
     use super::*;
@@ -1260,6 +1313,29 @@ mod write_policy_tests {
     ]);
     // Whole-account allowance on account 0 (a plain `mut` declaration).
     static WHOLE_POLICY: WritePolicy = WritePolicy::new(&[WriteRange::whole_account(0)]);
+
+    /// One account in two mutable roles is refused; distinct accounts and
+    /// a missing slot keep their own errors.
+    #[test]
+    fn distinct_slots_refuses_one_account_in_two_roles() {
+        let (_a, first) = make_account(1);
+        let (_b, second) = make_account(1);
+        let (_c, third) = make_account(3);
+        let accounts = [first, second, third];
+        let pid = Address::new([9u8; 32]);
+        let ctx = Context::new(&pid, &accounts, &[]);
+
+        assert_eq!(ctx.require_distinct_slots(&[]), Ok(()));
+        assert_eq!(ctx.require_distinct_slots(&[(0, 2), (1, 2)]), Ok(()));
+        assert_eq!(
+            ctx.require_distinct_slots(&[(0, 2), (0, 1)]),
+            Err(crate::ERR_ALIASED_MUTABLE_ACCOUNTS)
+        );
+        assert_eq!(
+            ctx.require_distinct_slots(&[(0, 5)]),
+            Err(ProgramError::NotEnoughAccountKeys)
+        );
+    }
 
     #[test]
     fn no_policy_leaves_every_write_path_open() {

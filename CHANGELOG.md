@@ -64,6 +64,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- **One account in two mutable roles was accepted.** A context with two
+  undeclared `mut` fields (`from` and `to`, an offer and its vault) bound
+  when a transaction passed the same account for both; the segment borrow
+  registry refuses borrows that overlap in time, not a handler's
+  sequential writes through two roles, so the writes landed on one
+  account. `#[derive(Accounts)]` now emits `Context::require_distinct_slots`
+  for every pair of mutable slots as the first validation statement and
+  refuses an alias with `ERR_ALIASED_MUTABLE_ACCOUNTS` (`Custom(0xB002)`).
+  On chain the loader serializes a repeated account once and marks later
+  slots as duplicates, so the check is one pointer compare per pair and
+  reads no address bytes. A pair declared with `dup = other` (whose own
+  check requires the alias) and optional slots are left out. Pina scans
+  every later slot per mutable field and Anchor v2 keeps a mutable mask;
+  pinocchio has no such check. Measured on the framework-comparison macro
+  counter, whose `initialize` has one pair (the payer and the new
+  account): 1,542 to 1,544 CU and 8,584 to 8,696 bytes; `increment`, with
+  one mutable slot, is unchanged at 348.
 - **The count-exact entrypoint accepted surplus accounts.** `profile =
   "tiny"` clamped the walk to the arm's bound and ran, so a handler with
   `#[remaining_accounts(max = N)]` given N + k accounts processed the first
