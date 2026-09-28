@@ -81,6 +81,18 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
             }
             None => derive_code(&enum_name_str, &vname_str),
         };
+        if is_reserved_code(code) {
+            return Err(syn::Error::new_spanned(
+                v,
+                format!(
+                    "`{vname_str}` would use error code {code:#x}, inside the range Hopper \
+                     reserves for framework refusals (0xB000 entry, 0xC000 context \
+                     acquisition, 0xD000 write policy, 0xE000 compute budget); give it an \
+                     explicit discriminant outside 0xB000..=0xEFFF so `hopper explain` and \
+                     clients can tell the two apart"
+                ),
+            ));
+        }
 
         let mut invariant_name = String::new();
         for a in &v.attrs {
@@ -244,6 +256,17 @@ fn strip_invariant_attrs(mut e: ItemEnum) -> ItemEnum {
     e
 }
 
+/// Whether a code lands in a page the framework's own refusals use
+/// (`ERR_TOO_MANY_ACCOUNTS` at `0xB001`, `Custom(0xC000 | idx)` context
+/// acquisition, `Custom(0xD000 | idx)` write policy, `ERR_INSUFFICIENT_CU`
+/// at `0xE000`). A user code there is indistinguishable from a framework
+/// refusal, so the macro refuses it; a fingerprint-derived code that lands
+/// there (a 3-in-2^19 chance) gets the same error and an explicit
+/// discriminant fixes it.
+fn is_reserved_code(code: u32) -> bool {
+    (0xB000..=0xEFFF).contains(&code)
+}
+
 fn derive_code(enum_name: &str, variant_name: &str) -> u32 {
     let mut h = Sha256::new();
     h.update(b"hopper:error:");
@@ -257,5 +280,36 @@ fn derive_code(enum_name: &str, variant_name: &str) -> u32 {
         1
     } else {
         code
+    }
+}
+
+#[cfg(test)]
+mod reserved_code_tests {
+    use super::*;
+    use quote::quote;
+
+    #[test]
+    fn a_user_code_inside_a_framework_page_is_refused() {
+        let item = quote! { pub enum E { Bad = 0xC003 } };
+        let err = expand(proc_macro2::TokenStream::new(), item)
+            .expect_err("a code in the context-acquisition page must be refused");
+        assert!(err.to_string().contains("reserves"), "{err}");
+        for code in [0xB001u32, 0xD000, 0xE000, 0xEFFF] {
+            let lit = proc_macro2::Literal::u32_unsuffixed(code);
+            let item = quote! { pub enum E { Bad = #lit } };
+            assert!(
+                expand(proc_macro2::TokenStream::new(), item).is_err(),
+                "{code:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_user_code_outside_the_pages_expands() {
+        for code in [6000u32, 0xAFFF, 0xF000, 1] {
+            let lit = proc_macro2::Literal::u32_unsuffixed(code);
+            let item = quote! { pub enum E { Fine = #lit } };
+            expand(proc_macro2::TokenStream::new(), item).expect("expands");
+        }
     }
 }

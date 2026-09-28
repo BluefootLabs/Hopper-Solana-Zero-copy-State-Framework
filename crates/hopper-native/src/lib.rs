@@ -53,6 +53,7 @@
 
 pub mod account_view;
 pub mod address;
+pub mod arith;
 pub mod borrow;
 pub mod entrypoint;
 pub mod error;
@@ -116,7 +117,10 @@ pub mod token;
 pub use account_view::AccountView;
 pub use address::Address;
 pub use borrow::{Ref, RefMut};
-pub use entrypoint::{BumpAllocator, HEAP_LENGTH, HEAP_RUNTIME_RESERVED, HEAP_START_ADDRESS};
+pub use entrypoint::{
+    BumpAllocator, HEAP_LENGTH, HEAP_RUNTIME_RESERVED, HEAP_START_ADDRESS, RENT_CACHE_BYTES,
+    RENT_CACHE_HEAP_OFFSET,
+};
 pub use error::ProgramError;
 pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use raw_account::RuntimeAccount;

@@ -87,9 +87,22 @@ macro_rules! le_integer {
             /// Checked multiplication. Returns `None` on overflow.
             #[inline(always)]
             pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
-                match self.get().checked_mul(rhs.get()) {
-                    Some(v) => Some(Self::new(v)),
-                    None => None,
+                // A 64-bit unsigned product goes through the 32-bit-halves
+                // test in `arith`: `u64::checked_mul` lowers to
+                // `umul.with.overflow`, which SBF lacks, so LLVM links and
+                // calls the 128-bit `__multi3` helper (344 bytes, about 50
+                // CU per product). Every other width folds to the library
+                // operator; the branch is a compile-time constant.
+                if $size == 8 && <$native>::MIN == 0 {
+                    match $crate::arith::checked_mul_u64(self.get() as u64, rhs.get() as u64) {
+                        Some(v) => Some(Self::new(v as $native)),
+                        None => None,
+                    }
+                } else {
+                    match self.get().checked_mul(rhs.get()) {
+                        Some(v) => Some(Self::new(v)),
+                        None => None,
+                    }
                 }
             }
 
@@ -246,9 +259,22 @@ macro_rules! le_integer {
             /// Checked multiplication.
             #[inline(always)]
             pub const fn checked_mul(self, rhs: Self) -> Option<Self> {
-                match self.get().checked_mul(rhs.get()) {
-                    Some(v) => Some(Self::new(v)),
-                    None => None,
+                // A 64-bit unsigned product goes through the 32-bit-halves
+                // test in `arith`: `u64::checked_mul` lowers to
+                // `umul.with.overflow`, which SBF lacks, so LLVM links and
+                // calls the 128-bit `__multi3` helper (344 bytes, about 50
+                // CU per product). Every other width folds to the library
+                // operator; the branch is a compile-time constant.
+                if $size == 8 && <$native>::MIN == 0 {
+                    match $crate::arith::checked_mul_u64(self.get() as u64, rhs.get() as u64) {
+                        Some(v) => Some(Self::new(v as $native)),
+                        None => None,
+                    }
+                } else {
+                    match self.get().checked_mul(rhs.get()) {
+                        Some(v) => Some(Self::new(v)),
+                        None => None,
+                    }
                 }
             }
 

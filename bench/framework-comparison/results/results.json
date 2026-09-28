@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24 12:39 UTC",
+  "generated": "2026-09-28 03:45 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -15,12 +15,10 @@
     "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
     "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
   },
-  "source_commit": "dfd140053a7827c0d651cbe3bb926070ce68f15c",
-  "source_tree_clean": true,
+  "source_commit": "cbc8eaf6bc8d8713973dce08c6e179b4d0f68f67",
+  "source_tree_clean": false,
   "build_mode": "rebuilt",
-  "lockfile_sha256": "6f0bad5189142fd903ca71d42a7e50f45e9e80a88b5d94eac989759cc6e22fd0",
-  "verifierSha256": "2b9a2886852b1c8bf2789be30e740562c60e51e048808d559c69c7d3519218e3",
-  "verifierProfile": "dev; program ELFs use the recorded release recipe",
+  "lockfile_sha256": "8f07dce257efc1fa31081d2f50f06dfbb39d1a413a3ad3d9ec4e34be557c1c11",
   "hello": [
     {
       "label": "Hopper (substrate)",
@@ -32,10 +30,10 @@
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 1792,
+      "bytes": 1768,
       "so": "hello_hopper.so",
-      "elf_sha256": "558c8cb951a3b8e0e49c8427843bf04724edd2ed00c042132c434f3a1e6999bd",
-      "hello": 138,
+      "elf_sha256": "33f8e22e934fc5e491aaf73b2ed150cffc5b76f42b3f2466b7d2dfbde9a5310a",
+      "hello": 137,
       "source": "measured here"
     },
     {
@@ -74,21 +72,21 @@
   "counter": [
     {
       "label": "Hopper (substrate)",
-      "bytes": 6728,
+      "bytes": 6792,
       "so": "counter_hopper_substrate.so",
-      "elf_sha256": "cabd592deb5fc67d43fc7efe4306cf12ab4f1425c0bac112e9a3c63b8bb6caae",
-      "initialize": 1606,
+      "elf_sha256": "97f5338ba950942a45488b8e3cceec7109bb8e901d9be9a83990d3cdd83bba48",
+      "initialize": 1595,
       "increment": 1742,
       "account_size": 10,
       "source": "measured here"
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 8312,
+      "bytes": 8584,
       "so": "counter_hopper.so",
-      "elf_sha256": "958f5c9a603a4fe479c3cab7f5579878327d3897c1774cd493e1fb0622d288be",
-      "initialize": 1549,
-      "increment": 349,
+      "elf_sha256": "209558bb0015e9273088609dc251927e349deb146ac8c663104a1f6f54b8cad6",
+      "initialize": 1542,
+      "increment": 348,
       "account_size": 25,
       "source": "measured here"
     },

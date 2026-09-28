@@ -644,7 +644,7 @@ pub(crate) mod touch_log {
         // u64, so TouchLog is 8-aligned).
         const _: () = assert!(
             TOUCH_HEAP_OFFSET + core::mem::size_of::<TouchLog>()
-                <= hopper_native::HEAP_RUNTIME_RESERVED,
+                <= hopper_native::RENT_CACHE_HEAP_OFFSET,
             "TouchLog exceeds HEAP_RUNTIME_RESERVED; grow the reservation in \
              hopper-native/src/entrypoint.rs or shrink MAX_TOUCH_RECORDS"
         );

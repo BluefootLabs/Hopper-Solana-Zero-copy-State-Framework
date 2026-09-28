@@ -60,6 +60,17 @@ use crate::{ProgramError, ProgramResult};
 /// their own custom codes out of `0xE000..0xF000`.
 pub const ERR_INSUFFICIENT_CU: u32 = 0xE000;
 
+/// Whether this crate was built with the `cu-trace` feature.
+///
+/// `cu_trace!` and `cu_measure!` branch on this constant instead of a
+/// `#[cfg(feature = "cu-trace")]` inside their bodies: a `cfg` in an
+/// exported macro is evaluated against the *calling* crate's features, so
+/// the old bodies silently did nothing in a program that enabled
+/// `hopper/cu-trace` without declaring a `cu-trace` feature of its own
+/// (and warned under check-cfg). The branch folds away when the feature is
+/// off.
+pub const CU_TRACE_ENABLED: bool = cfg!(feature = "cu-trace");
+
 /// Compute-unit budget tracker.
 ///
 /// On BPF this is backed by the `sol_remaining_compute_units` syscall
@@ -196,8 +207,7 @@ impl CuBudget {
 #[macro_export]
 macro_rules! cu_trace {
     ( $label:expr ) => {{
-        #[cfg(feature = "cu-trace")]
-        {
+        if $crate::budget::CU_TRACE_ENABLED {
             $crate::budget::CuBudget::checkpoint();
             $crate::log::log(concat!("[cu-trace] ", $label));
         }
@@ -219,14 +229,12 @@ macro_rules! cu_trace {
 #[macro_export]
 macro_rules! cu_measure {
     ( $label:expr, $body:expr ) => {{
-        #[cfg(feature = "cu-trace")]
-        {
+        if $crate::budget::CU_TRACE_ENABLED {
             $crate::budget::CuBudget::checkpoint();
             $crate::log::log(concat!("[cu-start] ", $label));
         }
         let __result = $body;
-        #[cfg(feature = "cu-trace")]
-        {
+        if $crate::budget::CU_TRACE_ENABLED {
             $crate::budget::CuBudget::checkpoint();
             $crate::log::log(concat!("[cu-end] ", $label));
         }

@@ -391,6 +391,17 @@ pub const HEAP_LENGTH: usize = 32 * 1024;
 /// link any hopper-runtime feature that uses it.
 pub const HEAP_RUNTIME_RESERVED: usize = 20 * 1024;
 
+/// Bytes at the top of the reserved scratch that hold the per-invocation
+/// Rent cache (`hopper_runtime::rent::live_rent`): the rate, the threshold
+/// bits, and a loaded flag. All-zero is the empty cache, so the VM's
+/// zeroed heap needs no initialization, exactly like the gate store below
+/// it. The gate store and the touch log assert that they end before
+/// [`RENT_CACHE_HEAP_OFFSET`].
+pub const RENT_CACHE_BYTES: usize = 32;
+
+/// Heap offset of the Rent cache, relative to [`HEAP_START_ADDRESS`].
+pub const RENT_CACHE_HEAP_OFFSET: usize = HEAP_RUNTIME_RESERVED - RENT_CACHE_BYTES;
+
 /// A bump allocator over the SVM heap region.
 ///
 /// This is the same single-pass, never-frees design the Solana SDK and

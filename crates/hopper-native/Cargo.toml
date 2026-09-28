@@ -30,6 +30,10 @@ static-syscalls = []
 # Enable only on a target cluster verified to support this syscall. Host
 # implementations do not establish public-cluster availability.
 remaining-compute-units-syscall = []
+# Binds `sol_sha512` (SIMD-0512, active on devnet and testnet, absent on
+# mainnet-beta on 2026-09-27); a program that references the symbol fails to
+# load where the gate is inactive.
+sha512-syscall = []
 # Opt-in for the SIMD-0321 two-argument entrypoint (`r2` carries a
 # direct instruction-data pointer). The SIMD's feature gate
 # (5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL) is ACTIVATED on all

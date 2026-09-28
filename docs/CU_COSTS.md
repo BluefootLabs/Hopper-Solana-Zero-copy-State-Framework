@@ -179,6 +179,21 @@ Two structural notes, both disclosed wherever the feature is claimed:
   wrong authority address exhausts the loop: ~37.9k CU on the failing
   (attacker-paid) transaction.
 
+## Sysvar reads (Agave cost model, checked 2026-09-27)
+
+The dedicated getters (`sol_get_clock_sysvar` and its siblings) charge the
+sysvar base cost plus the struct size: Clock 140 CU, Rent 124, EpochSchedule
+140. The generic `sol_get_sysvar` charges the base cost plus `max(len / 250,
+10)`: 110 CU for any image under 2,500 bytes. Every Hopper sysvar reader
+uses the generic call, so `Clock::get()`, `Rent::get()`, and
+`EpochSchedule::get()` are 110 each, and `slot_hashes_latest` and
+`stake_history_latest` read the length word and the first entry in one call
+(110, not 220). `hopper_runtime::rent::live_rent` reads Rent once per
+invocation and answers later calls from the reserved heap scratch (one load
+and a branch), which is what `init`, realloc top-ups, rent-exemption
+checks, and mint plans call; an instruction that creates two accounts pays
+for one rent read.
+
 ## Budgeting rule of thumb
 
 For client-side budgeting (`SetComputeUnitLimit`), the schema field

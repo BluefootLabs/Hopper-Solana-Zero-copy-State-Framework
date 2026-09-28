@@ -485,3 +485,59 @@ pub mod prelude {
     pub use crate::virtual_state::{ShardedAccess, VirtualSlot, VirtualState};
     pub use hopper_runtime::segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowRegistry};
 }
+
+/// Emits the `context_schema` method of the accounts-context trait for the
+/// `hopper_accounts!` DSL, under **this crate's** `explain` feature.
+///
+/// `hopper_accounts!` used to wrap the method in `#[cfg(feature =
+/// "explain")]` inside its own exported body, and a `cfg` inside an exported
+/// macro is evaluated against the calling crate's features: a program that
+/// enabled `hopper/explain` without declaring a local `explain` feature
+/// silently dropped its schema, and one that declared the feature without
+/// enabling this crate's failed with a missing trait method. Routing the
+/// emission through a macro defined here evaluates the `cfg` where the
+/// trait method lives. Each field is `(name, kind, mutable, signer,
+/// layout)` as expressions.
+#[cfg(feature = "explain")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __hopper_context_schema_fn {
+    ( $name:ident ; $( ( $fname:expr, $kind:expr, $mutable:expr, $signer:expr, $layout:expr ) ),+ $(,)? ) => {
+        fn context_schema() -> ::core::option::Option<
+            &'static $crate::accounts::explain::ContextSchema,
+        > {
+            static FIELDS: &[$crate::accounts::explain::AccountFieldSchema] = &[
+                $(
+                    $crate::accounts::explain::AccountFieldSchema {
+                        name: $fname,
+                        kind: $kind,
+                        mutable: $mutable,
+                        signer: $signer,
+                        layout: $layout,
+                        policy: None,
+                        seeds: &[],
+                        optional: false,
+                    },
+                )+
+            ];
+            static SCHEMA: $crate::accounts::explain::ContextSchema =
+                $crate::accounts::explain::ContextSchema {
+                    name: stringify!($name),
+                    fields: FIELDS,
+                    policy_names: &[],
+                    receipts_expected: false,
+                    mutation_classes: &[],
+                };
+            ::core::option::Option::Some(&SCHEMA)
+        }
+    };
+}
+
+/// Without the `explain` feature the trait has no `context_schema` method,
+/// so the emission is empty. See the gated definition above.
+#[cfg(not(feature = "explain"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __hopper_context_schema_fn {
+    ( $( $t:tt )* ) => {};
+}

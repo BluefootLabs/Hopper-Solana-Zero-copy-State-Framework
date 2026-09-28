@@ -57,7 +57,10 @@ keys pinned to Agave `f77165963c709934e8ea8564187c00f081b597d1`.
 Keep deployable defaults compatible with the actual target cluster. Query live
 rent. A devnet test of direct account pointers or SHA-512 does not demonstrate
 mainnet availability. The reviewed 0558 leader-info syscall remains a proposal,
-not a shipped Hopper capability.
+not a shipped Hopper capability. The SHA-512 syscall gate is
+`s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh`; Hopper binds `sol_sha512`
+(`hopper::hash::sha512`) only under the `sha512-syscall` cargo feature, because
+a program that references the symbol fails to load where the gate is inactive.
 
 The [release record](https://hopperzero.dev/docs/release-status) separates these
 network observations from Hopper's own compiled and devnet tests. Query the

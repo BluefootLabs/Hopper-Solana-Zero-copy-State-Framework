@@ -148,6 +148,12 @@ PINA_PUBLISHED = {
 PINA_PINOCCHIO_BYTES = {"hello": 3160, "counter": 6512}
 
 
+# `cargo-build-sbf` prints this, keeps the artifact, and exits 0. A frame past
+# the 4,096-byte SBF stack frame is undefined behavior on chain, so it fails
+# the run here (Pina's `program-size.md` documents the same silent exit).
+FRAME_OVERFLOW_MARKER = "overflows the maximum allowed frame space"
+
+
 def run(cmd: list[str], *, env: dict[str, str] | None = None, cwd: Path | None = None) -> str:
     print("$", " ".join(cmd), flush=True)
     completed = subprocess.run(
@@ -157,6 +163,17 @@ def run(cmd: list[str], *, env: dict[str, str] | None = None, cwd: Path | None =
         sys.stderr.write(completed.stdout)
         sys.stderr.write(completed.stderr)
         raise SystemExit(f"command failed ({completed.returncode}): {' '.join(cmd)}")
+    overflow = [
+        line
+        for line in (completed.stdout + completed.stderr).splitlines()
+        if FRAME_OVERFLOW_MARKER in line
+    ]
+    if overflow:
+        sys.stderr.write("\n".join(overflow) + "\n")
+        raise SystemExit(
+            "cargo-build-sbf reported a stack frame overflow and still wrote the artifact; "
+            f"a fast number from a program with undefined behavior is not a result: {' '.join(cmd)}"
+        )
     return completed.stdout
 
 

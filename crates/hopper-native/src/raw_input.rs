@@ -262,6 +262,22 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
     (program_id, count, instruction_data)
 }
 
+/// The number of accounts the loader serialized: the first word of the
+/// input buffer. The count-exact entrypoint compares it with the matched
+/// arm's bound before walking anything, so accounts past the bound are
+/// refused instead of silently dropped.
+///
+/// # Safety
+///
+/// `input` must point at a loader-serialized input buffer (at least eight
+/// readable bytes).
+#[inline(always)]
+pub unsafe fn loader_account_count(input: *const u8) -> usize {
+    // SAFETY: the caller passes the loader input, whose first 8 bytes are
+    // the little-endian account count.
+    unsafe { core::ptr::read_unaligned(input as *const u64) as usize }
+}
+
 /// Materialize at most `MAX` leading account views without walking to the
 /// instruction tail.
 ///
@@ -2399,5 +2415,21 @@ mod kani_proofs {
         if let Err(err) = result {
             assert!(matches!(err, FrameError::MalformedDuplicateMarker { .. }));
         }
+    }
+}
+
+#[cfg(test)]
+mod loader_count_tests {
+    /// The count-exact entrypoint compares this word with the arm's bound
+    /// before walking; it is the loader's first eight bytes, little-endian.
+    #[test]
+    fn reads_the_leading_count_word() {
+        let mut input = [0u8; 16];
+        input[0..8].copy_from_slice(&5u64.to_le_bytes());
+        // SAFETY: `input` holds the count word and eight more readable bytes.
+        assert_eq!(unsafe { super::loader_account_count(input.as_ptr()) }, 5);
+        input[0..8].copy_from_slice(&0u64.to_le_bytes());
+        // SAFETY: as above.
+        assert_eq!(unsafe { super::loader_account_count(input.as_ptr()) }, 0);
     }
 }

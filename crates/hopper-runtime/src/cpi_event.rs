@@ -108,6 +108,23 @@ pub const EVENT_AUTHORITY_SEED: &[u8] = b"__hopper_event_authority";
 /// log-based `emit!` path or hand-rolled encoding.
 pub const MAX_EVENT_PAYLOAD: usize = 512;
 
+/// Compile-time proof that an event fits the emit helpers' stack buffer.
+///
+/// `hopper_emit_cpi!` calls this on the event value; the inline constant
+/// is evaluated when the call is instantiated, so a fixed-size event larger
+/// than [`MAX_EVENT_PAYLOAD`] is a compile error at the emit site rather
+/// than an `InvalidInstructionData` on every emit. Costs nothing at run
+/// time.
+#[inline(always)]
+pub fn assert_event_fits<E: CpiEvent>(_event: &E) {
+    const {
+        assert!(
+            core::mem::size_of::<E>() <= MAX_EVENT_PAYLOAD,
+            "this event is larger than MAX_EVENT_PAYLOAD (512 bytes); split it or use the log-based emit"
+        );
+    }
+}
+
 /// The bump byte host builds report for the event authority.
 ///
 /// Off-chain targets have no sha256 syscall, so the real bump cannot be

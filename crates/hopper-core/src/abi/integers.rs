@@ -101,10 +101,13 @@ macro_rules! wire_int {
                 &mut self,
                 rhs: $native,
             ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
-                let next = self
-                    .get()
-                    .checked_mul(rhs)
-                    .ok_or(::hopper_runtime::ProgramError::ArithmeticOverflow)?;
+                // `LeanMul` keeps a 64-bit product off the `__multi3`
+                // helper SBF would otherwise link for `checked_mul`.
+                let next = ::hopper_runtime::__hopper_native::arith::LeanMul::checked_mul_lean(
+                    self.get(),
+                    rhs,
+                )
+                .ok_or(::hopper_runtime::ProgramError::ArithmeticOverflow)?;
                 self.set(next);
                 Ok(())
             }

@@ -240,6 +240,9 @@ explain = ["hopper-core/explain"]
 collections = ["hopper-core/collections"]
 
 cu-trace = ["hopper-runtime/cu-trace"]
+# `hopper::hash::sha512` through the `sol_sha512` syscall; devnet and testnet
+# only on 2026-09-27, see crates/hopper-native/Cargo.toml.
+sha512-syscall = ["hopper-runtime/sha512-syscall"]
 # Opt-in instruction touch maps (innovation I7): Context::for_each_touch
 # yields every distinct (account, offset, size, R/W) range an instruction
 # touched, from the segment registry's append-only log.

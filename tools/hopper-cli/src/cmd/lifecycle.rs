@@ -1004,7 +1004,13 @@ pub fn cmd_dump(args: &[String]) {
 
 fn run_cargo_command(project_root: &Path, args: &[String]) {
     let display = workspace::display_command("cargo", args);
-    let status = workspace::run_status("cargo", args, project_root).unwrap_or_else(|err| {
+    let sbf_build = args.first().map(|arg| arg == "build-sbf").unwrap_or(false);
+    let status = if sbf_build {
+        run_sbf_build_watching_frames(project_root, args)
+    } else {
+        workspace::run_status("cargo", args, project_root)
+    }
+    .unwrap_or_else(|err| {
         eprintln!("{err}");
         process::exit(1);
     });
@@ -1013,6 +1019,65 @@ fn run_cargo_command(project_root: &Path, args: &[String]) {
         eprintln!("Command failed: {display}");
         process::exit(code);
     }
+}
+
+/// The line `cargo-build-sbf` prints when a function's stack frame exceeds
+/// the 4,096-byte SBF frame. The builder keeps the artifact and exits 0;
+/// the frame is undefined behavior on chain, so `hopper build` fails on it.
+const FRAME_OVERFLOW_MARKER: &str = "overflows the maximum allowed frame space";
+
+/// The frame-overflow lines in a builder's stderr, if any.
+fn frame_overflow_lines(stderr: &str) -> Vec<&str> {
+    stderr
+        .lines()
+        .filter(|line| line.contains(FRAME_OVERFLOW_MARKER))
+        .collect()
+}
+
+/// Run `cargo build-sbf` with its stderr streamed through, and refuse the
+/// build when the builder reported a stack frame overflow.
+fn run_sbf_build_watching_frames(
+    project_root: &Path,
+    args: &[String],
+) -> Result<std::process::ExitStatus, String> {
+    use std::io::{BufRead, BufReader};
+    use std::process::Stdio;
+
+    let display = workspace::display_command("cargo", args);
+    let mut child = Command::new("cargo")
+        .args(args)
+        .current_dir(project_root)
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|err| format!("Failed to run {display}: {err}"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| format!("Failed to capture the builder's stderr for {display}"))?;
+    let mut overflow: Vec<String> = Vec::new();
+    for line in BufReader::new(stderr).lines() {
+        let line = line.map_err(|err| format!("Failed to read the builder's stderr: {err}"))?;
+        if !frame_overflow_lines(&line).is_empty() {
+            overflow.push(line.clone());
+        }
+        eprintln!("{line}");
+    }
+    let status = child
+        .wait()
+        .map_err(|err| format!("Failed to wait for {display}: {err}"))?;
+    if !overflow.is_empty() {
+        let mut message = String::from(
+            "cargo-build-sbf reported a stack frame overflow and still wrote the artifact. \
+             A frame past 4,096 bytes is undefined behavior on chain; split the handler, \
+             box the large locals, or lower the inlining before deploying:",
+        );
+        for line in &overflow {
+            message.push_str("\n  ");
+            message.push_str(line);
+        }
+        return Err(message);
+    }
+    Ok(status)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2516,5 +2581,19 @@ mod tests {
             "--buffers".to_string(),
         ];
         assert!(parse_close_target(&mut conflicting).is_err());
+    }
+}
+
+#[cfg(test)]
+mod frame_overflow_tests {
+    use super::frame_overflow_lines;
+
+    #[test]
+    fn picks_out_the_builder_lines() {
+        let stderr = "   Compiling counter v0.1.0\nError: Function entrypoint overflows the maximum allowed frame space by accessing an offset 1088 bytes greater than the maximum of 4096. Estimated function frame size: 5184 bytes.\n    Finished `release` profile\n";
+        let lines = frame_overflow_lines(stderr);
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("5184 bytes"));
+        assert!(frame_overflow_lines("    Finished `release` profile\n").is_empty());
     }
 }

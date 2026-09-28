@@ -25,6 +25,7 @@ cu-trace = ["hopper-native/cu-trace"]
 # Enable only on a target cluster verified to support this syscall. Host
 # implementations do not establish public-cluster availability.
 remaining-compute-units-syscall = ["hopper-native/remaining-compute-units-syscall"]
+sha512-syscall = ["hopper-native/sha512-syscall"]
 # Opt-in instruction touch maps: the segment borrow registry keeps an
 # append-only, deduplicated log of every (account, offset, size, R/W)
 # range the instruction touches, readable via `Context::touch_map()`.

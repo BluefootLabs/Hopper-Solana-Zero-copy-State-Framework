@@ -1713,34 +1713,21 @@ macro_rules! _hopper_accounts_struct {
                 Ok((Self { $( $field, )+ }, ()))
             }
 
-            #[cfg(feature = "explain")]
-            fn context_schema() -> Option<
-                &'static $crate::hopper_core::accounts::explain::ContextSchema
-            > {
-                static FIELDS: &[$crate::hopper_core::accounts::explain::AccountFieldSchema] = &[
-                    $(
-                        $crate::hopper_core::accounts::explain::AccountFieldSchema {
-                            name: stringify!($field),
-                            kind: $crate::_hopper_field_kind_name!($kind),
-                            mutable: $crate::_hopper_field_is_mut!($kind),
-                            signer: $crate::_hopper_field_is_signer!($kind),
-                            layout: $crate::_hopper_field_layout_name!($kind),
-                            policy: None,
-                            seeds: &[],
-                            optional: false,
-                        },
-                    )+
-                ];
-                static SCHEMA: $crate::hopper_core::accounts::explain::ContextSchema =
-                    $crate::hopper_core::accounts::explain::ContextSchema {
-                        name: stringify!($name),
-                        fields: FIELDS,
-                        policy_names: &[],
-                        receipts_expected: false,
-                        mutation_classes: &[],
-                    };
-                Some(&SCHEMA)
-            }
+            // Emitted by hopper-core under ITS `explain` feature, where the
+            // trait method lives; a `cfg` here would be evaluated against
+            // the calling crate's features (see `__hopper_context_schema_fn`).
+            $crate::hopper_core::__hopper_context_schema_fn!(
+                $name ;
+                $(
+                    (
+                        stringify!($field),
+                        $crate::_hopper_field_kind_name!($kind),
+                        $crate::_hopper_field_is_mut!($kind),
+                        $crate::_hopper_field_is_signer!($kind),
+                        $crate::_hopper_field_layout_name!($kind)
+                    )
+                ),+
+            );
         }
     };
 }

@@ -71,12 +71,78 @@ pub const fn minimum_balance(data_len: usize) -> u64 {
 pub fn minimum_balance_live(data_len: usize) -> Result<u64, ProgramError> {
     #[cfg(target_os = "solana")]
     {
-        let rent = hopper_native::sysvar::get_rent()?;
-        Ok(rent.minimum_balance(data_len))
+        Ok(live_rent()?.minimum_balance(data_len))
     }
     #[cfg(not(target_os = "solana"))]
     {
         Ok(minimum_balance(data_len))
+    }
+}
+
+/// Per-invocation cache of the Rent sysvar, in the reserved heap scratch
+/// (`hopper_native::RENT_CACHE_HEAP_OFFSET`). All-zero is the empty cache,
+/// which is what the VM's zeroed heap gives every invocation; a CPI callee
+/// runs in its own VM with its own heap, so no state crosses frames.
+#[cfg(target_os = "solana")]
+#[repr(C)]
+struct RentCache {
+    /// Nonzero once loaded: the rate is the loaded flag, so the hot path is
+    /// one load and one branch. (A cluster whose rate is zero would read
+    /// the sysvar on every call, which is still correct.)
+    lamports_per_byte_year: u64,
+    threshold_bits: u64,
+    burn_percent: u64,
+    _spare: u64,
+}
+
+#[cfg(target_os = "solana")]
+const _: () = assert!(core::mem::size_of::<RentCache>() == hopper_native::RENT_CACHE_BYTES);
+
+/// The live Rent sysvar, read once per invocation.
+///
+/// The first call reads the sysvar (110 CU through `sol_get_sysvar`) and
+/// stores it in the reserved heap scratch; every later call in the same
+/// invocation is one load and a branch. An instruction that creates two
+/// accounts, tops one up, and checks another's exemption used to pay for
+/// four syscalls; it now pays for one. Off-chain this is the documented
+/// launch snapshot (3,480 lamports per byte-year at threshold 2.0), the
+/// same values [`minimum_balance`] uses.
+#[inline]
+pub fn live_rent() -> Result<hopper_native::sysvar::Rent, ProgramError> {
+    #[cfg(target_os = "solana")]
+    {
+        let cache = (hopper_native::HEAP_START_ADDRESS + hopper_native::RENT_CACHE_HEAP_OFFSET)
+            as *mut RentCache;
+        // SAFETY: SBF execution is single-threaded; the cache lies inside
+        // `HEAP_RUNTIME_RESERVED`, a range the bump allocator never hands
+        // out and that the gate store and touch log stop short of
+        // (const-asserted at their definitions); the VM zeroes the heap on
+        // every invocation and all-zero is the empty cache; the address is
+        // 8-aligned (a multiple of 32 above the 8-aligned heap start).
+        unsafe {
+            let rate = (*cache).lamports_per_byte_year;
+            if rate != 0 {
+                return Ok(hopper_native::sysvar::Rent {
+                    lamports_per_byte_year: rate,
+                    exemption_threshold: f64::from_bits((*cache).threshold_bits),
+                    burn_percent: (*cache).burn_percent as u8,
+                });
+            }
+            let rent = hopper_native::sysvar::get_rent()?;
+            (*cache).threshold_bits = rent.exemption_threshold.to_bits();
+            (*cache).burn_percent = rent.burn_percent as u64;
+            // The rate last: it is the loaded flag.
+            (*cache).lamports_per_byte_year = rent.lamports_per_byte_year;
+            Ok(rent)
+        }
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        Ok(hopper_native::sysvar::Rent {
+            lamports_per_byte_year: LAMPORTS_PER_BYTE_YEAR,
+            exemption_threshold: EXEMPTION_THRESHOLD_YEARS as f64,
+            burn_percent: 50,
+        })
     }
 }
 

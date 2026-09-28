@@ -5,6 +5,94 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
+## Unreleased
+
+### Added
+
+- **`hopper_runtime::rent::live_rent`**, the Rent sysvar read once per
+  invocation. The first call reads the sysvar and stores the rate, the
+  threshold bits, and the burn percent in the reserved heap scratch
+  (`hopper_native::RENT_CACHE_HEAP_OFFSET`, above the gate store and the
+  touch log, which now assert that they end below it); every later call in
+  the same invocation is one load and a branch. `minimum_balance_live`, and
+  so every `init`, `init_if_needed`, realloc top-up, rent-exemption check,
+  and token mint plan, goes through it: an instruction that reads rent twice
+  pays for one syscall (110 CU) instead of two.
+- **`hopper_native::arith`**: `checked_mul_u64`, `saturating_mul_u64` (moved
+  from `sysvar`, still re-exported there), and the `LeanMul` trait, all
+  deciding 64-bit overflow with 32-bit halves so that no program links the
+  344-byte `__multi3` helper for them. `WireU64::checked_mul`, the `LeU64`
+  form, and `checked_mul_assign` on every ABI integer use them.
+- **`hopper::hash::sha512`** behind the `sha512-syscall` cargo feature (off
+  by default): the `sol_sha512` syscall (SIMD-0512, feature gate
+  `s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh`), active on devnet and
+  testnet and absent on mainnet-beta on 2026-09-27. A program that
+  references the symbol fails to load where the gate is inactive, which is
+  why it is a feature and not a default.
+- **`hopper_native::sysvar::get_sysvar_prefix_at`**, a `sol_get_sysvar` read
+  that reports a read past the sysvar's end as `Ok(false)` instead of an
+  error, so a length word and a first entry can be read in one call.
+- **`hopper_runtime::ERR_TOO_MANY_ACCOUNTS`** (`Custom(0xB001)`), the
+  count-exact entrypoint's refusal of a transaction that passes more
+  accounts than the matched instruction's bound (see Fixed).
+
+### Changed
+
+- **Sysvar reads go through `sol_get_sysvar`.** `Clock::get`, `Rent::get`,
+  and `EpochSchedule::get` read the sysvar's account image through the
+  generic syscall (110 CU for any image under 2,500 bytes) instead of the
+  dedicated getters (100 plus the struct size: 140, 124, and 140). Clock's
+  image is its repr(C) layout and is read in place; Rent's 17-byte image is
+  the struct's prefix; EpochSchedule's 33-byte image is decoded around its
+  padded bool. `slot_hashes_latest` and `stake_history_latest` read the
+  length word and the first entry in one call instead of two (110 CU
+  instead of 220) and fall back to a count read only for an empty list.
+  Measured on the framework-comparison counter against a same-day capture
+  of the previous tree: substrate `initialize` 1,606 to 1,595 CU, macro
+  `initialize` 1,549 to 1,542 (one Rent read; the cache costs a few
+  instructions on a single read and saves 110 on each further one), macro
+  `increment` 349 to 348, macro hello 138 to 137 CU and 1,792 to 1,768
+  bytes. The counter ELFs grew by 80 (substrate) and 256 (macro) bytes for
+  the cache, the surplus refusal, and the generic read's argument setup.
+- **Hash wrappers.** `sha256`, `keccak256`, and `blake3` write into an
+  uninitialized output buffer and no longer branch on a result code the
+  syscalls never return nonzero (they return zero or abort the
+  transaction). `MAX_HASH_SEGMENTS` is the runtime's `sha256_max_slices`
+  (20,000), not 16; the old cap was documented as the runtime limit and was
+  not. Off-chain, `sha256` computes the real digest with the const
+  implementation; keccak and blake3 still return zeros off-chain and say so.
+
+### Fixed
+
+- **The count-exact entrypoint accepted surplus accounts.** `profile =
+  "tiny"` clamped the walk to the arm's bound and ran, so a handler with
+  `#[remaining_accounts(max = N)]` given N + k accounts processed the first
+  N as if that were the whole batch. The entrypoint now compares the
+  loader's account count with the bound before the walk and refuses with
+  `ERR_TOO_MANY_ACCOUNTS`. The scanning profiles keep Anchor's lenient
+  rule and ignore extra accounts.
+- **`cu_trace!` and `cu_measure!` were silent in downstream programs.**
+  Their bodies were wrapped in `#[cfg(feature = "cu-trace")]`, which an
+  exported macro evaluates against the calling crate, so a program that
+  enabled `hopper/cu-trace` got nothing (and an `unexpected_cfgs` warning).
+  They now branch on `hopper_native::budget::CU_TRACE_ENABLED`, a constant
+  that folds away when the feature is off. The `hopper_accounts!` DSL's
+  `context_schema` had the same shape with `explain` and is now emitted by
+  a helper macro in `hopper-core`, where that feature lives.
+- **`#[hopper::error_code]` accepted codes inside the framework's refusal
+  pages.** A user code in `0xB000..=0xEFFF` (`0xB000` entry, `0xC000 | i`
+  context acquisition, `0xD000 | i` write policy, `0xE000` compute budget)
+  was indistinguishable from a framework refusal; the macro now rejects it
+  at expansion time with the ranges named.
+- **A CPI event larger than the emit buffer failed at every emit.**
+  `hopper_emit_cpi!` now proves `size_of::<E>() <= MAX_EVENT_PAYLOAD` at
+  compile time through `cpi_event::assert_event_fits`.
+- **`cargo build-sbf` frame overflows went unnoticed.** The builder prints
+  `overflows the maximum allowed frame space`, keeps the artifact, and
+  exits 0; a frame past 4,096 bytes is undefined behavior on chain.
+  `hopper build` and `scripts/bench-framework-comparison.py` now fail on
+  that line and print it.
+
 ## Native 0.4.4 / runtime 0.4.5 - 2026-09-27
 
 - Correct processed-sibling syscall result handling and exact-length reads;

@@ -286,6 +286,14 @@ define_syscall!(pub fn sol_keccak256(vals: *const u8, val_len: u64, hash_result:
 #[cfg(target_os = "solana")]
 define_syscall!(pub fn sol_blake3(vals: *const u8, val_len: u64, hash_result: *mut u8) -> u64);
 
+/// SHA-512 over a slice list (feature gate
+/// `s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh`, `enable_sha512_syscall`).
+/// Active on devnet and testnet and absent on mainnet-beta on 2026-09-27; a
+/// program that references the symbol fails to load where the gate is
+/// inactive, so it is bound only under the `sha512-syscall` feature.
+#[cfg(all(target_os = "solana", feature = "sha512-syscall"))]
+define_syscall!(pub fn sol_sha512(vals: *const u8, val_len: u64, hash_result: *mut u8) -> u64);
+
 /// Recover a secp256k1 public key from a 32-byte hash and compact signature.
 #[cfg(target_os = "solana")]
 define_syscall!(pub fn sol_secp256k1_recover(

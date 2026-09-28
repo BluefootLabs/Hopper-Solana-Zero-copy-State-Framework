@@ -25,17 +25,24 @@ pub struct Clock {
 pub fn get_clock() -> Result<Clock, ProgramError> {
     #[allow(unused_mut)]
     let mut clock = Clock::default();
-
     #[cfg(target_os = "solana")]
     {
-        let rc =
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            unsafe { crate::syscalls::sol_get_clock_sysvar(&mut clock as *mut Clock as *mut u8) };
-        if rc != 0 {
-            return Err(ProgramError::UnsupportedSysvar);
-        }
+        // The generic `sol_get_sysvar` read costs 110 CU for any image under
+        // 2,500 bytes, the dedicated `sol_get_clock_sysvar` 100 plus the
+        // 40-byte struct. The bincode image is five little-endian 8-byte
+        // words in field order, exactly the `#[repr(C)]` layout
+        // (`clock_reads_canonical_byte_image` pins it), so it is read
+        // straight into the struct.
+        // SAFETY: `Clock` is repr(C) with size 40, every bit pattern of its
+        // integer fields is valid, and the view covers exactly the struct.
+        let image = unsafe {
+            core::slice::from_raw_parts_mut(
+                &mut clock as *mut Clock as *mut u8,
+                core::mem::size_of::<Clock>(),
+            )
+        };
+        get_sysvar_into(&CLOCK_ID, 0, image)?;
     }
-
     Ok(clock)
 }
 
@@ -114,18 +121,33 @@ pub const fn rent_exempt_minimum(data_len: usize) -> u64 {
 pub fn get_rent() -> Result<Rent, ProgramError> {
     #[allow(unused_mut)]
     let mut rent = Rent::default();
-
     #[cfg(target_os = "solana")]
     {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let rc = unsafe { crate::syscalls::sol_get_rent_sysvar(&mut rent as *mut Rent as *mut u8) };
-        if rc != 0 {
-            return Err(ProgramError::UnsupportedSysvar);
-        }
+        // 17-byte bincode image (u64 rate, f64 threshold, u8 burn percent)
+        // at the same offsets as the first 17 bytes of the repr(C) struct;
+        // the padding after `burn_percent` is left untouched. 110 CU through
+        // `sol_get_sysvar` instead of 124 through `sol_get_rent_sysvar`.
+        // SAFETY: the struct prefix up to and including `burn_percent` is
+        // `RENT_IMAGE_LEN` bytes of integers and one f64, every bit pattern
+        // of which is valid (`rent_image_offsets` pins the offsets); the
+        // view stays inside the struct.
+        let image = unsafe {
+            core::slice::from_raw_parts_mut(&mut rent as *mut Rent as *mut u8, RENT_IMAGE_LEN)
+        };
+        get_sysvar_into(&RENT_ID, 0, image)?;
     }
-
     Ok(rent)
 }
+
+/// Length of the Rent sysvar's account image: `u64 + f64 + u8`.
+pub const RENT_IMAGE_LEN: usize = 17;
+
+const _: () = {
+    assert!(core::mem::offset_of!(Rent, lamports_per_byte_year) == 0);
+    assert!(core::mem::offset_of!(Rent, exemption_threshold) == 8);
+    assert!(core::mem::offset_of!(Rent, burn_percent) == 16);
+    assert!(core::mem::size_of::<Rent>() >= RENT_IMAGE_LEN);
+};
 
 impl Rent {
     /// Read the Rent sysvar.
@@ -178,34 +200,7 @@ impl Rent {
     }
 }
 
-/// `a * b`, saturating at `u64::MAX`, without the 128-bit multiply helper.
-///
-/// `u64::saturating_mul` and `checked_mul` lower to `umul.with.overflow`,
-/// which SBF has no instruction for, so LLVM links `__multi3` (344 bytes)
-/// and calls it (about 50 CU); the `a > u64::MAX / b` and `(a * b) / b != a`
-/// guards are recognized as the same idiom and get the same helper.
-/// Splitting both operands into 32-bit halves decides overflow with 64-bit
-/// arithmetic only: the product exceeds 64 bits exactly when both high
-/// halves are nonzero, when the cross term reaches 2^32, or when the final
-/// add carries.
-#[inline(always)]
-pub const fn saturating_mul_u64(a: u64, b: u64) -> u64 {
-    let (ah, al) = (a >> 32, a & 0xFFFF_FFFF);
-    let (bh, bl) = (b >> 32, b & 0xFFFF_FFFF);
-    if ah != 0 && bh != 0 {
-        return u64::MAX;
-    }
-    // At most one high half is nonzero, so each term is a 32 x 32 product
-    // and one addend is zero: exact in 64 bits.
-    let cross = ah * bl + al * bh;
-    if cross >> 32 != 0 {
-        return u64::MAX;
-    }
-    match (cross << 32).checked_add(al * bl) {
-        Some(product) => product,
-        None => u64::MAX,
-    }
-}
+pub use crate::arith::saturating_mul_u64;
 
 /// Bit pattern of `1.0f64`, the SIMD-0194 live threshold marker.
 const THRESHOLD_ONE_BITS: u64 = 0x3FF0_0000_0000_0000;
@@ -327,21 +322,45 @@ const _: () = {
 pub fn get_epoch_schedule() -> Result<EpochSchedule, ProgramError> {
     #[allow(unused_mut)]
     let mut schedule = EpochSchedule::default();
-
     #[cfg(target_os = "solana")]
     {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let rc = unsafe {
-            crate::syscalls::sol_get_epoch_schedule_sysvar(
-                &mut schedule as *mut EpochSchedule as *mut u8,
-            )
-        };
-        if rc != 0 {
-            return Err(ProgramError::UnsupportedSysvar);
-        }
+        // 33-byte bincode image: two u64, one bool byte, two u64. The
+        // repr(C) struct pads the bool to eight bytes, so the image is
+        // decoded field by field. 110 CU through `sol_get_sysvar` instead
+        // of 140 through the dedicated syscall.
+        let mut image = [0u8; EPOCH_SCHEDULE_IMAGE_LEN];
+        get_sysvar_into(&EPOCH_SCHEDULE_ID, 0, &mut image)?;
+        schedule = decode_epoch_schedule(&image);
     }
-
     Ok(schedule)
+}
+
+/// Length of the EpochSchedule sysvar's account image.
+pub const EPOCH_SCHEDULE_IMAGE_LEN: usize = 33;
+
+/// Decode the EpochSchedule account image (`epoch_schedule_decodes_canonical_image`
+/// pins the offsets).
+#[inline]
+pub fn decode_epoch_schedule(image: &[u8; EPOCH_SCHEDULE_IMAGE_LEN]) -> EpochSchedule {
+    let rd8 = |o: usize| {
+        u64::from_le_bytes([
+            image[o],
+            image[o + 1],
+            image[o + 2],
+            image[o + 3],
+            image[o + 4],
+            image[o + 5],
+            image[o + 6],
+            image[o + 7],
+        ])
+    };
+    EpochSchedule {
+        slots_per_epoch: rd8(0),
+        leader_schedule_slot_offset: rd8(8),
+        warmup: image[16] != 0,
+        first_normal_epoch: rd8(17),
+        first_normal_slot: rd8(25),
+    }
 }
 
 impl EpochSchedule {
@@ -420,10 +439,12 @@ pub const EPOCH_REWARDS_ID: Address =
 /// Copy `dst.len()` bytes starting at `offset` from the sysvar identified
 /// by `sysvar_id` into `dst`.
 ///
-/// This wraps the modern `sol_get_sysvar` syscall, the only zero-copy way
-/// to read large sysvars (SlotHashes, StakeHistory) without passing them
-/// as instruction accounts. Returns `Err(UnsupportedSysvar)` on syscall
-/// failure (e.g. reading past the sysvar's length).
+/// This wraps the `sol_get_sysvar` syscall (SIMD-0127, active on every
+/// public cluster), the cheapest read of any sysvar: 110 CU for an image
+/// under 2,500 bytes, against 100 plus the struct size for the dedicated
+/// getters. Every Hopper sysvar reader goes through it. Returns
+/// `Err(UnsupportedSysvar)` on syscall failure (an unknown sysvar, or a
+/// read past the sysvar's length).
 #[inline]
 pub fn get_sysvar_into(
     sysvar_id: &Address,
@@ -433,7 +454,7 @@ pub fn get_sysvar_into(
     #[cfg(target_os = "solana")]
     {
         // SAFETY: `sysvar_id` is a 32-byte address; `dst` is valid for its
-        // own length; the syscall copies exactly `dst.len()` bytes.
+        // own length; the syscall copies exactly `dst.len()` bytes or none.
         let rc = unsafe {
             crate::syscalls::sol_get_sysvar(
                 sysvar_id.as_array().as_ptr(),
@@ -451,6 +472,47 @@ pub fn get_sysvar_into(
         let _ = (sysvar_id, offset, dst);
     }
     Ok(())
+}
+
+/// The syscall's result for a read past the sysvar's length (Agave
+/// `sysvar.rs`, `OFFSET_LENGTH_EXCEEDS_SYSVAR`); every other nonzero result
+/// is a hard failure.
+#[cfg(target_os = "solana")]
+const OFFSET_LENGTH_EXCEEDS_SYSVAR: u64 = 1;
+
+/// [`get_sysvar_into`] that reports a read past the sysvar's end as
+/// `Ok(false)` instead of an error, so a caller can read an optimistic
+/// prefix (a length word plus the first entry) in one syscall and fall
+/// back only when the sysvar is shorter than that.
+#[inline]
+pub fn get_sysvar_prefix_at(
+    sysvar_id: &Address,
+    offset: u64,
+    dst: &mut [u8],
+) -> Result<bool, ProgramError> {
+    #[cfg(target_os = "solana")]
+    {
+        // SAFETY: `sysvar_id` is a 32-byte address; `dst` is valid for its
+        // own length; the syscall copies exactly `dst.len()` bytes or none.
+        let rc = unsafe {
+            crate::syscalls::sol_get_sysvar(
+                sysvar_id.as_array().as_ptr(),
+                dst.as_mut_ptr(),
+                offset,
+                dst.len() as u64,
+            )
+        };
+        match rc {
+            0 => Ok(true),
+            OFFSET_LENGTH_EXCEEDS_SYSVAR => Ok(false),
+            _ => Err(ProgramError::UnsupportedSysvar),
+        }
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (sysvar_id, offset, dst);
+        Ok(true)
+    }
 }
 
 // ── Epoch stake (sol_get_epoch_stake, SIMD-0133) ────────────────────
@@ -528,25 +590,43 @@ pub struct SlotHash {
 ///
 /// SlotHashes is a length-prefixed list ordered most-recent-first:
 /// `u64 count` then `count` entries of `slot(u64) + hash([u8;32])`. This
-/// reads just the count and the first entry (48 bytes total) via
-/// `sol_get_sysvar`, avoiding the cost of materializing the full 16 KiB
-/// sysvar. Returns `Ok(None)` when the list is empty.
+/// reads the count and the first entry (48 bytes) in one `sol_get_sysvar`
+/// call (110 CU) instead of materializing the 16 KiB sysvar; only when the
+/// list is empty, so the sysvar is 8 bytes long and the read overruns it,
+/// does a second call read the count. Returns `Ok(None)` when the list is
+/// empty.
 #[inline]
 pub fn slot_hashes_latest() -> Result<Option<SlotHash>, ProgramError> {
-    let mut count_buf = [0u8; 8];
-    get_sysvar_into(&SLOT_HASHES_ID, 0, &mut count_buf)?;
-    let count = u64::from_le_bytes(count_buf);
+    let mut prefix = [0u8; 48];
+    if !get_sysvar_prefix_at(&SLOT_HASHES_ID, 0, &mut prefix)? {
+        return empty_list_or_error(&SLOT_HASHES_ID);
+    }
+    let count = u64::from_le_bytes([
+        prefix[0], prefix[1], prefix[2], prefix[3], prefix[4], prefix[5], prefix[6], prefix[7],
+    ]);
     if count == 0 {
         return Ok(None);
     }
-    let mut entry = [0u8; 40];
-    get_sysvar_into(&SLOT_HASHES_ID, 8, &mut entry)?;
     let slot = u64::from_le_bytes([
-        entry[0], entry[1], entry[2], entry[3], entry[4], entry[5], entry[6], entry[7],
+        prefix[8], prefix[9], prefix[10], prefix[11], prefix[12], prefix[13], prefix[14],
+        prefix[15],
     ]);
     let mut hash = [0u8; 32];
-    hash.copy_from_slice(&entry[8..40]);
+    hash.copy_from_slice(&prefix[16..48]);
     Ok(Some(SlotHash { slot, hash }))
+}
+
+/// The prefix read overran the sysvar: `Ok(None)` when its length word is
+/// zero (an empty list), a failure otherwise.
+#[inline]
+fn empty_list_or_error<T>(sysvar_id: &Address) -> Result<Option<T>, ProgramError> {
+    let mut count_buf = [0u8; 8];
+    get_sysvar_into(sysvar_id, 0, &mut count_buf)?;
+    if u64::from_le_bytes(count_buf) == 0 {
+        Ok(None)
+    } else {
+        Err(ProgramError::UnsupportedSysvar)
+    }
 }
 
 // ── StakeHistory ────────────────────────────────────────────────────
@@ -564,35 +644,36 @@ pub struct StakeHistoryEntry {
 ///
 /// StakeHistory is a length-prefixed list ordered most-recent-first:
 /// `u64 count` then entries of `epoch(u64) + effective(u64) +
-/// activating(u64) + deactivating(u64)` (32 bytes each). Returns
-/// `Ok(None)` when the history is empty.
+/// activating(u64) + deactivating(u64)` (32 bytes each). The count and the
+/// first entry are read in one `sol_get_sysvar` call; an empty history
+/// (an 8-byte sysvar) falls back to a count read. Returns `Ok(None)` when
+/// the history is empty.
 #[inline]
 pub fn stake_history_latest() -> Result<Option<StakeHistoryEntry>, ProgramError> {
-    let mut count_buf = [0u8; 8];
-    get_sysvar_into(&STAKE_HISTORY_ID, 0, &mut count_buf)?;
-    let count = u64::from_le_bytes(count_buf);
-    if count == 0 {
-        return Ok(None);
+    let mut prefix = [0u8; 40];
+    if !get_sysvar_prefix_at(&STAKE_HISTORY_ID, 0, &mut prefix)? {
+        return empty_list_or_error(&STAKE_HISTORY_ID);
     }
-    let mut entry = [0u8; 32];
-    get_sysvar_into(&STAKE_HISTORY_ID, 8, &mut entry)?;
     let rd = |o: usize| {
         u64::from_le_bytes([
-            entry[o],
-            entry[o + 1],
-            entry[o + 2],
-            entry[o + 3],
-            entry[o + 4],
-            entry[o + 5],
-            entry[o + 6],
-            entry[o + 7],
+            prefix[o],
+            prefix[o + 1],
+            prefix[o + 2],
+            prefix[o + 3],
+            prefix[o + 4],
+            prefix[o + 5],
+            prefix[o + 6],
+            prefix[o + 7],
         ])
     };
+    if rd(0) == 0 {
+        return Ok(None);
+    }
     Ok(Some(StakeHistoryEntry {
-        epoch: rd(0),
-        effective: rd(8),
-        activating: rd(16),
-        deactivating: rd(24),
+        epoch: rd(8),
+        effective: rd(16),
+        activating: rd(24),
+        deactivating: rd(32),
     }))
 }
 
@@ -703,6 +784,45 @@ mod abi_tests {
         assert!(!sched.warmup);
         assert_eq!(sched.first_normal_epoch, 0);
         assert_eq!(sched.first_normal_slot, 0);
+    }
+
+    /// The Rent sysvar image is the first 17 bytes of the repr(C) struct:
+    /// the offsets the const assertions pin, and the bytes `get_rent` reads
+    /// straight into the struct on chain.
+    #[test]
+    fn rent_image_offsets() {
+        let mut image = [0u8; RENT_IMAGE_LEN];
+        image[0..8].copy_from_slice(&5_080u64.to_le_bytes());
+        image[8..16].copy_from_slice(&1.0f64.to_bits().to_le_bytes());
+        image[16] = 50;
+        let mut rent = Rent::default();
+        // SAFETY: the same prefix view `get_rent` uses on chain.
+        let view = unsafe {
+            core::slice::from_raw_parts_mut(&mut rent as *mut Rent as *mut u8, RENT_IMAGE_LEN)
+        };
+        view.copy_from_slice(&image);
+        assert_eq!(rent.lamports_per_byte_year, 5_080);
+        assert_eq!(rent.exemption_threshold.to_bits(), 1.0f64.to_bits());
+        assert_eq!(rent.burn_percent, 50);
+        assert_eq!(rent.minimum_balance(25), (128 + 25) * 5_080);
+    }
+
+    /// The EpochSchedule account image packs the bool at byte 16 with the
+    /// last two words at 17 and 25, unlike the padded repr(C) struct.
+    #[test]
+    fn epoch_schedule_decodes_canonical_image() {
+        let mut image = [0u8; EPOCH_SCHEDULE_IMAGE_LEN];
+        image[0..8].copy_from_slice(&432_000u64.to_le_bytes());
+        image[8..16].copy_from_slice(&432_000u64.to_le_bytes());
+        image[16] = 1;
+        image[17..25].copy_from_slice(&14u64.to_le_bytes());
+        image[25..33].copy_from_slice(&524_256u64.to_le_bytes());
+        let sched = decode_epoch_schedule(&image);
+        assert_eq!(sched.slots_per_epoch, 432_000);
+        assert_eq!(sched.leader_schedule_slot_offset, 432_000);
+        assert!(sched.warmup);
+        assert_eq!(sched.first_normal_epoch, 14);
+        assert_eq!(sched.first_normal_slot, 524_256);
     }
 
     #[test]

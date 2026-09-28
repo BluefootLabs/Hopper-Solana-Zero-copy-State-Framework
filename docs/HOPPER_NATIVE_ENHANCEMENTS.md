@@ -18,6 +18,34 @@ Read [program architecture](ARCHITECTURE.md) for layer responsibilities and
 [unsafe invariants](UNSAFE_INVARIANTS.md) before using raw pointers or unchecked
 invocation. Performance work belongs in reproducible complete-program fixtures.
 
+## In the tree after native 0.4.4 and runtime 0.4.5 (not yet published)
+
+Source changes on `main` since the 0.4.4 / 0.4.5 publication; the registry
+packages do not carry them until the next patch train.
+
+- Every sysvar reader goes through `sol_get_sysvar` (110 CU for an image
+  under 2,500 bytes) instead of the dedicated getters (100 plus the struct
+  size). Clock is read in place, Rent as its 17-byte prefix, EpochSchedule
+  decoded around its padded bool; the SlotHashes and StakeHistory latest
+  readers make one call instead of two.
+- `hopper_runtime::rent::live_rent` caches the Rent sysvar for the rest of
+  the invocation in the reserved heap scratch, so `init`, realloc, rent
+  checks, and mint plans in one instruction share one syscall.
+- `hopper_native::arith` keeps 64-bit checked and saturating products off
+  the `__multi3` helper; the wire integers and the ABI integers use it.
+- The hash wrappers accept the runtime's 20,000-slice limit, write into an
+  uninitialized buffer, and skip the dead result-code branch; `sha256` is
+  real off-chain. `sha512` exists behind the `sha512-syscall` feature for
+  clusters where SIMD-0512 is active (devnet and testnet on 2026-09-27).
+- The count-exact entrypoint refuses accounts past the matched bound
+  (`ERR_TOO_MANY_ACCOUNTS`) instead of running on a truncated list;
+  `cu_trace!`, `cu_measure!`, and the DSL's `context_schema` work from a
+  downstream crate; user error codes cannot land in the framework's refusal
+  pages; oversized CPI events fail at compile time; `hopper build` fails on
+  a builder-reported stack frame overflow.
+
+The changelog's Unreleased section carries the measured numbers.
+
 ## Native 0.4.4 and runtime 0.4.5 — instruction inspection
 
 **Published on crates.io:** `hopper-native` 0.4.4 and `hopper-runtime` 0.4.5.

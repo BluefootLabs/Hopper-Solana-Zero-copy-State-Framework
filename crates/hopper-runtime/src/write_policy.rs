@@ -1280,7 +1280,7 @@ mod gate_store {
     // and start 8-aligned (SbfGateState leads with an optional function).
     const _: () = assert!(
         core::mem::size_of::<SbfGateState>()
-            <= hopper_native::HEAP_RUNTIME_RESERVED - GATE_HEAP_OFFSET,
+            <= hopper_native::RENT_CACHE_HEAP_OFFSET - GATE_HEAP_OFFSET,
         "GateStore exceeds HEAP_RUNTIME_RESERVED; grow the reservation in \
          hopper-native/src/entrypoint.rs or shrink the store"
     );

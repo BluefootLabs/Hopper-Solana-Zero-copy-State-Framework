@@ -568,6 +568,10 @@ macro_rules! hopper_emit_cpi {
         // larger events should grow the buffer at the call site or use
         // `emit!` with the log-based path.
         let __ev = $event;
+        // The stack buffer below holds MAX_EVENT_PAYLOAD bytes; an event
+        // that cannot fit fails here at compile time instead of at every
+        // emit.
+        $crate::cpi_event::assert_event_fits(&__ev);
         let __tag: u8 = $crate::cpi_event::CpiEvent::tag(&__ev);
         let __payload: &[u8] = $crate::cpi_event::CpiEvent::payload_bytes(&__ev);
         let mut __buf = [0u8; 2 + 1 + $crate::cpi_event::MAX_EVENT_PAYLOAD];
@@ -842,6 +846,11 @@ macro_rules! hopper_fast_entrypoint {
 /// gets `ProgramError::InvalidArgument` back instead of a scanning
 /// fallback, which keeps the dual-path code out of the binary; `hopper
 /// feature-gate` reports the gate for a target cluster.
+///
+/// A transaction that passes more accounts than the matched arm's bound is
+/// refused with [`ERR_TOO_MANY_ACCOUNTS`] before any account is walked:
+/// the extra accounts would never be materialized, and a handler with
+/// `#[remaining_accounts(max = N)]` must not run on a truncated list.
 #[macro_export]
 macro_rules! hopper_exact_entrypoint {
     ( $( ( $disc:literal, $bound:expr, $helper:path ) ),* $(,)? ) => {
@@ -872,6 +881,17 @@ macro_rules! hopper_exact_entrypoint {
                 $( ::core::option::Option::Some(&$disc) => $bound, )*
                 _ => return $crate::ProgramError::InvalidInstructionData.into(),
             };
+            // Count-exact means exact. Accounts past the arm's bound are
+            // never materialized, so a remaining-accounts handler handed
+            // more than its declared maximum would otherwise process a
+            // silently truncated batch. The loader's count word is compared
+            // with the bound before the walk (two instructions).
+            // SAFETY: `input` is the loader input, which starts with the
+            // account count.
+            let total = unsafe { $crate::__hopper_native::raw_input::loader_account_count(input) };
+            if total > bound {
+                return $crate::ERR_TOO_MANY_ACCOUNTS.into();
+            }
             const WIDEST: usize = $crate::max_account_bound(&[ $( $bound ),* ]);
             const UNINIT: core::mem::MaybeUninit<
                 $crate::__hopper_native::AccountView<'static>,
@@ -904,6 +924,18 @@ macro_rules! hopper_exact_entrypoint {
         }
     };
 }
+
+/// Custom-error page for refusals at the program entry, below the
+/// `0xC000` context-acquisition page.
+pub const ENTRY_REFUSAL_PAGE: u32 = 0xB000;
+
+/// The count-exact entrypoint (`profile = "tiny"`) received more accounts
+/// than the matched instruction's bound: its declared context plus any
+/// `#[remaining_accounts(max = N)]`. The scanning profiles keep Anchor's
+/// lenient rule and ignore extra accounts; the count-exact profile never
+/// materializes them, so it refuses them instead of letting a
+/// remaining-accounts handler run on a truncated list.
+pub const ERR_TOO_MANY_ACCOUNTS: ProgramError = ProgramError::Custom(ENTRY_REFUSAL_PAGE | 0x01);
 
 /// The widest of a program's per-instruction account bounds; sizes the
 /// scratch the count-exact entrypoint materializes into.

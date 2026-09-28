@@ -28,6 +28,8 @@ Flags:
 
 Compile the program. `--sbf` (default) targets the Solana runtime. `--host` builds for the host triple, useful for unit tests. Every unknown flag passes straight to `cargo build`. `--watch` re-runs the build whenever `src/`, `tests/`, or `Cargo.toml` changes.
 
+An SBF build fails when `cargo-build-sbf` reports `overflows the maximum allowed frame space`. The builder prints that line, keeps the artifact, and exits 0 on its own; a function frame past 4,096 bytes is undefined behavior on chain, so `hopper build` refuses it and prints the offending lines. Split the handler, box the large locals, or lower the inlining, then rebuild.
+
 ### `hopper test [cargo args...] [--watch]`
 
 Run `cargo test` in the nearest project root. Flags and filters pass through to cargo. `--watch` re-runs tests on save.
