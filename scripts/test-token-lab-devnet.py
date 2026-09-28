@@ -259,12 +259,14 @@ def main() -> None:
         else:
             findings["unwrap-lamports"] = f"refused: {tx['meta']['err']}"
 
-    def extended_mint(mask, allow_failure):
-        mint, key = new_key(f"extended-mint-{mask:02x}")
-        tx, record = send(f"extended-mint-{mask:02x}", args.program,
+    def extended_mint(mask, allow_failure, label=None):
+        label = label or f"extended-mint-{mask:02x}"
+        mint, key = new_key(label)
+        tx, record = send(label, args.program,
                           ["payer:sw", mint + ":sw", SYSTEM, TOKEN_2022],
                           bytes([TAG_CREATE_EXTENDED_MINT, mask]), [key], allow_failure)
         if tx["meta"]["err"] is not None:
+            findings[label] = f"refused: {tx['meta']['err']}"
             return None
         expected = [(kind, length) for bit, kind, length in EXTENSIONS if mask & bit]
         size = 166 + sum(4 + length for _, length in expected)
@@ -292,20 +294,25 @@ def main() -> None:
         accounts[lane] = {"mint": mint, "a": a, "b": b}
     wrap_and_unwrap()
 
-    all_mask = sum(bit for bit, _, _ in EXTENSIONS)
-    mint = extended_mint(all_mask, allow_failure=True)
-    if mint is None:
-        supported = 0
-        for bit, kind, _ in EXTENSIONS:
-            if extended_mint(bit, allow_failure=True) is not None:
-                supported |= bit
-            else:
-                findings[f"extension-{kind}"] = "refused by the live Token-2022 program"
-        mint = extended_mint(supported, allow_failure=False)
-        findings["extended-mint-mask"] = supported
-    else:
-        findings["extended-mint-mask"] = all_mask
-    mask = findings["extended-mint-mask"]
+    # The live program decides which extensions coexist (Token-2022 refuses a
+    # mint that is both interest bearing and scaled, `Custom(51)`). Every
+    # extension is tried alone, then the set is grown greedily in program
+    # order; every refusal is a recorded finding, never a hidden skip.
+    supported = 0
+    for bit, kind, _ in EXTENSIONS:
+        if extended_mint(bit, allow_failure=True) is None:
+            findings[f"extension-{kind}"] = "refused alone by the live Token-2022 program"
+    mask = 0
+    for bit, kind, _ in EXTENSIONS:
+        if f"extension-{kind}" in findings:
+            continue
+        candidate = mask | bit
+        if extended_mint(candidate, allow_failure=True, label=f"extended-mint-grow-{candidate:02x}") is not None:
+            mask = candidate
+        else:
+            findings[f"extension-{kind}-with-{mask:02x}"] = "refused in combination"
+    mint = extended_mint(mask, allow_failure=False, label="extended-mint-final")
+    findings["extended-mint-mask"] = mask
     expected_account_extensions = [EXT_IMMUTABLE_OWNER] + ([EXT_PAUSABLE_ACCOUNT] if mask & 2 else [])
     ext_a, _ = immutable_account("immutable-a-extended", "extended", TOKEN_2022, mint,
                                  expected_account_extensions)

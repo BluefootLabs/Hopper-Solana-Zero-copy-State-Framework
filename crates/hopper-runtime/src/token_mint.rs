@@ -409,6 +409,11 @@ impl<'a> MintPlan<'a> {
             seen |= mask;
             space += 4 + extension.value_len();
         }
+        // Token-2022 refuses a mint that displays both interest and a scaled
+        // amount (`InvalidExtensionCombination`); refuse it at plan time.
+        if seen & (1 << 10) != 0 && seen & (1 << 25) != 0 {
+            return Err(ProgramError::InvalidArgument);
+        }
         // Token-2022 reserves the legacy multisig size and pads past it.
         if space == 355 {
             space += 2;

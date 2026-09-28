@@ -1146,11 +1146,45 @@ fn mint_plan_extensions_match_canonical_sizes_and_bytes() {
         mint_authority: &a,
         freeze_authority: None,
     };
-    let plan = MintPlan::new(TokenProgram::Token2022, config, &extensions).unwrap();
+    // Interest bearing and scaled UI amount cannot share a mint, so the
+    // whole-plan comparison leaves the interest extension out.
+    let planned: Vec<E<'_>> = extensions
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != 1)
+        .map(|(_, e)| *e)
+        .collect();
+    let planned_kinds: Vec<ExtensionType> = kinds
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != 1)
+        .map(|(_, k)| *k)
+        .collect();
+    let plan = MintPlan::new(TokenProgram::Token2022, config, &planned).unwrap();
     assert_eq!(
         plan.space(),
-        ExtensionType::try_calculate_account_len::<spl_token_2022_interface::state::Mint>(&kinds)
-            .unwrap()
+        ExtensionType::try_calculate_account_len::<spl_token_2022_interface::state::Mint>(
+            &planned_kinds
+        )
+        .unwrap()
+    );
+    assert!(
+        MintPlan::new(
+            TokenProgram::Token2022,
+            config,
+            &[
+                E::InterestBearing {
+                    rate_authority: None,
+                    rate: 1,
+                },
+                E::ScaledUiAmount {
+                    authority: None,
+                    multiplier: 1.0,
+                },
+            ],
+        )
+        .is_err(),
+        "interest bearing and scaled UI amount cannot share a mint"
     );
     let zero = addr(0);
     for bad in [

@@ -44,7 +44,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   entry points. `MintPlan` initializes seven more fixed-size extensions
   (default account state, interest bearing, scaled UI amount, pausable,
   group pointer, group member pointer, permissioned burn), thirteen in
-  total, with the canonical allocation for each.
+  total, with the canonical allocation for each, and refuses at plan time
+  the one combination the program refuses (interest bearing with scaled UI
+  amount, `Custom(51)` on chain).
 - **Differential tests against the canonical constructors.** The bytes and
   the account metas (order, writable, signer, multisig signers appended)
   of every builder above, captured through `emit`, equal what
