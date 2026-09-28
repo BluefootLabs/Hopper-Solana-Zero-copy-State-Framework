@@ -13,6 +13,13 @@
 //! single-CPI bytes are identical by construction. The buffers are const
 //! generic and live on the stack; nothing is allocated.
 //!
+//! One account may appear in several inner instructions (a transfer there
+//! and back); the batch is sent through
+//! [`crate::cpi::invoke_signed_batch_with_bounds`], which keeps every
+//! per-meta check of the default tier and only waives the refusal of one
+//! account behind two writable metas, since for a batch that repeat is the
+//! contract rather than the footgun.
+//!
 //! Token-2022 does not document `Batch`; the devnet lane that proves the
 //! SPL Token path also records whether Token-2022 accepts it, and a
 //! program should not assume it does.
@@ -164,7 +171,7 @@ impl<'a, const DATA: usize, const ACCOUNTS: usize> TokenBatch<'a, DATA, ACCOUNTS
             data: self.data(),
             accounts: self.account_metas(),
         };
-        crate::cpi::invoke_signed_with_bounds::<{ crate::cpi::MAX_STATIC_CPI_ACCOUNTS }>(
+        crate::cpi::invoke_signed_batch_with_bounds::<{ crate::cpi::MAX_STATIC_CPI_ACCOUNTS }>(
             &instruction,
             self.account_views(),
             signers,

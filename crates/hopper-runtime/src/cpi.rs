@@ -823,6 +823,39 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     account_views: &[&AccountView<'_>],
     signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
+    invoke_signed_bounded::<MAX_ACCOUNTS>(instruction, account_views, signers_seeds, false)
+}
+
+/// [`invoke_signed_with_bounds`] for an instruction that carries several
+/// inner instructions and therefore names one account through several
+/// writable metas on purpose: the SPL Token `Batch` (255), whose account
+/// list is the concatenation of every inner instruction's accounts.
+///
+/// Every other check of the default tier runs unchanged (address match per
+/// meta, signer and writability coverage, borrow state per meta, the
+/// lamport hand-off gate). Only the duplicate-writable refusal is skipped,
+/// because for a batch the repeat is the contract, not the footgun. The
+/// runtime serializes a repeated account once and marks the later metas as
+/// duplicates, so the callee sees one account through every one of them.
+#[inline]
+pub fn invoke_signed_batch_with_bounds<const MAX_ACCOUNTS: usize>(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
+) -> ProgramResult {
+    invoke_signed_bounded::<MAX_ACCOUNTS>(instruction, account_views, signers_seeds, true)
+}
+
+// Not inlined: the scratch array is MAX_ACCOUNTS CpiAccounts, and a
+// token builder that inlines this on top of its own meta and view arrays
+// overflows the 4 KiB frame.
+#[inline(never)]
+fn invoke_signed_bounded<const MAX_ACCOUNTS: usize>(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
+    repeated_writable_allowed: bool,
+) -> ProgramResult {
     if account_views.len() > MAX_ACCOUNTS {
         return Err(ProgramError::InvalidArgument);
     }
@@ -893,7 +926,9 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         }
     }
 
-    validate_no_duplicate_writable(instruction, account_views)?;
+    if !repeated_writable_allowed {
+        validate_no_duplicate_writable(instruction, account_views)?;
+    }
 
     // SAFETY: the loop above initialized the first `count` slots, and
     // `MaybeUninit<T>` shares `T`'s layout, so reading exactly that prefix
