@@ -35,9 +35,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **`hopper_runtime::ERR_TOO_MANY_ACCOUNTS`** (`Custom(0xB001)`), the
   count-exact entrypoint's refusal of a transaction that passes more
   accounts than the matched instruction's bound (see Fixed).
+- **A compute and size ratchet on the comparison bench.**
+  `scripts/bench-framework-comparison.py` now compares every Hopper row
+  with the `results.json` committed at HEAD and exits non-zero when any
+  CU column or the ELF size grew, printing each regression;
+  `--allow-regression` publishes such a change deliberately. The same rule
+  Pina's compute-unit CI applies to every same-outcome instruction.
 
 ### Changed
 
+- **Trailing optional accounts may be omitted.** A context whose last
+  fields are `Option<W>` no longer demands them: `bind` and `validate`
+  require `REQUIRED_ACCOUNT_COUNT` (the declared count minus the trailing
+  optional run), and a slot that is not passed at all binds `None` exactly
+  like Anchor's program-id filler. An instruction can therefore append an
+  optional account in a later release without breaking older clients,
+  which Pina allows and Anchor does not; an optional followed by a
+  required field stays demanded, since a missing middle slot would shift
+  every later binding. `ACCOUNT_COUNT` is unchanged (it still bounds the
+  count-exact entrypoint), and the check descriptions say when a slot may
+  be absent.
 - **Sysvar reads go through `sol_get_sysvar`.** `Clock::get`, `Rent::get`,
   and `EpochSchedule::get` read the sysvar's account image through the
   generic syscall (110 CU for any image under 2,500 bytes) instead of the

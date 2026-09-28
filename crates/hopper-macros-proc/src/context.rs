@@ -1036,6 +1036,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // `k`, preserving the zero-cost top-level lowering) and a concrete
     // literal offset when this context is embedded. `__slot(i)` builds it.
     let hopper_base = format_ident!("__HOPPER_BASE");
+
+    // Trailing `Option<W>` fields may be left out of the transaction
+    // entirely (an older client, an optional appended in a later release):
+    // a slot that is not there binds `None` exactly like Anchor's
+    // program-id filler. Only the trailing run can be omitted, because a
+    // missing middle slot would shift every later binding; the required
+    // count below is what `bind` and `validate` demand.
+    let trailing_optional_count: usize = ctx_fields
+        .iter()
+        .rev()
+        .take_while(|cf| option_inner_type(&cf.ty).is_some())
+        .count();
+
     let (local_offsets, account_count_expr): (Vec<TokenStream>, TokenStream) = if !has_composite {
         let offsets = ctx_fields
             .iter()
@@ -2875,17 +2888,26 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // touches the account).
         if is_optional && !field_checks.is_empty() {
             let gated = ::core::mem::take(&mut field_checks);
+            // A slot that is not passed at all (a trailing optional an
+            // older client omitted) is absent too: the count check above
+            // only demanded the required prefix.
             field_checks.push(quote! {
-                if ctx.account(#slot)?.address() != ctx.program_id() {
-                    #(#gated)*
+                match ctx.account(#slot) {
+                    ::core::result::Result::Ok(__hopper_optional)
+                        if __hopper_optional.address() != ctx.program_id() =>
+                    {
+                        #(#gated)*
+                    }
+                    _ => {}
                 }
             });
             check_descriptions.insert(
                 desc_start,
                 format!(
                     "accounts[{}] ({}) is optional: when the slot carries the executing \
-                     program's id it binds `None` and every following check for this field \
-                     is skipped; when present, all of them run",
+                     program's id, or a trailing optional slot is not passed at all, it \
+                     binds `None` and every following check for this field is skipped; \
+                     when present, all of them run",
                     idx, field_name
                 ),
             );
@@ -3132,11 +3154,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ::core::option::Option<&::hopper::prelude::AccountView<'_>>,
                     ::hopper::__runtime::ProgramError,
                 > {
-                    let view = self.ctx.account(#slot)?;
-                    if view.address() == self.ctx.program_id() {
-                        ::core::result::Result::Ok(::core::option::Option::None)
-                    } else {
-                        ::core::result::Result::Ok(::core::option::Option::Some(view))
+                    match self.ctx.account(#slot) {
+                        ::core::result::Result::Ok(view)
+                            if view.address() != self.ctx.program_id() =>
+                        {
+                            ::core::result::Result::Ok(::core::option::Option::Some(view))
+                        }
+                        _ => ::core::result::Result::Ok(::core::option::Option::None),
                     }
                 }
             });
@@ -4261,7 +4285,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let has_fused_validation = has_event_authority || !fused_bump_fields.is_empty();
     let bind_validate_fragment: TokenStream = if has_fused_validation {
         quote! {
-            ctx.require_accounts(Self::ACCOUNT_COUNT)?;
+            ctx.require_accounts(Self::REQUIRED_ACCOUNT_COUNT)?;
             #(#bind_validation_stmts)*
         }
     } else {
@@ -5688,7 +5712,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let validate_bind_fns: TokenStream = if embeddable {
         let bind_validation_body: TokenStream = if has_fused_validation {
             quote! {
-                ctx.require_accounts(__HOPPER_BASE + Self::ACCOUNT_COUNT)?;
+                ctx.require_accounts(__HOPPER_BASE + Self::REQUIRED_ACCOUNT_COUNT)?;
                 #(#bind_validation_stmts)*
             }
         } else {
@@ -5710,7 +5734,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 ctx: &::hopper::prelude::Context<'_>
                 #top_arg_param_fragment
             ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                ctx.require_accounts(__HOPPER_BASE + Self::ACCOUNT_COUNT)?;
+                ctx.require_accounts(__HOPPER_BASE + Self::REQUIRED_ACCOUNT_COUNT)?;
                 #(#validation_stmts)*
                 Ok(())
             }
@@ -5823,7 +5847,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 // puts the base in scope for the per-field turbofishes and
                 // the inner-context delegations (all concrete const exprs).
                 const __HOPPER_BASE: usize = 0;
-                ctx.require_accounts(Self::ACCOUNT_COUNT)?;
+                ctx.require_accounts(Self::REQUIRED_ACCOUNT_COUNT)?;
                 #(#validation_stmts)*
                 Ok(())
             }
@@ -5933,6 +5957,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         impl #impl_generics #name #ty_generics #where_clause {
             /// Number of accounts this context requires.
             pub const ACCOUNT_COUNT: usize = #account_count_expr;
+
+            /// The accounts a transaction must pass: every slot except a
+            /// trailing run of `Option<W>` fields, which bind `None` when
+            /// they are not passed at all (or carry the program-id filler).
+            pub const REQUIRED_ACCOUNT_COUNT: usize =
+                (#account_count_expr) - #trailing_optional_count;
             pub const RECEIPT_EXPECTED: bool = #receipt_expected;
             pub const MUTABLE_ACCOUNT_COUNT: usize = #mutable_account_count;
 
@@ -8091,10 +8121,13 @@ fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
             // compare, so a present slot has already passed every check
             // by the time this runs.
             quote! {
-                if ctx.account(__HOPPER_BASE + #idx)?.address() == ctx.program_id() {
-                    ::core::option::Option::None
-                } else {
-                    ::core::option::Option::Some(#inner_expr)
+                match ctx.account(__HOPPER_BASE + #idx) {
+                    ::core::result::Result::Ok(__hopper_optional)
+                        if __hopper_optional.address() != ctx.program_id() =>
+                    {
+                        ::core::option::Option::Some(#inner_expr)
+                    }
+                    _ => ::core::option::Option::None,
                 }
             }
         }
@@ -9374,7 +9407,8 @@ mod instruction_arg_tests {
 
         for idx in 1..=8usize {
             let gate = format!(
-                "if ctx . account (__HOPPER_BASE + {idx}usize) ? . address () == ctx . program_id ()"
+                "match ctx . account (__HOPPER_BASE + {idx}usize) {{ :: core :: result :: Result :: {}",
+                "Ok (__hopper_optional) if __hopper_optional . address () != ctx . program_id () =>"
             );
             assert!(
                 s.contains(&gate),
@@ -9465,6 +9499,58 @@ mod instruction_arg_tests {
             other.contains("::hopper::pda::verify_pda_address(")
                 && !other.contains("is_signer()||"),
             "a typed non-init field keeps the inline one-sha256 verify: {other}"
+        );
+    }
+
+    /// A trailing run of optional fields is not demanded by the count
+    /// check, so an older client can omit it; an optional followed by a
+    /// required field stays demanded, since a missing middle slot would
+    /// shift the later bindings.
+    #[test]
+    fn trailing_optionals_lower_the_required_count() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Tip<'info> {
+                pub authority: Signer<'info>,
+                #[account(mut)]
+                pub jar: Account<'info, Jar>,
+                #[account(mut)]
+                pub referral: Option<Account<'info, Jar>>,
+                pub bonus: Option<Signer<'info>>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+        let compact: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            compact.contains("pubconstREQUIRED_ACCOUNT_COUNT:usize=(4usize)-2usize;"),
+            "two trailing optionals are not required: {compact}"
+        );
+        assert!(
+            compact.contains("ctx.require_accounts(__HOPPER_BASE+Self::REQUIRED_ACCOUNT_COUNT)?;"),
+            "validation demands the required prefix only: {compact}"
+        );
+        assert!(
+            compact.contains("matchctx.account(__HOPPER_BASE+2usize){::core::result::Result::Ok(__hopper_optional)if__hopper_optional.address()!=ctx.program_id()=>{"),
+            "an optional gate treats a missing slot as absent: {compact}"
+        );
+
+        let middle: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Middle<'info> {
+                pub maybe: Option<Signer<'info>>,
+                #[account(mut)]
+                pub jar: Account<'info, Jar>,
+            }
+        };
+        let s = expand_for_derive(middle)
+            .expect("derive expand ok")
+            .to_string();
+        let compact: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            compact.contains("pubconstREQUIRED_ACCOUNT_COUNT:usize=(2usize)-0usize;"),
+            "an optional before a required field stays demanded: {compact}"
         );
     }
 
@@ -9574,8 +9660,10 @@ mod instruction_arg_tests {
             .expect("derive expand ok")
             .to_string();
 
-        let gate =
-            "if ctx . account (__HOPPER_BASE + 1usize) ? . address () != ctx . program_id ()";
+        let gate = concat!(
+            "match ctx . account (__HOPPER_BASE + 1usize) { :: core :: result :: Result :: ",
+            "Ok (__hopper_optional) if __hopper_optional . address () != ctx . program_id () =>"
+        );
         let w = fn_window(&s, "validate_referral");
         let gate_at = w
             .find(gate)
@@ -9656,8 +9744,10 @@ mod instruction_arg_tests {
             .to_string();
 
         let w = fn_window(&s, "validate_fee_sink");
-        let gate =
-            "if ctx . account (__HOPPER_BASE + 0usize) ? . address () != ctx . program_id ()";
+        let gate = concat!(
+            "match ctx . account (__HOPPER_BASE + 0usize) { :: core :: result :: Result :: ",
+            "Ok (__hopper_optional) if __hopper_optional . address () != ctx . program_id () =>"
+        );
         let gate_at = w
             .find(gate)
             .unwrap_or_else(|| panic!("raw-view optional missing the presence gate: {w}"));

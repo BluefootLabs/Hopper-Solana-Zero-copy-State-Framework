@@ -198,6 +198,47 @@ fn absent_optionals_bind_none_and_perform_zero_checks() {
     assert_eq!(result.resulting_accounts[3], accounts[3]);
 }
 
+/// A trailing optional may be left out of the transaction entirely: an
+/// older client that predates an appended optional binds `None`, the same
+/// as the program-id filler. Required slots are still demanded.
+#[test]
+fn trailing_optionals_may_be_omitted_entirely() {
+    assert_eq!(Tip::ACCOUNT_COUNT, 4);
+    assert_eq!(Tip::REQUIRED_ACCOUNT_COUNT, 2);
+    assert_eq!(TipRequired::REQUIRED_ACCOUNT_COUNT, 4);
+
+    // Both trailing optionals omitted.
+    let accounts = [signer_fixture(0x51), jar_fixture(0x52)];
+    let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[0, 0], &accounts, tip_handler);
+    assert!(
+        result.program_result.is_ok(),
+        "omitted trailing optionals must bind None: {:?}",
+        result.program_result
+    );
+    assert_eq!(jar_total(&result.resulting_accounts[1]), 10);
+
+    // The first optional as the filler, the last one omitted.
+    let accounts = [signer_fixture(0x53), jar_fixture(0x54), absent_fixture()];
+    let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[0, 0], &accounts, tip_handler);
+    assert!(result.program_result.is_ok(), "{:?}", result.program_result);
+
+    // The first optional present and checked, the last one omitted.
+    let accounts = [signer_fixture(0x55), jar_fixture(0x56), jar_fixture(0x57)];
+    let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[1, 0], &accounts, tip_handler);
+    assert!(result.program_result.is_ok(), "{:?}", result.program_result);
+    assert_eq!(jar_total(&result.resulting_accounts[2]), 1);
+
+    // A required slot can never be omitted.
+    let accounts = [signer_fixture(0x58), jar_fixture(0x59), jar_fixture(0x5a)];
+    let result =
+        HopperSvm::new().process_instruction(PROGRAM_ID, &[], &accounts, tip_required_handler);
+    assert_eq!(
+        result.program_result,
+        Err(ProgramError::NotEnoughAccountKeys),
+        "a missing required slot is still NotEnoughAccountKeys"
+    );
+}
+
 /// The same program-id-in-slot accounts fed to the REQUIRED control
 /// context fail its checks, absence semantics apply only to fields
 /// declared `Option<..>`.

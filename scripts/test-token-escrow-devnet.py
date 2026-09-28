@@ -125,8 +125,12 @@ def main():
     send('wrong-vault-authority',args.program,bad,take_data,['taker'],error='InvalidSeeds')
     bad=take.copy();bad[-1]=('system','')
     send('wrong-token-program',args.program,bad,take_data,['taker'],error='InvalidArgument')
+    # The taker's own payment account in the maker's receiving role: two
+    # mutable roles on one account, refused at bind by the distinct-mutable
+    # check (ERR_ALIASED_MUTABLE_ACCOUNTS, Custom 0xB002 = 45058) before the
+    # escrow's recipient check would have reported InvalidAccountData.
     bad=take.copy();bad[9]=('taker_b','w')
-    send('wrong-payment-recipient',args.program,bad,take_data,['taker'],error='InvalidAccountData')
+    send('wrong-payment-recipient',args.program,bad,take_data,['taker'],error={'Custom':45058})
     for lane in ('take','cancel'):
         vault='vault_'+lane
         def donate(e,vault=vault):delta(e['maker_a'],-37);delta(e[vault],37)

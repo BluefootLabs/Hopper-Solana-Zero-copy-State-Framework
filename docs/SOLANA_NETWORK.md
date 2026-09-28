@@ -68,3 +68,40 @@ actual target cluster again before enabling a gated feature.
 
 The CPI depth-eight gate was absent in the separate September 25 capture; it
 was not included in this 22-feature refresh.
+
+## What is scheduled next (checked 2026-09-28)
+
+Anza's feature-gate tracker lists six gates pending mainnet-beta activation
+and none pending on devnet or testnet: Alpenglow
+(`A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS`), the 200 ms slot stage
+(`iBRLjhJnkmDZgNoZRDMW11d8ZV7HvsL3vAyRjZB5npW`), the SHA-512 syscall
+(`s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh`), virtual address space
+adjustments (`7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz`), account-data
+direct mapping (`CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`), and direct
+account pointers in the program input
+(`ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK`). Hopper's account parser has
+both input layouts, so the pointer-table activation changes nothing for a
+deployed program; the SHA-512 wrapper stays behind its cargo feature until the
+gate lands.
+
+Agave's published schedule puts v4.4 on testnet from 2026-09-28, on devnet from
+2026-10-05, and recommends it for mainnet on 2026-11-02. The Solana Foundation's
+upgrade page for sBPFv3 programs expects SIMD-0500 to activate in November 2026,
+after which a deployment, upgrade, or finalization of a program built for sBPF
+v0, v1, or v2 is refused while already deployed programs keep running. Hopper's
+toolchain builds v3 today (`cargo build-sbf --arch v3`, `scripts/attest-sbf-release.py
+--arch v3`), and the comparison bench carries sBPFv3 rows next to the v0 rows so
+the v3 numbers are measured rather than assumed; build and deploy new programs
+as v3 before that date.
+
+Proposals that were in Draft or Review on 2026-09-28 and are not shipped
+Hopper capabilities: SIMD-0670 (a second `invoke_signed` syscall for ABIv1),
+SIMD-0568 (deprecating precompiles in favor of syscalls), SIMD-0646
+(retiring the legacy and v0 transaction formats; `hopper tx send --v1` already
+builds the surviving format), SIMD-0596 (a 96-account lock limit for
+transaction v1), SIMD-0582 (early instruction-trace overflow detection),
+SIMD-0648 (unbounded loader-v3 instruction data), SIMD-0645 (SVM JIT
+intrinsics), SIMD-0376 (relaxed signature verification), and SIMD-0558 (a
+leader-info syscall). The rent repricing (SIMD-0437) has its first two stages
+active on every cluster and the remaining three planned for a later Agave line;
+the 250 ms and 200 ms slot stages are active on devnet and testnet only.

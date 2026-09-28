@@ -28,7 +28,10 @@ reproduce pina's published pinocchio numbers on this toolchain before any
 Hopper number is trusted.
 
 The script writes `<out>/results.json` and `<out>/RESULTS.txt`. It exits
-non-zero if any fixture fails to build or fails its functional checks.
+non-zero if any fixture fails to build or fails its functional checks, if the
+builder reported a stack frame overflow, or if a Hopper row costs more CU or
+bytes than the results.json committed at HEAD (pass `--allow-regression` to
+publish such a change deliberately).
 """
 
 from __future__ import annotations
@@ -90,6 +93,14 @@ HOPPER_FIXTURES: dict[str, list[dict[str, object]]] = {
             data={"hello": ""},
         ),
         fixture("hopper", "Hopper (macro)", "hello_hopper", data={"hello": "00"}),
+        fixture(
+            "hopper-substrate",
+            "Hopper (substrate, sBPFv3)",
+            "hello_hopper_substrate",
+            arch="v3",
+            data={"hello": ""},
+        ),
+        fixture("hopper", "Hopper (macro, sBPFv3)", "hello_hopper", arch="v3", data={"hello": "00"}),
     ],
     "counter": [
         fixture(
@@ -108,8 +119,35 @@ HOPPER_FIXTURES: dict[str, list[dict[str, object]]] = {
             initialize_takes_bump=True,
             counter_account=HOPPER_HEADERED,
         ),
+        # The same two programs built as sBPFv3 (`cargo build-sbf --arch v3`),
+        # the only format SIMD-0500 will accept for new deployments once it
+        # activates (expected November 2026). Measured, not assumed.
+        fixture(
+            "hopper-substrate",
+            "Hopper (substrate, sBPFv3)",
+            "counter_hopper_substrate",
+            arch="v3",
+            data={"initialize": "00", "increment": "01"},
+            initialize_takes_bump=True,
+            counter_account=BUMP_THEN_COUNT,
+        ),
+        fixture(
+            "hopper",
+            "Hopper (macro, sBPFv3)",
+            "counter_hopper",
+            arch="v3",
+            data={"initialize": "00", "increment": "01"},
+            initialize_takes_bump=True,
+            counter_account=HOPPER_HEADERED,
+        ),
     ],
 }
+
+
+def artifact_dir(artifacts: Path, row: dict[str, object]) -> Path:
+    """Where a row's `.so` lives: `sbf/` for the toolchain default, `sbf/<arch>/` otherwise."""
+    arch = row.get("arch")
+    return artifacts / str(arch) if arch else artifacts
 
 # pina's pinocchio reference fixtures, when a `--reference-dir` is supplied.
 REFERENCE_FIXTURES: dict[str, dict[str, object]] = {
@@ -191,21 +229,14 @@ def tool_versions() -> dict[str, str]:
     return versions
 
 
-def build_fixture(manifest: Path, out_dir: Path) -> None:
+def build_fixture(manifest: Path, out_dir: Path, arch: str | None = None) -> None:
     env = dict(os.environ)
     env.update(RELEASE_PROFILE)
-    run(
-        [
-            "cargo",
-            "build-sbf",
-            "--lto",
-            "--manifest-path",
-            str(manifest),
-            "--sbf-out-dir",
-            str(out_dir),
-        ],
-        env=env,
-    )
+    cmd = ["cargo", "build-sbf", "--lto"]
+    if arch:
+        cmd += ["--arch", arch]
+    cmd += ["--manifest-path", str(manifest), "--sbf-out-dir", str(out_dir)]
+    run(cmd, env=env)
 
 
 def build_verifier() -> Path:
@@ -320,6 +351,11 @@ def render_markdown(results: dict[str, object]) -> str:
         "",
         "## Reading the counter rows",
         "",
+        "- The `sBPFv3` rows are the same two programs built with",
+        "  `cargo build-sbf --arch v3`, the only format SIMD-0500 will accept",
+        "  for new deployments once it activates (expected November 2026);",
+        "  the other rows are the toolchain default (v0), which is what pina's",
+        "  table measures. The verifier runs both under the same Mollusk.",
         "- `Hopper (substrate)` is the raw `program_entrypoint!` path with a",
         "  `#[hopper::state(compact, disc = 1)]` account: the same 10-byte",
         "  `[disc][bump][count]` layout, the same plain `CreateAccount` CPI, and",
@@ -343,6 +379,42 @@ def render_markdown(results: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+RESULTS_JSON = "bench/framework-comparison/results/results.json"
+
+
+def committed_results() -> dict[str, object] | None:
+    """The results.json at HEAD, the ratchet baseline; None when it does not exist there."""
+    completed = subprocess.run(
+        ["git", "show", f"HEAD:{RESULTS_JSON}"], cwd=REPO, text=True, capture_output=True, encoding="utf-8"
+    )
+    if completed.returncode != 0:
+        return None
+    return json.loads(completed.stdout)
+
+
+def ratchet(results: dict[str, object], baseline: dict[str, object] | None) -> list[str]:
+    """Every Hopper row whose bytes or any CU column exceed the committed baseline.
+
+    Same rule as Pina's compute-unit CI policy: any unapproved increase on a
+    same-outcome instruction fails, so a change that costs more must say so
+    (`--allow-regression`) and record why. Peer rows are published values and
+    are not compared.
+    """
+    if baseline is None:
+        return []
+    lines: list[str] = []
+    for case in HOPPER_FIXTURES:
+        before = {row["label"]: row for row in baseline.get(case, []) if row.get("source") == "measured here"}
+        for row in results.get(case, []):
+            if row.get("source") != "measured here" or row["label"] not in before:
+                continue
+            old = before[row["label"]]
+            for column in ("bytes", "hello", "initialize", "increment"):
+                if column in row and column in old and row[column] > old[column]:
+                    lines.append(f"{case} / {row['label']} / {column}: {old[column]} -> {row[column]}")
+    return lines
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", default=str(REPO / "bench" / "framework-comparison" / "results"))
@@ -354,6 +426,11 @@ def main() -> int:
     parser.add_argument("--no-reference", action="store_true", help="skip the pinocchio cross-check rows")
     parser.add_argument("--skip-build", action="store_true", help="reuse the .so files already in --out")
     parser.add_argument("--require-clean", action="store_true", help="require committed source and rebuilt artifacts")
+    parser.add_argument(
+        "--allow-regression",
+        action="store_true",
+        help="publish results even when a Hopper row costs more CU or bytes than the committed results.json",
+    )
     args = parser.parse_args()
     if args.no_reference:
         args.reference_dir = None
@@ -368,10 +445,15 @@ def main() -> int:
     artifacts.mkdir(parents=True, exist_ok=True)
 
     if not args.skip_build:
+        built: set[tuple[Path, str | None]] = set()
         for case, rows in HOPPER_FIXTURES.items():
             for row in rows:
                 manifest = FIXTURES / case / str(row["directory"]) / "Cargo.toml"
-                build_fixture(manifest, artifacts)
+                arch = row.get("arch")
+                if (manifest, arch) in built:
+                    continue
+                built.add((manifest, arch))
+                build_fixture(manifest, artifact_dir(artifacts, row), arch)
         if args.reference_dir:
             for case, row in REFERENCE_FIXTURES.items():
                 manifest = Path(args.reference_dir) / str(row["directory"]) / "Cargo.toml"
@@ -401,9 +483,10 @@ def main() -> int:
     for case, rows in HOPPER_FIXTURES.items():
         table: list[dict[str, object]] = []
         for row in rows:
-            so = artifacts / f"{row['crate']}.so"
+            so = artifact_dir(artifacts, row) / f"{row['crate']}.so"
             measured = measure(verifier, case, so, row)
             measured["source"] = "measured here"
+            measured["arch"] = row.get("arch", "v0")
             table.append(measured)
         if args.reference_dir:
             row = REFERENCE_FIXTURES[case]
@@ -418,6 +501,14 @@ def main() -> int:
     if (run(["git", "rev-parse", "HEAD"], cwd=REPO).strip() != source_commit
             or run(["git", "status", "--porcelain"], cwd=REPO) != source_status):
         raise SystemExit("source changed during benchmark capture; no results published")
+    regressions = ratchet(results, committed_results())
+    for line in regressions:
+        sys.stderr.write(f"regression: {line}\n")
+    if regressions and not args.allow_regression:
+        raise SystemExit(
+            "a Hopper row costs more than the committed results.json; review the change and rerun "
+            "with --allow-regression to publish it deliberately"
+        )
     (out / "results.json").write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     (out / "RESULTS.txt").write_text(render_markdown(results), encoding="utf-8")
     print(render_markdown(results))
