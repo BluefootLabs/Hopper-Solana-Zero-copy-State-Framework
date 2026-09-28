@@ -1,0 +1,607 @@
+{
+  "schema": "hopper.token-lab-devnet.v1",
+  "sourceCommit": "244b72cf36c3e9590ec35f27b73869d249313b32",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "commitment": "finalized",
+  "programId": "417akw6B2CcuTZFpePrZaSR5oyX3riBPtHmdePkjrAYJ",
+  "elfSha256": "b90518a68479bbaabed395c783b39c600e8ba49eebe5bffd25202c7e0adbb430",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "accounts": {
+    "legacy": {
+      "mint": "D6RCz4yLsEtLaYT85UswkvnNcEMLL13XcaQYQCLUYJxK",
+      "a": "FztB1RCK6sJiBYF34J6EeTBxPnyFrachfYhjGG95CRS6",
+      "b": "AdqRmQR4ijyiccLBsc8a75sgRYzEcHjsyMWHzbL8DPn5"
+    },
+    "token-2022": {
+      "mint": "CD4sxLkT7Njvg9nhLghTx8VPbJvW73hTMv9BhrGpzGxc",
+      "a": "6nc5bhnBwQXFV1dgVX2wyCPLXwFYssVuZoBk2mbmTh2b",
+      "b": "GiPUqqE8CtqApeX3Z5r8AnKXe1eiUBqxQz4jrFPecpZ9"
+    },
+    "extended": {
+      "mint": "2APmNkQ6SoFLddd8RDDbPvNEzcUJQnB79Vf6xnBWCj5N",
+      "a": "Dwjbdpyg9CdQrcgT6qJ1ZUkJ6e8mw1VX8B2fRMc9Nbos"
+    }
+  },
+  "findings": {
+    "batch-legacy": "accepted",
+    "batch-token-2022": "accepted",
+    "unwrap-lamports": "accepted",
+    "extended-mint-grow-0f": "refused: {'InstructionError': [0, 'InvalidArgument']}",
+    "extension-10-with-07": "refused in combination",
+    "extended-mint-mask": 247
+  },
+  "transactions": [
+    {
+      "name": "create-mint-legacy",
+      "signature": "4bURuhv8JZa8FyRbjKiauo5JUZ8FpyAJw6deCLXVVhEwAFV89Eyw1nYA27x4ZTqP8FuR8VdzUUbihhpe1QZg7ACf",
+      "slot": 505156293,
+      "error": null,
+      "computeUnits": 3838
+    },
+    {
+      "name": "immutable-a-legacy",
+      "signature": "66zNwLUnnGfsZri3YopnwR3Tum7yDKwCjKa6iqHjjUxtwLsHeMLLSPaWVoiaLV17C9GMmRbANB5M1JHzcSDo3gEh",
+      "slot": 505156300,
+      "error": null,
+      "computeUnits": 5715,
+      "accountBytes": 165,
+      "extensions": []
+    },
+    {
+      "name": "immutable-b-legacy",
+      "signature": "HWmSwgnqNJcgtefmSXTNZ1wkvVJb3z26vo3yGw8BzQRBrkxYu4kBb6YEd7zah5kUu6xLwc2jbu12EYvq21MusZX",
+      "slot": 505156327,
+      "error": null,
+      "computeUnits": 5715,
+      "accountBytes": 165,
+      "extensions": []
+    },
+    {
+      "name": "mint-to-legacy",
+      "signature": "5jaQdtKC8F68zzGEykmq3bm2pcwF1u9i22kJEHcG2zexRkFCWmw5u9FHN5eq94Rredy2yFWhH5RFwBQjpbv8MqML",
+      "slot": 505156378,
+      "error": null,
+      "computeUnits": 1653
+    },
+    {
+      "name": "batch-legacy",
+      "signature": "54YA2CBLsC9pLU9Ar3eLi79aiT3fb5wCnfDTBpFS679LJw4BrJ67u2kGncndKhnuRUD9ok3CWFKCDmKmdG5w4LAs",
+      "slot": 505156386,
+      "error": null,
+      "computeUnits": 2472,
+      "tokenProgramInvocations": 1,
+      "balancesUnchangedAfterRoundTrip": true
+    },
+    {
+      "name": "ui-amount-legacy",
+      "signature": "5EeMNfbZCrQK3drjDtkvCnyzu6u78Hiyy4KyswtRkHdEuYyFG4fcghKefNsBaNYnBhdxN5Xzesnwapbywqi5cShb",
+      "slot": 505156451,
+      "error": null,
+      "computeUnits": 4148,
+      "uiAmount": "1.234567",
+      "roundTrippedAmount": 1234567
+    },
+    {
+      "name": "prefund-legacy",
+      "signature": "4H22yTqeWwg5WshjZQZ9UQ5fN44Sn6RGA6uSEoSTa2FKnM4e5gsKmjuprowH3GBpSkqfubmrgUZfkdi8kwMHSxNX",
+      "slot": 505156456,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "withdraw-excess-legacy",
+      "signature": "2aU8qrwhn7VMFjRf2A1fX2t5Ze3rXe9LyuDUyu8LY3Bma6x6ysgsQN4E9QceLz5HwhAc4hvhWgmqtkki8kuimxcf",
+      "slot": 505156473,
+      "error": null,
+      "computeUnits": 1740,
+      "withdrawnLamports": 10000
+    },
+    {
+      "name": "multisig-legacy",
+      "signature": "42fNH3fEFjCsYrgVX2JdVbqLcgW8gQLRvUZFMb9wWtvGpQ9L3NCAra9dXQGvrEKeDXPt3138jYiz4X2qUvzbEtBN",
+      "slot": 505156524,
+      "error": null,
+      "computeUnits": 3150,
+      "multisig": {
+        "m": 1,
+        "n": 2
+      }
+    },
+    {
+      "name": "create-mint-token-2022",
+      "signature": "2MGmn4LusHfh6zR2dG6RBJSNYgJmELo8mbRptRmm4y45XRYtoBqLapo4pnbZ5FFwdVCyjAKLR2VoEgYLRbTAdjUC",
+      "slot": 505156533,
+      "error": null,
+      "computeUnits": 4880
+    },
+    {
+      "name": "immutable-a-token-2022",
+      "signature": "3tRLfC6nH3EGVMQeq6YaFp3zoujo4Q6VVTmAv9WWyUXL1oYp9qkubRzUyL9kXXDx5SEHSnq2HW9zZLbroBx7Ma5Y",
+      "slot": 505156584,
+      "error": null,
+      "computeUnits": 8410,
+      "accountBytes": 170,
+      "extensions": [
+        [
+          7,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "immutable-b-token-2022",
+      "signature": "5xbTq2KtC8vFpFkS1b2Href5a68GTi6ufvGi1Zv676skMCqjqeNicUoDWXr7yThQYopnjrwTZdTkTV9sDTUxwFbN",
+      "slot": 505156594,
+      "error": null,
+      "computeUnits": 8410,
+      "accountBytes": 170,
+      "extensions": [
+        [
+          7,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "mint-to-token-2022",
+      "signature": "5Fq3ov8iueGXPCKvBKyAQbtWDywG54rJGv2532bC6pHrJRTWiecyBjao8jFJXmjXKWGuxZsoG4zTdvQzycwPiy9B",
+      "slot": 505156604,
+      "error": null,
+      "computeUnits": 2795
+    },
+    {
+      "name": "batch-token-2022",
+      "signature": "53a2JhBmukzDbtfXyWLeeNJEn8oNg66NFGriPVSRkowYW9sjmAZYuTyPRtp5jqEJckJ4PDX8ycqr8tVz8QYGxaUb",
+      "slot": 505156643,
+      "error": null,
+      "computeUnits": 5575,
+      "tokenProgramInvocations": 1,
+      "balancesUnchangedAfterRoundTrip": true
+    },
+    {
+      "name": "ui-amount-token-2022",
+      "signature": "4SaXkq7WRamVjHuBTunjDWh8YJVnZ78XrqLtNSC176rL61qmV9BFoBdqb3ZxBd8UgdZcSZQsKGLq8PeBDqT3CNgg",
+      "slot": 505156656,
+      "error": null,
+      "computeUnits": 5756,
+      "uiAmount": "1.234567",
+      "roundTrippedAmount": 1234567
+    },
+    {
+      "name": "prefund-token-2022",
+      "signature": "2ghdKnSSS8gK5AJTYgk9qDmUtmqvJ7tv45phJ7CCVBybpbee1Epqwk4WcQhbKzbLieXVaxCSRbsu5P9ZjkZmtewX",
+      "slot": 505156664,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "withdraw-excess-token-2022",
+      "signature": "5u14LXXQM9qYUs27ZyziiPswVHabciP6EKbhTEivDrj94p8vyTFsdSf8nQUB9oaCoLdJwNpSXzZ8FLEQon9T6xp4",
+      "slot": 505156715,
+      "error": null,
+      "computeUnits": 2994,
+      "withdrawnLamports": 10000
+    },
+    {
+      "name": "multisig-token-2022",
+      "signature": "bsPe2LtC1BU91hYFnsiHsTYUSgJZoBvSeQHH5AX2uNB8zrZqEZMUNHWdH4uNrbuoLievg85tNSHHGzAirBPJbYj",
+      "slot": 505156772,
+      "error": null,
+      "computeUnits": 4334,
+      "multisig": {
+        "m": 1,
+        "n": 2
+      }
+    },
+    {
+      "name": "wrap-and-unwrap",
+      "signature": "5eS8MvyFSHBPgE4asr6g2WaBYySx9aqUz4RzGrwUAHvH1A5TGUZAGeRosA9HBMqi3MAYgDiXZp6aJe4yBRPoyw5o",
+      "slot": 505156779,
+      "error": null,
+      "computeUnits": 4475,
+      "unwrappedLamports": 400000
+    },
+    {
+      "name": "extended-mint-01",
+      "signature": "56weLAfiRUzC3MRhTt2YELhduoUAqHrYuiCt2Eb82HZDENhLrwHgo1iYjWpbN28XJ2Fcotax32GfiAJ26uPkJ12r",
+      "slot": 505156797,
+      "error": null,
+      "computeUnits": 8941,
+      "mintBytes": 171,
+      "extensions": [
+        [
+          6,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-02",
+      "signature": "56Psqugk6r3ret1LUrzpt3QATQxjQv4tcyECj8zuEqvr1TxbVGo3TxYQocuZQPA4YJwUkbewH2nTEaRwQFjbGQmT",
+      "slot": 505156824,
+      "error": null,
+      "computeUnits": 9305,
+      "mintBytes": 203,
+      "extensions": [
+        [
+          26,
+          33
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-04",
+      "signature": "jSKU3rWFhEEibURpTWha3yoKYMhi4R23Pa1f7hfnkdvJZAiH3FgEeCvBUQhqfn2JcXGcanw7TGb7PLacTPNPfF5",
+      "slot": 505156833,
+      "error": null,
+      "computeUnits": 9490,
+      "mintBytes": 226,
+      "extensions": [
+        [
+          25,
+          56
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-08",
+      "signature": "5Sci5rueVpmaczQFr3bhHW6c5tPpmax2VBhSXoP4kB51VkhUe8CXEhzHmX5hpbAHKTpoGuh3dqZHPPakBhj73DV9",
+      "slot": 505156847,
+      "error": null,
+      "computeUnits": 9436,
+      "mintBytes": 222,
+      "extensions": [
+        [
+          10,
+          52
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-10",
+      "signature": "4HPDDh5eDxUQf4oxBUBHiis2CGGNM8Y65L9968GbvFxx44ngz51WoechvTYC9C6vq2ohWDCoEMP17rLCZ7RESdSV",
+      "slot": 505156860,
+      "error": null,
+      "computeUnits": 9371,
+      "mintBytes": 234,
+      "extensions": [
+        [
+          20,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-20",
+      "signature": "4m8bq3uUK4aerX3WqsRUsyCU5f2122nkX6EUqYTecDmU75GxMMfXrDqeA5Q6AE4sngjDZpDdJgQmUhJ1b8ZThFeF",
+      "slot": 505156873,
+      "error": null,
+      "computeUnits": 9301,
+      "mintBytes": 202,
+      "extensions": [
+        [
+          28,
+          32
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-40",
+      "signature": "2iwCjKyHeBf9H6PbsVk4VvC2C1szsQNncdzPuJGx7drmUBdtrWx94KRqqCdcHekEyFUeqjswhrEbai3CXt5aKKiQ",
+      "slot": 505156914,
+      "error": null,
+      "computeUnits": 9310,
+      "mintBytes": 234,
+      "extensions": [
+        [
+          18,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-80",
+      "signature": "8awkNteVkbCFyvw4TYWEt7qat7vfQNkFzYYdx3yvHTFJg1NnNw6G8oqGRefaF8mtu8jWRz1JLj8dytiVThUhEb9",
+      "slot": 505156927,
+      "error": null,
+      "computeUnits": 9371,
+      "mintBytes": 234,
+      "extensions": [
+        [
+          22,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-01",
+      "signature": "6jaXcja7HHpijbFDFp9KR9h6y6bLR7yiXji91bmaMBT5ydEqCFPCj7P2GwMUBDuCydpG2YRzzEuZyxguotmMF91",
+      "slot": 505156940,
+      "error": null,
+      "computeUnits": 8941,
+      "mintBytes": 171,
+      "extensions": [
+        [
+          6,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-03",
+      "signature": "3wBf1UNw2W8hYThVEQZBpdLsKWpp1WX1sV3nLt5bGWFuNHgUcNs4JmHAuGFMLYuj8K2Xo83Vk9XbyCTdaLWtsAK",
+      "slot": 505156954,
+      "error": null,
+      "computeUnits": 12125,
+      "mintBytes": 208,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-07",
+      "signature": "4aadN7Bs3gvtVd7txowVCyEHEToUCpNC6a3yybgSc6QRbwTxdzCfhqoUfiHD3sxvDnkKYL9h2MRpbHh2eaJK1iyG",
+      "slot": 505156967,
+      "error": null,
+      "computeUnits": 15552,
+      "mintBytes": 268,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ],
+        [
+          25,
+          56
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-0f",
+      "signature": "cLmTXHzWWkHJmAzHwm9XAUmvaroHj4QEowrSJ96BG6pX6PgzZAnAP3DazGpBCxcNCtaxssqP8CbmdUANzuGjNi3",
+      "slot": 505157024,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      },
+      "computeUnits": 439
+    },
+    {
+      "name": "extended-mint-grow-17",
+      "signature": "63mv7HjWME3xRkG2gNJTqwfhBrzTqKPA1EVDCVvxcjPoHdeXY1gHhcGGBxH1qRm4Dkc5dX1x9vy4hbHeVUbAdPK",
+      "slot": 505157036,
+      "error": null,
+      "computeUnits": 18911,
+      "mintBytes": 336,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ],
+        [
+          25,
+          56
+        ],
+        [
+          20,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-37",
+      "signature": "62P782CNWNaMNWZJT85ofDYXnzh2nT94jCxAYN7eiRERJMMM3xFBKkSVhSfJ1V7Wq7q6qmymBXzEqEmVadNugc1V",
+      "slot": 505157049,
+      "error": null,
+      "computeUnits": 22359,
+      "mintBytes": 372,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ],
+        [
+          25,
+          56
+        ],
+        [
+          20,
+          64
+        ],
+        [
+          28,
+          32
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-77",
+      "signature": "5KyErsL5NnwMfJq7fAncAnUHhrjA4pybDBZuXKSGaGvMZ9ATxPe4S2nP1LWr3U1u1btvyYLViPD6MuDFAkU8zpqD",
+      "slot": 505157107,
+      "error": null,
+      "computeUnits": 25765,
+      "mintBytes": 440,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ],
+        [
+          25,
+          56
+        ],
+        [
+          20,
+          64
+        ],
+        [
+          28,
+          32
+        ],
+        [
+          18,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-grow-f7",
+      "signature": "4AwwfpwjiSbRvpK5QzTM1Dyo6KjJpwsMPCDBZFc7PNgpCB44QyeGFNLest5w9VnrusKd5HAwX8PvveqMULocXx7H",
+      "slot": 505157120,
+      "error": null,
+      "computeUnits": 29294,
+      "mintBytes": 508,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ],
+        [
+          25,
+          56
+        ],
+        [
+          20,
+          64
+        ],
+        [
+          28,
+          32
+        ],
+        [
+          18,
+          64
+        ],
+        [
+          22,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "extended-mint-final",
+      "signature": "5YrZDQn1AJwAozRopqsMxWVweVMTewNNLgSCcB1DYmxxnTpuY54aEeKhvG5sNuTj2ctXXJKLoPsJhkqhU1qbpM6Q",
+      "slot": 505157133,
+      "error": null,
+      "computeUnits": 29294,
+      "mintBytes": 508,
+      "extensions": [
+        [
+          6,
+          1
+        ],
+        [
+          26,
+          33
+        ],
+        [
+          25,
+          56
+        ],
+        [
+          20,
+          64
+        ],
+        [
+          28,
+          32
+        ],
+        [
+          18,
+          64
+        ],
+        [
+          22,
+          64
+        ]
+      ]
+    },
+    {
+      "name": "immutable-a-extended",
+      "signature": "3aR75pEPfAfQS71ErDdxV7QC7b7dDUK18pN1gJgLHQFhrYt9SCQA6RPUF3JM8D3vbpXJK5AtpC4QUcRMQ9whHLYM",
+      "slot": 505157143,
+      "error": null,
+      "computeUnits": 12215,
+      "accountBytes": 174,
+      "extensions": [
+        [
+          7,
+          0
+        ],
+        [
+          27,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "mint-to-extended",
+      "signature": "2ZVv9A9L4AsLtahZQE6iGFZdThKzSZ3XBAQpjv7QrYTQ4w8DjYbprjEc4Sd2bqD7eTmRFbV4UyvsvWnRgYB8guay",
+      "slot": 505157195,
+      "error": null,
+      "computeUnits": 4188
+    },
+    {
+      "name": "ui-amount-extended",
+      "signature": "4ZDM2muqEd2zeZxmmdbS2z2VvNm8uVJyJzXqPqnTtonYaLE26aRqWkAMnQ7va5Hh7NaYeNLWUGkrKgRo8ADjYtmn",
+      "slot": 505157201,
+      "error": null,
+      "computeUnits": 10336,
+      "uiAmount": "2.469134",
+      "roundTrippedAmount": 1234567
+    },
+    {
+      "name": "pause-resume",
+      "signature": "4y5FzTddsmWxEpsi5NfdX4MoHmPwJ3Viu2sXrUjqu3YFZYajge5chxXjpDHTmukuBXaJXEtPpKd4aiEuYntoncML",
+      "slot": 505157207,
+      "error": null,
+      "computeUnits": 5929
+    },
+    {
+      "name": "update-multiplier",
+      "signature": "smDXqqxt6vWLgoGs7vgk8ihB3Eis3gjJmkbjoNtqA3oXhmbX2p9oUfiHUW1GfTnt5VJpNtFDct3nzznpBFyJzvV",
+      "slot": 505157212,
+      "error": null,
+      "computeUnits": 3279
+    },
+    {
+      "name": "ui-amount-extended-x3",
+      "signature": "5ZHJQCjzuXp9MN82A1xd9CfKnboEsPdh4WJPzy8X6RT2aiSyCcZxCizwVMxtFShE4nJYNb8pZpAJF1QwxjEEd54x",
+      "slot": 505157222,
+      "error": null,
+      "computeUnits": 10315,
+      "uiAmount": "3.703701",
+      "roundTrippedAmount": 1234567
+    }
+  ]
+}

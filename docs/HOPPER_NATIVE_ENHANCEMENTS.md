@@ -53,6 +53,15 @@ packages do not carry them until the next patch train.
   `spl-token-2022-interface` constructors; `MintPlan` initializes thirteen
   fixed-size extensions.
 
+Devnet, 2026-09-28, both from clean worktrees: the token escrow at
+`fcc66e9` (`9vnEXTpz…`, 33 finalized transactions, the full runner including
+the bind-time refusal of one account in two mutable roles at 241 CU) and
+the token lab at `244b72c` (`417akw6B…`, 42 finalized transactions: every
+builder family on SPL Token and on Token-2022, `Batch` accepted by both,
+`UnwrapLamports` accepted, seven extensions on one mint, the interest-plus-
+scaled pair refused at plan time). Bundles are under
+`audit/devnet-evidence-2026-09-28/`.
+
 The changelog's Unreleased section carries the measured numbers.
 
 ## Native 0.4.4 and runtime 0.4.5: instruction inspection

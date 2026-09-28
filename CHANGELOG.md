@@ -55,7 +55,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **`examples/hopper-token-lab`** and `scripts/test-token-lab-devnet.py`:
   one instruction per builder family, driven against SPL Token and
   Token-2022 on devnet with byte-level checks of every touched account and
-  a receipt that records which cases the live programs accepted.
+  a receipt that records which cases the live programs accepted. On
+  2026-09-28 (`417akw6B…`, commit `244b72c`, 42 finalized transactions)
+  both programs accepted `Batch` (two `TransferChecked`s as one CPI: 2,472
+  and 5,575 CU for the instruction), SPL Token accepted `UnwrapLamports`,
+  all eight plannable extensions were accepted alone and seven together,
+  and the interest-bearing plus scaled-UI pair was the one refusal.
 - **`hopper_runtime::rent::live_rent`**, the Rent sysvar read once per
   invocation. The first call reads the sysvar and stores the rate, the
   threshold bits, and the burn percent in the reserved heap scratch

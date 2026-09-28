@@ -20,9 +20,11 @@
 //! account behind two writable metas, since for a batch that repeat is the
 //! contract rather than the footgun.
 //!
-//! Token-2022 does not document `Batch`; the devnet lane that proves the
-//! SPL Token path also records whether Token-2022 accepts it, and a
-//! program should not assume it does.
+//! Both programs accepted a batch of two `TransferChecked`s on devnet on
+//! 2026-09-28 (SPL Token at 2,472 CU for the whole instruction, Token-2022
+//! at 5,575); the Token-2022 build bundled with Mollusk 0.15 refuses
+//! discriminator 255 with `InvalidInstruction`, so a local test cannot
+//! stand in for the cluster on that point.
 
 use crate::account::AccountView;
 use crate::error::ProgramError;

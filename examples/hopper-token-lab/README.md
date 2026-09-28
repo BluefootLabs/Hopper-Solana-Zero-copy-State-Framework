@@ -36,5 +36,23 @@ py -3.12 scripts/test-token-lab-devnet.py \
   --elf target/deploy/hopper_token_lab.so --out target/hopper/token-lab-devnet
 ```
 
-Build with `cargo build-sbf` from this directory. The program is 53,656
+Build with `cargo build-sbf` from this directory. The program is 53,968
 bytes as sBPF v0 with the default release profile.
+
+## Devnet, 2026-09-28
+
+Deployed fresh as `417akw6B2CcuTZFpePrZaSR5oyX3riBPtHmdePkjrAYJ` from a
+clean worktree at `244b72c`; 42 finalized transactions, every state check
+exact (`audit/devnet-evidence-2026-09-28/token-lab-round8/`). The findings
+the live programs settled: both SPL Token and Token-2022 accept `Batch`
+(the round trip of two `TransferChecked`s is one token CPI, 2,472 and 5,575
+CU for the whole instruction); SPL Token accepts `UnwrapLamports`
+(4,475 CU including the account's creation); every one of the eight
+extensions the plan supports is accepted alone, seven of them together
+(29,294 CU for the mint with default account state, pausable, scaled UI
+amount, group pointer, permissioned burn, metadata pointer, and group
+member pointer), and interest bearing with scaled UI amount is the one pair
+the program refuses, which `MintPlan` now refuses at plan time (439 CU,
+before any CPI). The scaled mint displayed 1,234,567 as `2.469134`, then
+`3.703701` after the multiplier update, and both round-tripped to the raw
+amount.
