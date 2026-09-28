@@ -35,7 +35,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   on every later load. The framework-comparison counter's `initialize`
   drops its own bump and count writes on the strength of that: 1,544 to
   1,517 CU, and the macro counter ELF 8,696 to 8,352 bytes (the sBPFv3 row
-  7,696 to 7,352), Anchor's 8,696 now beaten by 344 bytes.
+  7,696 to 7,352), Anchor's 8,696 now beaten by 344 bytes. On devnet
+  (`Ax5Ntu8G…`, 2026-09-28) `initialize` cost 1,517 CU, the account showed
+  the bump `init` wrote, and `increment` verified the PDA from it at 348.
 - **`hopper-test` frames and fixtures.** `LiteSvmHarness::frames()` parses
   the captured logs into the CPI frame tree (`Frame`: program, depth,
   consumed and own compute units, success or failure text, the frame's own
