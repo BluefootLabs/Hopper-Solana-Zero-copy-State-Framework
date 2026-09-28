@@ -1265,7 +1265,7 @@ fn arg_wire_size(ty: &Type) -> u16 {
                 return 0;
             };
             match last.ident.to_string().as_str() {
-                "u8" | "i8" | "bool" | "WireBool" => 1,
+                "u8" | "i8" | "bool" | "WireBool" | "EnumByte" => 1,
                 "u16" | "i16" | "WireU16" | "WireI16" => 2,
                 "u32" | "i32" | "WireU32" | "WireI32" => 4,
                 "u64" | "i64" | "WireU64" | "WireI64" => 8,

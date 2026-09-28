@@ -1069,7 +1069,8 @@ pub use hopper_macros_proc::{
     account, accounts, args, canonical_pda, constant, context, crank, declare_program, dynamic,
     dynamic_account, error as error_code, event, hopper_args, hopper_constant, hopper_context,
     hopper_crank, hopper_dynamic, hopper_dynamic_account, hopper_event, hopper_migrate, hopper_pod,
-    hopper_program, hopper_state, migrate, pod, program, state, Accounts, HopperInitSpace,
+    hopper_program, hopper_state, hopper_unit_enum, migrate, pod, program, state, unit_enum,
+    Accounts, HopperInitSpace,
 };
 
 // Private re-export for generated code to reference runtime types
@@ -1093,6 +1094,7 @@ pub mod __runtime {
         TailCodec, TailElement, TailSeq, TailSeqIter, TailSeqMut, TailStr, UncheckedAccount,
         Zeroable, SEQ_LEN_PREFIX,
     };
+    pub use hopper_runtime::{EnumByte, OptionByte, UnitEnum};
 
     // Crank marker type plus dynamic-CPI builder, emitted by
     // `#[hopper::crank]` and by hand-written programs that need

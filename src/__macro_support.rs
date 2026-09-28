@@ -174,6 +174,18 @@ impl<'a> DecodeInstructionArg<'a> for UntypedAddress {
     }
 }
 
+impl<'a, E: hopper_runtime::UnitEnum> DecodeInstructionArg<'a> for hopper_runtime::EnumByte<E> {
+    /// One byte that must name a variant of `E`.
+    #[inline(always)]
+    fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
+        let field = hopper_runtime::EnumByte::<E>::from_raw(decoder.read_copy::<u8>()?);
+        field
+            .validate()
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
+        Ok(field)
+    }
+}
+
 impl<'a> DecodeInstructionArg<'a> for Address {
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {

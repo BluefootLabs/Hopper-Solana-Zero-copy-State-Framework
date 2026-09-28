@@ -128,14 +128,29 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         .filter(|f| is_option_byte_type(&f.ty))
         .filter_map(|f| f.ident.as_ref())
         .collect();
-    let tag_validators: Vec<TokenStream> = option_field_idents
+    let mut tag_validators: Vec<TokenStream> = option_field_idents
         .iter()
         .map(|ident| {
             quote! {
-                r.#ident.validate_tag()?;
+                self.#ident.validate_tag()?;
             }
         })
         .collect();
+    // An `EnumByte<E>` argument must name a variant: refuse the
+    // instruction at parse, before the handler can read the field.
+    tag_validators.extend(
+        fields
+            .iter()
+            .filter(|f| is_enum_byte_type(&f.ty))
+            .filter_map(|f| f.ident.as_ref())
+            .map(|ident| {
+                quote! {
+                    self.#ident.validate().map_err(|_| {
+                        ::hopper::__runtime::ProgramError::InvalidInstructionData
+                    })?;
+                }
+            }),
+    );
 
     // Tail support. Emit `parse_with_tail` only when the struct
     // opted in via `#[hopper::args(tail)]`. The helper returns
@@ -320,6 +335,15 @@ fn is_option_byte_type(ty: &syn::Type) -> bool {
     if let syn::Type::Path(p) = ty {
         if let Some(last) = p.path.segments.last() {
             return last.ident == "OptionByte";
+        }
+    }
+    false
+}
+
+fn is_enum_byte_type(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(p) = ty {
+        if let Some(last) = p.path.segments.last() {
+            return last.ident == "EnumByte";
         }
     }
     false

@@ -1,18 +1,21 @@
-error[E0277]: the trait bound `bool: Pod` is not satisfied
+error[E0277]: `bool` cannot be overlaid on account bytes
  --> tests/compile_fail/pod_bool_field.rs:8:1
   |
 8 | #[pod]
-  | ^^^^^^ the trait `Pod` is not implemented for `bool`
+  | ^^^^^^ not `Pod`: some byte pattern or byte offset is invalid for this type
   |
+  = help: the trait `Pod` is not implemented for `bool`
+  = note: use the alignment-1 wire form instead: `WireU64` for `u64` (and `WireU16`, `WireU32`, `WireU128`, `WireI16` to `WireI128`), `WireBool` for `bool`, `EnumByte<E>` for a `#[hopper::unit_enum]` enum, `OptionByte<T>` for an optional value, `Address` for a key
+  = note: a nested struct must itself be declared with `#[hopper::state]` or `#[hopper::pod]`; references, `Vec`, `String`, and `char` have no zero-copy form (see bounded `String<'a, N>` / `Vec<'a, T, N>` tail fields)
   = help: the following other types implement trait `Pod`:
             ()
             AccountHeader
             AccountLayoutEntry
             BadBool
+            EnumByte<E>
             LeBool
             LeI16
             LeI32
-            LeI64
           and $N others
 note: required by a bound in `__FieldPodProof`
  --> tests/compile_fail/pod_bool_field.rs:8:1

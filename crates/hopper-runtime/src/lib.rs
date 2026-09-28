@@ -57,6 +57,7 @@ pub mod zerocopy;
 #[doc(hidden)]
 pub use zerocopy::__sealed;
 pub mod context;
+pub mod enum_byte;
 pub mod instruction;
 pub mod layout;
 pub mod option_byte;
@@ -174,11 +175,13 @@ macro_rules! layout_migrations {
         }
     };
 }
+pub use enum_byte::{EnumByte, UnitEnum};
 pub use instruction::CpiAccount;
 pub use instruction::{
     InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
 };
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
+pub use option_byte::OptionByte;
 pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use result::ProgramResult;
 pub use segment::{

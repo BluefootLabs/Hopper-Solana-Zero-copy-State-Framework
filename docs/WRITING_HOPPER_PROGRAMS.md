@@ -84,6 +84,47 @@ check runs. When one account legitimately plays two roles, declare it with
 `dup = other_field` on the second field; that pair is then required to
 alias and is left out of the check. Optional slots never take part.
 
+## Enums And Optional Values In Layouts
+
+A Rust enum is not a zero-copy type: a three-variant `#[repr(u8)]` enum has
+253 byte values that are not a value of the type, so overlaying it on
+account bytes is undefined behaviour as soon as an account holds one of
+them. Declare the enum with `#[hopper::unit_enum]` and store it as
+`EnumByte<E>`: one byte, alignment 1, and the enum comes back through
+`get()`, which refuses a byte that names no variant.
+
+```rust
+#[hopper::unit_enum]
+pub enum Status {
+    Open = 1,
+    Settled = 2,
+    Cancelled = 3,
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 5, version = 1)]
+pub struct Order {
+    pub maker: Address,
+    pub status: EnumByte<Status>,
+    pub referrer: OptionByte<[u8; 32]>,
+    pub amount: WireU64,
+}
+
+if order.status.get()? == Status::Open {
+    order.status.set(Status::Settled);
+}
+```
+
+`#[hopper::unit_enum]` forces `#[repr(u8)]`, adds `Clone, Copy, PartialEq,
+Eq, Debug` when the enum declares no derive of its own, and generates the
+byte mapping from the variants, so it cannot drift from the declaration.
+`OptionByte<T>` is the optional counterpart (`tag` then `T`; a tag other
+than 0 or 1 is an error). Both work in `#[hopper::args]` too, where
+`parse_checked` refuses an unknown variant or tag with
+`InvalidInstructionData` before the handler runs. A field type that has no
+zero-copy form is a compile error that names the wire type to use instead.
+
 ## Token And CPI Work
 
 Everyday program modules are available without entering systems mode:
@@ -123,7 +164,8 @@ directly in explicit overlay code paths.
 is the maximum body-plus-tail allocation, `Multisig::label(data)` and
 `Multisig::signers(data)` borrow compact-tail fields. Generic vectors such as
 `weights(data)` return `HopperVec<T, N>`. Setters such as `set_label` /
-`push_unique_signer` decode, edit, and write back the tail. Use explicit
+`push_unique_signer` edit that one field in place and move only the bytes
+behind it. Use explicit
 `#[hopper::dynamic_account]` plus `#[tail(...)]` when a review should see the
 tail split directly. Use `hopper_dynamic_fields!` plus
 `#[hopper::state(dynamic_tail = T)]` when you want to name a custom `TailCodec`

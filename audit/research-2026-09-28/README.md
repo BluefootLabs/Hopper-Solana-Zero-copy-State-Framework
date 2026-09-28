@@ -75,8 +75,11 @@ silent stack-frame overflow of `cargo-build-sbf` (Hopper's `hopper build`
 and the bench now fail on it); trailing optional accounts accepted when
 missing (Hopper now does the same); a CU ratchet in CI (Hopper's bench now
 compares with the results committed at HEAD); sbpf-linker at -38% size on
-Pina's counter (not yet evaluated on Hopper's fixtures); the `init` helper
-writing the bump byte and per-field value validation (open).
+Pina's counter (evaluated on Hopper's fixtures and not adopted: every
+artifact faulted in the verifier, see
+[SBPF_LINKER_EVALUATION.md](SBPF_LINKER_EVALUATION.md)); the `init` helper
+writing the bump byte (built: `hopper_init!` stores it under the header's
+borrow) and per-field value validation (open).
 
 **Quasar.** Reviewed at `b0de7db4` for the comparison rows only; its
 account model (no borrow tracking, unchecked CPI by default) is the design
@@ -99,6 +102,11 @@ also be omitted, which Anchor does not allow).
   bench ratchet, sBPFv3 bench rows.
 - 2026-09-28, the token parity batch: see the changelog's Unreleased
   section and [examples/hopper-token-lab](../../examples/hopper-token-lab/README.md).
+- 2026-09-28, `2f25a78`: in-place tail setters, the bump stored by `init`,
+  harness frames and fixtures.
+- 2026-09-28, the layout batch: `#[hopper::unit_enum]` with `EnumByte<E>`,
+  `OptionByte<T>` as a layout field, and diagnostics on `Pod` that name the
+  wire type to use.
 
 Devnet evidence for each batch is listed in
 [docs/DEVNET_RELEASE_EVIDENCE.md](../../docs/DEVNET_RELEASE_EVIDENCE.md).

@@ -34,6 +34,7 @@ mod pda;
 mod pod;
 mod program;
 mod state;
+mod unit_enum;
 
 use proc_macro::TokenStream;
 
@@ -318,6 +319,32 @@ pub fn hopper_pod(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn pod(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_pod(attr, item)
+}
+
+/// Make a fieldless enum storable in one byte.
+///
+/// Implements `hopper_runtime::UnitEnum` for the enum, forces
+/// `#[repr(u8)]`, and adds `Clone, Copy, PartialEq, Eq, Debug` when the
+/// enum declares no derive of its own. Store it as `EnumByte<E>` in a
+/// `#[hopper::state]` layout, a `#[hopper::pod]` struct, or
+/// `#[hopper::args]`; `EnumByte::get` refuses a byte that names no
+/// variant, so an account can never hand a handler an invalid enum.
+///
+/// ```ignore
+/// #[hopper::unit_enum]
+/// pub enum Status { Open = 1, Settled = 2, Cancelled = 3 }
+/// ```
+#[proc_macro_attribute]
+pub fn hopper_unit_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
+    unit_enum::expand(attr.into(), item.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+/// Short alias: `#[hopper::unit_enum]`.
+#[proc_macro_attribute]
+pub fn unit_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_unit_enum(attr, item)
 }
 
 /// Declare a schema-epoch migration edge.

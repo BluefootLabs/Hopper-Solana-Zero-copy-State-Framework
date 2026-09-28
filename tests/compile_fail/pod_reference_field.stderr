@@ -1,9 +1,12 @@
-error[E0277]: the trait bound `&'static u8: Pod` is not satisfied
+error[E0277]: `&'static u8` cannot be overlaid on account bytes
  --> tests/compile_fail/pod_reference_field.rs:6:1
   |
 6 | #[pod]
-  | ^^^^^^ the trait `Pod` is not implemented for `&'static u8`
+  | ^^^^^^ not `Pod`: some byte pattern or byte offset is invalid for this type
   |
+  = help: the trait `Pod` is not implemented for `&'static u8`
+  = note: use the alignment-1 wire form instead: `WireU64` for `u64` (and `WireU16`, `WireU32`, `WireU128`, `WireI16` to `WireI128`), `WireBool` for `bool`, `EnumByte<E>` for a `#[hopper::unit_enum]` enum, `OptionByte<T>` for an optional value, `Address` for a key
+  = note: a nested struct must itself be declared with `#[hopper::state]` or `#[hopper::pod]`; references, `Vec`, `String`, and `char` have no zero-copy form (see bounded `String<'a, N>` / `Vec<'a, T, N>` tail fields)
 help: the trait `Pod` is implemented for `u8`
  --> crates/hopper-native/src/pod.rs
   |

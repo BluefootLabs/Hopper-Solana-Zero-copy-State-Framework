@@ -23,6 +23,11 @@
 //! See `hopper_runtime::pod::Pod` (downstream re-export) for the
 //! runtime-side view.
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be stored in a zero-copy Hopper layout",
+    label = "not `Zeroable`: this type has no all-zero, copyable byte form",
+    note = "layout fields are alignment-1 byte types: `u8`, `i8`, `[T; N]`, `Address`, the wire integers (`WireU16` to `WireU128`, `WireI16` to `WireI128`), `WireBool`, `EnumByte<E>`, `OptionByte<T>`, and other `#[hopper::state]` / `#[hopper::pod]` structs"
+)]
 /// Marker for `Copy + Sized` values that are valid for every bit pattern.
 ///
 /// # Safety
@@ -36,6 +41,12 @@
 /// `hopper_runtime::ZeroCopy`).
 pub unsafe trait Zeroable: Copy + Sized {}
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be overlaid on account bytes",
+    label = "not `Pod`: some byte pattern or byte offset is invalid for this type",
+    note = "use the alignment-1 wire form instead: `WireU64` for `u64` (and `WireU16`, `WireU32`, `WireU128`, `WireI16` to `WireI128`), `WireBool` for `bool`, `EnumByte<E>` for a `#[hopper::unit_enum]` enum, `OptionByte<T>` for an optional value, `Address` for a key",
+    note = "a nested struct must itself be declared with `#[hopper::state]` or `#[hopper::pod]`; references, `Vec`, `String`, and `char` have no zero-copy form (see bounded `String<'a, N>` / `Vec<'a, T, N>` tail fields)"
+)]
 /// Marker for types that can be safely overlaid as `&T` / `&mut T` on raw
 /// account bytes at **any** offset.
 ///

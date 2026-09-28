@@ -9,6 +9,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Unit enums in layouts and arguments.** `#[hopper::unit_enum]`
+  implements `hopper_runtime::UnitEnum` for a fieldless enum (forcing
+  `#[repr(u8)]` and generating the byte mapping from the variants), and
+  `EnumByte<E>` stores it in one alignment-1 byte that is `Pod`:
+  `get()` refuses a byte that names no variant, `set`, `is`, and `==`
+  against a variant do what they say. It works as a `#[hopper::state]` or
+  `#[hopper::pod]` field, in `#[hopper::args]` (validated by
+  `parse_checked`), and as a `#[program]` handler argument (one byte on
+  the wire, refused with `InvalidInstructionData` when unknown).
+  `OptionByte<T>` is `Pod` whenever `T` is, so an optional value can be a
+  layout field as well as an argument.
+- **Diagnostics that name the fix.** `Pod` and `Zeroable` carry
+  `#[diagnostic::on_unimplemented]`: a `bool`, `u64`, `char`, reference,
+  or enum field in a layout now fails with "cannot be overlaid on account
+  bytes" and a note listing the wire type to use (`WireBool`, `WireU64`,
+  `EnumByte<E>`, `OptionByte<T>`, `Address`), in place of rustc's list of
+  unrelated implementors.
 - **In-place tail setters.** The account-level and wrapper setters of a
   `#[hopper::dynamic_account]` / bounded `#[hopper::account]` (`set_<field>`
   for strings and raw tails, `push_<item>`, `push_unique_<item>`,
@@ -177,6 +194,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- **`#[hopper::args]` with an `OptionByte<T>` field did not compile.** The
+  generated `validate_tags` referred to a binding that only exists in
+  `parse`; it now validates through `self`, and an `EnumByte<E>` field is
+  validated the same way.
 - **One account in two mutable roles was accepted.** A context with two
   undeclared `mut` fields (`from` and `to`, an offer and its vault) bound
   when a transaction passed the same account for both; the segment borrow

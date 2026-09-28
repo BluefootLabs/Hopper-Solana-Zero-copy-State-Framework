@@ -100,9 +100,28 @@ impl<T: Copy> OptionByte<T> {
     }
 }
 
+// SAFETY: `OptionByte<T>` is `repr(C) { tag: u8, value: T }`. With `T: Pod`
+// the payload has alignment 1, no padding, and no invalid bit pattern, so
+// the pair has alignment 1, no padding between or after the fields, and
+// every byte pattern is a valid value: a tag other than 0 or 1 is a
+// protocol error that `get` and `validate_tag` report, never undefined
+// behaviour.
+unsafe impl<T: crate::pod::Pod> crate::pod::Zeroable for OptionByte<T> {}
+// SAFETY: as above.
+unsafe impl<T: crate::pod::Pod> crate::pod::Pod for OptionByte<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn option_byte_over_a_pod_payload_is_pod() {
+        fn assert_pod<T: crate::pod::Pod>() {}
+        assert_pod::<OptionByte<[u8; 32]>>();
+        assert_pod::<OptionByte<u8>>();
+        assert_eq!(core::mem::align_of::<OptionByte<[u8; 32]>>(), 1);
+        assert_eq!(core::mem::size_of::<OptionByte<[u8; 32]>>(), 33);
+    }
 
     /// Aligned, full-size scratch buffer for the pointer-cast tests
     /// below. `OptionByte<u64>` is `#[repr(C)] { tag: u8, value: u64 }`,

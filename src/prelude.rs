@@ -227,6 +227,7 @@ pub type Result<T = (), E = ProgramError> = core::result::Result<T, E>;
 pub use hopper_core::abi::{
     WireBool, WireI128, WireI16, WireI32, WireI64, WireU128, WireU16, WireU32, WireU64,
 };
+pub use hopper_runtime::{EnumByte, OptionByte, UnitEnum};
 
 pub use crate::{
     associated_token, cpi, crypto, events, memo, pda, return_data, system, sysvar, token,
