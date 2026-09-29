@@ -1,0 +1,82 @@
+{
+  "blockTime": 1790720118,
+  "meta": {
+    "computeUnitsConsumed": 2109,
+    "costUnits": 3139,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH invoke [1]",
+      "Program FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH consumed 1903 of 202850 compute units",
+      "Program return: FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH ACADAAAAAAAyAAAAAAAAAA==",
+      "Program FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH success"
+    ],
+    "postBalances": [
+      7556986374,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      7556991374,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "returnData": {
+      "data": [
+        "ACADAAAAAAAyAAAAAAAAAA==",
+        "base64"
+      ],
+      "programId": "FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH"
+    },
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 505682466,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "ComputeBudget111111111111111111111111111111",
+        "FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "7YXqSw",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        },
+        {
+          "accounts": [
+            0
+          ],
+          "data": "11Bke3",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "Cdwx2wyGvdbGf3wvgeujtvwJ4GazEahKzpcV8qN2RksF"
+    },
+    "signatures": [
+      "2e9xMxDmNcpB6XCgF52gcsSiZoe4s3dPjugFFJxSqDE8GdbP7L73c7LDiJsQK7RQ1KLBiEfffQomZi1qgqeCyDFb"
+    ]
+  },
+  "transactionIndex": 11,
+  "version": "legacy"
+}

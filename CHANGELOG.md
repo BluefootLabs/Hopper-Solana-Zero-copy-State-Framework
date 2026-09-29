@@ -63,8 +63,15 @@ has a before and after for each change.
   verifies proofs on mainnet-beta, testnet, and devnet (checked by
   simulation on 2026-09-29), so the flow is not confined to a local SVM:
   `examples/hopper-confidential-lab/runner` runs it on a public cluster
-  with proofs made off chain. Mollusk's bundled Token-2022 (v7.0.0) cannot
-  run it; its ciphertext operations are compiled out.
+  with proofs made off chain. On devnet (`2vHnFzA1...`, 2026-09-29, 60
+  finalized transactions against Token-2022 `program@v11.1.0`) every step
+  landed and decrypted as expected: the transfer cost 17,134 CU, the
+  transfer with a fee 46,974, and the proofs 2,600 (pubkey validity) to
+  368,000 (u256 range). The u128 and u256 range proofs do not fit in a
+  transaction next to the compute-budget instruction a verification needs;
+  the runner writes them to an SPL Record account and verifies them from
+  there. Mollusk's bundled Token-2022 (v7.0.0) cannot run the flow; its
+  ciphertext operations are compiled out.
 - **SlotHashes by slot.** `sysvar::slot_hash(slot)` and
   `slot_hash_lookup(slot)` find a slot's hash with partial reads of the
   20 KB sysvar: one read of 16 entries for a recent slot, then a window

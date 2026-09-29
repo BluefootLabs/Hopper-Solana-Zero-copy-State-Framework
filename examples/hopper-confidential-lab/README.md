@@ -84,3 +84,20 @@ cargo run --release -p hopper-confidential-lab-runner -- \
   --payer <keypair> --rpc https://api.devnet.solana.com \
   --out ../../target/hopper/confidential-flow-devnet
 ```
+
+Round eleven ran it on devnet on 2026-09-29: 60 finalized transactions
+against Token-2022 `program@v11.1.0`, all fifteen builders, every check
+passed. The receipt, each transaction, and the checks are in
+`audit/devnet-evidence-2026-09-29/confidential-flow-round11`.
+
+| Step on devnet | CU |
+|---|---:|
+| `open_account`, proof in a context-state account | 12,626 |
+| `open_account`, proof by instruction offset (with the verification) | 15,705 |
+| `open_from_registry` (Token-2022 grows the account) | 15,588 |
+| `deposit`, `apply_pending` | 11,732, 9,317 |
+| `withdraw` | 7,822 |
+| `transfer` | 17,134 |
+| `transfer_with_fee` | 46,974 |
+| `empty`, proof by instruction offset (with the verification) | 9,394 |
+| Verify a u64, u128, u256 range proof | 111,150, 200,150, 368,150 |

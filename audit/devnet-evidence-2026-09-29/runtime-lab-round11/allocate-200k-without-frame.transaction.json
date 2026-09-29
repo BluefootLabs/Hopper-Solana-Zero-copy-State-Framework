@@ -1,0 +1,73 @@
+{
+  "blockTime": 1790720120,
+  "meta": {
+    "computeUnitsConsumed": 960,
+    "costUnits": 1989,
+    "err": {
+      "InstructionError": [
+        0,
+        "ProgramFailedToComplete"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH invoke [1]",
+      "Program FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH consumed 960 of 200000 compute units",
+      "Program FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH failed: Access violation writing 204799 bytes at address 0x300005008 (in heap region)"
+    ],
+    "postBalances": [
+      7556981374,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      7556986374,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "ProgramFailedToComplete"
+        ]
+      }
+    }
+  },
+  "slot": 505682478,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "FzojENn2sf6z3tRZRq5iwzvZbZPVPdMX5UzvmvxaG7uH"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0
+          ],
+          "data": "11Bke3",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "Dwoto8Qo4wPVLPAMX9VtLbMEGrMrSwjLxgyCL4iGGMcA"
+    },
+    "signatures": [
+      "rH1StZHrMXomttFeDQT8nrbvnupmBQUCGk8JSKqcMDD3dGHUPVfAs1bKNDDVKVqp5g97FUAw4FLECRqpAVLcn4X"
+    ]
+  },
+  "transactionIndex": 6,
+  "version": "legacy"
+}

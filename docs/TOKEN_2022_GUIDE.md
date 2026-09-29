@@ -298,6 +298,19 @@ verified into context-state accounts, by instruction offset, and, for the
 u128 and u256 range proofs that do not fit in a transaction next to the
 compute-budget instruction they need, from an SPL Record account.
 
+It ran on devnet on 2026-09-29: 60 finalized transactions against
+Token-2022 `program@v11.1.0`, every step checked by decrypting what landed
+([evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-29/confidential-flow-round11)).
+On chain the transfer cost 17,134 CU and the transfer with a fee 46,974,
+the same order as under Mollusk. Two things a client has to handle:
+
+- Proof verification is a builtin instruction with a small default compute
+  allowance; put a `SetComputeUnitLimit` in every transaction that verifies
+  a proof.
+- A u128 or u256 range proof plus that instruction is over the 1,232-byte
+  transaction limit. Write the proof to an SPL Record account and verify it
+  from the account; the context-state account works the same afterwards.
+
 ## Extension constraints
 
 Mint-side constraints include close authority, permanent delegate, transfer

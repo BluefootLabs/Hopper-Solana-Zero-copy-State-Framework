@@ -16,7 +16,7 @@ other Solana programs through checked CPI helpers.
 | SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
 | Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
 | Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
-| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI), on-mint metadata and groups, and the confidential-transfer instructions (run end to end against mainnet's Token-2022 with real proofs), plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
+| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI), on-mint metadata and groups, and the confidential-transfer instructions (the whole flow run on devnet with real proofs), plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
 | NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
 The escrow example supports classic SPL Token with explicit mint/account

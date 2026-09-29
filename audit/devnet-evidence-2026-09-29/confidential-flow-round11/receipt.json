@@ -1,0 +1,496 @@
+{
+  "accounts": {
+    "alice": "9TfRNBY9q64hSCo7GemnBv4f7jW9bwfkoWWmeT7jjgGH",
+    "bob": "85eEbmqkVwT2hrHTUC1geidDuumpEe198mC2WYCsajz6",
+    "carol": "94k6sRs99P2KMJQNGa4hebzeRLTv2mtjSUrboZefFXv6",
+    "carolRegistry": "83XFZSyqVt3ESCjCN1T3pMTiJWp7BrNr9NRvwDLYLxFi",
+    "erin": "hwAQQUpo5pZN1eGAPBaqnrjB3Q2s7nCy1VRiK1gZZ2P",
+    "feeMint": "9KTSkcZTtTuhfb7ENdHyZj2qQgBNcqLCbFWNjZBjoGN4",
+    "frank": "H5EdM6LfED1ksehTm6K3pLPvQx7KGyVoQFGkaQbR1hNj",
+    "mint": "9AEM58h3CCmooMj8jPxPT3TcVXbEmC4VMBMNsJJLrmdC"
+  },
+  "checks": [
+    "create-mint: a 235-byte confidential mint, approval required, auditor key stored",
+    "open-alice: configured with the holder's ElGamal key",
+    "open-alice: not approved yet, as the mint requires",
+    "approve-alice: approved",
+    "update-mint-auto-approve: new accounts are approved when configured",
+    "create-carol-registry: the registry program stored Carol's key",
+    "open-carol-from-registry: configured from the registry, grown by Token-2022, approved",
+    "open-dave-with-carols-registry: refused, no account left behind",
+    "open-bob-proof-by-offset: configured and approved",
+    "deposit: 300,000 left public, the pending balance decrypts to 700,000",
+    "apply-pending: the available balance is 700,000",
+    "withdraw: 200,000 back to the public balance, 500,000 confidential",
+    "withdraw-replayed: the same proofs are refused, nothing moved",
+    "transfer-verify-range-u128: the SPL Record account holds the 1000-byte proof",
+    "transfer: Bob and the auditor both decrypt 123,456; Alice keeps 376,544",
+    "apply-pending-bob: Bob's available balance is 123,456",
+    "credit toggles: each flag flips; a public transfer is refused while they are off",
+    "withdraw-rest: the whole confidential balance is public again",
+    "empty-proof-by-offset: Token-2022 accepted the zero-ciphertext proof",
+    "open-erin: configured with the holder's ElGamal key",
+    "open-frank: configured with the holder's ElGamal key",
+    "fund-erin: the pending balance decrypts to 500000",
+    "fund-erin: the available balance is 500000",
+    "fee-transfer-verify-range-u256: the SPL Record account holds the 1064-byte proof",
+    "transfer-with-fee: Frank credited 99000, 1000 withheld under the withdraw authority's key",
+    "15 context-state accounts and 2 record accounts closed, rent returned"
+  ],
+  "commitment": "finalized",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "elfSha256": "7e5ae588ac446589fe43e8429d885b4c921a2839e47a016decdffa2717aed6cf",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programId": "2vHnFzA1tZUtcUAFur14BMGPpq9YzpYFtBJ43Bbz9pqt",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "schema": "hopper.confidential-flow.v1",
+  "sourceCommit": "be4f535fc0834a7b4bfdb8b6d005ba79e747050f",
+  "token2022": {
+    "bytes": 711008,
+    "sha256": "b781b71d230a9910de4d3c103e72608f597fc73c83ee207242ac82b708382a6a",
+    "sourceRelease": "program@v11.1.0"
+  },
+  "transactions": [
+    {
+      "computeUnits": 7321,
+      "error": null,
+      "name": "00-create-mint",
+      "signature": "35zrnd6zvRBoeXcQCDZC7QF7wj7MbSFwqySMt3qC8osBrqxC69pUHRAqpSdKqBicL1fGW7yH412faMfxzo7uHWww",
+      "slot": 505687948
+    },
+    {
+      "computeUnits": 2900,
+      "error": null,
+      "name": "01-open-alice-verify-pubkey-validity",
+      "signature": "FKrbTrAAF5t5nNYjECzsZeqNehYXU27JGtsE4BTGDqnPdaDFdQffJY2YkjSHZUoPY3LXE9a16HpBW7VKf8MDnat",
+      "slot": 505687961
+    },
+    {
+      "computeUnits": 12626,
+      "error": null,
+      "name": "02-open-alice",
+      "signature": "3Mp9bRbvHfwYYWtET4CPVA76RyB7dyJaeWjYXx1reUcBPghKt7LjAnkjKR7uQybceAaVLBqHxfCEhwt61mfEYNjm",
+      "slot": 505687972
+    },
+    {
+      "computeUnits": 3275,
+      "error": null,
+      "name": "03-approve-alice",
+      "signature": "4a85NPKMwUoTy16mGmQGnkrSbpMhSX98WC3pozRMGtkm6DRkomiN2f38KjXad2cirPkGJcwzNfq71gpt2cqohz89",
+      "slot": 505687984
+    },
+    {
+      "computeUnits": 2854,
+      "error": null,
+      "name": "04-update-mint-auto-approve",
+      "signature": "2E43BVm4yAX2SdZH2VH8YWqwokxDwmJKdYFBoT5dvFgC3jntz4XWUTLy8hY4q24jh8Wb9if1ouMfskL8U4AnqLPh",
+      "slot": 505687997
+    },
+    {
+      "computeUnits": 11832,
+      "error": null,
+      "name": "05-create-carol-registry",
+      "signature": "4n8ZLehRkcNwJDbUmhmQDLn3HtzkmUCxFap27fqiKdig3CnHJqrCuziqbiceczMifrWMtbeqzQt1BKBCB7fc7ALF",
+      "slot": 505688010
+    },
+    {
+      "computeUnits": 15588,
+      "error": null,
+      "name": "06-open-carol-from-registry",
+      "signature": "SmdSmfTxghvkxhdonDZjhZ3Qw3ggoR3ykDukHccGaK5BoyPFp8V3Dv5JsLrfnxhxCnGeNB2X5WzBRXAURWamb8Z",
+      "slot": 505688021
+    },
+    {
+      "computeUnits": 14666,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 4
+          }
+        ]
+      },
+      "name": "07-open-dave-with-carols-registry",
+      "signature": "2tVnBXAXTgSVzT75xLNrQzdeVimcGcsep3av5QTcyMPxTU4bEzubh3aMGCVuwWii2sJjaZo82wv5DDMWRXGwz5Uj",
+      "slot": 505688033
+    },
+    {
+      "computeUnits": 15705,
+      "error": null,
+      "name": "08-open-bob-proof-by-offset",
+      "signature": "tq1aLkKHp8anMwr7FVAQzj75JmsSkNSgQEowqeeCTwibibs8uvytVnLuQb2vPmJPxrVXYgTmmeNrxaeqm15Chnx",
+      "slot": 505688045
+    },
+    {
+      "computeUnits": 1970,
+      "error": null,
+      "name": "09-mint-to-alice",
+      "signature": "2Lx7nqbPFM3oSZC4nGSeqDvmEH9vXxH8cYp3pp87RaxCnHNk8NLxEqEj3SJf3FE9FAZpakfeMz66RhPZUTYhdXdm",
+      "slot": 505688057
+    },
+    {
+      "computeUnits": 11732,
+      "error": null,
+      "name": "10-deposit",
+      "signature": "TToXi8aNzUPGYS4UyVH8ofb3gggoqsxaXfJ4gUwNk1f2AW1Hi7zUayCjABWBD7k9BrqJF4WMBhzPzjKAwux4RQA",
+      "slot": 505688068
+    },
+    {
+      "computeUnits": 9317,
+      "error": null,
+      "name": "11-apply-pending",
+      "signature": "5xuvzSxJKU3ncqJTre9ZubxCXkePn717GdqUd6XH9W3nvr2Fbx9k1vwnJoSKDpKjbNjd7v7YMZS776Gz3PBYGXtx",
+      "slot": 505688082
+    },
+    {
+      "computeUnits": 6700,
+      "error": null,
+      "name": "12-withdraw-verify-equality",
+      "signature": "5e9y9rsVdLpGQVcsPoHHsikXKiohzLpnH5SF7Z9dxztyk8ap8c2qWGk1657KcK82Ko7hiSK85o5MKE9HncoLKRjh",
+      "slot": 505688096
+    },
+    {
+      "computeUnits": 150,
+      "error": null,
+      "name": "13-withdraw-verify-range-u64-context",
+      "signature": "zfg6WwayCKjfkHkX7f5GyUXmt142hAKGvhdKwXVztYHvkqsKskEqkBw1BFpWCm1SQmfxoYXDLEYcmCDApr7RTsE",
+      "slot": 505688107
+    },
+    {
+      "computeUnits": 111150,
+      "error": null,
+      "name": "14-withdraw-verify-range-u64",
+      "signature": "4d1tWbrpLzdaNNbhuobqtZjibmyiD33yHPJhX4vCLdSGi59qerKThE7ELSHc2YqFXuKEeqd9KKfWC6YYqjSt2Qrt",
+      "slot": 505688119
+    },
+    {
+      "computeUnits": 7822,
+      "error": null,
+      "name": "15-withdraw",
+      "signature": "4KxUUjY5Vqzd8rcsAVeUkc4WqC8c6X4vbKfqM9ZZajbpZccSBRjHRD9EDpzMkqST7By9Z1hrTKDPPuF8sQSsfvU5",
+      "slot": 505688130
+    },
+    {
+      "computeUnits": 7925,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 27
+          }
+        ]
+      },
+      "name": "16-withdraw-replayed",
+      "signature": "33wFk9ngbnM2cFhbtj7sjY2c8gVkJuaNnW3ipFqaY9ZyVtfwb2NsWwtHnFuYVdamTSj55KYtJbAHnQuwdB5t748",
+      "slot": 505688143
+    },
+    {
+      "computeUnits": 6700,
+      "error": null,
+      "name": "17-transfer-verify-equality",
+      "signature": "xuRoFJCoQMhdbEhZ7GSk9zFXUbvWr1fU4Wb1Ar4nNoDsmnzxYqkR6Wdgu3EULUpqJcPMbVc3vHuHU1K1XpuAkQy",
+      "slot": 505688160
+    },
+    {
+      "computeUnits": 16700,
+      "error": null,
+      "name": "18-transfer-verify-validity",
+      "signature": "5MVzMnLZuNnYPkth4mXBiJDDLh1XyqQVrQBKChkfSRvjD5Jc68pTfr4XHsBZWYayDAcvYLHRYKGZMjbuoyhr2Pb2",
+      "slot": 505688168
+    },
+    {
+      "computeUnits": 696,
+      "error": null,
+      "name": "19-transfer-verify-range-u128-record",
+      "signature": "4fTnr9JGG7pDYixe3Ey4cF46oPGkDvb48nmFzcmK9khMWbB2PGX92biUsuqsb7PgRQFK86y8VtYMpquEKRbgEmvW",
+      "slot": 505688188
+    },
+    {
+      "computeUnits": 649,
+      "error": null,
+      "name": "20-transfer-verify-range-u128-record-write-0",
+      "signature": "2J2BwwKPsetpzXxW6ojKyuoY3WyeZnLYbKVvgTnukwtu5U29Vtuw9yWfwSEQdpNPPtmu3YAckRdLnUKLv9qrL9LR",
+      "slot": 505688199
+    },
+    {
+      "computeUnits": 649,
+      "error": null,
+      "name": "21-transfer-verify-range-u128-record-write-1",
+      "signature": "3UfKWowmzkLRBuqRBDUuCiaC91FxyjzSHeK5TY6jgHbP9iouwLfEuVP5Ss3tzEiapgSPCsC9QojvU6iqcqj2mer5",
+      "slot": 505688210
+    },
+    {
+      "computeUnits": 150,
+      "error": null,
+      "name": "22-transfer-verify-range-u128-context",
+      "signature": "4SSQYkjMfWgNLkYoGUD9MTGgsGwtcdb9X3PzKVGtfUUV9mnzUHW5L9Ny4CrkBTDDTQn9dSycW2QgsCzWL1wd3Qqa",
+      "slot": 505688223
+    },
+    {
+      "computeUnits": 200150,
+      "error": null,
+      "name": "23-transfer-verify-range-u128",
+      "signature": "tNM2oN7febG578YTMRFooxxRQ1hQ6xGfz7PGV5PFU73CBRVTsBRdaQgvwQ44gaZe3qLRVsRi6kwDXkoSGb75pDo",
+      "slot": 505688234
+    },
+    {
+      "computeUnits": 17134,
+      "error": null,
+      "name": "24-transfer",
+      "signature": "5bQXuSgJYoBM9EW3VJiyZjA5Z3m7TqrVvDghh3WkgvhKgwHYH4rZsdsuehhrccHoanKEVR4YaSp52XhWrWBPcUe2",
+      "slot": 505688245
+    },
+    {
+      "computeUnits": 9317,
+      "error": null,
+      "name": "25-apply-pending-bob",
+      "signature": "3QUPyv5YVECng99qE53rJhqWfHceJiiH87tvKXFrGvHN1TYbp5iC8o5wdw6MZVkQ9WvRhVsDaFgS6UbnaJGM4vfc",
+      "slot": 505688260
+    },
+    {
+      "computeUnits": 2347,
+      "error": null,
+      "name": "26-disable-confidential-credits",
+      "signature": "3LSt2cRW6B9wZND17nvuEkV88pzt5VozTSY4WHReX4YbdFXmD5HvwYezkMPuEJFPU3E7YFXTAAQn1Do4JGQNffSi",
+      "slot": 505688271
+    },
+    {
+      "computeUnits": 2346,
+      "error": null,
+      "name": "27-enable-confidential-credits",
+      "signature": "3RNy7QPKWFNALDtJdMsVBA3QRBAmKqYbA4dr7wm2WFAeqvjhbBWiA9AM9hWGZ8NPFVh9MLF3jrCyWmtjxwTwpNYV",
+      "slot": 505688283
+    },
+    {
+      "computeUnits": 2347,
+      "error": null,
+      "name": "28-disable-non-confidential-credits",
+      "signature": "5SqTsmjDssVXMGNpYL6SgiVLoKf6UkaH8UbFm1o2pNUmztjaM1Z91b6uc9RAvDa8PQfxL5yEserEAspk2jEtPxRP",
+      "slot": 505688296
+    },
+    {
+      "computeUnits": 2887,
+      "error": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 49
+          }
+        ]
+      },
+      "name": "29-public-transfer-refused",
+      "signature": "2mE5goAP95owPxQ532HB3vcP2oStg3oAoTJ5eJ26a34xHHYL6guD92efTejJBdHbXze8jVW7Z6NaQyY5FHTjnWgu",
+      "slot": 505688308
+    },
+    {
+      "computeUnits": 2345,
+      "error": null,
+      "name": "30-enable-non-confidential-credits",
+      "signature": "2ePuuwgkf4VtT8gPPCbxwD4bFq3Zh9zNFMQ5dL8QUaxo3W32c6LX8wEacVbWdzUKemitmt4386HNwCMHyEyXi5zE",
+      "slot": 505688320
+    },
+    {
+      "computeUnits": 2775,
+      "error": null,
+      "name": "31-public-transfer",
+      "signature": "2XPmikgY6E5BZXsPqUziTuf26bk8gcazNzUuWXjqNGpRWGbnr7Duh6Ttk5qDfUrX2eGhLLQnU5MivA1M59qa4RhD",
+      "slot": 505688330
+    },
+    {
+      "computeUnits": 6700,
+      "error": null,
+      "name": "32-withdraw-rest-verify-equality",
+      "signature": "41xafkDLT4JA9qjmgPnyy9ntMJXyMRfgtFP94XLFtC4K5FGnLx5wJUc5TjqFGfdJPrgNZ6e3L1YTiYiMyFNNG2xZ",
+      "slot": 505688344
+    },
+    {
+      "computeUnits": 150,
+      "error": null,
+      "name": "33-withdraw-rest-verify-range-u64-context",
+      "signature": "2pKLkj3mvE1WYEztA7A1rUjquPNhmhAHzxhWYN6uRkeKaPmX46nYanwyXdhxwGmf22gYBWVouKkcc4Q87tLN6htd",
+      "slot": 505688360
+    },
+    {
+      "computeUnits": 111150,
+      "error": null,
+      "name": "34-withdraw-rest-verify-range-u64",
+      "signature": "59mcHSMNPMkGCVg6j9xFhKqgERgZCmCFRR7tyHRcNZ8TpUntuvCMY4FBf26AT5kR1xkFmwGYoxLhndi2ThemkVeX",
+      "slot": 505688368
+    },
+    {
+      "computeUnits": 7822,
+      "error": null,
+      "name": "35-withdraw-rest",
+      "signature": "4BgBWLL2ewWwcpML7MzridhhC3ycrL2E81T2SJwR9C3k9ju9mNaCNZv9ucFrtpsyGFgr9qJhDzXVuXds3wsD7e79",
+      "slot": 505688379
+    },
+    {
+      "computeUnits": 9394,
+      "error": null,
+      "name": "36-empty-proof-by-offset",
+      "signature": "3nXJArfjE2bUNEmVXWTsuxWsZXDQNr9KPSSev2DASSjTzaYu678QAapKMbTWAdjtCXDtQD2ZCKQAX3zx3nphXEnr",
+      "slot": 505688396
+    },
+    {
+      "computeUnits": 7061,
+      "error": null,
+      "name": "37-create-fee-mint",
+      "signature": "4t7g1iQptDLKTLKpxULqcTkvYH5FEyY69JrKyPSvgUVmvPpzfP2bDHqTViDAyKXSe1kJFu9ZCRWWaU4SZrNCDsTn",
+      "slot": 505688415
+    },
+    {
+      "computeUnits": 2900,
+      "error": null,
+      "name": "38-open-erin-verify-pubkey-validity",
+      "signature": "ZB56TcTrvUSbEs2tCWN1TroAahzf2YwqxEVY663cBRtkKf63A6jdckM4hTvugb1E9HRCZj2zr7bF3UmTbUu6eo4",
+      "slot": 505688428
+    },
+    {
+      "computeUnits": 14051,
+      "error": null,
+      "name": "39-open-erin",
+      "signature": "FHPjoqK9BfQYECFS8L8VhLD8BsD2XJNREzV6GfrMJpAbdX6BD2N1h193x6ur74TJKAML3fJckoWzhsQ9J1xGZLj",
+      "slot": 505688440
+    },
+    {
+      "computeUnits": 2900,
+      "error": null,
+      "name": "40-open-frank-verify-pubkey-validity",
+      "signature": "hGDQ3nK9CKW5gTV6x2nHHfFx2nvC8ghdwzWG2mPqQkoCq1uUumzysrZfCsKKZSsh1h79Fbnxbt6by7SEVCE1X8D",
+      "slot": 505688452
+    },
+    {
+      "computeUnits": 14051,
+      "error": null,
+      "name": "41-open-frank",
+      "signature": "5V7AMmH7yR4AHERev7KWyXG1QkcWDUe6pEVnnf7p64MHu9gY8f9VyabMZS2ZjS4yQFZCMiT5MFrhAq8T5zTUq7sq",
+      "slot": 505688464
+    },
+    {
+      "computeUnits": 2294,
+      "error": null,
+      "name": "42-fund-erin-mint-to",
+      "signature": "DLxcysPHqm1uqYLvpT3yjzS38AxyAQvKPtDXmDfpef6fq5ZEVb8ruG6Scbs8nheAmmyHRHfMKeQD2NRDxpcLYwp",
+      "slot": 505688476
+    },
+    {
+      "computeUnits": 12112,
+      "error": null,
+      "name": "43-fund-erin-deposit",
+      "signature": "3A7hwayjGxAPTD9FCd9nJac754w3QYyV7DnwJACyPECiCp2YSPXh5KKiNNcaXmpUxJd4VcnPmaTM5x27pwvqb5cV",
+      "slot": 505688488
+    },
+    {
+      "computeUnits": 9372,
+      "error": null,
+      "name": "44-fund-erin-apply",
+      "signature": "4WyyDuTzSM52RKAqatv1v9DfzZhrDfCDJuPLRHkQ6TUutXgh5AavfFPNFe6tywEipSoxou4KaY4NSDP72bbNknQy",
+      "slot": 505688501
+    },
+    {
+      "computeUnits": 6700,
+      "error": null,
+      "name": "45-fee-transfer-verify-equality",
+      "signature": "4NE5Xy2HuaABXikcqps1MFBZ8TZ6LUBvzMGZNXo92tZT2fGyyDieAMLtdrt7VeodoseLDBpKcBmnWm9ArA91NPDj",
+      "slot": 505688514
+    },
+    {
+      "computeUnits": 16700,
+      "error": null,
+      "name": "46-fee-transfer-verify-amount-validity",
+      "signature": "3MBxvjCuvHsd4jQGcQSbrpxHAadrqnBUbKSfWzn7oeR9M7n3YfbSkGzyNKmtMF4yJjqo9uDYtzGPssWUSutUC6Vq",
+      "slot": 505688526
+    },
+    {
+      "computeUnits": 6800,
+      "error": null,
+      "name": "47-fee-transfer-verify-fee-sigma",
+      "signature": "3kLhoBnutmsSq2Z1ADH5xb5mEqHVAjvmFbnUvoJmqVtuwdVTdUGpa3ZHgrJ8eUk5fmFfTp7GW1ad8JMc6MbBfB2G",
+      "slot": 505688539
+    },
+    {
+      "computeUnits": 13300,
+      "error": null,
+      "name": "48-fee-transfer-verify-fee-validity",
+      "signature": "vsE93Pdh5iCTYKecG3xpaSrFPBBkkTVTzfiuqJmk3U9VwCoqxMKCysjS11tZ17Fs5foU686kJSn8vPrHqsQYnF6",
+      "slot": 505688550
+    },
+    {
+      "computeUnits": 696,
+      "error": null,
+      "name": "49-fee-transfer-verify-range-u256-record",
+      "signature": "3qmQzQVoqB3gCDjYb1Eq86hCnKp3Mr9VTXgonxpnv62BkhgnYnYwuEJr2wbzX13ay6Xyi7YCkN3yRzaHzaaq8o1T",
+      "slot": 505688563
+    },
+    {
+      "computeUnits": 649,
+      "error": null,
+      "name": "50-fee-transfer-verify-range-u256-record-write-0",
+      "signature": "Y7evi5ZJmt71wAyqHytgJD9yd8Gs6WQN835k9VjJADmfBk5zxDVnHWoePz5CbZhVDDBBaNWHdpDzpnZ9b6AUtoF",
+      "slot": 505688583
+    },
+    {
+      "computeUnits": 649,
+      "error": null,
+      "name": "51-fee-transfer-verify-range-u256-record-write-1",
+      "signature": "48NEevF5LG8tGMc1HvBH2U5PbHMKV9KntyXWPtD1zPgkCa9yZkwR4Y3XvuqReUPHs3zdZnvDwvrmgZALBVCEn9Ym",
+      "slot": 505688594
+    },
+    {
+      "computeUnits": 150,
+      "error": null,
+      "name": "52-fee-transfer-verify-range-u256-context",
+      "signature": "3NVtDe6431A2JCaSRkvJqAiQgwqjUStgdrVzuc7KzTsbTh8rwZuoVFf5aNURyKEKp8rUGDmij48t49pScZTrepyh",
+      "slot": 505688607
+    },
+    {
+      "computeUnits": 368150,
+      "error": null,
+      "name": "53-fee-transfer-verify-range-u256",
+      "signature": "2kk7ByECQivMSWxeBSKTqr2wpivtSvnpUyV1zTRYnMHGRisAu2sBq2nmr7eoANPG2FuXaVH2N9vvz27hXAvr5sgT",
+      "slot": 505688618
+    },
+    {
+      "computeUnits": 46974,
+      "error": null,
+      "name": "54-transfer-with-fee",
+      "signature": "48Ch4m8MvbfYkYcXyaiVPsSxYu71pBLy8sdnM4YD5ZNcxg9vi6WQxB8GXRhz51zBRjkasbVeam8KiqYz5waLaQBC",
+      "slot": 505688631
+    },
+    {
+      "computeUnits": 19800,
+      "error": null,
+      "name": "55-close-contexts-0",
+      "signature": "3XYJgo8vAZ4EcTrwYdp3rLxBB3mMgwcD2qmFWTkfjPaTrtLXcPDtTJJgFYxHqG2UX84QFQpQWytSUwCnpnFr1Uas",
+      "slot": 505688647
+    },
+    {
+      "computeUnits": 19800,
+      "error": null,
+      "name": "56-close-contexts-1",
+      "signature": "4uu8Fu9uuni2AkwBEGvKtkXHwv9MKDYmqGLMZdyQDikfhg1o5WaED5DeR1qkV8TyrJ8hTKc9QkuhmVEhL1AKhbHe",
+      "slot": 505688659
+    },
+    {
+      "computeUnits": 9900,
+      "error": null,
+      "name": "57-close-contexts-2",
+      "signature": "JdTWeAa2SBByM8oJU8RrQg43qx9MGrG47kKRVJu2SjfmephhC2SUJrwjAm5n6vXDd79pW94CaAkpD78YmzDs5yR",
+      "slot": 505688674
+    },
+    {
+      "computeUnits": 699,
+      "error": null,
+      "name": "58-close-record",
+      "signature": "5HY7LeMryEDo4UZg9wBuv7JVB7z7wApykbPgZn116hHL168BKQ8Mo8VZcbdmi7kwayBEbW53pBeg8xJYM9xXTypn",
+      "slot": 505688688
+    },
+    {
+      "computeUnits": 699,
+      "error": null,
+      "name": "59-close-record",
+      "signature": "4j72zDqtWQ6zexiZMgS5kVJAXtRyXyWEUPC6bmPAtCy4xHbNqQzV2tDCRAHZ2VczRViegjYSwHRVRKrGWQbxuqQ1",
+      "slot": 505688702
+    }
+  ]
+}
