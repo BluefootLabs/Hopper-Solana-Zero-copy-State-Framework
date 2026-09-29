@@ -49,3 +49,28 @@ A test whose artifact is missing prints `SKIPPED` and passes.
 The `report-panics` feature turns on Hopper's `panic-location` and
 `panic-message` features; the default build is the silent handler that
 production programs ship.
+
+## On devnet
+
+`scripts/test-runtime-lab-devnet.py` drives both builds on devnet and
+checks each answer: the heap figures against the return data, every
+returned slot hash against the live SlotHashes sysvar, and the panic logs.
+Round eleven (2026-09-29, commit `25ed970`, programs `FzojENn2...` and
+`9nDHLtQr...`, evidence in `audit/devnet-evidence-2026-09-29/runtime-lab-round11`):
+
+| Case | Result |
+|---|---|
+| 12,280 bytes in the default heap | ok, 381 CU |
+| 200 KiB with `--heap-frame 262144` | ok, 2,109 CU |
+| 200 KiB without the frame | refused, the memset leaves the mapped heap, 960 CU |
+| The whole frame, 241,656 bytes | ok, 2,400 CU; one byte more refused with `Custom(6800)` |
+| A vector grown to 200 KiB | heap used equals its capacity, 21,430 CU |
+| 100 rounds of 8 KiB with a checkpoint | nothing held at the end, 14,419 CU |
+| Slot hash 1, 100, 300 slots back | equal to the sysvar's entries, 529, 988, 988 CU |
+| A slot older than the sysvar, a future slot | `TooOld`, `Ahead` |
+| Panic, silent build | nothing logged by the program, 90 CU |
+| Panic, reporting build | `SBF program Panicked in examples\hopper-runtime-lab\src\lib.rs at 168:9`, 559 CU |
+
+One byte past the default heap is a direct store into an unmapped region:
+the program's log line says 195 CU, and the transaction meta charges the
+whole 200,000.

@@ -5,8 +5,9 @@
 //! and so through Hopper's builders, to the Token-2022 the cluster runs.
 //! Every proof is verified by the cluster's ZK ElGamal proof program: into a
 //! context-state account, in the same transaction by instruction offset,
-//! or, for the u256 range proof that does not fit in a transaction, from an
-//! SPL Record account. After each step the runner reads the accounts back
+//! or, for the u128 and u256 range proofs that do not fit in a transaction
+//! with the compute-budget instruction they need, from an SPL Record
+//! account. After each step the runner reads the accounts back
 //! and decrypts what landed.
 //!
 //! ```text
@@ -861,11 +862,12 @@ fn main() {
             .proof_data,
         false,
     );
-    let range = r.verify::<_, BatchedRangeProofContext>(
+    // A u128 range proof with the compute-budget instruction is a few bytes
+    // over the transaction limit, so it is verified from a record account.
+    let range = r.verify_from_record::<_, BatchedRangeProofContext>(
         "transfer-verify-range-u128",
         ProofInstruction::VerifyBatchedRangeProofU128,
         &proofs.range_proof_data,
-        true,
     );
     let auditor_lo = proofs
         .ciphertext_validity_proof_data_with_ciphertext
@@ -1228,7 +1230,7 @@ fn main() {
         r.send("close-record", &[close], &[], true);
     }
     r.check(format!(
-        "{} context-state accounts and {} record account closed, rent returned",
+        "{} context-state accounts and {} record accounts closed, rent returned",
         contexts.len(),
         records.len()
     ));

@@ -72,7 +72,9 @@ has a before and after for each change.
   (`Skipped`, `TooOld`, `Ahead`) and how many reads it took. Two reads
   cover most lookups; the worst case measured over a 512-entry sysvar with
   skipped slots is four. One read costs 535 CU for the whole instruction
-  in the runtime lab.
+  in the runtime lab. On devnet (`FzojENn2...`, 2026-09-29) every returned
+  hash equalled the live sysvar's entry: 529 CU one slot back, 988 CU
+  three hundred back.
 - **A heap that can use a requested heap frame.** The default allocator
   allocates forward from above Hopper's scratch region, grows the last
   block in place, and takes the heap size it may use:
@@ -81,11 +83,16 @@ has a before and after for each change.
   time occupies exactly 200 KiB; a loop that allocates 8 KiB a hundred
   times runs through a 12 KiB heap with a checkpoint (14,419 CU).
   `hopper tx send --heap-frame <bytes>` adds the `RequestHeapFrame`
-  instruction.
+  instruction. On devnet a 200 KiB allocation with the frame cost 2,109 CU
+  and failed without it; the whole frame above the scratch region (241,656
+  bytes) cost 2,400 CU, and one byte more was refused by the allocator
+  (`Custom(6800)`).
 - **Panics that say where.** The `panic-location` feature makes the panic
   handler report `file:line:column` through `sol_panic_`, and
   `panic-message` logs the message. Without them a panic aborts silently
-  (90 CU in the runtime lab; 559 CU with both).
+  (90 CU in the runtime lab; 559 CU with both). On devnet the reporting
+  build failed with `SBF program Panicked in
+  examples\hopper-runtime-lab\src\lib.rs at 168:9`.
 - **PDAs in plain unit tests.** `find_program_address`,
   `create_program_address`, `verify_program_address`, and the bump helpers
   run on the host with the same answers as the cluster: the curve check is

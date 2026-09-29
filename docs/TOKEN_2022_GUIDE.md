@@ -295,8 +295,8 @@ devnet (checked by simulation on 2026-09-29), so the same flow runs on a
 public cluster. `examples/hopper-confidential-lab/runner` does it: every
 step as a real transaction through the lab program, proofs made off chain,
 verified into context-state accounts, by instruction offset, and, for the
-u256 range proof that does not fit in a transaction, from an SPL Record
-account.
+u128 and u256 range proofs that do not fit in a transaction next to the
+compute-budget instruction they need, from an SPL Record account.
 
 ## Extension constraints
 

@@ -72,8 +72,9 @@ mainnet build.
 The ZK ElGamal proof program verifies proofs on mainnet-beta, testnet, and
 devnet, so `runner/` runs the same flow for real: every step a transaction
 through this program, the proofs made off chain and verified by the
-cluster, the accounts read back and decrypted after each step. A range
-proof too large for a transaction (u256, for the fee transfer) is written
+cluster, the accounts read back and decrypted after each step. The u128
+and u256 range proofs do not fit in a transaction next to the
+compute-budget instruction a proof verification needs, so they are written
 to an SPL Record account and verified from there. At the end the
 context-state and record accounts are closed and their rent returned.
 
