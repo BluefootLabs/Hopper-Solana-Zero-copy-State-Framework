@@ -1,0 +1,11 @@
+# Public API of hopper-anchor, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+pub const fn hopper_anchor::anchor_disc(type_name: &str) -> [u8; 8]
+pub const fn hopper_anchor::anchor_event_disc(event_name: &str) -> [u8; 8]
+pub const fn hopper_anchor::anchor_ix_disc(fn_name: &str) -> [u8; 8]
+pub fn hopper_anchor::anchor_body(data: &[u8]) -> core::result::Result<&[u8], hopper_runtime::error::ProgramError>
+pub fn hopper_anchor::anchor_body_mut(data: &mut [u8]) -> core::result::Result<&mut [u8], hopper_runtime::error::ProgramError>
+pub fn hopper_anchor::check_anchor_disc(data: &[u8], expected: &[u8; 8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_anchor::check_and_body<'a>(data: &'a [u8], expected: &[u8; 8]) -> core::result::Result<&'a [u8], hopper_runtime::error::ProgramError>
+pub fn hopper_anchor::check_ix_and_body<'a>(data: &'a [u8], expected: &[u8; 8]) -> core::result::Result<&'a [u8], hopper_runtime::error::ProgramError>

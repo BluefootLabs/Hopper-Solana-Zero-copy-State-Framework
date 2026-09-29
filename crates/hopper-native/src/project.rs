@@ -56,13 +56,18 @@
 //! fn read_vault(account: &AccountView) -> Result<&VaultState, ProgramError> {
 //!     // Checks: data_len >= offset + size_of::<VaultState>(),
 //!     //         alignment is correct, disc byte matches.
-//!     project::<VaultState>(account, 10, Some(1))
+//!     project::<VaultState>(account, HOPPER_HEADER_LEN, Some(1))
 //! }
 //! ```
 
 use crate::account_view::AccountView;
 use crate::borrow::Ref;
 use crate::error::ProgramError;
+
+/// Length of the Hopper account header: discriminator (1), version (1),
+/// flags (2), layout id (8), reserved (4). The body of a Hopper account
+/// starts at this offset.
+pub const HOPPER_HEADER_LEN: usize = 16;
 
 /// Marker trait for types that can be safely projected from raw account data.
 ///
@@ -201,8 +206,8 @@ pub unsafe fn project_safe_mut<'a, T: SafeProjectable>(
 ///
 /// * `account` - The account to project from.
 /// * `offset` - Byte offset into account data where `T` begins.
-///   For Hopper accounts with a standard 10-byte header (disc + version
-///   + layout_id), use `offset = 10`.
+///   For a Hopper account the body starts after the 16-byte header, at
+///   [`HOPPER_HEADER_LEN`].
 /// * `expected_disc` - If `Some(d)`, verify that `data[0] == d` before
 ///   projecting. Pass `None` to skip the discriminator check.
 #[inline]
@@ -344,9 +349,8 @@ pub fn project_slice<'a, T: Projectable>(
     ))
 }
 
-/// Project with a Hopper standard header: skip the 10-byte header
-/// (1 disc + 1 version + 8 layout_id) and project `T` starting at
-/// byte 10. Verifies discriminator.
+/// Project the body of a Hopper account: skip the 16-byte header and
+/// project `T` at [`HOPPER_HEADER_LEN`]. Verifies the discriminator.
 ///
 /// This is the most common projection pattern for Hopper accounts.
 #[inline]
@@ -354,7 +358,7 @@ pub fn project_hopper<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     expected_disc: u8,
 ) -> Result<Ref<'a, T>, ProgramError> {
-    project::<T>(account, 10, Some(expected_disc))
+    project::<T>(account, HOPPER_HEADER_LEN, Some(expected_disc))
 }
 
 /// Mutable version of `project_hopper`.
@@ -369,7 +373,7 @@ pub unsafe fn project_hopper_mut<'a, T: Projectable>(
 ) -> Result<&'a mut T, ProgramError> {
     // SAFETY: This function's `# Safety` contract is the callee's, forwarded
     // unchanged.
-    unsafe { project_mut::<T>(account, 10, Some(expected_disc)) }
+    unsafe { project_mut::<T>(account, HOPPER_HEADER_LEN, Some(expected_disc)) }
 }
 
 #[cfg(test)]

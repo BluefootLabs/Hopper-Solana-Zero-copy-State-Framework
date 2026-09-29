@@ -1,0 +1,132 @@
+# Public API of hopper-metaplex, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+fn hopper_metaplex::IntoMasterEditionMaxSupply::into_master_edition_max_supply(self) -> core::option::Option<u64>;
+impl hopper_metaplex::IntoMasterEditionMaxSupply for core::option::Option<u64>
+impl hopper_metaplex::IntoMasterEditionMaxSupply for u64
+impl<'a> !core::marker::Send for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> !core::marker::Send for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> !core::marker::Send for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+impl<'a> !core::panic::unwind_safe::UnwindSafe for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::clone::Clone for hopper_metaplex::DataV2<'a>
+impl<'a> core::marker::Copy for hopper_metaplex::DataV2<'a>
+impl<'a> core::marker::Freeze for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::marker::Send for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::marker::Send for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::marker::Sync for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::marker::Sync for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_metaplex::encoding::BorshTape<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_metaplex::CreateMasterEditionV3<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_metaplex::CreateMetadataAccountV3<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_metaplex::DataV2<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_metaplex::UpdateMetadataAccountV2<'a> [auto]
+pub const fn hopper_metaplex::DataV2::simple(name: &'a str, symbol: &'a str, uri: &'a str, seller_fee_basis_points: u16) -> Self
+pub const hopper_metaplex::EDITION_SEED_PREFIX: &[u8] = b"edition"
+pub const hopper_metaplex::MAX_NAME_LEN: usize = 32usize
+pub const hopper_metaplex::MAX_SYMBOL_LEN: usize = 10usize
+pub const hopper_metaplex::MAX_URI_LEN: usize = 200usize
+pub const hopper_metaplex::METADATA_SEED_PREFIX: &[u8] = b"metadata"
+pub const hopper_metaplex::MPL_TOKEN_METADATA_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_metaplex::constants::EDITION_SEED_PREFIX: &[u8] = b"edition"
+pub const hopper_metaplex::constants::MAX_NAME_LEN: usize = 32usize
+pub const hopper_metaplex::constants::MAX_SYMBOL_LEN: usize = 10usize
+pub const hopper_metaplex::constants::MAX_URI_LEN: usize = 200usize
+pub const hopper_metaplex::constants::METADATA_SEED_PREFIX: &[u8] = b"metadata"
+pub const hopper_metaplex::constants::MPL_TOKEN_METADATA_PROGRAM_ID: hopper_runtime::address::Address = _
+pub fn hopper_metaplex::CreateMasterEditionV3::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::CreateMasterEditionV3::invoke_signed(&self, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::CreateMetadataAccountV3::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::CreateMetadataAccountV3::invoke_signed(&self, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::DataV2::validate_for_context(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::UpdateMetadataAccountV2::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::UpdateMetadataAccountV2::invoke_signed(&self, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::is_empty(&self) -> bool
+pub fn hopper_metaplex::encoding::BorshTape::len(&self) -> usize
+pub fn hopper_metaplex::encoding::BorshTape::new(buf: &'a mut [u8]) -> Self
+pub fn hopper_metaplex::encoding::BorshTape::remaining(&self) -> usize
+pub fn hopper_metaplex::encoding::BorshTape::write_bool(&mut self, value: bool) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_disc(&mut self, disc: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_option_none(&mut self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_option_some_tag(&mut self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_option_u64_le(&mut self, value: core::option::Option<u64>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_str(&mut self, value: &str) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_u16_le(&mut self, value: u16) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_u32_le(&mut self, value: u32) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_u64_le(&mut self, value: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::encoding::BorshTape::write_u8(&mut self, value: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_metaplex::master_edition_pda(_mint: &hopper_runtime::address::Address) -> (hopper_runtime::address::Address, u8)
+pub fn hopper_metaplex::master_edition_pda_with_bump(_mint: &hopper_runtime::address::Address, _bump: u8) -> core::result::Result<hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_metaplex::metadata_pda(_mint: &hopper_runtime::address::Address) -> (hopper_runtime::address::Address, u8)
+pub fn hopper_metaplex::metadata_pda_with_bump(_mint: &hopper_runtime::address::Address, _bump: u8) -> core::result::Result<hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_metaplex::seeds::master_edition_pda(_mint: &hopper_runtime::address::Address) -> (hopper_runtime::address::Address, u8)
+pub fn hopper_metaplex::seeds::master_edition_pda_with_bump(_mint: &hopper_runtime::address::Address, _bump: u8) -> core::result::Result<hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_metaplex::seeds::metadata_pda(_mint: &hopper_runtime::address::Address) -> (hopper_runtime::address::Address, u8)
+pub fn hopper_metaplex::seeds::metadata_pda_with_bump(_mint: &hopper_runtime::address::Address, _bump: u8) -> core::result::Result<hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub hopper_metaplex::CreateMasterEditionV3::edition: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::max_supply: core::option::Option<u64>
+pub hopper_metaplex::CreateMasterEditionV3::metadata: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::mint: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::mint_authority: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::payer: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::rent: core::option::Option<&'a hopper_runtime::account::AccountView<'a>>
+pub hopper_metaplex::CreateMasterEditionV3::system_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::token_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMasterEditionV3::update_authority: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::data: hopper_metaplex::DataV2<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::is_mutable: bool
+pub hopper_metaplex::CreateMetadataAccountV3::metadata: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::mint: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::mint_authority: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::payer: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::rent: core::option::Option<&'a hopper_runtime::account::AccountView<'a>>
+pub hopper_metaplex::CreateMetadataAccountV3::system_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::CreateMetadataAccountV3::update_authority: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::DataV2::has_collection: bool
+pub hopper_metaplex::DataV2::has_creators: bool
+pub hopper_metaplex::DataV2::has_uses: bool
+pub hopper_metaplex::DataV2::name: &'a str
+pub hopper_metaplex::DataV2::seller_fee_basis_points: u16
+pub hopper_metaplex::DataV2::symbol: &'a str
+pub hopper_metaplex::DataV2::uri: &'a str
+pub hopper_metaplex::UpdateMetadataAccountV2::metadata: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_metaplex::UpdateMetadataAccountV2::new_data: core::option::Option<hopper_metaplex::DataV2<'a>>
+pub hopper_metaplex::UpdateMetadataAccountV2::new_is_mutable: core::option::Option<bool>
+pub hopper_metaplex::UpdateMetadataAccountV2::new_primary_sale_happened: core::option::Option<bool>
+pub hopper_metaplex::UpdateMetadataAccountV2::new_update_authority: core::option::Option<&'a hopper_runtime::address::Address>
+pub hopper_metaplex::UpdateMetadataAccountV2::update_authority: &'a hopper_runtime::account::AccountView<'a>
+pub mod hopper_metaplex::constants
+pub mod hopper_metaplex::encoding
+pub mod hopper_metaplex::instructions
+pub mod hopper_metaplex::seeds
+pub struct hopper_metaplex::CreateMasterEditionV3<'a> {}
+pub struct hopper_metaplex::CreateMetadataAccountV3<'a> {}
+pub struct hopper_metaplex::DataV2<'a> {}
+pub struct hopper_metaplex::UpdateMetadataAccountV2<'a> {}
+pub struct hopper_metaplex::encoding::BorshTape<'a> { .. }
+pub struct hopper_metaplex::instructions::CreateMasterEditionV3<'a> {}
+pub struct hopper_metaplex::instructions::CreateMetadataAccountV3<'a> {}
+pub struct hopper_metaplex::instructions::DataV2<'a> {}
+pub struct hopper_metaplex::instructions::UpdateMetadataAccountV2<'a> {}
+pub trait hopper_metaplex::IntoMasterEditionMaxSupply [dyn compatible]
+pub trait hopper_metaplex::instructions::IntoMasterEditionMaxSupply [dyn compatible]

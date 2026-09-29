@@ -107,6 +107,13 @@ impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
     }
 }
 
+/// Prints the value the guard points at, as `core::cell::Ref` does.
+impl<T: ?Sized + core::fmt::Debug> core::fmt::Debug for Ref<'_, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&**self, f)
+    }
+}
+
 impl<T: ?Sized> Drop for Ref<'_, T> {
     fn drop(&mut self) {
         if self.state.is_null() {
@@ -259,6 +266,13 @@ impl<T: ?Sized> core::ops::DerefMut for RefMut<'_, T> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut T {
         self.value
+    }
+}
+
+/// Prints the value the guard points at, as `core::cell::RefMut` does.
+impl<T: ?Sized + core::fmt::Debug> core::fmt::Debug for RefMut<'_, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&**self, f)
     }
 }
 

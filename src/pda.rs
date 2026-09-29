@@ -48,6 +48,11 @@ pub use hopper_runtime::pda::{
 /// `hopper::const_pda!` spells the seed list inline.
 pub use hopper_runtime::pda::const_program_address;
 
+/// The canonical address and bump of `const` seeds, searched at compile
+/// time with a `const fn` curve check. Unlike `canonical_pda!`, the seeds
+/// may be any `const` expressions, a declared program id included.
+pub use hopper_runtime::pda::find_program_address_const;
+
 /// The address the System Program's `*WithSeed` instructions derive from a
 /// base, a seed, and an owner, and the check of an account against it. One
 /// `sol_sha256` on chain; computed with the const SHA-256 on the host.

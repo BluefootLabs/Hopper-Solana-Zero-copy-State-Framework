@@ -144,7 +144,6 @@ pub fn resize_raw(view: &BackendAccountView<'_>, new_len: usize) -> ProgramResul
     view.resize_raw(new_len).map_err(ProgramError::from)
 }
 
-#[cfg(target_os = "solana")]
 #[inline(always)]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     let (address, bump) =
@@ -157,17 +156,9 @@ pub fn create_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<Address, ProgramError> {
-    #[cfg(target_os = "solana")]
-    {
-        hopper_native::pda::create_program_address(seeds, as_backend_address(program_id))
-            .map(Address::from)
-            .map_err(|_| ProgramError::InvalidSeeds)
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (seeds, program_id);
-        Err(ProgramError::InvalidSeeds)
-    }
+    hopper_native::pda::create_program_address(seeds, as_backend_address(program_id))
+        .map(Address::from)
+        .map_err(|_| ProgramError::InvalidSeeds)
 }
 
 /// # Safety

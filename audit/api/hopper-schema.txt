@@ -1,0 +1,1728 @@
+# Public API of hopper-schema, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+fn hopper_schema::AccountSchemaExt::manager_metadata_for<T: hopper_schema::SchemaExport>(&self) -> core::option::Option<hopper_schema::ManagerMetadata>;
+fn hopper_schema::AccountSchemaExt::schema_bundle_for<T: hopper_schema::SchemaExport>(&self) -> core::option::Option<hopper_schema::SchemaBundle>;
+fn hopper_schema::SchemaExport::descriptor() -> hopper_core::manifest::AccountDescriptor { .. }
+fn hopper_schema::SchemaExport::descriptor_metadata() -> hopper_schema::DescriptorMetadata { .. }
+fn hopper_schema::SchemaExport::field_map() -> &'static [hopper_runtime::field_map::FieldInfo] { .. }
+fn hopper_schema::SchemaExport::layout_info() -> hopper_runtime::layout::LayoutInfo { .. }
+fn hopper_schema::SchemaExport::layout_manifest() -> hopper_schema::LayoutManifest;
+fn hopper_schema::SchemaExport::manager_metadata() -> hopper_schema::ManagerMetadata { .. }
+fn hopper_schema::SchemaExport::schema_bundle() -> hopper_schema::SchemaBundle { .. }
+hopper_schema::AccountResolverKind::Constant
+hopper_schema::AccountResolverKind::Optional
+hopper_schema::AccountResolverKind::Pda
+hopper_schema::AccountResolverKind::Program
+hopper_schema::AccountResolverKind::Provided
+hopper_schema::AccountResolverKind::Sysvar
+hopper_schema::ArgEncoding::BoundedString { max_len: u16 }
+hopper_schema::ArgEncoding::BoundedVec { max_len: u16, element_size: u16 }
+hopper_schema::ArgEncoding::Fixed
+hopper_schema::ArgParseError::TooShort { required: u16, got: u16 }
+hopper_schema::CompatibilityVerdict::AppendSafe
+hopper_schema::CompatibilityVerdict::Identical
+hopper_schema::CompatibilityVerdict::Incompatible
+hopper_schema::CompatibilityVerdict::MigrationRequired
+hopper_schema::CompatibilityVerdict::WireCompatible
+hopper_schema::FieldCompat::Added
+hopper_schema::FieldCompat::Changed
+hopper_schema::FieldCompat::Identical
+hopper_schema::FieldCompat::Removed
+hopper_schema::FieldIntent::Address = 7
+hopper_schema::FieldIntent::Authority = 1
+hopper_schema::FieldIntent::Balance = 0
+hopper_schema::FieldIntent::BasisPoints = 5
+hopper_schema::FieldIntent::Bump = 11
+hopper_schema::FieldIntent::Counter = 3
+hopper_schema::FieldIntent::Custom = 255
+hopper_schema::FieldIntent::Delegate = 17
+hopper_schema::FieldIntent::Flag = 6
+hopper_schema::FieldIntent::Hash = 8
+hopper_schema::FieldIntent::Index = 4
+hopper_schema::FieldIntent::Limit = 14
+hopper_schema::FieldIntent::Nonce = 12
+hopper_schema::FieldIntent::Owner = 16
+hopper_schema::FieldIntent::PDASeed = 9
+hopper_schema::FieldIntent::Status = 18
+hopper_schema::FieldIntent::Supply = 13
+hopper_schema::FieldIntent::Threshold = 15
+hopper_schema::FieldIntent::Timestamp = 2
+hopper_schema::FieldIntent::Version = 10
+hopper_schema::InstructionEffectKind::ClosesAccount
+hopper_schema::InstructionEffectKind::CreatesAccount
+hopper_schema::InstructionEffectKind::EmitsReceipt
+hopper_schema::InstructionEffectKind::InvokesCpi
+hopper_schema::InstructionEffectKind::Reads
+hopper_schema::InstructionEffectKind::ReallocatesAccount
+hopper_schema::InstructionEffectKind::RequiresSigner
+hopper_schema::InstructionEffectKind::Writes
+hopper_schema::LayoutStabilityGrade::Evolving = 1
+hopper_schema::LayoutStabilityGrade::MigrationSensitive = 2
+hopper_schema::LayoutStabilityGrade::Stable = 0
+hopper_schema::LayoutStabilityGrade::UnsafeToEvolve = 3
+hopper_schema::LintSeverity::Error = 2
+hopper_schema::LintSeverity::Info = 0
+hopper_schema::LintSeverity::Warning = 1
+hopper_schema::MigrationAction::CopyPrefix
+hopper_schema::MigrationAction::Realloc
+hopper_schema::MigrationAction::UpdateHeader
+hopper_schema::MigrationAction::ZeroInit
+hopper_schema::MigrationPolicy::AppendOnly
+hopper_schema::MigrationPolicy::Incompatible
+hopper_schema::MigrationPolicy::NoOp
+hopper_schema::MigrationPolicy::RequiresMigration
+hopper_schema::MutationClass::AppendOnly = 1
+hopper_schema::MutationClass::AuthoritySensitive = 4
+hopper_schema::MutationClass::Financial = 5
+hopper_schema::MutationClass::InPlace = 2
+hopper_schema::MutationClass::ReadOnly = 0
+hopper_schema::MutationClass::Resizing = 3
+hopper_schema::MutationClass::StateTransition = 6
+hopper_schema::RuleChange::Rewritten
+hopper_schema::RuleChange::Tightened
+hopper_schema::RuleChange::Unchanged
+hopper_schema::RuleChange::Widened
+hopper_schema::SeedPart::Account(&'a str)
+hopper_schema::SeedPart::Arg(&'a str)
+hopper_schema::SeedPart::Literal(&'a str)
+hopper_schema::SeedPart::Unknown(&'a str)
+hopper_schema::SegmentRoleHint::Audit = 5
+hopper_schema::SegmentRoleHint::Cache = 4
+hopper_schema::SegmentRoleHint::Core = 0
+hopper_schema::SegmentRoleHint::Extension = 1
+hopper_schema::SegmentRoleHint::Index = 3
+hopper_schema::SegmentRoleHint::Journal = 2
+hopper_schema::SegmentRoleHint::Shard = 6
+hopper_schema::SegmentRoleHint::Unclassified = 7
+hopper_schema::accounts::AccountLifecycle::Close
+hopper_schema::accounts::AccountLifecycle::Existing
+hopper_schema::accounts::AccountLifecycle::Init
+hopper_schema::accounts::AccountLifecycle::InitIfNeeded
+hopper_schema::accounts::AccountLifecycle::Realloc
+hopper_schema::anchor_idl::AnchorIdlProjectionError::AmbiguousAccountDiscriminator { first: &'static str, second: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::AmbiguousEventDiscriminator { first: &'static str, second: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::AmbiguousInstructionDiscriminator { first: &'static str, second: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::UnsupportedAccountAddress { instruction: &'static str, account: &'static str, address: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::UnsupportedArgumentEncoding { instruction: &'static str, argument: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::UnsupportedDynamicTail { layout: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::UnsupportedPdaSeed { instruction: &'static str, account: &'static str, seed: &'static str }
+hopper_schema::anchor_idl::AnchorIdlProjectionError::UnsupportedRemainingAccounts { instruction: &'static str }
+hopper_schema::cost_model::SlotTimeRegime::Ms200
+hopper_schema::cost_model::SlotTimeRegime::Ms250
+hopper_schema::cost_model::SlotTimeRegime::Ms300
+hopper_schema::cost_model::SlotTimeRegime::Ms350
+hopper_schema::cost_model::SlotTimeRegime::Ms400
+impl core::clone::Clone for hopper_schema::AccountEntry
+impl core::clone::Clone for hopper_schema::AccountResolverDescriptor
+impl core::clone::Clone for hopper_schema::AccountResolverKind
+impl core::clone::Clone for hopper_schema::ArgDescriptor
+impl core::clone::Clone for hopper_schema::ArgEncoding
+impl core::clone::Clone for hopper_schema::ArgParseError
+impl core::clone::Clone for hopper_schema::CodamaAccount
+impl core::clone::Clone for hopper_schema::CodamaEvent
+impl core::clone::Clone for hopper_schema::CodamaInstruction
+impl core::clone::Clone for hopper_schema::CodamaProjection
+impl core::clone::Clone for hopper_schema::CompatibilityPair
+impl core::clone::Clone for hopper_schema::CompatibilityVerdict
+impl core::clone::Clone for hopper_schema::ConstantDescriptor
+impl core::clone::Clone for hopper_schema::ContentionProfile
+impl core::clone::Clone for hopper_schema::DecodedHeader
+impl core::clone::Clone for hopper_schema::DecodedSegment
+impl core::clone::Clone for hopper_schema::DescriptorMetadata
+impl core::clone::Clone for hopper_schema::ErrorDescriptor
+impl core::clone::Clone for hopper_schema::ErrorRegistry
+impl core::clone::Clone for hopper_schema::EventDescriptor
+impl core::clone::Clone for hopper_schema::FieldCompat
+impl core::clone::Clone for hopper_schema::FieldDescriptor
+impl core::clone::Clone for hopper_schema::FieldIntent
+impl core::clone::Clone for hopper_schema::FieldRule
+impl core::clone::Clone for hopper_schema::HopperSchemaPointer
+impl core::clone::Clone for hopper_schema::IdlAccountEntry
+impl core::clone::Clone for hopper_schema::IdlInstructionDescriptor
+impl core::clone::Clone for hopper_schema::IdlSegmentDescriptor
+impl core::clone::Clone for hopper_schema::InstructionDescriptor
+impl core::clone::Clone for hopper_schema::InstructionEffectDescriptor
+impl core::clone::Clone for hopper_schema::InstructionEffectKind
+impl core::clone::Clone for hopper_schema::LayoutBehavior
+impl core::clone::Clone for hopper_schema::LayoutFingerprint
+impl core::clone::Clone for hopper_schema::LayoutManifest
+impl core::clone::Clone for hopper_schema::LayoutMetadata
+impl core::clone::Clone for hopper_schema::LayoutRules
+impl core::clone::Clone for hopper_schema::LayoutStabilityGrade
+impl core::clone::Clone for hopper_schema::LintSeverity
+impl core::clone::Clone for hopper_schema::ManagerMetadata
+impl core::clone::Clone for hopper_schema::MigrationAction
+impl core::clone::Clone for hopper_schema::MigrationPolicy
+impl core::clone::Clone for hopper_schema::MutationClass
+impl core::clone::Clone for hopper_schema::PdaSeedHint
+impl core::clone::Clone for hopper_schema::PolicyDescriptor
+impl core::clone::Clone for hopper_schema::ProgramIdl
+impl core::clone::Clone for hopper_schema::ProgramManifest
+impl core::clone::Clone for hopper_schema::ReceiptProfile
+impl core::clone::Clone for hopper_schema::RemainingAccountsDescriptor
+impl core::clone::Clone for hopper_schema::RuleChange
+impl core::clone::Clone for hopper_schema::SchemaBundle
+impl core::clone::Clone for hopper_schema::SegmentAdvice
+impl core::clone::Clone for hopper_schema::SegmentRoleHint
+impl core::clone::Clone for hopper_schema::SemanticLint
+impl core::clone::Clone for hopper_schema::accounts::AccountLifecycle
+impl core::clone::Clone for hopper_schema::accounts::ContextAccountDescriptor
+impl core::clone::Clone for hopper_schema::accounts::ContextDescriptor
+impl core::clone::Clone for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::clone::Clone for hopper_schema::cost_model::SlotTimeRegime
+impl core::cmp::Eq for hopper_schema::AccountResolverKind
+impl core::cmp::Eq for hopper_schema::ArgEncoding
+impl core::cmp::Eq for hopper_schema::ArgParseError
+impl core::cmp::Eq for hopper_schema::CompatibilityVerdict
+impl core::cmp::Eq for hopper_schema::ContentionProfile
+impl core::cmp::Eq for hopper_schema::ErrorDescriptor
+impl core::cmp::Eq for hopper_schema::FieldCompat
+impl core::cmp::Eq for hopper_schema::FieldIntent
+impl core::cmp::Eq for hopper_schema::FieldRule
+impl core::cmp::Eq for hopper_schema::InstructionEffectKind
+impl core::cmp::Eq for hopper_schema::LayoutFingerprint
+impl core::cmp::Eq for hopper_schema::LayoutStabilityGrade
+impl core::cmp::Eq for hopper_schema::LintSeverity
+impl core::cmp::Eq for hopper_schema::MigrationAction
+impl core::cmp::Eq for hopper_schema::MigrationPolicy
+impl core::cmp::Eq for hopper_schema::MutationClass
+impl core::cmp::Eq for hopper_schema::RemainingAccountsDescriptor
+impl core::cmp::Eq for hopper_schema::RuleChange
+impl core::cmp::Eq for hopper_schema::SegmentRoleHint
+impl core::cmp::Eq for hopper_schema::accounts::AccountLifecycle
+impl core::cmp::Eq for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::cmp::Eq for hopper_schema::cost_model::SlotTimeRegime
+impl core::cmp::PartialEq for hopper_schema::AccountResolverKind
+impl core::cmp::PartialEq for hopper_schema::ArgEncoding
+impl core::cmp::PartialEq for hopper_schema::ArgParseError
+impl core::cmp::PartialEq for hopper_schema::CompatibilityVerdict
+impl core::cmp::PartialEq for hopper_schema::ContentionProfile
+impl core::cmp::PartialEq for hopper_schema::ErrorDescriptor
+impl core::cmp::PartialEq for hopper_schema::FieldCompat
+impl core::cmp::PartialEq for hopper_schema::FieldIntent
+impl core::cmp::PartialEq for hopper_schema::FieldRule
+impl core::cmp::PartialEq for hopper_schema::InstructionEffectKind
+impl core::cmp::PartialEq for hopper_schema::LayoutFingerprint
+impl core::cmp::PartialEq for hopper_schema::LayoutStabilityGrade
+impl core::cmp::PartialEq for hopper_schema::LintSeverity
+impl core::cmp::PartialEq for hopper_schema::MigrationAction
+impl core::cmp::PartialEq for hopper_schema::MigrationPolicy
+impl core::cmp::PartialEq for hopper_schema::MutationClass
+impl core::cmp::PartialEq for hopper_schema::RemainingAccountsDescriptor
+impl core::cmp::PartialEq for hopper_schema::RuleChange
+impl core::cmp::PartialEq for hopper_schema::SegmentRoleHint
+impl core::cmp::PartialEq for hopper_schema::accounts::AccountLifecycle
+impl core::cmp::PartialEq for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::cmp::PartialEq for hopper_schema::cost_model::SlotTimeRegime
+impl core::fmt::Debug for hopper_schema::AccountEntry
+impl core::fmt::Debug for hopper_schema::AccountResolverDescriptor
+impl core::fmt::Debug for hopper_schema::AccountResolverKind
+impl core::fmt::Debug for hopper_schema::ArgDescriptor
+impl core::fmt::Debug for hopper_schema::ArgEncoding
+impl core::fmt::Debug for hopper_schema::ArgParseError
+impl core::fmt::Debug for hopper_schema::CompatibilityVerdict
+impl core::fmt::Debug for hopper_schema::ConstantDescriptor
+impl core::fmt::Debug for hopper_schema::ContentionProfile
+impl core::fmt::Debug for hopper_schema::DecodedHeader
+impl core::fmt::Debug for hopper_schema::DecodedSegment
+impl core::fmt::Debug for hopper_schema::DescriptorMetadata
+impl core::fmt::Debug for hopper_schema::ErrorDescriptor
+impl core::fmt::Debug for hopper_schema::ErrorRegistry
+impl core::fmt::Debug for hopper_schema::FieldCompat
+impl core::fmt::Debug for hopper_schema::FieldDescriptor
+impl core::fmt::Debug for hopper_schema::FieldIntent
+impl core::fmt::Debug for hopper_schema::FieldRule
+impl core::fmt::Debug for hopper_schema::InstructionDescriptor
+impl core::fmt::Debug for hopper_schema::InstructionEffectDescriptor
+impl core::fmt::Debug for hopper_schema::InstructionEffectKind
+impl core::fmt::Debug for hopper_schema::LayoutBehavior
+impl core::fmt::Debug for hopper_schema::LayoutFingerprint
+impl core::fmt::Debug for hopper_schema::LayoutManifest
+impl core::fmt::Debug for hopper_schema::LayoutRules
+impl core::fmt::Debug for hopper_schema::LayoutStabilityGrade
+impl core::fmt::Debug for hopper_schema::LintSeverity
+impl core::fmt::Debug for hopper_schema::ManagerMetadata
+impl core::fmt::Debug for hopper_schema::MigrationAction
+impl core::fmt::Debug for hopper_schema::MigrationPolicy
+impl core::fmt::Debug for hopper_schema::MutationClass
+impl core::fmt::Debug for hopper_schema::RemainingAccountsDescriptor
+impl core::fmt::Debug for hopper_schema::RuleChange
+impl core::fmt::Debug for hopper_schema::SchemaBundle
+impl core::fmt::Debug for hopper_schema::SegmentRoleHint
+impl core::fmt::Debug for hopper_schema::SemanticLint
+impl core::fmt::Debug for hopper_schema::accounts::AccountLifecycle
+impl core::fmt::Debug for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::fmt::Debug for hopper_schema::cost_model::SlotTimeRegime
+impl core::fmt::Display for hopper_schema::AccountResolverKind
+impl core::fmt::Display for hopper_schema::ArgParseError
+impl core::fmt::Display for hopper_schema::CodamaProjection
+impl core::fmt::Display for hopper_schema::CompatibilityExplain
+impl core::fmt::Display for hopper_schema::CompatibilityVerdict
+impl core::fmt::Display for hopper_schema::DecodedHeader
+impl core::fmt::Display for hopper_schema::DecodedSegment
+impl core::fmt::Display for hopper_schema::FieldCompat
+impl core::fmt::Display for hopper_schema::FieldIntent
+impl core::fmt::Display for hopper_schema::HopperIdl
+impl core::fmt::Display for hopper_schema::IdlSegmentDescriptor
+impl core::fmt::Display for hopper_schema::InstructionEffectKind
+impl core::fmt::Display for hopper_schema::LayoutBehavior
+impl core::fmt::Display for hopper_schema::LayoutFingerprint
+impl core::fmt::Display for hopper_schema::LayoutManifest
+impl core::fmt::Display for hopper_schema::LayoutStabilityGrade
+impl core::fmt::Display for hopper_schema::MigrationAction
+impl core::fmt::Display for hopper_schema::MigrationPolicy
+impl core::fmt::Display for hopper_schema::MutationClass
+impl core::fmt::Display for hopper_schema::OperatingProfile
+impl core::fmt::Display for hopper_schema::ProgramIdl
+impl core::fmt::Display for hopper_schema::ProgramManifest
+impl core::fmt::Display for hopper_schema::ReceiptProfile
+impl core::fmt::Display for hopper_schema::SemanticLint
+impl core::fmt::Display for hopper_schema::accounts::ContextAccountDescriptor
+impl core::fmt::Display for hopper_schema::accounts::ContextDescriptor
+impl core::fmt::Display for hopper_schema::anchor_idl::AnchorIdlFromManifest<'_>
+impl core::fmt::Display for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'_>
+impl core::fmt::Display for hopper_schema::anchor_idl::AnchorIdlJson<'_>
+impl core::fmt::Display for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::fmt::Display for hopper_schema::anchor_idl::AnchorIdlWithConstants<'_>
+impl core::marker::Copy for hopper_schema::AccountEntry
+impl core::marker::Copy for hopper_schema::AccountResolverDescriptor
+impl core::marker::Copy for hopper_schema::AccountResolverKind
+impl core::marker::Copy for hopper_schema::ArgDescriptor
+impl core::marker::Copy for hopper_schema::ArgEncoding
+impl core::marker::Copy for hopper_schema::ArgParseError
+impl core::marker::Copy for hopper_schema::CodamaAccount
+impl core::marker::Copy for hopper_schema::CodamaEvent
+impl core::marker::Copy for hopper_schema::CodamaInstruction
+impl core::marker::Copy for hopper_schema::CodamaProjection
+impl core::marker::Copy for hopper_schema::CompatibilityPair
+impl core::marker::Copy for hopper_schema::CompatibilityVerdict
+impl core::marker::Copy for hopper_schema::ConstantDescriptor
+impl core::marker::Copy for hopper_schema::ContentionProfile
+impl core::marker::Copy for hopper_schema::DecodedHeader
+impl core::marker::Copy for hopper_schema::DecodedSegment
+impl core::marker::Copy for hopper_schema::DescriptorMetadata
+impl core::marker::Copy for hopper_schema::ErrorDescriptor
+impl core::marker::Copy for hopper_schema::ErrorRegistry
+impl core::marker::Copy for hopper_schema::EventDescriptor
+impl core::marker::Copy for hopper_schema::FieldCompat
+impl core::marker::Copy for hopper_schema::FieldDescriptor
+impl core::marker::Copy for hopper_schema::FieldIntent
+impl core::marker::Copy for hopper_schema::FieldRule
+impl core::marker::Copy for hopper_schema::HopperSchemaPointer
+impl core::marker::Copy for hopper_schema::IdlAccountEntry
+impl core::marker::Copy for hopper_schema::IdlInstructionDescriptor
+impl core::marker::Copy for hopper_schema::IdlSegmentDescriptor
+impl core::marker::Copy for hopper_schema::InstructionDescriptor
+impl core::marker::Copy for hopper_schema::InstructionEffectDescriptor
+impl core::marker::Copy for hopper_schema::InstructionEffectKind
+impl core::marker::Copy for hopper_schema::LayoutBehavior
+impl core::marker::Copy for hopper_schema::LayoutFingerprint
+impl core::marker::Copy for hopper_schema::LayoutManifest
+impl core::marker::Copy for hopper_schema::LayoutMetadata
+impl core::marker::Copy for hopper_schema::LayoutRules
+impl core::marker::Copy for hopper_schema::LayoutStabilityGrade
+impl core::marker::Copy for hopper_schema::LintSeverity
+impl core::marker::Copy for hopper_schema::ManagerMetadata
+impl core::marker::Copy for hopper_schema::MigrationAction
+impl core::marker::Copy for hopper_schema::MigrationPolicy
+impl core::marker::Copy for hopper_schema::MutationClass
+impl core::marker::Copy for hopper_schema::PdaSeedHint
+impl core::marker::Copy for hopper_schema::PolicyDescriptor
+impl core::marker::Copy for hopper_schema::ProgramIdl
+impl core::marker::Copy for hopper_schema::ProgramManifest
+impl core::marker::Copy for hopper_schema::ReceiptProfile
+impl core::marker::Copy for hopper_schema::RemainingAccountsDescriptor
+impl core::marker::Copy for hopper_schema::RuleChange
+impl core::marker::Copy for hopper_schema::SchemaBundle
+impl core::marker::Copy for hopper_schema::SegmentAdvice
+impl core::marker::Copy for hopper_schema::SegmentRoleHint
+impl core::marker::Copy for hopper_schema::SemanticLint
+impl core::marker::Copy for hopper_schema::accounts::AccountLifecycle
+impl core::marker::Copy for hopper_schema::accounts::ContextAccountDescriptor
+impl core::marker::Copy for hopper_schema::accounts::ContextDescriptor
+impl core::marker::Copy for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::marker::Copy for hopper_schema::cost_model::SlotTimeRegime
+impl core::marker::Freeze for hopper_schema::AccountEntry [auto]
+impl core::marker::Freeze for hopper_schema::AccountResolverDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::AccountResolverKind [auto]
+impl core::marker::Freeze for hopper_schema::ArgDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::ArgEncoding [auto]
+impl core::marker::Freeze for hopper_schema::ArgParseError [auto]
+impl core::marker::Freeze for hopper_schema::CodamaAccount [auto]
+impl core::marker::Freeze for hopper_schema::CodamaEvent [auto]
+impl core::marker::Freeze for hopper_schema::CodamaInstruction [auto]
+impl core::marker::Freeze for hopper_schema::CodamaProjection [auto]
+impl core::marker::Freeze for hopper_schema::CompatibilityExplain [auto]
+impl core::marker::Freeze for hopper_schema::CompatibilityPair [auto]
+impl core::marker::Freeze for hopper_schema::CompatibilityVerdict [auto]
+impl core::marker::Freeze for hopper_schema::ConstantDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::ContentionProfile [auto]
+impl core::marker::Freeze for hopper_schema::DecodedHeader [auto]
+impl core::marker::Freeze for hopper_schema::DecodedSegment [auto]
+impl core::marker::Freeze for hopper_schema::DescriptorMetadata [auto]
+impl core::marker::Freeze for hopper_schema::ErrorDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::ErrorRegistry [auto]
+impl core::marker::Freeze for hopper_schema::EventDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::FieldCompat [auto]
+impl core::marker::Freeze for hopper_schema::FieldDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::FieldIntent [auto]
+impl core::marker::Freeze for hopper_schema::FieldRule [auto]
+impl core::marker::Freeze for hopper_schema::HopperIdl [auto]
+impl core::marker::Freeze for hopper_schema::HopperSchemaPointer [auto]
+impl core::marker::Freeze for hopper_schema::IdlAccountEntry [auto]
+impl core::marker::Freeze for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::InstructionDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::InstructionEffectKind [auto]
+impl core::marker::Freeze for hopper_schema::LayoutBehavior [auto]
+impl core::marker::Freeze for hopper_schema::LayoutFingerprint [auto]
+impl core::marker::Freeze for hopper_schema::LayoutManifest [auto]
+impl core::marker::Freeze for hopper_schema::LayoutMetadata [auto]
+impl core::marker::Freeze for hopper_schema::LayoutRules [auto]
+impl core::marker::Freeze for hopper_schema::LayoutStabilityGrade [auto]
+impl core::marker::Freeze for hopper_schema::LintSeverity [auto]
+impl core::marker::Freeze for hopper_schema::ManagerMetadata [auto]
+impl core::marker::Freeze for hopper_schema::MigrationAction [auto]
+impl core::marker::Freeze for hopper_schema::MigrationPolicy [auto]
+impl core::marker::Freeze for hopper_schema::MutationClass [auto]
+impl core::marker::Freeze for hopper_schema::OperatingProfile [auto]
+impl core::marker::Freeze for hopper_schema::PdaSeedHint [auto]
+impl core::marker::Freeze for hopper_schema::PolicyDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::ProgramIdl [auto]
+impl core::marker::Freeze for hopper_schema::ProgramManifest [auto]
+impl core::marker::Freeze for hopper_schema::ReceiptProfile [auto]
+impl core::marker::Freeze for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::RuleChange [auto]
+impl core::marker::Freeze for hopper_schema::SchemaBundle [auto]
+impl core::marker::Freeze for hopper_schema::SegmentAdvice [auto]
+impl core::marker::Freeze for hopper_schema::SegmentRoleHint [auto]
+impl core::marker::Freeze for hopper_schema::SemanticLint [auto]
+impl core::marker::Freeze for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::marker::Freeze for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::marker::Freeze for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::marker::Freeze for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl core::marker::Send for hopper_schema::AccountEntry [auto]
+impl core::marker::Send for hopper_schema::AccountResolverDescriptor [auto]
+impl core::marker::Send for hopper_schema::AccountResolverKind [auto]
+impl core::marker::Send for hopper_schema::ArgDescriptor [auto]
+impl core::marker::Send for hopper_schema::ArgEncoding [auto]
+impl core::marker::Send for hopper_schema::ArgParseError [auto]
+impl core::marker::Send for hopper_schema::CodamaAccount [auto]
+impl core::marker::Send for hopper_schema::CodamaEvent [auto]
+impl core::marker::Send for hopper_schema::CodamaInstruction [auto]
+impl core::marker::Send for hopper_schema::CodamaProjection [auto]
+impl core::marker::Send for hopper_schema::CompatibilityExplain [auto]
+impl core::marker::Send for hopper_schema::CompatibilityPair [auto]
+impl core::marker::Send for hopper_schema::CompatibilityVerdict [auto]
+impl core::marker::Send for hopper_schema::ConstantDescriptor [auto]
+impl core::marker::Send for hopper_schema::ContentionProfile [auto]
+impl core::marker::Send for hopper_schema::DecodedHeader [auto]
+impl core::marker::Send for hopper_schema::DecodedSegment [auto]
+impl core::marker::Send for hopper_schema::DescriptorMetadata [auto]
+impl core::marker::Send for hopper_schema::ErrorDescriptor [auto]
+impl core::marker::Send for hopper_schema::ErrorRegistry [auto]
+impl core::marker::Send for hopper_schema::EventDescriptor [auto]
+impl core::marker::Send for hopper_schema::FieldCompat [auto]
+impl core::marker::Send for hopper_schema::FieldDescriptor [auto]
+impl core::marker::Send for hopper_schema::FieldIntent [auto]
+impl core::marker::Send for hopper_schema::FieldRule [auto]
+impl core::marker::Send for hopper_schema::HopperIdl [auto]
+impl core::marker::Send for hopper_schema::HopperSchemaPointer [auto]
+impl core::marker::Send for hopper_schema::IdlAccountEntry [auto]
+impl core::marker::Send for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::marker::Send for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::marker::Send for hopper_schema::InstructionDescriptor [auto]
+impl core::marker::Send for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::marker::Send for hopper_schema::InstructionEffectKind [auto]
+impl core::marker::Send for hopper_schema::LayoutBehavior [auto]
+impl core::marker::Send for hopper_schema::LayoutFingerprint [auto]
+impl core::marker::Send for hopper_schema::LayoutManifest [auto]
+impl core::marker::Send for hopper_schema::LayoutMetadata [auto]
+impl core::marker::Send for hopper_schema::LayoutRules [auto]
+impl core::marker::Send for hopper_schema::LayoutStabilityGrade [auto]
+impl core::marker::Send for hopper_schema::LintSeverity [auto]
+impl core::marker::Send for hopper_schema::ManagerMetadata [auto]
+impl core::marker::Send for hopper_schema::MigrationAction [auto]
+impl core::marker::Send for hopper_schema::MigrationPolicy [auto]
+impl core::marker::Send for hopper_schema::MutationClass [auto]
+impl core::marker::Send for hopper_schema::OperatingProfile [auto]
+impl core::marker::Send for hopper_schema::PdaSeedHint [auto]
+impl core::marker::Send for hopper_schema::PolicyDescriptor [auto]
+impl core::marker::Send for hopper_schema::ProgramIdl [auto]
+impl core::marker::Send for hopper_schema::ProgramManifest [auto]
+impl core::marker::Send for hopper_schema::ReceiptProfile [auto]
+impl core::marker::Send for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::marker::Send for hopper_schema::RuleChange [auto]
+impl core::marker::Send for hopper_schema::SchemaBundle [auto]
+impl core::marker::Send for hopper_schema::SegmentAdvice [auto]
+impl core::marker::Send for hopper_schema::SegmentRoleHint [auto]
+impl core::marker::Send for hopper_schema::SemanticLint [auto]
+impl core::marker::Send for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::marker::Send for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::marker::Send for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::marker::Send for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::marker::Send for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl core::marker::StructuralPartialEq for hopper_schema::AccountResolverKind
+impl core::marker::StructuralPartialEq for hopper_schema::ArgEncoding
+impl core::marker::StructuralPartialEq for hopper_schema::ArgParseError
+impl core::marker::StructuralPartialEq for hopper_schema::CompatibilityVerdict
+impl core::marker::StructuralPartialEq for hopper_schema::ContentionProfile
+impl core::marker::StructuralPartialEq for hopper_schema::ErrorDescriptor
+impl core::marker::StructuralPartialEq for hopper_schema::FieldCompat
+impl core::marker::StructuralPartialEq for hopper_schema::FieldIntent
+impl core::marker::StructuralPartialEq for hopper_schema::FieldRule
+impl core::marker::StructuralPartialEq for hopper_schema::InstructionEffectKind
+impl core::marker::StructuralPartialEq for hopper_schema::LayoutFingerprint
+impl core::marker::StructuralPartialEq for hopper_schema::LayoutStabilityGrade
+impl core::marker::StructuralPartialEq for hopper_schema::LintSeverity
+impl core::marker::StructuralPartialEq for hopper_schema::MigrationAction
+impl core::marker::StructuralPartialEq for hopper_schema::MigrationPolicy
+impl core::marker::StructuralPartialEq for hopper_schema::MutationClass
+impl core::marker::StructuralPartialEq for hopper_schema::RemainingAccountsDescriptor
+impl core::marker::StructuralPartialEq for hopper_schema::RuleChange
+impl core::marker::StructuralPartialEq for hopper_schema::SegmentRoleHint
+impl core::marker::StructuralPartialEq for hopper_schema::accounts::AccountLifecycle
+impl core::marker::StructuralPartialEq for hopper_schema::anchor_idl::AnchorIdlProjectionError
+impl core::marker::StructuralPartialEq for hopper_schema::cost_model::SlotTimeRegime
+impl core::marker::Sync for hopper_schema::AccountEntry [auto]
+impl core::marker::Sync for hopper_schema::AccountResolverDescriptor [auto]
+impl core::marker::Sync for hopper_schema::AccountResolverKind [auto]
+impl core::marker::Sync for hopper_schema::ArgDescriptor [auto]
+impl core::marker::Sync for hopper_schema::ArgEncoding [auto]
+impl core::marker::Sync for hopper_schema::ArgParseError [auto]
+impl core::marker::Sync for hopper_schema::CodamaAccount [auto]
+impl core::marker::Sync for hopper_schema::CodamaEvent [auto]
+impl core::marker::Sync for hopper_schema::CodamaInstruction [auto]
+impl core::marker::Sync for hopper_schema::CodamaProjection [auto]
+impl core::marker::Sync for hopper_schema::CompatibilityExplain [auto]
+impl core::marker::Sync for hopper_schema::CompatibilityPair [auto]
+impl core::marker::Sync for hopper_schema::CompatibilityVerdict [auto]
+impl core::marker::Sync for hopper_schema::ConstantDescriptor [auto]
+impl core::marker::Sync for hopper_schema::ContentionProfile [auto]
+impl core::marker::Sync for hopper_schema::DecodedHeader [auto]
+impl core::marker::Sync for hopper_schema::DecodedSegment [auto]
+impl core::marker::Sync for hopper_schema::DescriptorMetadata [auto]
+impl core::marker::Sync for hopper_schema::ErrorDescriptor [auto]
+impl core::marker::Sync for hopper_schema::ErrorRegistry [auto]
+impl core::marker::Sync for hopper_schema::EventDescriptor [auto]
+impl core::marker::Sync for hopper_schema::FieldCompat [auto]
+impl core::marker::Sync for hopper_schema::FieldDescriptor [auto]
+impl core::marker::Sync for hopper_schema::FieldIntent [auto]
+impl core::marker::Sync for hopper_schema::FieldRule [auto]
+impl core::marker::Sync for hopper_schema::HopperIdl [auto]
+impl core::marker::Sync for hopper_schema::HopperSchemaPointer [auto]
+impl core::marker::Sync for hopper_schema::IdlAccountEntry [auto]
+impl core::marker::Sync for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::marker::Sync for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::marker::Sync for hopper_schema::InstructionDescriptor [auto]
+impl core::marker::Sync for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::marker::Sync for hopper_schema::InstructionEffectKind [auto]
+impl core::marker::Sync for hopper_schema::LayoutBehavior [auto]
+impl core::marker::Sync for hopper_schema::LayoutFingerprint [auto]
+impl core::marker::Sync for hopper_schema::LayoutManifest [auto]
+impl core::marker::Sync for hopper_schema::LayoutMetadata [auto]
+impl core::marker::Sync for hopper_schema::LayoutRules [auto]
+impl core::marker::Sync for hopper_schema::LayoutStabilityGrade [auto]
+impl core::marker::Sync for hopper_schema::LintSeverity [auto]
+impl core::marker::Sync for hopper_schema::ManagerMetadata [auto]
+impl core::marker::Sync for hopper_schema::MigrationAction [auto]
+impl core::marker::Sync for hopper_schema::MigrationPolicy [auto]
+impl core::marker::Sync for hopper_schema::MutationClass [auto]
+impl core::marker::Sync for hopper_schema::OperatingProfile [auto]
+impl core::marker::Sync for hopper_schema::PdaSeedHint [auto]
+impl core::marker::Sync for hopper_schema::PolicyDescriptor [auto]
+impl core::marker::Sync for hopper_schema::ProgramIdl [auto]
+impl core::marker::Sync for hopper_schema::ProgramManifest [auto]
+impl core::marker::Sync for hopper_schema::ReceiptProfile [auto]
+impl core::marker::Sync for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::marker::Sync for hopper_schema::RuleChange [auto]
+impl core::marker::Sync for hopper_schema::SchemaBundle [auto]
+impl core::marker::Sync for hopper_schema::SegmentAdvice [auto]
+impl core::marker::Sync for hopper_schema::SegmentRoleHint [auto]
+impl core::marker::Sync for hopper_schema::SemanticLint [auto]
+impl core::marker::Sync for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::marker::Sync for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::marker::Sync for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::marker::Sync for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::marker::Sync for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl core::marker::Unpin for hopper_schema::AccountEntry [auto]
+impl core::marker::Unpin for hopper_schema::AccountResolverDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::AccountResolverKind [auto]
+impl core::marker::Unpin for hopper_schema::ArgDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::ArgEncoding [auto]
+impl core::marker::Unpin for hopper_schema::ArgParseError [auto]
+impl core::marker::Unpin for hopper_schema::CodamaAccount [auto]
+impl core::marker::Unpin for hopper_schema::CodamaEvent [auto]
+impl core::marker::Unpin for hopper_schema::CodamaInstruction [auto]
+impl core::marker::Unpin for hopper_schema::CodamaProjection [auto]
+impl core::marker::Unpin for hopper_schema::CompatibilityExplain [auto]
+impl core::marker::Unpin for hopper_schema::CompatibilityPair [auto]
+impl core::marker::Unpin for hopper_schema::CompatibilityVerdict [auto]
+impl core::marker::Unpin for hopper_schema::ConstantDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::ContentionProfile [auto]
+impl core::marker::Unpin for hopper_schema::DecodedHeader [auto]
+impl core::marker::Unpin for hopper_schema::DecodedSegment [auto]
+impl core::marker::Unpin for hopper_schema::DescriptorMetadata [auto]
+impl core::marker::Unpin for hopper_schema::ErrorDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::ErrorRegistry [auto]
+impl core::marker::Unpin for hopper_schema::EventDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::FieldCompat [auto]
+impl core::marker::Unpin for hopper_schema::FieldDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::FieldIntent [auto]
+impl core::marker::Unpin for hopper_schema::FieldRule [auto]
+impl core::marker::Unpin for hopper_schema::HopperIdl [auto]
+impl core::marker::Unpin for hopper_schema::HopperSchemaPointer [auto]
+impl core::marker::Unpin for hopper_schema::IdlAccountEntry [auto]
+impl core::marker::Unpin for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::InstructionDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::InstructionEffectKind [auto]
+impl core::marker::Unpin for hopper_schema::LayoutBehavior [auto]
+impl core::marker::Unpin for hopper_schema::LayoutFingerprint [auto]
+impl core::marker::Unpin for hopper_schema::LayoutManifest [auto]
+impl core::marker::Unpin for hopper_schema::LayoutMetadata [auto]
+impl core::marker::Unpin for hopper_schema::LayoutRules [auto]
+impl core::marker::Unpin for hopper_schema::LayoutStabilityGrade [auto]
+impl core::marker::Unpin for hopper_schema::LintSeverity [auto]
+impl core::marker::Unpin for hopper_schema::ManagerMetadata [auto]
+impl core::marker::Unpin for hopper_schema::MigrationAction [auto]
+impl core::marker::Unpin for hopper_schema::MigrationPolicy [auto]
+impl core::marker::Unpin for hopper_schema::MutationClass [auto]
+impl core::marker::Unpin for hopper_schema::OperatingProfile [auto]
+impl core::marker::Unpin for hopper_schema::PdaSeedHint [auto]
+impl core::marker::Unpin for hopper_schema::PolicyDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::ProgramIdl [auto]
+impl core::marker::Unpin for hopper_schema::ProgramManifest [auto]
+impl core::marker::Unpin for hopper_schema::ReceiptProfile [auto]
+impl core::marker::Unpin for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::RuleChange [auto]
+impl core::marker::Unpin for hopper_schema::SchemaBundle [auto]
+impl core::marker::Unpin for hopper_schema::SegmentAdvice [auto]
+impl core::marker::Unpin for hopper_schema::SegmentRoleHint [auto]
+impl core::marker::Unpin for hopper_schema::SemanticLint [auto]
+impl core::marker::Unpin for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::marker::Unpin for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::marker::Unpin for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::marker::Unpin for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::AccountEntry [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::AccountResolverDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::AccountResolverKind [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ArgDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ArgEncoding [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ArgParseError [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CodamaAccount [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CodamaEvent [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CodamaInstruction [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CodamaProjection [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CompatibilityExplain [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CompatibilityPair [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::CompatibilityVerdict [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ConstantDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ContentionProfile [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::DecodedHeader [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::DecodedSegment [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::DescriptorMetadata [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ErrorDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ErrorRegistry [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::EventDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::FieldCompat [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::FieldDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::FieldIntent [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::FieldRule [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::HopperIdl [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::HopperSchemaPointer [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::IdlAccountEntry [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::InstructionDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::InstructionEffectKind [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LayoutBehavior [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LayoutFingerprint [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LayoutManifest [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LayoutMetadata [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LayoutRules [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LayoutStabilityGrade [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::LintSeverity [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ManagerMetadata [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::MigrationAction [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::MigrationPolicy [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::MutationClass [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::OperatingProfile [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::PdaSeedHint [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::PolicyDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ProgramIdl [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ProgramManifest [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::ReceiptProfile [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::RuleChange [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::SchemaBundle [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::SegmentAdvice [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::SegmentRoleHint [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::SemanticLint [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::marker::UnsafeUnpin for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::AccountEntry [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::AccountResolverDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::AccountResolverKind [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ArgDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ArgEncoding [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ArgParseError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CodamaAccount [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CodamaEvent [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CodamaInstruction [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CodamaProjection [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CompatibilityExplain [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CompatibilityPair [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::CompatibilityVerdict [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ConstantDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ContentionProfile [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::DecodedHeader [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::DecodedSegment [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::DescriptorMetadata [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ErrorDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ErrorRegistry [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::EventDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::FieldCompat [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::FieldDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::FieldIntent [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::FieldRule [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::HopperIdl [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::HopperSchemaPointer [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::IdlAccountEntry [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::InstructionDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::InstructionEffectKind [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LayoutBehavior [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LayoutFingerprint [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LayoutManifest [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LayoutMetadata [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LayoutRules [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LayoutStabilityGrade [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::LintSeverity [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ManagerMetadata [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::MigrationAction [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::MigrationPolicy [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::MutationClass [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::OperatingProfile [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::PdaSeedHint [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::PolicyDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ProgramIdl [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ProgramManifest [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ReceiptProfile [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::RuleChange [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SchemaBundle [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SegmentAdvice [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SegmentRoleHint [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SemanticLint [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::AccountEntry [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::AccountResolverDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::AccountResolverKind [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ArgDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ArgEncoding [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ArgParseError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CodamaAccount [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CodamaEvent [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CodamaInstruction [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CodamaProjection [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CompatibilityExplain [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CompatibilityPair [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::CompatibilityVerdict [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ConstantDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ContentionProfile [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::DecodedHeader [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::DecodedSegment [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::DescriptorMetadata [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ErrorDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ErrorRegistry [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::EventDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::FieldCompat [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::FieldDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::FieldIntent [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::FieldRule [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::HopperIdl [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::HopperSchemaPointer [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::IdlAccountEntry [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::IdlInstructionDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::IdlSegmentDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::InstructionDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::InstructionEffectDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::InstructionEffectKind [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LayoutBehavior [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LayoutFingerprint [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LayoutManifest [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LayoutMetadata [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LayoutRules [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LayoutStabilityGrade [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::LintSeverity [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ManagerMetadata [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::MigrationAction [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::MigrationPolicy [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::MutationClass [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::OperatingProfile [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::PdaSeedHint [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::PolicyDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ProgramIdl [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ProgramManifest [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::ReceiptProfile [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::RemainingAccountsDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::RuleChange [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::SchemaBundle [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::SegmentAdvice [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::SegmentRoleHint [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::SemanticLint [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::accounts::AccountLifecycle [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::accounts::ContextAccountDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::accounts::ContextDescriptor [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::anchor_idl::AnchorIdlProjectionError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_schema::cost_model::SlotTimeRegime [auto]
+impl<'a, const N: usize> core::fmt::Display for hopper_schema::MigrationPlan<'a, N>
+impl<'a, const N: usize> core::marker::Freeze for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Freeze for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Send for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Send for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Sync for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Sync for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Unpin for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Unpin for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a, const N: usize> core::marker::UnsafeUnpin for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::marker::UnsafeUnpin for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a, const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_schema::FieldCompatReport<'a, N> [auto]
+impl<'a, const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_schema::MigrationPlan<'a, N> [auto]
+impl<'a> core::clone::Clone for hopper_schema::FieldCompatEntry<'a>
+impl<'a> core::clone::Clone for hopper_schema::MigrationStep<'a>
+impl<'a> core::clone::Clone for hopper_schema::SeedPart<'a>
+impl<'a> core::cmp::Eq for hopper_schema::SeedPart<'a>
+impl<'a> core::cmp::PartialEq for hopper_schema::SeedPart<'a>
+impl<'a> core::fmt::Debug for hopper_schema::SeedPart<'a>
+impl<'a> core::fmt::Display for hopper_schema::MigrationStep<'a>
+impl<'a> core::fmt::Display for hopper_schema::c_client::CClientGen<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::KtAccounts<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::KtClientGen<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::KtEvents<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::KtInstructions<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::KtTypes<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::TsAccounts<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::TsClientGen<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::TsEvents<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::TsIndex<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::TsInstructions<'a>
+impl<'a> core::fmt::Display for hopper_schema::clientgen::TsTypes<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::CodamaJson<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::CodamaJsonFromManifest<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::DescriptorMetadataJson<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::DescriptorMetadataSetJson<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::IdlJson<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::IdlJsonFromManifest<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::ManifestJson<'a>
+impl<'a> core::fmt::Display for hopper_schema::codama::ManifestJsonWithRules<'a>
+impl<'a> core::fmt::Display for hopper_schema::go_client::GoClientGen<'a>
+impl<'a> core::fmt::Display for hopper_schema::python_client::PyAccounts<'a>
+impl<'a> core::fmt::Display for hopper_schema::python_client::PyClientGen<'a>
+impl<'a> core::fmt::Display for hopper_schema::python_client::PyEvents<'a>
+impl<'a> core::fmt::Display for hopper_schema::python_client::PyIndex<'a>
+impl<'a> core::fmt::Display for hopper_schema::python_client::PyInstructions<'a>
+impl<'a> core::fmt::Display for hopper_schema::python_client::PyTypes<'a>
+impl<'a> core::fmt::Display for hopper_schema::rust_client::RsClientGen<'a>
+impl<'a> core::marker::Copy for hopper_schema::FieldCompatEntry<'a>
+impl<'a> core::marker::Copy for hopper_schema::MigrationStep<'a>
+impl<'a> core::marker::Copy for hopper_schema::SeedPart<'a>
+impl<'a> core::marker::Freeze for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::marker::Send for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'a> core::marker::StructuralPartialEq for hopper_schema::SeedPart<'a>
+impl<'a> core::marker::Sync for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::marker::Sync for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::DecodedField<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::FieldCompatEntry<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::MigrationStep<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::SeedPart<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::anchor_idl::AnchorIdlJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::c_client::CClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::KtAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::KtClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::KtEvents<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::KtInstructions<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::KtTypes<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::TsAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::TsClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::TsEvents<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::TsIndex<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::TsInstructions<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::clientgen::TsTypes<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::CodamaJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::CodamaJsonFromManifest<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::DescriptorMetadataJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::DescriptorMetadataSetJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::IdlJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::IdlJsonFromManifest<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::ManifestJson<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::codama::ManifestJsonWithRules<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::go_client::GoClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::python_client::PyAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::python_client::PyClientGen<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::python_client::PyEvents<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::python_client::PyIndex<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::python_client::PyInstructions<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::python_client::PyTypes<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_schema::rust_client::RsClientGen<'a> [auto]
+impl<'info> hopper_schema::AccountSchemaExt for hopper_runtime::account::AccountView<'info>
+impl<const N: usize> core::fmt::Display for hopper_schema::SegmentMap<N>
+impl<const N: usize> core::fmt::Display for hopper_schema::SegmentMigrationReport<N>
+impl<const N: usize> core::marker::Freeze for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::marker::Freeze for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::marker::Freeze for hopper_schema::SegmentMigrationReport<N> [auto]
+impl<const N: usize> core::marker::Send for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::marker::Send for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::marker::Send for hopper_schema::SegmentMigrationReport<N> [auto]
+impl<const N: usize> core::marker::Sync for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::marker::Sync for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::marker::Sync for hopper_schema::SegmentMigrationReport<N> [auto]
+impl<const N: usize> core::marker::Unpin for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::marker::Unpin for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::marker::Unpin for hopper_schema::SegmentMigrationReport<N> [auto]
+impl<const N: usize> core::marker::UnsafeUnpin for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::marker::UnsafeUnpin for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::marker::UnsafeUnpin for hopper_schema::SegmentMigrationReport<N> [auto]
+impl<const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_schema::SegmentMigrationReport<N> [auto]
+impl<const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_schema::ManifestRegistry<N> [auto]
+impl<const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_schema::SegmentMap<N> [auto]
+impl<const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_schema::SegmentMigrationReport<N> [auto]
+pub const fn hopper_schema::AccountEntry::is_pda(&self) -> bool
+pub const fn hopper_schema::AccountResolverKind::as_str(self) -> &'static str
+pub const fn hopper_schema::ArgDescriptor::fixed_size(&self) -> core::option::Option<u16>
+pub const fn hopper_schema::CodamaProjection::empty() -> Self
+pub const fn hopper_schema::CompatibilityVerdict::is_backward_readable(self) -> bool
+pub const fn hopper_schema::CompatibilityVerdict::is_safe(self) -> bool
+pub const fn hopper_schema::CompatibilityVerdict::name(self) -> &'static str
+pub const fn hopper_schema::CompatibilityVerdict::requires_migration(self) -> bool
+pub const fn hopper_schema::ContentionProfile::cost_per_over_marked_account() -> u64
+pub const fn hopper_schema::ContentionProfile::declared_lock_and_signature_cost(&self) -> u64
+pub const fn hopper_schema::ContentionProfile::declared_write_lock_cost(&self) -> u64
+pub const fn hopper_schema::ContentionProfile::demoted(&self) -> u32
+pub const fn hopper_schema::ContentionProfile::effective_write_lock_cost(&self) -> u64
+pub const fn hopper_schema::ContentionProfile::remaining_accounts_worst_case_lock_cost(&self) -> u64
+pub const fn hopper_schema::ContentionProfile::signature_cost(&self) -> u64
+pub const fn hopper_schema::ContentionProfile::write_lock_cost_saved(&self) -> u64
+pub const fn hopper_schema::FieldRule::change_to(&self, new: &hopper_schema::FieldRule) -> hopper_schema::RuleChange
+pub const fn hopper_schema::HopperIdl::empty() -> Self
+pub const fn hopper_schema::InstructionDescriptor::cu_budget_with_margin(&self) -> core::option::Option<u32>
+pub const fn hopper_schema::InstructionDescriptor::discriminator_bytes(&self) -> &'static [u8]
+pub const fn hopper_schema::InstructionEffectKind::as_str(self) -> &'static str
+pub const fn hopper_schema::LayoutFingerprint::from_manifest(manifest: &hopper_schema::LayoutManifest) -> Self
+pub const fn hopper_schema::LayoutFingerprint::is_identical(&self, other: &Self) -> bool
+pub const fn hopper_schema::LayoutFingerprint::wire_matches_but_semantics_differ(&self, other: &Self) -> bool
+pub const fn hopper_schema::LayoutStabilityGrade::name(self) -> &'static str
+pub const fn hopper_schema::LintSeverity::name(self) -> &'static str
+pub const fn hopper_schema::ManifestRegistry::empty() -> Self
+pub const fn hopper_schema::ManifestRegistry::from_slice(manifests: &[hopper_schema::LayoutManifest]) -> Self
+pub const fn hopper_schema::ManifestRegistry::is_empty(&self) -> bool
+pub const fn hopper_schema::ManifestRegistry::len(&self) -> usize
+pub const fn hopper_schema::MutationClass::is_mutating(self) -> bool
+pub const fn hopper_schema::MutationClass::name(self) -> &'static str
+pub const fn hopper_schema::MutationClass::requires_authority(self) -> bool
+pub const fn hopper_schema::MutationClass::requires_snapshot(self) -> bool
+pub const fn hopper_schema::ProgramIdl::account_count(&self) -> usize
+pub const fn hopper_schema::ProgramIdl::empty() -> Self
+pub const fn hopper_schema::ProgramIdl::instruction_count(&self) -> usize
+pub const fn hopper_schema::ProgramManifest::empty() -> Self
+pub const fn hopper_schema::ProgramManifest::instruction_count(&self) -> usize
+pub const fn hopper_schema::ProgramManifest::layout_count(&self) -> usize
+pub const fn hopper_schema::accounts::AccountLifecycle::as_str(&self) -> &'static str
+pub const fn hopper_schema::accounts::ContextAccountDescriptor::effect_descriptor(&self) -> hopper_schema::InstructionEffectDescriptor
+pub const fn hopper_schema::accounts::ContextAccountDescriptor::primary_effect_kind(&self) -> hopper_schema::InstructionEffectKind
+pub const fn hopper_schema::accounts::ContextAccountDescriptor::resolver_descriptor(&self) -> hopper_schema::AccountResolverDescriptor
+pub const fn hopper_schema::accounts::ContextAccountDescriptor::resolver_kind(&self) -> hopper_schema::AccountResolverKind
+pub const fn hopper_schema::accounts::ContextDescriptor::account_count(&self) -> usize
+pub const fn hopper_schema::accounts::ContextDescriptor::effect_count(&self) -> usize
+pub const fn hopper_schema::accounts::ContextDescriptor::resolver_count(&self) -> usize
+pub const fn hopper_schema::cost_model::SlotTimeRegime::base_cost_limits(self) -> (u64, u64)
+pub const fn hopper_schema::cost_model::SlotTimeRegime::cost_limits(self, raise_block_limits_to_100m: bool) -> (u64, u64)
+pub const fn hopper_schema::cost_model::loaded_data_cost(bytes: u64) -> u64
+pub const fn hopper_schema::release_binding::interface_commitment(manifest: &hopper_schema::ProgramManifest) -> [u8; 32]
+pub const fn hopper_schema::release_binding::release_binding_record(manifest: &hopper_schema::ProgramManifest) -> [u8; 56]
+pub const fn hopper_schema::release_binding::release_binding_record_from_commitment(commitment: [u8; 32]) -> [u8; 56]
+pub const hopper_schema::AccountEntry::PROVIDED: hopper_schema::AccountEntry
+pub const hopper_schema::DescriptorMetadata::DEFAULT_MARGIN: u32 = 256
+pub const hopper_schema::DescriptorMetadata::DEFAULT_TAIL_HEADROOM: u32 = 1024
+pub const hopper_schema::HopperSchemaPointer::ACCOUNT_LEN: usize
+pub const hopper_schema::HopperSchemaPointer::DISC: u8 = 255
+pub const hopper_schema::HopperSchemaPointer::FLAG_HAS_CODAMA: u16 = 0x0004
+pub const hopper_schema::HopperSchemaPointer::FLAG_HAS_IDL: u16 = 0x0002
+pub const hopper_schema::HopperSchemaPointer::FLAG_HAS_MANIFEST: u16 = 0x0001
+pub const hopper_schema::HopperSchemaPointer::FLAG_HAS_URI: u16 = 0x0008
+pub const hopper_schema::HopperSchemaPointer::FLAG_URI_IS_ARWEAVE: u16 = 0x0020
+pub const hopper_schema::HopperSchemaPointer::FLAG_URI_IS_IPFS: u16 = 0x0010
+pub const hopper_schema::HopperSchemaPointer::PAYLOAD_LEN: usize
+pub const hopper_schema::HopperSchemaPointer::PDA_SEED: &'static [u8] = b"hopper-schema"
+pub const hopper_schema::LayoutBehavior::APPEND_ONLY: Self
+pub const hopper_schema::LayoutBehavior::FINANCIAL: Self
+pub const hopper_schema::LayoutBehavior::READ_ONLY: Self
+pub const hopper_schema::LayoutBehavior::STANDARD: Self
+pub const hopper_schema::MANIFEST_COMPRESS_NONE: u8 = 0u8
+pub const hopper_schema::MANIFEST_COMPRESS_ZLIB: u8 = 1u8
+pub const hopper_schema::MANIFEST_HEADER_LEN: usize = 20usize
+pub const hopper_schema::MANIFEST_MAGIC: [u8; 8] = _
+pub const hopper_schema::MANIFEST_SEED: &[u8] = b"hopper:manifest"
+pub const hopper_schema::MANIFEST_VERSION: u32 = 1u32
+pub const hopper_schema::MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000u32
+pub const hopper_schema::codama::MANIFEST_EXPORT_BEGIN: &str = "<<<hopper-manifest-json-begin>>>"
+pub const hopper_schema::codama::MANIFEST_EXPORT_END: &str = "<<<hopper-manifest-json-end>>>"
+pub const hopper_schema::cost_model::ACCOUNT_DATA_COST_PAGE_SIZE: u64 = 32_768u64
+pub const hopper_schema::cost_model::DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT: u64 = 200_000u64
+pub const hopper_schema::cost_model::DEFAULT_LOADED_ACCOUNTS_DATA_COST: u64 = 16_384u64
+pub const hopper_schema::cost_model::HEAP_COST_PER_PAGE: u64 = 8u64
+pub const hopper_schema::cost_model::INSTRUCTION_DATA_COST_DIVISOR: u64 = 4u64
+pub const hopper_schema::cost_model::LOADED_ACCOUNT_METADATA_BYTES: u64 = 64u64
+pub const hopper_schema::cost_model::MAINNET_OBSERVED_100M_GATE: bool = true
+pub const hopper_schema::cost_model::MAINNET_OBSERVED_ON: &str = "2026-09-03"
+pub const hopper_schema::cost_model::MAINNET_OBSERVED_REGIME: hopper_schema::cost_model::SlotTimeRegime = SlotTimeRegime::Ms300
+pub const hopper_schema::cost_model::MAX_BLOCK_UNITS: u64 = 75_000_000u64
+pub const hopper_schema::cost_model::MAX_REQUESTABLE_COMPUTE_UNITS: u64 = 1_400_000u64
+pub const hopper_schema::cost_model::MAX_WRITABLE_ACCOUNT_UNITS: u64 = 30_000_000u64
+pub const hopper_schema::cost_model::SIGNATURE_COST: u64 = 720u64
+pub const hopper_schema::cost_model::WRITE_LOCK_UNITS: u64 = 300u64
+pub const hopper_schema::release_binding::RELEASE_BINDING_COMMITMENT_OFFSET: usize = 24usize
+pub const hopper_schema::release_binding::RELEASE_BINDING_FORMAT_VERSION: u16 = 1u16
+pub const hopper_schema::release_binding::RELEASE_BINDING_HASH_SHA256: u8 = 1u8
+pub const hopper_schema::release_binding::RELEASE_BINDING_MAGIC: [u8; 16] = _
+pub const hopper_schema::release_binding::RELEASE_BINDING_RECORD_LEN: usize = 56usize
+pub enum hopper_schema::AccountResolverKind
+pub enum hopper_schema::ArgEncoding
+pub enum hopper_schema::ArgParseError
+pub enum hopper_schema::CompatibilityVerdict
+pub enum hopper_schema::FieldCompat
+pub enum hopper_schema::FieldIntent
+pub enum hopper_schema::InstructionEffectKind
+pub enum hopper_schema::LayoutStabilityGrade
+pub enum hopper_schema::LintSeverity
+pub enum hopper_schema::MigrationAction
+pub enum hopper_schema::MigrationPolicy
+pub enum hopper_schema::MutationClass
+pub enum hopper_schema::RuleChange
+pub enum hopper_schema::SeedPart<'a>
+pub enum hopper_schema::SegmentRoleHint
+pub enum hopper_schema::accounts::AccountLifecycle
+pub enum hopper_schema::anchor_idl::AnchorIdlProjectionError
+pub enum hopper_schema::cost_model::SlotTimeRegime
+pub fn hopper_schema::CompatibilityExplain::between(older: &hopper_schema::LayoutManifest, newer: &hopper_schema::LayoutManifest) -> Self
+pub fn hopper_schema::CompatibilityVerdict::between(older: &hopper_schema::LayoutManifest, newer: &hopper_schema::LayoutManifest) -> Self
+pub fn hopper_schema::CompatibilityVerdict::refine_with_roles<const N: usize>(self, report: &hopper_schema::SegmentMigrationReport<N>) -> Self
+pub fn hopper_schema::DecodedField::format_value(&self, buf: &mut [u8]) -> usize
+pub fn hopper_schema::DescriptorMetadata::fingerprint_hex(&self) -> [u8; 32]
+pub fn hopper_schema::DescriptorMetadata::from_descriptor(descriptor: &hopper_core::manifest::AccountDescriptor, fields: &'static [hopper_schema::FieldDescriptor]) -> Self
+pub fn hopper_schema::DescriptorMetadata::with_margins(descriptor: &hopper_core::manifest::AccountDescriptor, fields: &'static [hopper_schema::FieldDescriptor], tail_headroom: u32, extra: u32) -> Self
+pub fn hopper_schema::ErrorRegistry::find_by_code(&self, code: u32) -> core::option::Option<&hopper_schema::ErrorDescriptor>
+pub fn hopper_schema::ErrorRegistry::invariant_for(&self, code: u32) -> core::option::Option<&'static str>
+pub fn hopper_schema::FieldCompatReport::count_status(&self, status: hopper_schema::FieldCompat) -> usize
+pub fn hopper_schema::FieldCompatReport::get(&self, i: usize) -> core::option::Option<&hopper_schema::FieldCompatEntry<'a>>
+pub fn hopper_schema::FieldCompatReport::is_append_safe(&self) -> bool
+pub fn hopper_schema::FieldCompatReport::is_empty(&self) -> bool
+pub fn hopper_schema::FieldCompatReport::len(&self) -> usize
+pub fn hopper_schema::FieldIntent::is_authority_sensitive(self) -> bool
+pub fn hopper_schema::FieldIntent::is_governance(self) -> bool
+pub fn hopper_schema::FieldIntent::is_identity(self) -> bool
+pub fn hopper_schema::FieldIntent::is_init_only(self) -> bool
+pub fn hopper_schema::FieldIntent::is_monetary(self) -> bool
+pub fn hopper_schema::FieldIntent::name(self) -> &'static str
+pub fn hopper_schema::HopperSchemaPointer::has_flag(&self, flag: u16) -> bool
+pub fn hopper_schema::HopperSchemaPointer::uri_str(&self) -> &str
+pub fn hopper_schema::InstructionDescriptor::account_has_declared_write(&self, account_index: usize) -> bool
+pub fn hopper_schema::InstructionDescriptor::contention_profile(&self) -> hopper_schema::ContentionProfile
+pub fn hopper_schema::InstructionDescriptor::effective_writable(&self, account_index: usize, declared_writable: bool) -> bool
+pub fn hopper_schema::LayoutStabilityGrade::compute(manifest: &hopper_schema::LayoutManifest) -> Self
+pub fn hopper_schema::ManifestRegistry::find_by_disc(&self, disc: u8) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::ManifestRegistry::find_by_layout_id(&self, layout_id: &[u8; 8]) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::ManifestRegistry::get(&self, index: usize) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::ManifestRegistry::identify(&self, data: &[u8]) -> core::option::Option<(usize, &hopper_schema::LayoutManifest)>
+pub fn hopper_schema::MigrationPlan::for_each_step<F: core::ops::function::FnMut(usize, &hopper_schema::MigrationStep<'a>)>(&self, f: F)
+pub fn hopper_schema::MigrationPlan::generate(older: &'a hopper_schema::LayoutManifest, newer: &'a hopper_schema::LayoutManifest) -> Self
+pub fn hopper_schema::MigrationPlan::is_empty(&self) -> bool
+pub fn hopper_schema::MigrationPlan::len(&self) -> usize
+pub fn hopper_schema::MigrationPlan::requires_data_copy(&self) -> bool
+pub fn hopper_schema::MigrationPlan::step(&self, i: usize) -> core::option::Option<&hopper_schema::MigrationStep<'a>>
+pub fn hopper_schema::OperatingProfile::from_manifest(manifest: &hopper_schema::ProgramManifest) -> Self
+pub fn hopper_schema::ProgramIdl::find_account(&self, name: &str) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::ProgramIdl::find_instruction(&self, name: &str) -> core::option::Option<&hopper_schema::IdlInstructionDescriptor>
+pub fn hopper_schema::ProgramManifest::find_compat_pair(&self, from_name: &str, from_ver: u8, to_name: &str, to_ver: u8) -> core::option::Option<&hopper_schema::CompatibilityPair>
+pub fn hopper_schema::ProgramManifest::find_context(&self, name: &str) -> core::option::Option<&hopper_schema::accounts::ContextDescriptor>
+pub fn hopper_schema::ProgramManifest::find_instruction(&self, tag: u8) -> core::option::Option<&hopper_schema::InstructionDescriptor>
+pub fn hopper_schema::ProgramManifest::find_layout_by_disc(&self, disc: u8) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::ProgramManifest::find_layout_by_id(&self, layout_id: &[u8; 8]) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::ProgramManifest::find_layout_metadata(&self, name: &str) -> core::option::Option<&hopper_schema::LayoutMetadata>
+pub fn hopper_schema::ProgramManifest::find_policy(&self, name: &str) -> core::option::Option<&hopper_schema::PolicyDescriptor>
+pub fn hopper_schema::ProgramManifest::identify_from_data(&self, data: &[u8]) -> core::option::Option<&hopper_schema::LayoutManifest>
+pub fn hopper_schema::SegmentMigrationReport::analyze(segments: &[hopper_schema::DecodedSegment], count: usize) -> Self
+pub fn hopper_schema::SegmentMigrationReport::clearable_count(&self) -> usize
+pub fn hopper_schema::SegmentMigrationReport::must_preserve_count(&self) -> usize
+pub fn hopper_schema::SegmentRoleHint::from_flags(flags: u16) -> Self
+pub fn hopper_schema::SegmentRoleHint::is_append_only(self) -> bool
+pub fn hopper_schema::SegmentRoleHint::is_clearable(self) -> bool
+pub fn hopper_schema::SegmentRoleHint::is_immutable(self) -> bool
+pub fn hopper_schema::SegmentRoleHint::is_rebuildable(self) -> bool
+pub fn hopper_schema::SegmentRoleHint::is_safe_to_drop(self) -> bool
+pub fn hopper_schema::SegmentRoleHint::must_preserve(self) -> bool
+pub fn hopper_schema::SegmentRoleHint::name(self) -> &'static str
+pub fn hopper_schema::SegmentRoleHint::requires_migration_copy(self) -> bool
+pub fn hopper_schema::accounts::ContextDescriptor::find_account(&self, name: &str) -> core::option::Option<&hopper_schema::accounts::ContextAccountDescriptor>
+pub fn hopper_schema::accounts::ContextDescriptor::find_effect(&self, target: &str) -> core::option::Option<hopper_schema::InstructionEffectDescriptor>
+pub fn hopper_schema::accounts::ContextDescriptor::find_resolver(&self, account: &str) -> core::option::Option<hopper_schema::AccountResolverDescriptor>
+pub fn hopper_schema::accounts::ContextDescriptor::signer_count(&self) -> usize
+pub fn hopper_schema::accounts::ContextDescriptor::writable_count(&self) -> usize
+pub fn hopper_schema::accounts::normalize_lifecycle(s: &str) -> hopper_schema::accounts::AccountLifecycle
+pub fn hopper_schema::anchor_idl::AnchorIdlFromManifest::validate(&self) -> core::result::Result<(), hopper_schema::anchor_idl::AnchorIdlProjectionError>
+pub fn hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants::validate(&self) -> core::result::Result<(), hopper_schema::anchor_idl::AnchorIdlProjectionError>
+pub fn hopper_schema::anchor_idl::AnchorIdlJson::validate(&self) -> core::result::Result<(), hopper_schema::anchor_idl::AnchorIdlProjectionError>
+pub fn hopper_schema::anchor_idl::AnchorIdlWithConstants::validate(&self) -> core::result::Result<(), hopper_schema::anchor_idl::AnchorIdlProjectionError>
+pub fn hopper_schema::anchor_idl::validate_program_idl_projection(idl: &hopper_schema::ProgramIdl) -> core::result::Result<(), hopper_schema::anchor_idl::AnchorIdlProjectionError>
+pub fn hopper_schema::anchor_idl::validate_program_manifest_projection(manifest: &hopper_schema::ProgramManifest) -> core::result::Result<(), hopper_schema::anchor_idl::AnchorIdlProjectionError>
+pub fn hopper_schema::classify_seed(seed: &str) -> hopper_schema::SeedPart<'_>
+pub fn hopper_schema::compare_fields<'a, const N: usize>(older: &'a hopper_schema::LayoutManifest, newer: &'a hopper_schema::LayoutManifest) -> hopper_schema::FieldCompatReport<'a, N>
+pub fn hopper_schema::decode_account_fields<'a, const N: usize>(data: &'a [u8], manifest: &'a hopper_schema::LayoutManifest) -> (usize, [core::option::Option<hopper_schema::DecodedField<'a>>; N])
+pub fn hopper_schema::decode_allowed(expected: &hopper_core::manifest::LayoutFingerprint, advertised: &hopper_core::manifest::LayoutFingerprint) -> bool
+pub fn hopper_schema::decode_header(data: &[u8]) -> core::option::Option<hopper_schema::DecodedHeader>
+pub fn hopper_schema::decode_segments<const N: usize>(data: &[u8]) -> core::option::Option<(usize, [hopper_schema::DecodedSegment; N])>
+pub fn hopper_schema::format_header(data: &[u8]) -> core::option::Option<hopper_schema::DecodedHeader>
+pub fn hopper_schema::format_segment_map<const N: usize>(data: &[u8]) -> core::option::Option<hopper_schema::SegmentMap<N>>
+pub fn hopper_schema::identify_account<'a>(data: &[u8], manifests: &'a [hopper_schema::LayoutManifest]) -> core::option::Option<(usize, &'a hopper_schema::LayoutManifest)>
+pub fn hopper_schema::is_append_compatible(older: &hopper_schema::LayoutManifest, newer: &hopper_schema::LayoutManifest) -> bool
+pub fn hopper_schema::is_backward_readable(older: &hopper_schema::LayoutManifest, newer: &hopper_schema::LayoutManifest) -> bool
+pub fn hopper_schema::lint_layout<const N: usize>(manifest: &hopper_schema::LayoutManifest, behavior: &hopper_schema::LayoutBehavior) -> (usize, [hopper_schema::SemanticLint; N])
+pub fn hopper_schema::lint_policy<const N: usize>(behavior: &hopper_schema::LayoutBehavior, policy: hopper_core::policy::PolicyClass) -> (usize, [hopper_schema::SemanticLint; N])
+pub fn hopper_schema::requires_migration(older: &hopper_schema::LayoutManifest, newer: &hopper_schema::LayoutManifest) -> bool
+pub hopper_schema::AccountEntry::layout_ref: &'static str
+pub hopper_schema::AccountEntry::name: &'static str
+pub hopper_schema::AccountEntry::seeds: &'static [&'static str]
+pub hopper_schema::AccountEntry::signer: bool
+pub hopper_schema::AccountEntry::writable: bool
+pub hopper_schema::AccountResolverDescriptor::account: &'static str
+pub hopper_schema::AccountResolverDescriptor::expected_address: &'static str
+pub hopper_schema::AccountResolverDescriptor::expected_owner: &'static str
+pub hopper_schema::AccountResolverDescriptor::kind: hopper_schema::AccountResolverKind
+pub hopper_schema::AccountResolverDescriptor::layout_ref: &'static str
+pub hopper_schema::AccountResolverDescriptor::optional: bool
+pub hopper_schema::AccountResolverDescriptor::payer: &'static str
+pub hopper_schema::AccountResolverDescriptor::seeds: &'static [&'static str]
+pub hopper_schema::ArgDescriptor::canonical_type: &'static str
+pub hopper_schema::ArgDescriptor::encoding: hopper_schema::ArgEncoding
+pub hopper_schema::ArgDescriptor::name: &'static str
+pub hopper_schema::ArgDescriptor::size: u16
+pub hopper_schema::CodamaAccount::discriminator: u8
+pub hopper_schema::CodamaAccount::fields: &'static [hopper_schema::FieldDescriptor]
+pub hopper_schema::CodamaAccount::name: &'static str
+pub hopper_schema::CodamaAccount::size: usize
+pub hopper_schema::CodamaEvent::discriminator: u8
+pub hopper_schema::CodamaEvent::fields: &'static [hopper_schema::FieldDescriptor]
+pub hopper_schema::CodamaEvent::name: &'static str
+pub hopper_schema::CodamaInstruction::accounts: &'static [hopper_schema::IdlAccountEntry]
+pub hopper_schema::CodamaInstruction::args: &'static [hopper_schema::ArgDescriptor]
+pub hopper_schema::CodamaInstruction::discriminator: u8
+pub hopper_schema::CodamaInstruction::name: &'static str
+pub hopper_schema::CodamaProjection::accounts: &'static [hopper_schema::CodamaAccount]
+pub hopper_schema::CodamaProjection::events: &'static [hopper_schema::CodamaEvent]
+pub hopper_schema::CodamaProjection::instructions: &'static [hopper_schema::CodamaInstruction]
+pub hopper_schema::CodamaProjection::name: &'static str
+pub hopper_schema::CodamaProjection::version: &'static str
+pub hopper_schema::CompatibilityExplain::added_count: u8
+pub hopper_schema::CompatibilityExplain::added_fields: [&'static str; 16]
+pub hopper_schema::CompatibilityExplain::changed_count: u8
+pub hopper_schema::CompatibilityExplain::changed_fields: [&'static str; 16]
+pub hopper_schema::CompatibilityExplain::removed_count: u8
+pub hopper_schema::CompatibilityExplain::removed_fields: [&'static str; 16]
+pub hopper_schema::CompatibilityExplain::semantic_drift: bool
+pub hopper_schema::CompatibilityExplain::summary: &'static str
+pub hopper_schema::CompatibilityExplain::verdict: hopper_schema::CompatibilityVerdict
+pub hopper_schema::CompatibilityPair::backward_readable: bool
+pub hopper_schema::CompatibilityPair::from_layout: &'static str
+pub hopper_schema::CompatibilityPair::from_version: u8
+pub hopper_schema::CompatibilityPair::policy: hopper_schema::MigrationPolicy
+pub hopper_schema::CompatibilityPair::to_layout: &'static str
+pub hopper_schema::CompatibilityPair::to_version: u8
+pub hopper_schema::ConstantDescriptor::docs: &'static str
+pub hopper_schema::ConstantDescriptor::name: &'static str
+pub hopper_schema::ConstantDescriptor::ty: &'static str
+pub hopper_schema::ConstantDescriptor::value: &'static str
+pub hopper_schema::ContentionProfile::declared_writable: u32
+pub hopper_schema::ContentionProfile::demotion_available: bool
+pub hopper_schema::ContentionProfile::effective_writable: u32
+pub hopper_schema::ContentionProfile::provably_read_only: u32
+pub hopper_schema::ContentionProfile::remaining_accounts_max: u16
+pub hopper_schema::ContentionProfile::signers: u32
+pub hopper_schema::DecodedField::canonical_type: &'a str
+pub hopper_schema::DecodedField::name: &'a str
+pub hopper_schema::DecodedField::offset: u16
+pub hopper_schema::DecodedField::raw: &'a [u8]
+pub hopper_schema::DecodedField::size: u16
+pub hopper_schema::DecodedHeader::disc: u8
+pub hopper_schema::DecodedHeader::flags: u16
+pub hopper_schema::DecodedHeader::layout_id: [u8; 8]
+pub hopper_schema::DecodedHeader::schema_epoch: u32
+pub hopper_schema::DecodedHeader::version: u8
+pub hopper_schema::DecodedSegment::flags: u16
+pub hopper_schema::DecodedSegment::id: [u8; 4]
+pub hopper_schema::DecodedSegment::offset: u32
+pub hopper_schema::DecodedSegment::size: u32
+pub hopper_schema::DecodedSegment::version: u8
+pub hopper_schema::DescriptorMetadata::fields: &'static [hopper_schema::FieldDescriptor]
+pub hopper_schema::DescriptorMetadata::loaded_data_size: u64
+pub hopper_schema::DescriptorMetadata::node: hopper_core::manifest::DescriptorIdlNode
+pub hopper_schema::ErrorDescriptor::code: u32
+pub hopper_schema::ErrorDescriptor::doc: &'static str
+pub hopper_schema::ErrorDescriptor::invariant: &'static str
+pub hopper_schema::ErrorDescriptor::name: &'static str
+pub hopper_schema::ErrorRegistry::enum_name: &'static str
+pub hopper_schema::ErrorRegistry::errors: &'static [hopper_schema::ErrorDescriptor]
+pub hopper_schema::EventDescriptor::fields: &'static [hopper_schema::FieldDescriptor]
+pub hopper_schema::EventDescriptor::name: &'static str
+pub hopper_schema::EventDescriptor::tag: u8
+pub hopper_schema::FieldCompatEntry::name: &'a str
+pub hopper_schema::FieldCompatEntry::status: hopper_schema::FieldCompat
+pub hopper_schema::FieldCompatReport::count: usize
+pub hopper_schema::FieldCompatReport::entries: [hopper_schema::FieldCompatEntry<'a>; N]
+pub hopper_schema::FieldCompatReport::is_append_safe: bool
+pub hopper_schema::FieldDescriptor::canonical_type: &'static str
+pub hopper_schema::FieldDescriptor::intent: hopper_schema::FieldIntent
+pub hopper_schema::FieldDescriptor::name: &'static str
+pub hopper_schema::FieldDescriptor::offset: u16
+pub hopper_schema::FieldDescriptor::size: u16
+pub hopper_schema::FieldRule::exact: bool
+pub hopper_schema::FieldRule::field: &'static str
+pub hopper_schema::FieldRule::max: core::option::Option<i128>
+pub hopper_schema::FieldRule::min: core::option::Option<i128>
+pub hopper_schema::FieldRule::rule: &'static str
+pub hopper_schema::HopperIdl::base: hopper_schema::ProgramIdl
+pub hopper_schema::HopperIdl::compatibility: &'static [hopper_schema::CompatibilityPair]
+pub hopper_schema::HopperIdl::contexts: &'static [hopper_schema::accounts::ContextDescriptor]
+pub hopper_schema::HopperIdl::policies: &'static [hopper_schema::PolicyDescriptor]
+pub hopper_schema::HopperIdl::receipt_profiles: &'static [hopper_schema::ReceiptProfile]
+pub hopper_schema::HopperIdl::segment_metadata: &'static [hopper_schema::IdlSegmentDescriptor]
+pub hopper_schema::HopperSchemaPointer::codama_hash: [u8; 32]
+pub hopper_schema::HopperSchemaPointer::idl_hash: [u8; 32]
+pub hopper_schema::HopperSchemaPointer::manifest_hash: [u8; 32]
+pub hopper_schema::HopperSchemaPointer::pointer_flags: u16
+pub hopper_schema::HopperSchemaPointer::schema_version: u16
+pub hopper_schema::HopperSchemaPointer::uri: [u8; 192]
+pub hopper_schema::HopperSchemaPointer::uri_len: u16
+pub hopper_schema::IdlAccountEntry::layout_ref: &'static str
+pub hopper_schema::IdlAccountEntry::name: &'static str
+pub hopper_schema::IdlAccountEntry::pda_seeds: &'static [hopper_schema::PdaSeedHint]
+pub hopper_schema::IdlAccountEntry::signer: bool
+pub hopper_schema::IdlAccountEntry::writable: bool
+pub hopper_schema::IdlInstructionDescriptor::accounts: &'static [hopper_schema::IdlAccountEntry]
+pub hopper_schema::IdlInstructionDescriptor::args: &'static [hopper_schema::ArgDescriptor]
+pub hopper_schema::IdlInstructionDescriptor::name: &'static str
+pub hopper_schema::IdlInstructionDescriptor::tag: u8
+pub hopper_schema::IdlSegmentDescriptor::append_only: bool
+pub hopper_schema::IdlSegmentDescriptor::must_preserve: bool
+pub hopper_schema::IdlSegmentDescriptor::name: &'static str
+pub hopper_schema::IdlSegmentDescriptor::rebuildable: bool
+pub hopper_schema::IdlSegmentDescriptor::role: &'static str
+pub hopper_schema::InstructionDescriptor::accounts: &'static [hopper_schema::AccountEntry]
+pub hopper_schema::InstructionDescriptor::args: &'static [hopper_schema::ArgDescriptor]
+pub hopper_schema::InstructionDescriptor::capabilities: &'static [&'static str]
+pub hopper_schema::InstructionDescriptor::cu_estimate: u32
+pub hopper_schema::InstructionDescriptor::discriminator: &'static [u8]
+pub hopper_schema::InstructionDescriptor::lamport_accounts: &'static [u8]
+pub hopper_schema::InstructionDescriptor::mutation_complete: bool
+pub hopper_schema::InstructionDescriptor::name: &'static str
+pub hopper_schema::InstructionDescriptor::parametric_write_ranges: &'static [hopper_runtime::write_policy::ParametricWriteRange]
+pub hopper_schema::InstructionDescriptor::policy_pack: &'static str
+pub hopper_schema::InstructionDescriptor::receipt_expected: bool
+pub hopper_schema::InstructionDescriptor::remaining_accounts: core::option::Option<hopper_schema::RemainingAccountsDescriptor>
+pub hopper_schema::InstructionDescriptor::strict_writes: bool
+pub hopper_schema::InstructionDescriptor::tag: u8
+pub hopper_schema::InstructionDescriptor::write_ranges: &'static [hopper_runtime::write_policy::WriteRange]
+pub hopper_schema::InstructionEffectDescriptor::kind: hopper_schema::InstructionEffectKind
+pub hopper_schema::InstructionEffectDescriptor::layout_ref: &'static str
+pub hopper_schema::InstructionEffectDescriptor::reason: &'static str
+pub hopper_schema::InstructionEffectDescriptor::target: &'static str
+pub hopper_schema::LayoutBehavior::affects_authority: bool
+pub hopper_schema::LayoutBehavior::affects_balance: bool
+pub hopper_schema::LayoutBehavior::mutation_class: hopper_schema::MutationClass
+pub hopper_schema::LayoutBehavior::requires_signer: bool
+pub hopper_schema::LayoutFingerprint::semantic_hash: [u8; 8]
+pub hopper_schema::LayoutFingerprint::wire_hash: [u8; 8]
+pub hopper_schema::LayoutManifest::disc: u8
+pub hopper_schema::LayoutManifest::field_count: usize
+pub hopper_schema::LayoutManifest::fields: &'static [hopper_schema::FieldDescriptor]
+pub hopper_schema::LayoutManifest::has_dynamic_tail: bool
+pub hopper_schema::LayoutManifest::layout_id: [u8; 8]
+pub hopper_schema::LayoutManifest::name: &'static str
+pub hopper_schema::LayoutManifest::total_size: usize
+pub hopper_schema::LayoutManifest::version: u8
+pub hopper_schema::LayoutMetadata::append_safe: bool
+pub hopper_schema::LayoutMetadata::invariant_pack: &'static [&'static str]
+pub hopper_schema::LayoutMetadata::manager_hints: &'static [&'static str]
+pub hopper_schema::LayoutMetadata::migration_required: bool
+pub hopper_schema::LayoutMetadata::name: &'static str
+pub hopper_schema::LayoutMetadata::phase_requirements: &'static [&'static str]
+pub hopper_schema::LayoutMetadata::policy_pack: &'static str
+pub hopper_schema::LayoutMetadata::rebuildable: bool
+pub hopper_schema::LayoutMetadata::receipt_profile: &'static str
+pub hopper_schema::LayoutMetadata::segment_roles: &'static [&'static str]
+pub hopper_schema::LayoutMetadata::trust_profile: &'static str
+pub hopper_schema::LayoutRules::layout: &'static str
+pub hopper_schema::LayoutRules::rules: &'static [hopper_schema::FieldRule]
+pub hopper_schema::ManagerMetadata::fields: &'static [hopper_runtime::field_map::FieldInfo]
+pub hopper_schema::ManagerMetadata::layout: hopper_runtime::layout::LayoutInfo
+pub hopper_schema::MigrationPlan::backward_readable: bool
+pub hopper_schema::MigrationPlan::copy_bytes: usize
+pub hopper_schema::MigrationPlan::new_size: usize
+pub hopper_schema::MigrationPlan::old_size: usize
+pub hopper_schema::MigrationPlan::policy: hopper_schema::MigrationPolicy
+pub hopper_schema::MigrationPlan::step_count: usize
+pub hopper_schema::MigrationPlan::steps: [hopper_schema::MigrationStep<'a>; N]
+pub hopper_schema::MigrationPlan::zero_bytes: usize
+pub hopper_schema::MigrationStep::action: hopper_schema::MigrationAction
+pub hopper_schema::MigrationStep::field: &'a str
+pub hopper_schema::MigrationStep::offset: u16
+pub hopper_schema::MigrationStep::size: u16
+pub hopper_schema::OperatingProfile::append_only_count: u8
+pub hopper_schema::OperatingProfile::append_only_segments: [&'static str; 8]
+pub hopper_schema::OperatingProfile::authority_count: u8
+pub hopper_schema::OperatingProfile::authority_surfaces: [&'static str; 16]
+pub hopper_schema::OperatingProfile::financial_count: u8
+pub hopper_schema::OperatingProfile::financial_fields: [&'static str; 16]
+pub hopper_schema::OperatingProfile::has_cpi_ops: bool
+pub hopper_schema::OperatingProfile::has_financial_ops: bool
+pub hopper_schema::OperatingProfile::has_migration_paths: bool
+pub hopper_schema::OperatingProfile::has_receipts: bool
+pub hopper_schema::OperatingProfile::migration_sensitive: [&'static str; 8]
+pub hopper_schema::OperatingProfile::migration_sensitive_count: u8
+pub hopper_schema::OperatingProfile::stability_count: u8
+pub hopper_schema::OperatingProfile::stability_grades: [(&'static str, hopper_schema::LayoutStabilityGrade); 8]
+pub hopper_schema::PdaSeedHint::kind: &'static str
+pub hopper_schema::PdaSeedHint::value: &'static str
+pub hopper_schema::PolicyDescriptor::capabilities: &'static [&'static str]
+pub hopper_schema::PolicyDescriptor::invariants: &'static [&'static str]
+pub hopper_schema::PolicyDescriptor::name: &'static str
+pub hopper_schema::PolicyDescriptor::receipt_profile: &'static str
+pub hopper_schema::PolicyDescriptor::requirements: &'static [&'static str]
+pub hopper_schema::ProgramIdl::accounts: &'static [hopper_schema::LayoutManifest]
+pub hopper_schema::ProgramIdl::description: &'static str
+pub hopper_schema::ProgramIdl::events: &'static [hopper_schema::EventDescriptor]
+pub hopper_schema::ProgramIdl::fingerprints: &'static [([u8; 8], &'static str)]
+pub hopper_schema::ProgramIdl::instructions: &'static [hopper_schema::IdlInstructionDescriptor]
+pub hopper_schema::ProgramIdl::name: &'static str
+pub hopper_schema::ProgramIdl::version: &'static str
+pub hopper_schema::ProgramManifest::compatibility_pairs: &'static [hopper_schema::CompatibilityPair]
+pub hopper_schema::ProgramManifest::contexts: &'static [hopper_schema::accounts::ContextDescriptor]
+pub hopper_schema::ProgramManifest::description: &'static str
+pub hopper_schema::ProgramManifest::events: &'static [hopper_schema::EventDescriptor]
+pub hopper_schema::ProgramManifest::instructions: &'static [hopper_schema::InstructionDescriptor]
+pub hopper_schema::ProgramManifest::layout_metadata: &'static [hopper_schema::LayoutMetadata]
+pub hopper_schema::ProgramManifest::layouts: &'static [hopper_schema::LayoutManifest]
+pub hopper_schema::ProgramManifest::name: &'static str
+pub hopper_schema::ProgramManifest::policies: &'static [hopper_schema::PolicyDescriptor]
+pub hopper_schema::ProgramManifest::tooling_hints: &'static [&'static str]
+pub hopper_schema::ProgramManifest::version: &'static str
+pub hopper_schema::ReceiptProfile::expected_phase: &'static str
+pub hopper_schema::ReceiptProfile::expects_authority_change: bool
+pub hopper_schema::ReceiptProfile::expects_balance_change: bool
+pub hopper_schema::ReceiptProfile::expects_journal_append: bool
+pub hopper_schema::ReceiptProfile::min_changed_fields: u8
+pub hopper_schema::ReceiptProfile::name: &'static str
+pub hopper_schema::RemainingAccountsDescriptor::max: u16
+pub hopper_schema::SchemaBundle::manager: hopper_schema::ManagerMetadata
+pub hopper_schema::SchemaBundle::manifest: hopper_schema::LayoutManifest
+pub hopper_schema::SegmentAdvice::append_only: bool
+pub hopper_schema::SegmentAdvice::clearable: bool
+pub hopper_schema::SegmentAdvice::id: [u8; 4]
+pub hopper_schema::SegmentAdvice::immutable: bool
+pub hopper_schema::SegmentAdvice::must_preserve: bool
+pub hopper_schema::SegmentAdvice::rebuildable: bool
+pub hopper_schema::SegmentAdvice::role: hopper_schema::SegmentRoleHint
+pub hopper_schema::SegmentAdvice::size: u32
+pub hopper_schema::SegmentMap::count: usize
+pub hopper_schema::SegmentMap::segments: [hopper_schema::DecodedSegment; N]
+pub hopper_schema::SegmentMigrationReport::advice: [hopper_schema::SegmentAdvice; N]
+pub hopper_schema::SegmentMigrationReport::clearable_bytes: u32
+pub hopper_schema::SegmentMigrationReport::count: usize
+pub hopper_schema::SegmentMigrationReport::preserve_bytes: u32
+pub hopper_schema::SegmentMigrationReport::rebuildable_bytes: u32
+pub hopper_schema::SemanticLint::code: &'static str
+pub hopper_schema::SemanticLint::field: &'static str
+pub hopper_schema::SemanticLint::message: &'static str
+pub hopper_schema::SemanticLint::severity: hopper_schema::LintSeverity
+pub hopper_schema::accounts::ContextAccountDescriptor::expected_address: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::expected_owner: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::has_one: &'static [&'static str]
+pub hopper_schema::accounts::ContextAccountDescriptor::init_space: u32
+pub hopper_schema::accounts::ContextAccountDescriptor::kind: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::layout_ref: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::lifecycle: hopper_schema::accounts::AccountLifecycle
+pub hopper_schema::accounts::ContextAccountDescriptor::name: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::optional: bool
+pub hopper_schema::accounts::ContextAccountDescriptor::payer: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::policy_ref: &'static str
+pub hopper_schema::accounts::ContextAccountDescriptor::seeds: &'static [&'static str]
+pub hopper_schema::accounts::ContextAccountDescriptor::signer: bool
+pub hopper_schema::accounts::ContextAccountDescriptor::writable: bool
+pub hopper_schema::accounts::ContextDescriptor::accounts: &'static [hopper_schema::accounts::ContextAccountDescriptor]
+pub hopper_schema::accounts::ContextDescriptor::instructions: &'static [&'static str]
+pub hopper_schema::accounts::ContextDescriptor::lamport_accounts: &'static [u8]
+pub hopper_schema::accounts::ContextDescriptor::mutation_classes: &'static [&'static str]
+pub hopper_schema::accounts::ContextDescriptor::mutation_complete: bool
+pub hopper_schema::accounts::ContextDescriptor::name: &'static str
+pub hopper_schema::accounts::ContextDescriptor::parametric_write_ranges: &'static [hopper_runtime::write_policy::ParametricWriteRange]
+pub hopper_schema::accounts::ContextDescriptor::policies: &'static [&'static str]
+pub hopper_schema::accounts::ContextDescriptor::receipts_expected: bool
+pub hopper_schema::accounts::ContextDescriptor::strict_writes: bool
+pub hopper_schema::accounts::ContextDescriptor::write_ranges: &'static [hopper_runtime::write_policy::WriteRange]
+pub hopper_schema::anchor_idl::AnchorIdlFromManifest::address: &'a str
+pub hopper_schema::anchor_idl::AnchorIdlFromManifest::manifest: &'a hopper_schema::ProgramManifest
+pub hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants::address: &'a str
+pub hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants::constants: &'a [hopper_schema::ConstantDescriptor]
+pub hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants::manifest: &'a hopper_schema::ProgramManifest
+pub hopper_schema::anchor_idl::AnchorIdlJson::address: &'a str
+pub hopper_schema::anchor_idl::AnchorIdlJson::idl: &'a hopper_schema::ProgramIdl
+pub hopper_schema::anchor_idl::AnchorIdlWithConstants::address: &'a str
+pub hopper_schema::anchor_idl::AnchorIdlWithConstants::constants: &'a [hopper_schema::ConstantDescriptor]
+pub hopper_schema::anchor_idl::AnchorIdlWithConstants::idl: &'a hopper_schema::ProgramIdl
+pub mod hopper_schema::accounts
+pub mod hopper_schema::anchor_idl
+pub mod hopper_schema::c_client
+pub mod hopper_schema::clientgen
+pub mod hopper_schema::codama
+pub mod hopper_schema::cost_model
+pub mod hopper_schema::go_client
+pub mod hopper_schema::python_client
+pub mod hopper_schema::release_binding
+pub mod hopper_schema::rust_client
+pub struct hopper_schema::AccountEntry {}
+pub struct hopper_schema::AccountResolverDescriptor {}
+pub struct hopper_schema::ArgDescriptor {}
+pub struct hopper_schema::CodamaAccount {}
+pub struct hopper_schema::CodamaEvent {}
+pub struct hopper_schema::CodamaInstruction {}
+pub struct hopper_schema::CodamaProjection {}
+pub struct hopper_schema::CompatibilityExplain {}
+pub struct hopper_schema::CompatibilityPair {}
+pub struct hopper_schema::ConstantDescriptor {}
+pub struct hopper_schema::ContentionProfile {}
+pub struct hopper_schema::DecodedField<'a> {}
+pub struct hopper_schema::DecodedHeader {}
+pub struct hopper_schema::DecodedSegment {}
+pub struct hopper_schema::DescriptorMetadata {}
+pub struct hopper_schema::ErrorDescriptor {}
+pub struct hopper_schema::ErrorRegistry {}
+pub struct hopper_schema::EventDescriptor {}
+pub struct hopper_schema::FieldCompatEntry<'a> {}
+pub struct hopper_schema::FieldCompatReport<'a, const N: usize> {}
+pub struct hopper_schema::FieldDescriptor {}
+pub struct hopper_schema::FieldRule {}
+pub struct hopper_schema::HopperIdl {}
+pub struct hopper_schema::HopperSchemaPointer {}
+pub struct hopper_schema::IdlAccountEntry {}
+pub struct hopper_schema::IdlInstructionDescriptor {}
+pub struct hopper_schema::IdlSegmentDescriptor {}
+pub struct hopper_schema::InstructionDescriptor {}
+pub struct hopper_schema::InstructionEffectDescriptor {}
+pub struct hopper_schema::LayoutBehavior {}
+pub struct hopper_schema::LayoutFingerprint {}
+pub struct hopper_schema::LayoutManifest {}
+pub struct hopper_schema::LayoutMetadata {}
+pub struct hopper_schema::LayoutRules {}
+pub struct hopper_schema::ManagerMetadata {}
+pub struct hopper_schema::ManifestRegistry<const N: usize> { .. }
+pub struct hopper_schema::MigrationPlan<'a, const N: usize> {}
+pub struct hopper_schema::MigrationStep<'a> {}
+pub struct hopper_schema::OperatingProfile {}
+pub struct hopper_schema::PdaSeedHint {}
+pub struct hopper_schema::PolicyDescriptor {}
+pub struct hopper_schema::ProgramIdl {}
+pub struct hopper_schema::ProgramManifest {}
+pub struct hopper_schema::ReceiptProfile {}
+pub struct hopper_schema::RemainingAccountsDescriptor {}
+pub struct hopper_schema::SchemaBundle {}
+pub struct hopper_schema::SegmentAdvice {}
+pub struct hopper_schema::SegmentMap<const N: usize> {}
+pub struct hopper_schema::SegmentMigrationReport<const N: usize> {}
+pub struct hopper_schema::SemanticLint {}
+pub struct hopper_schema::accounts::ContextAccountDescriptor {}
+pub struct hopper_schema::accounts::ContextDescriptor {}
+pub struct hopper_schema::anchor_idl::AnchorIdlFromManifest<'a> {}
+pub struct hopper_schema::anchor_idl::AnchorIdlFromManifestWithConstants<'a> {}
+pub struct hopper_schema::anchor_idl::AnchorIdlJson<'a> {}
+pub struct hopper_schema::anchor_idl::AnchorIdlWithConstants<'a> {}
+pub struct hopper_schema::c_client::CClientGen<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::KtAccounts<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::KtClientGen<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::KtEvents<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::KtInstructions<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::KtTypes<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::TsAccounts<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::TsClientGen<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::TsEvents<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::TsIndex<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::TsInstructions<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::clientgen::TsTypes<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::codama::CodamaJson<'a>(pub &'a hopper_schema::CodamaProjection)
+pub struct hopper_schema::codama::CodamaJsonFromManifest<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::codama::DescriptorMetadataJson<'a>(pub &'a hopper_schema::DescriptorMetadata)
+pub struct hopper_schema::codama::DescriptorMetadataSetJson<'a>(pub &'a [hopper_schema::DescriptorMetadata])
+pub struct hopper_schema::codama::IdlJson<'a>(pub &'a hopper_schema::ProgramIdl)
+pub struct hopper_schema::codama::IdlJsonFromManifest<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::codama::ManifestJson<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::codama::ManifestJsonWithRules<'a>(pub &'a hopper_schema::ProgramManifest, pub &'a [hopper_schema::LayoutRules])
+pub struct hopper_schema::go_client::GoClientGen<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::python_client::PyAccounts<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::python_client::PyClientGen<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::python_client::PyEvents<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::python_client::PyIndex<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::python_client::PyInstructions<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::python_client::PyTypes<'a>(pub &'a hopper_schema::ProgramManifest)
+pub struct hopper_schema::rust_client::RsClientGen<'a>(pub &'a hopper_schema::ProgramManifest)
+pub trait hopper_schema::AccountSchemaExt
+pub trait hopper_schema::SchemaExport: hopper_runtime::layout::LayoutContract
+pub use hopper_schema::AccountDescriptor = hopper_core::manifest::AccountDescriptor
+pub use hopper_schema::CompatImpact = hopper_core::receipt::CompatImpact
+pub use hopper_schema::CostLint = hopper_core::manifest::CostLint
+pub use hopper_schema::CostProfile = hopper_core::manifest::CostProfile
+pub use hopper_schema::DecodedReceipt = hopper_core::receipt::DecodedReceipt
+pub use hopper_schema::DescriptorIdlNode = hopper_core::manifest::DescriptorIdlNode
+pub use hopper_schema::LayoutKind = hopper_core::manifest::LayoutKind
+pub use hopper_schema::NarrativeRisk = hopper_core::receipt::NarrativeRisk
+pub use hopper_schema::ParametricWriteRange = hopper_runtime::write_policy::ParametricWriteRange
+pub use hopper_schema::Phase = hopper_core::receipt::Phase
+pub use hopper_schema::PolicyClass = hopper_core::policy::PolicyClass
+pub use hopper_schema::ReceiptExplain = hopper_core::receipt::ReceiptExplain
+pub use hopper_schema::ReceiptNarrative = hopper_core::receipt::ReceiptNarrative
+pub use hopper_schema::SizeClass = hopper_core::manifest::SizeClass
+pub use hopper_schema::WriteRange = hopper_runtime::write_policy::WriteRange
+pub use hopper_schema::min_loaded_data_size = hopper_core::manifest::min_loaded_data_size
+pub use hopper_schema::recommend_loaded_data_limit = hopper_core::manifest::recommend_loaded_data_limit

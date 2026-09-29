@@ -29,7 +29,11 @@ pub struct MintConfig<'a> {
 /// Extension authorities and hook/metadata addresses use Token-2022's nullable
 /// address encoding where applicable. `Some(zero_address)` is rejected for
 /// those fields, rather than silently being interpreted as `None`.
+///
+/// Token-2022 keeps adding extensions, and each one Hopper supports is a new
+/// variant, so a `match` outside this crate needs a wildcard arm.
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub enum MintExtension<'a> {
     TransferFeeConfig {
         authority: Option<&'a Address>,

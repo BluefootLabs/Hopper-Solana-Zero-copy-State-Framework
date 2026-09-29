@@ -3,17 +3,18 @@
 //! Reads Program A's `Vault` account using `hopper_interface!`.
 //!
 //! **This crate has NO dependency on Program A.** It declares its own
-//! `VaultView` struct with the same fields, types, sizes, and version as
-//! Program A's `Vault`. Because `hopper_interface!` produces a deterministic
-//! `LAYOUT_ID` from the field descriptors (SHA-256 based), `load_cross_program()`
+//! view with the same name, fields, types, sizes, and version as Program
+//! A's `Vault`. Because `hopper_interface!` produces a deterministic
+//! `LAYOUT_ID` from that declaration (SHA-256 based), `load_cross_program()`
 //! can verify ABI compatibility at runtime without any compile-time coupling.
 //!
 //! ## How It Works
 //!
 //! 1. Program A defines `Vault` with `hopper_layout!` → produces `LAYOUT_ID_A`.
-//! 2. Program B defines `VaultView` with `hopper_interface!` using the same
-//!    field spec → produces `LAYOUT_ID_B`.
-//! 3. Same fields + same ordering + same types + same sizes → `LAYOUT_ID_A == LAYOUT_ID_B`.
+//! 2. Program B defines its view with `hopper_interface!` using the same
+//!    name and field spec → produces `LAYOUT_ID_B`.
+//! 3. Same name + same fields + same ordering + same types + same sizes →
+//!    `LAYOUT_ID_A == LAYOUT_ID_B`.
 //! 4. `Vault::load_cross_program()` checks `owner == PROGRAM_A_ID` and
 //!    `layout_id == LAYOUT_ID_B`. Both pass. Read succeeds.
 //! 5. If Program A changes its `Vault` layout, `LAYOUT_ID_A` changes,
@@ -21,14 +22,11 @@
 //!
 //! ## Important
 //!
-//! The struct name in `hopper_interface!`/`hopper_layout!` is part of the
-//! hash input. For cross-program reads to work, the interface struct name
-//! must match the originating layout name exactly, OR you must use
-//! `hopper_assert_fingerprint!` to pin to a known fingerprint value.
-//!
-//! In this example, we name the interface `Vault` (matching Program A)
-//! to get automatic LAYOUT_ID matching. If you prefer a different name
-//! (e.g., `VaultView`), you'd need to pin the fingerprint manually.
+//! The layout name is part of the hash input, so the view has to name
+//! the layout it reads. This example calls the view `Vault`, the name
+//! Program A uses. To give the local type another name, write
+//! `pub struct VaultView as Vault`: the type is `VaultView` and the
+//! fingerprint is `Vault`'s.
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]

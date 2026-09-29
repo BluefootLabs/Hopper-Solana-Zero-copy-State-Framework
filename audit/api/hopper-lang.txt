@@ -1,0 +1,784 @@
+# Public API of hopper-lang, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+const hopper::events::Receipt::TAG: u8
+fn hopper::events::Receipt::as_bytes(&self) -> &[u8];
+impl<'a, T, const N: usize> core::clone::Clone for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default + core::clone::Clone
+impl<'a, T, const N: usize> core::cmp::Eq for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default + core::cmp::Eq
+impl<'a, T, const N: usize> core::cmp::PartialEq for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default + core::cmp::PartialEq
+impl<'a, T, const N: usize> core::default::Default for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default
+impl<'a, T, const N: usize> core::marker::Copy for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default + core::marker::Copy
+impl<'a, T, const N: usize> core::marker::Freeze for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::marker::Freeze [auto]
+impl<'a, T, const N: usize> core::marker::Send for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::marker::Send [auto]
+impl<'a, T, const N: usize> core::marker::StructuralPartialEq for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default
+impl<'a, T, const N: usize> core::marker::Sync for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::marker::Sync [auto]
+impl<'a, T, const N: usize> core::marker::Unpin for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::marker::Unpin [auto]
+impl<'a, T, const N: usize> core::marker::UnsafeUnpin for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::marker::UnsafeUnpin [auto]
+impl<'a, T, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::panic::unwind_safe::RefUnwindSafe [auto]
+impl<'a, T, const N: usize> core::panic::unwind_safe::UnwindSafe for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: core::panic::unwind_safe::UnwindSafe [auto]
+impl<'a, T, const N: usize> hopper_runtime::tail::TailCodec for hopper::prelude::HopperAuthoringVec<'a, T, N> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default
+impl<'a, const N: usize> core::clone::Clone for hopper::prelude::HopperAuthoringString<'a, N>
+impl<'a, const N: usize> core::cmp::Eq for hopper::prelude::HopperAuthoringString<'a, N>
+impl<'a, const N: usize> core::cmp::PartialEq for hopper::prelude::HopperAuthoringString<'a, N>
+impl<'a, const N: usize> core::default::Default for hopper::prelude::HopperAuthoringString<'a, N>
+impl<'a, const N: usize> core::marker::Copy for hopper::prelude::HopperAuthoringString<'a, N>
+impl<'a, const N: usize> core::marker::Freeze for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Send for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> core::marker::StructuralPartialEq for hopper::prelude::HopperAuthoringString<'a, N>
+impl<'a, const N: usize> core::marker::Sync for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> core::marker::Unpin for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> core::marker::UnsafeUnpin for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> core::panic::unwind_safe::UnwindSafe for hopper::prelude::HopperAuthoringString<'a, N> [auto]
+impl<'a, const N: usize> hopper_runtime::tail::TailCodec for hopper::prelude::HopperAuthoringString<'a, N>
+macro hopper::hopper_dynamic_fields! macro_rules! hopper_dynamic_fields { ( $(#[$meta:meta])* $vis:vis struct $name:ident { $($body:tt)* } ) => { ... }; }
+macro hopper::hopper_dynamic_tail! macro_rules! hopper_dynamic_tail { ( $(#[$meta:meta])* $vis:vis struct $name:ident { $( $field:ident : $ty:ty ),* $(,)? } ) => { ... }; }
+macro hopper::hopper_load! macro_rules! hopper_load { ( $slice:expr => [ $($binding:ident),+ $(, ..)? $(,)? ] ) => { ... }; }
+macro hopper::interface_account_set! macro_rules! interface_account_set { ( $(#[$marker_meta:meta])* $vis:vis struct $marker:ident : $interface:ty; $(#[$resolved_meta:meta])* $enum_vis:vis enum $resolved:ident { $($variant:ident($layout:ty)),+ $(,)? } ) => { ... }; }
+macro hopper::program_dispatch! macro_rules! program_dispatch { ($program_mod:ident) => { ... }; }
+macro hopper::program_manifest! macro_rules! program_manifest { ( program = $program_mod:ident $(, name = $name:expr)? $(, version = $version:expr)? $(, description = $description:expr)? $(, layouts = [ $($layout:ty),* $(,)? ])? $(, events = [ $($event:ty),* $(,)? ])? $(,)? ) => { ... }; }
+macro hopper::systems::hopper_dynamic_fields! macro_rules! hopper_dynamic_fields { ( $(#[$meta:meta])* $vis:vis struct $name:ident { $($body:tt)* } ) => { ... }; }
+macro hopper::systems::hopper_dynamic_tail! macro_rules! hopper_dynamic_tail { ( $(#[$meta:meta])* $vis:vis struct $name:ident { $( $field:ident : $ty:ty ),* $(,)? } ) => { ... }; }
+macro hopper::systems::hopper_load! macro_rules! hopper_load { ( $slice:expr => [ $($binding:ident),+ $(, ..)? $(,)? ] ) => { ... }; }
+pub const fn hopper::prelude::HopperAuthoringString::as_hopper(&self) -> &hopper_runtime::tail::HopperString<N>
+pub const fn hopper::prelude::HopperAuthoringString::empty() -> Self
+pub const fn hopper::prelude::HopperAuthoringString::from_hopper(inner: hopper_runtime::tail::HopperString<N>) -> Self
+pub const fn hopper::prelude::HopperAuthoringVec::as_hopper(&self) -> &hopper_runtime::tail::HopperVec<T, N>
+pub const fn hopper::prelude::HopperAuthoringVec::from_hopper(inner: hopper_runtime::tail::HopperVec<T, N>) -> Self
+pub fn hopper::events::emit_receipt(data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::events::emit_tagged_receipt(tag: u8, data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::events::emit_typed_receipt<T: hopper::events::Receipt>(receipt: &T) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require(cond: bool, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_address(account: &hopper_runtime::account::AccountView<'_>, expected: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_data_len(account: &hopper_runtime::account::AccountView<'_>, min_len: usize) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_disc(account: &hopper_runtime::account::AccountView<'_>, expected: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_eq<T: core::cmp::PartialEq>(a: T, b: T, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_gt<T: core::cmp::PartialOrd>(a: T, b: T, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_gte<T: core::cmp::PartialOrd>(a: T, b: T, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_has_data(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_keys_eq(a: &hopper_runtime::address::Address, b: &hopper_runtime::address::Address, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_keys_neq(a: &hopper_runtime::address::Address, b: &hopper_runtime::address::Address, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_layout<T: hopper_runtime::layout::LayoutContract>(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_neq<T: core::cmp::PartialEq>(a: T, b: T, err: hopper_runtime::error::ProgramError) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_owner(account: &hopper_runtime::account::AccountView<'_>, owner: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_payer(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_signer(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_unique_2(a: &hopper_runtime::account::AccountView<'_>, b: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_unique_3(a: &hopper_runtime::account::AccountView<'_>, b: &hopper_runtime::account::AccountView<'_>, c: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_version<T: hopper_runtime::layout::LayoutContract>(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::guards::require_writable(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper::prelude::HopperAuthoringString::as_bytes(&self) -> &[u8]
+pub fn hopper::prelude::HopperAuthoringString::as_str(&self) -> hopper::prelude::Result<&str>
+pub fn hopper::prelude::HopperAuthoringString::from_str(value: &str) -> hopper::prelude::Result<Self>
+pub fn hopper::prelude::HopperAuthoringString::into_hopper(self) -> hopper_runtime::tail::HopperString<N>
+pub fn hopper::prelude::HopperAuthoringString::set_str(&mut self, value: &str) -> hopper::prelude::Result<()>
+pub fn hopper::prelude::HopperAuthoringVec::as_slice(&self) -> &[T]
+pub fn hopper::prelude::HopperAuthoringVec::empty() -> Self
+pub fn hopper::prelude::HopperAuthoringVec::into_hopper(self) -> hopper_runtime::tail::HopperVec<T, N>
+pub fn hopper::prelude::HopperAuthoringVec::push(&mut self, value: T) -> hopper::prelude::Result<()>
+pub fn hopper::prelude::HopperAuthoringVec::push_unique(&mut self, value: T) -> hopper::prelude::Result<bool>
+pub fn hopper::prelude::HopperAuthoringVec::remove_first(&mut self, value: &T) -> bool
+pub fn hopper::receipt::emit_receipt(data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::receipt::emit_tagged_receipt(tag: u8, data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::receipt::emit_typed_receipt<T: hopper::events::Receipt>(receipt: &T) -> hopper_runtime::result::ProgramResult
+pub fn hopper::receipts::emit_receipt(data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::receipts::emit_tagged_receipt(tag: u8, data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::receipts::emit_typed_receipt<T: hopper::events::Receipt>(receipt: &T) -> hopper_runtime::result::ProgramResult
+pub fn hopper::receipts::set_return_data(data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::systems::emit_receipt(data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::systems::emit_tagged_receipt(tag: u8, data: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper::systems::emit_typed_receipt<T: hopper::events::Receipt>(receipt: &T) -> hopper_runtime::result::ProgramResult
+pub mod hopper::account
+pub mod hopper::associated_token
+pub mod hopper::compute
+pub mod hopper::context
+pub mod hopper::cpi
+pub mod hopper::crypto
+pub mod hopper::events
+pub mod hopper::guards
+pub mod hopper::heap
+pub mod hopper::interface
+pub mod hopper::layout
+pub mod hopper::manifest
+pub mod hopper::math
+pub mod hopper::memo
+pub mod hopper::memory
+pub mod hopper::migration
+pub mod hopper::pda
+pub mod hopper::policy
+pub mod hopper::prelude
+pub mod hopper::prelude::associated_token
+pub mod hopper::prelude::compute
+pub mod hopper::prelude::cpi
+pub mod hopper::prelude::crypto
+pub mod hopper::prelude::events
+pub mod hopper::prelude::memo
+pub mod hopper::prelude::pda
+pub mod hopper::prelude::return_data
+pub mod hopper::prelude::system
+pub mod hopper::prelude::sysvar
+pub mod hopper::prelude::token
+pub mod hopper::prelude::token_2022
+pub mod hopper::receipt
+pub mod hopper::receipts
+pub mod hopper::return_data
+pub mod hopper::schema
+pub mod hopper::segment
+pub mod hopper::substrate
+pub mod hopper::substrate::compute
+pub mod hopper::substrate::crypto
+pub mod hopper::substrate::hopper_return_data
+pub mod hopper::substrate::memory
+pub mod hopper::system
+pub mod hopper::systems
+pub mod hopper::systems::compute
+pub mod hopper::systems::crypto
+pub mod hopper::systems::interface
+pub mod hopper::systems::layout
+pub mod hopper::systems::math
+pub mod hopper::systems::memory
+pub mod hopper::systems::migration
+pub mod hopper::systems::policy
+pub mod hopper::systems::receipt
+pub mod hopper::systems::return_data
+pub mod hopper::systems::schema
+pub mod hopper::systems::segment
+pub mod hopper::sysvar
+pub mod hopper::token
+pub mod hopper::token_2022
+pub struct hopper::prelude::HopperAuthoringString<'a, const N: usize> { .. }
+pub struct hopper::prelude::HopperAuthoringVec<'a, T, const N: usize> where T: hopper_runtime::tail::TailCodec + core::marker::Copy + core::default::Default { .. }
+pub trait hopper::events::Receipt
+pub trait hopper::receipt::Receipt
+pub trait hopper::receipts::Receipt
+pub trait hopper::systems::Receipt
+pub type hopper::account::System = hopper_runtime::account_wrappers::SystemId
+pub type hopper::prelude::List<T, const N: usize> = hopper_runtime::tail::HopperVec<T, N>
+pub type hopper::prelude::Pubkey = hopper_runtime::address::Address
+pub type hopper::prelude::Result<T = (), E = hopper_runtime::error::ProgramError> = core::result::Result<T, E>
+pub type hopper::prelude::String<'a, const N: usize> = hopper::prelude::HopperAuthoringString<'a, N>
+pub type hopper::prelude::System = hopper_runtime::account_wrappers::SystemId
+pub type hopper::prelude::Text<const N: usize> = hopper_runtime::tail::HopperString<N>
+pub type hopper::prelude::Vec<'a, T, const N: usize> = hopper::prelude::HopperAuthoringVec<'a, T, N>
+pub use hopper::account::Account = hopper_runtime::account_wrappers::Account
+pub use hopper::account::AccountView = hopper_runtime::account::AccountView
+pub use hopper::account::Authority = hopper_core::abi::typed_address::Authority
+pub use hopper::account::COMPACT_BODY_OFFSET = hopper_runtime::compact::COMPACT_BODY_OFFSET
+pub use hopper::account::CompactDynamicLayout = hopper_runtime::compact::CompactDynamicLayout
+pub use hopper::account::CompactLayout = hopper_runtime::compact::CompactLayout
+pub use hopper::account::ExplainExternal = hopper_runtime::foreign::ExplainExternal
+pub use hopper::account::ExternalAccount = hopper_runtime::foreign::ExternalAccount
+pub use hopper::account::ExternalBytes = hopper_runtime::foreign::ExternalBytes
+pub use hopper::account::ExternalChecked = hopper_runtime::foreign::ExternalChecked
+pub use hopper::account::ExternalExplainSink = hopper_runtime::foreign::ExternalExplainSink
+pub use hopper::account::ExternalLens = hopper_runtime::foreign::ExternalLens
+pub use hopper::account::ExternalLensValue = hopper_runtime::foreign::ExternalLensValue
+pub use hopper::account::ExternalProof = hopper_runtime::foreign::ExternalProof
+pub use hopper::account::ExternalResolve = hopper_runtime::foreign::ExternalResolve
+pub use hopper::account::ExternalZeroCopy = hopper_runtime::foreign::ExternalZeroCopy
+pub use hopper::account::HopperAccount = hopper_core::accounts::hopper_account::HopperAccount
+pub use hopper::account::HopperAccounts = hopper_core::accounts::context::HopperAccounts
+pub use hopper::account::HopperCtx = hopper_core::accounts::context::HopperCtx
+pub use hopper::account::HopperIx = hopper_core::accounts::entry::HopperIx
+pub use hopper::account::InitAccount = hopper_runtime::account_wrappers::InitAccount
+pub use hopper::account::Interface = hopper_runtime::account_wrappers::Interface
+pub use hopper::account::InterfaceAccount = hopper_runtime::account_wrappers::InterfaceAccount
+pub use hopper::account::InterfaceAccountLayout = hopper_runtime::account_wrappers::InterfaceAccountLayout
+pub use hopper::account::InterfaceAccountResolve = hopper_runtime::account_wrappers::InterfaceAccountResolve
+pub use hopper::account::InterfaceSpec = hopper_runtime::account_wrappers::InterfaceSpec
+pub use hopper::account::Mint = hopper_core::abi::typed_address::Mint
+pub use hopper::account::Program = hopper_runtime::account_wrappers::Program
+pub use hopper::account::ProgramAccount = hopper_core::accounts::program_account::ProgramAccount
+pub use hopper::account::ProgramId = hopper_runtime::account_wrappers::ProgramId
+pub use hopper::account::ProgramRef = hopper_core::accounts::program::ProgramRef
+pub use hopper::account::SegmentedAccount = hopper_core::accounts::segmented::SegmentedAccount
+pub use hopper::account::Signer = hopper_runtime::account_wrappers::Signer
+pub use hopper::account::SignerAccount = hopper_core::accounts::signer::SignerAccount
+pub use hopper::account::SystemAccount = hopper_runtime::account_wrappers::SystemAccount
+pub use hopper::account::SystemId = hopper_runtime::account_wrappers::SystemId
+pub use hopper::account::Token = hopper_core::abi::typed_address::Token
+pub use hopper::account::TokenAccount = hopper_core::abi::typed_address::TokenAccount
+pub use hopper::account::TypedAddress = hopper_core::abi::typed_address::TypedAddress
+pub use hopper::account::UncheckedAccount = hopper_runtime::account_wrappers::UncheckedAccount
+pub use hopper::account::UntypedAddress = hopper_core::abi::typed_address::UntypedAddress
+pub use hopper::account::ValidateAccount = hopper_core::accounts::traits::ValidateAccount
+pub use hopper::address = hopper_runtime::address
+pub use hopper::associated_token::* = hopper_associated_token::*
+pub use hopper::associated_token::ATA_PROGRAM_ID = hopper_solana::constants::ATA_PROGRAM_ID
+pub use hopper::compute::* = hopper_runtime::compute::*
+pub use hopper::const_assert_pod = hopper_macros::const_assert_pod
+pub use hopper::const_pda = hopper_runtime::const_pda
+pub use hopper::context::Context = hopper_runtime::context::Context
+pub use hopper::context::HopperAccounts = hopper_core::accounts::context::HopperAccounts
+pub use hopper::context::HopperCtx = hopper_core::accounts::context::HopperCtx
+pub use hopper::context::HopperIx = hopper_core::accounts::entry::HopperIx
+pub use hopper::context::ScopedContext = hopper_runtime::context::ScopedContext
+pub use hopper::context::hopper_entry = hopper_core::accounts::entry::hopper_entry
+pub use hopper::cpi::* = hopper_core::cpi::*
+pub use hopper::cpi::CpiAccount = hopper_runtime::instruction::CpiAccount
+pub use hopper::cpi::DynCpi = hopper_runtime::dyn_cpi::DynCpi
+pub use hopper::cpi::InstructionAccount = hopper_runtime::instruction::InstructionAccount
+pub use hopper::cpi::InstructionView = hopper_runtime::instruction::InstructionView
+pub use hopper::cpi::MAX_CPI_ACCOUNTS = hopper_runtime::cpi::MAX_CPI_ACCOUNTS
+pub use hopper::cpi::MAX_RETURN_DATA = hopper_runtime::return_data::MAX_RETURN_DATA
+pub use hopper::cpi::MAX_STATIC_CPI_ACCOUNTS = hopper_runtime::cpi::MAX_STATIC_CPI_ACCOUNTS
+pub use hopper::cpi::ReturnData = hopper_runtime::return_data::ReturnData
+pub use hopper::cpi::Seed = hopper_runtime::instruction::Seed
+pub use hopper::cpi::Signer = hopper_runtime::instruction::Signer
+pub use hopper::cpi::StoredAccountMeta = hopper_runtime::instruction::StoredAccountMeta
+pub use hopper::cpi::StoredInstruction = hopper_runtime::instruction::StoredInstruction
+pub use hopper::cpi::get_return_data = hopper_runtime::return_data::get_return_data
+pub use hopper::cpi::invoke = hopper_runtime::cpi::invoke
+pub use hopper::cpi::invoke_checked = hopper_runtime::cpi::invoke_checked
+pub use hopper::cpi::invoke_signed = hopper_runtime::cpi::invoke_signed
+pub use hopper::cpi::invoke_signed_checked = hopper_runtime::cpi::invoke_signed_checked
+pub use hopper::cpi::invoke_signed_unchecked = hopper_runtime::cpi::invoke_signed_unchecked
+pub use hopper::cpi::invoke_signed_with_bounds = hopper_runtime::cpi::invoke_signed_with_bounds
+pub use hopper::cpi::invoke_unchecked = hopper_runtime::cpi::invoke_unchecked
+pub use hopper::cpi::invoke_with_bounds = hopper_runtime::cpi::invoke_with_bounds
+pub use hopper::cpi::set_return_data = hopper_runtime::return_data::set_return_data
+pub use hopper::cpi::try_set_return_data = hopper_runtime::return_data::try_set_return_data
+pub use hopper::crypto::* = hopper_solana::crypto::secp256k1::*
+pub use hopper::declare_id = hopper_runtime::declare_id
+pub use hopper::default_allocator = hopper_runtime::default_allocator
+pub use hopper::err = hopper_runtime::err
+pub use hopper::error = hopper_runtime::error
+pub use hopper::events::emit_event = hopper_core::event::emit_event
+pub use hopper::events::emit_event_tagged = hopper_core::event::emit_event_tagged
+pub use hopper::events::emit_slices = hopper_core::event::emit_slices
+pub use hopper::events::hopper_emit_cpi = hopper_runtime::hopper_emit_cpi
+pub use hopper::events::hopper_log = hopper_runtime::hopper_log
+pub use hopper::events::msg = hopper_runtime::msg
+pub use hopper::fast_entrypoint = hopper_runtime::fast_entrypoint
+pub use hopper::heap::* = hopper_native::heap::*
+pub use hopper::heap::BumpAllocator = hopper_native::entrypoint::BumpAllocator
+pub use hopper::heap::HEAP_LENGTH = hopper_native::entrypoint::HEAP_LENGTH
+pub use hopper::heap::MAX_HEAP_LENGTH = hopper_native::entrypoint::MAX_HEAP_LENGTH
+pub use hopper::hopper_accounts = hopper_macros::hopper_accounts
+pub use hopper::hopper_assert_compatible = hopper_macros::hopper_assert_compatible
+pub use hopper::hopper_assert_fingerprint = hopper_macros::hopper_assert_fingerprint
+pub use hopper::hopper_associated_token = hopper_associated_token
+pub use hopper::hopper_check = hopper_macros::hopper_check
+pub use hopper::hopper_close = hopper_macros::hopper_close
+pub use hopper::hopper_core = hopper_core
+pub use hopper::hopper_dispatch = hopper_core::hopper_dispatch
+pub use hopper::hopper_emit_cpi = hopper_runtime::hopper_emit_cpi
+pub use hopper::hopper_entrypoint = hopper_runtime::hopper_entrypoint
+pub use hopper::hopper_error = hopper_macros::hopper_error
+pub use hopper::hopper_exact_entrypoint = hopper_runtime::hopper_exact_entrypoint
+pub use hopper::hopper_fast_entrypoint = hopper_runtime::hopper_fast_entrypoint
+pub use hopper::hopper_init = hopper_macros::hopper_init
+pub use hopper::hopper_interface = hopper_macros::hopper_interface
+pub use hopper::hopper_invariant = hopper_macros::hopper_invariant
+pub use hopper::hopper_layout = hopper_macros::hopper_layout
+pub use hopper::hopper_lazy_entrypoint = hopper_runtime::hopper_lazy_entrypoint
+pub use hopper::hopper_log = hopper_runtime::hopper_log
+pub use hopper::hopper_manifest = hopper_macros::hopper_manifest
+pub use hopper::hopper_register_discs = hopper_macros::hopper_register_discs
+pub use hopper::hopper_require = hopper_macros::hopper_require
+pub use hopper::hopper_runtime = hopper_runtime
+pub use hopper::hopper_schema = hopper_schema
+pub use hopper::hopper_segment = hopper_macros::hopper_segment
+pub use hopper::hopper_solana = hopper_solana
+pub use hopper::hopper_system = hopper_system
+pub use hopper::hopper_token = hopper_token
+pub use hopper::hopper_token_2022 = hopper_token_2022
+pub use hopper::hopper_unsafe_region = hopper_runtime::hopper_unsafe_region
+pub use hopper::hopper_validate = hopper_macros::hopper_validate
+pub use hopper::hopper_verify_pda = hopper_macros::hopper_verify_pda
+pub use hopper::hopper_virtual = hopper_macros::hopper_virtual
+pub use hopper::interface::* = hopper_solana::interface::*
+pub use hopper::interface::ExplainExternal = hopper_runtime::foreign::ExplainExternal
+pub use hopper::interface::ExternalAccount = hopper_runtime::foreign::ExternalAccount
+pub use hopper::interface::ExternalBytes = hopper_runtime::foreign::ExternalBytes
+pub use hopper::interface::ExternalChecked = hopper_runtime::foreign::ExternalChecked
+pub use hopper::interface::ExternalExplainSink = hopper_runtime::foreign::ExternalExplainSink
+pub use hopper::interface::ExternalLens = hopper_runtime::foreign::ExternalLens
+pub use hopper::interface::ExternalLensValue = hopper_runtime::foreign::ExternalLensValue
+pub use hopper::interface::ExternalProof = hopper_runtime::foreign::ExternalProof
+pub use hopper::interface::ExternalResolve = hopper_runtime::foreign::ExternalResolve
+pub use hopper::interface::ExternalZeroCopy = hopper_runtime::foreign::ExternalZeroCopy
+pub use hopper::interface::ForeignLens = hopper_runtime::foreign::ForeignLens
+pub use hopper::interface::ForeignManifest = hopper_runtime::foreign::ForeignManifest
+pub use hopper::interface::Interface = hopper_runtime::account_wrappers::Interface
+pub use hopper::interface::InterfaceAccount = hopper_runtime::account_wrappers::InterfaceAccount
+pub use hopper::interface::InterfaceAccountLayout = hopper_runtime::account_wrappers::InterfaceAccountLayout
+pub use hopper::interface::InterfaceAccountResolve = hopper_runtime::account_wrappers::InterfaceAccountResolve
+pub use hopper::interface::InterfaceSpec = hopper_runtime::account_wrappers::InterfaceSpec
+pub use hopper::interface::TransparentAddress = hopper_runtime::interop::TransparentAddress
+pub use hopper::layout::AccountHeader = hopper_core::account::header::AccountHeader
+pub use hopper::layout::AccountLayout = hopper_runtime::zerocopy::AccountLayout
+pub use hopper::layout::AccountReader = hopper_core::account::reader::AccountReader
+pub use hopper::layout::FieldInfo = hopper_runtime::field_map::FieldInfo
+pub use hopper::layout::FieldMap = hopper_runtime::field_map::FieldMap
+pub use hopper::layout::FingerprintTransition = hopper_core::abi::FingerprintTransition
+pub use hopper::layout::FixedLayout = hopper_core::account::pod::FixedLayout
+pub use hopper::layout::HEADER_FORMAT = hopper_core::account::header::HEADER_FORMAT
+pub use hopper::layout::HEADER_LEN = hopper_core::account::header::HEADER_LEN
+pub use hopper::layout::HopperHeader = hopper_runtime::layout::HopperHeader
+pub use hopper::layout::LayoutContract = hopper_runtime::layout::LayoutContract
+pub use hopper::layout::LayoutFingerprint = hopper_core::abi::LayoutFingerprint
+pub use hopper::layout::LayoutInfo = hopper_runtime::layout::LayoutInfo
+pub use hopper::layout::Pod = hopper_native::pod::Pod
+pub use hopper::layout::WireLayout = hopper_runtime::zerocopy::WireLayout
+pub use hopper::layout::WireType = hopper_core::abi::WireType
+pub use hopper::layout::ZeroCopy = hopper_runtime::zerocopy::ZeroCopy
+pub use hopper::layout::check_header = hopper_core::account::header::check_header
+pub use hopper::layout::effective_schema_epoch = hopper_runtime::layout::effective_schema_epoch
+pub use hopper::layout::init_header = hopper_runtime::layout::init_header
+pub use hopper::layout::read_discriminator = hopper_core::account::header::read_discriminator
+pub use hopper::layout::read_header_flags = hopper_core::account::header::read_header_flags
+pub use hopper::layout::read_layout_id = hopper_core::account::header::read_layout_id
+pub use hopper::layout::read_schema_epoch = hopper_runtime::layout::read_schema_epoch
+pub use hopper::layout::read_version = hopper_core::account::header::read_version
+pub use hopper::layout::write_header = hopper_core::account::header::write_header
+pub use hopper::layout::write_header_with_epoch = hopper_runtime::layout::write_header_with_epoch
+pub use hopper::layout_migrations = hopper_runtime::layout_migrations
+pub use hopper::lazy_entrypoint = hopper_runtime::lazy_entrypoint
+pub use hopper::manifest::* = hopper_core::manifest::*
+pub use hopper::math::* = hopper_core::math::*
+pub use hopper::memo::* = hopper_memo::*
+pub use hopper::memory::* = hopper_runtime::memory::*
+pub use hopper::migrate_chain = hopper_runtime::migrate_chain
+pub use hopper::migration::LayoutMigration = hopper_runtime::migrate::LayoutMigration
+pub use hopper::migration::MigrationEdge = hopper_runtime::migrate::MigrationEdge
+pub use hopper::migration::apply_pending_migrations = hopper_runtime::migrate::apply_pending_migrations
+pub use hopper::migration::ensure_fits_with_rent = hopper_runtime::migrate::ensure_fits_with_rent
+pub use hopper::migration::migrate_layout = hopper_runtime::migrate::migrate_layout
+pub use hopper::migration::migrate_layout_resizing = hopper_runtime::migrate::migrate_layout_resizing
+pub use hopper::migration::validate_header_for_epoch_migration = hopper_runtime::migrate::validate_header_for_epoch_migration
+pub use hopper::msg = hopper_runtime::msg
+pub use hopper::no_allocator = hopper_runtime::no_allocator
+pub use hopper::nostd_panic_handler = hopper_runtime::nostd_panic_handler
+pub use hopper::pda::MAX_SEED_LEN = hopper_runtime::pda::MAX_SEED_LEN
+pub use hopper::pda::const_program_address = hopper_runtime::pda::const_program_address
+pub use hopper::pda::create_program_address = hopper_runtime::pda::create_program_address
+pub use hopper::pda::create_with_seed = hopper_runtime::pda::create_with_seed
+pub use hopper::pda::find_bump_for_address = hopper_runtime::pda::find_bump_for_address
+pub use hopper::pda::find_canonical_bump_checked = hopper_runtime::pda::find_canonical_bump_checked
+pub use hopper::pda::find_program_address = hopper_runtime::pda::find_program_address
+pub use hopper::pda::find_program_address_const = hopper_runtime::pda::find_program_address_const
+pub use hopper::pda::verify_address_with_seed = hopper_runtime::pda::verify_address_with_seed
+pub use hopper::pda::verify_pda = hopper_runtime::pda::verify_pda
+pub use hopper::pda::verify_pda_address = hopper_runtime::pda::verify_pda_address
+pub use hopper::pda::verify_pda_address_checked = hopper_runtime::pda::verify_pda_address_checked
+pub use hopper::pda::verify_pda_address_cold = hopper_runtime::pda::verify_pda_address_cold
+pub use hopper::pda::verify_pda_with_bump = hopper_runtime::pda::verify_pda_with_bump
+pub use hopper::policy::HopperInstructionPolicy = hopper_runtime::policy::HopperInstructionPolicy
+pub use hopper::policy::HopperProgramPolicy = hopper_runtime::policy::HopperProgramPolicy
+pub use hopper::policy::HopperProgramProfile = hopper_runtime::policy::HopperProgramProfile
+pub use hopper::prelude::ATA_PROGRAM_ID = hopper_solana::constants::ATA_PROGRAM_ID
+pub use hopper::prelude::Account = hopper_runtime::account_wrappers::Account
+pub use hopper::prelude::AccountFields = hopper_runtime::layout::AccountFields
+pub use hopper::prelude::AccountView = hopper_runtime::account::AccountView
+pub use hopper::prelude::Address = hopper_runtime::address::Address
+pub use hopper::prelude::Clock = hopper_native::sysvar::Clock
+pub use hopper::prelude::Context = hopper_runtime::context::Context
+pub use hopper::prelude::Ctx = hopper_runtime::context::Context
+pub use hopper::prelude::EnumByte = hopper_runtime::enum_byte::EnumByte
+pub use hopper::prelude::ExplainExternal = hopper_runtime::foreign::ExplainExternal
+pub use hopper::prelude::ExternalAccount = hopper_runtime::foreign::ExternalAccount
+pub use hopper::prelude::ExternalBytes = hopper_runtime::foreign::ExternalBytes
+pub use hopper::prelude::ExternalChecked = hopper_runtime::foreign::ExternalChecked
+pub use hopper::prelude::ExternalExplainSink = hopper_runtime::foreign::ExternalExplainSink
+pub use hopper::prelude::ExternalLens = hopper_runtime::foreign::ExternalLens
+pub use hopper::prelude::ExternalLensValue = hopper_runtime::foreign::ExternalLensValue
+pub use hopper::prelude::ExternalProof = hopper_runtime::foreign::ExternalProof
+pub use hopper::prelude::ExternalResolve = hopper_runtime::foreign::ExternalResolve
+pub use hopper::prelude::ExternalZeroCopy = hopper_runtime::foreign::ExternalZeroCopy
+pub use hopper::prelude::HopperString = hopper_runtime::tail::HopperString
+pub use hopper::prelude::HopperVec = hopper_runtime::tail::HopperVec
+pub use hopper::prelude::InitAccount = hopper_runtime::account_wrappers::InitAccount
+pub use hopper::prelude::Interface = hopper_runtime::account_wrappers::Interface
+pub use hopper::prelude::InterfaceAccount = hopper_runtime::account_wrappers::InterfaceAccount
+pub use hopper::prelude::InterfaceAccountLayout = hopper_runtime::account_wrappers::InterfaceAccountLayout
+pub use hopper::prelude::InterfaceAccountResolve = hopper_runtime::account_wrappers::InterfaceAccountResolve
+pub use hopper::prelude::InterfaceMint = hopper_solana::interface::InterfaceMint
+pub use hopper::prelude::InterfaceSpec = hopper_runtime::account_wrappers::InterfaceSpec
+pub use hopper::prelude::InterfaceTokenAccount = hopper_solana::interface::InterfaceTokenAccount
+pub use hopper::prelude::LazyContext = hopper_runtime::lazy::LazyContext
+pub use hopper::prelude::MAX_MEMO_SIGNERS = hopper_memo::MAX_MEMO_SIGNERS
+pub use hopper::prelude::MEMO_PROGRAM_ID = hopper_memo::MEMO_PROGRAM_ID
+pub use hopper::prelude::Memo = hopper_memo::Memo
+pub use hopper::prelude::OptionByte = hopper_runtime::option_byte::OptionByte
+pub use hopper::prelude::Pod = hopper_native::pod::Pod
+pub use hopper::prelude::Program = hopper_runtime::account_wrappers::Program
+pub use hopper::prelude::ProgramError = hopper_runtime::error::ProgramError
+pub use hopper::prelude::ProgramId = hopper_runtime::account_wrappers::ProgramId
+pub use hopper::prelude::ProgramResult = hopper_runtime::result::ProgramResult
+pub use hopper::prelude::Ref = hopper_runtime::borrow::Ref
+pub use hopper::prelude::Rent = hopper_native::sysvar::Rent
+pub use hopper::prelude::SYSTEM_PROGRAM_ID = hopper_runtime::system::SYSTEM_PROGRAM_ID
+pub use hopper::prelude::ScopedContext = hopper_runtime::context::ScopedContext
+pub use hopper::prelude::Signer = hopper_runtime::account_wrappers::Signer
+pub use hopper::prelude::SystemAccount = hopper_runtime::account_wrappers::SystemAccount
+pub use hopper::prelude::SystemId = hopper_runtime::account_wrappers::SystemId
+pub use hopper::prelude::TOKEN_2022_PROGRAM_ID = hopper_solana::constants::TOKEN_2022_PROGRAM_ID
+pub use hopper::prelude::TOKEN_PROGRAM_ID = hopper_runtime::token::TOKEN_PROGRAM_ID
+pub use hopper::prelude::TailBytes = hopper_runtime::tail::TailBytes
+pub use hopper::prelude::TailCodec = hopper_runtime::tail::TailCodec
+pub use hopper::prelude::TailElement = hopper_runtime::tail::TailElement
+pub use hopper::prelude::TailStr = hopper_runtime::tail::TailStr
+pub use hopper::prelude::TokenProgramKind = hopper_solana::interface::TokenProgramKind
+pub use hopper::prelude::UncheckedAccount = hopper_runtime::account_wrappers::UncheckedAccount
+pub use hopper::prelude::UnitEnum = hopper_runtime::enum_byte::UnitEnum
+pub use hopper::prelude::WireBool = hopper_core::abi::boolean::WireBool
+pub use hopper::prelude::WireI128 = hopper_core::abi::integers::WireI128
+pub use hopper::prelude::WireI16 = hopper_core::abi::integers::WireI16
+pub use hopper::prelude::WireI32 = hopper_core::abi::integers::WireI32
+pub use hopper::prelude::WireI64 = hopper_core::abi::integers::WireI64
+pub use hopper::prelude::WireU128 = hopper_core::abi::integers::WireU128
+pub use hopper::prelude::WireU16 = hopper_core::abi::integers::WireU16
+pub use hopper::prelude::WireU32 = hopper_core::abi::integers::WireU32
+pub use hopper::prelude::WireU64 = hopper_core::abi::integers::WireU64
+pub use hopper::prelude::Zeroable = hopper_native::pod::Zeroable
+pub use hopper::prelude::address = hopper_runtime::address
+pub use hopper::prelude::const_assert_pod = hopper_macros::const_assert_pod
+pub use hopper::prelude::declare_id = hopper_runtime::declare_id
+pub use hopper::prelude::default_allocator = hopper_runtime::default_allocator
+pub use hopper::prelude::err = hopper_runtime::err
+pub use hopper::prelude::error = hopper_runtime::error
+pub use hopper::prelude::fast_entrypoint = hopper_runtime::fast_entrypoint
+pub use hopper::prelude::hopper_emit_cpi = hopper_runtime::hopper_emit_cpi
+pub use hopper::prelude::hopper_entrypoint = hopper_runtime::hopper_entrypoint
+pub use hopper::prelude::hopper_fast_entrypoint = hopper_runtime::hopper_fast_entrypoint
+pub use hopper::prelude::hopper_lazy_entrypoint = hopper_runtime::hopper_lazy_entrypoint
+pub use hopper::prelude::hopper_log = hopper_runtime::hopper_log
+pub use hopper::prelude::interface_transfer_checked = hopper_solana::interface::interface_transfer_checked
+pub use hopper::prelude::interface_transfer_checked_signed = hopper_solana::interface::interface_transfer_checked_signed
+pub use hopper::prelude::interface_transfer_checked_signed_with_program = hopper_solana::interface::interface_transfer_checked_signed_with_program
+pub use hopper::prelude::interface_transfer_checked_with_program = hopper_solana::interface::interface_transfer_checked_with_program
+pub use hopper::prelude::lazy_entrypoint = hopper_runtime::lazy_entrypoint
+pub use hopper::prelude::msg = hopper_runtime::msg
+pub use hopper::prelude::no_allocator = hopper_runtime::no_allocator
+pub use hopper::prelude::nostd_panic_handler = hopper_runtime::nostd_panic_handler
+pub use hopper::prelude::program_entrypoint = hopper_runtime::program_entrypoint
+pub use hopper::prelude::require = hopper_runtime::require
+pub use hopper::prelude::require_eq = hopper_runtime::require_eq
+pub use hopper::prelude::require_gt = hopper_runtime::require_gt
+pub use hopper::prelude::require_gte = hopper_runtime::require_gte
+pub use hopper::prelude::require_keys_eq = hopper_runtime::require_keys_eq
+pub use hopper::prelude::require_keys_neq = hopper_runtime::require_keys_neq
+pub use hopper::prelude::require_lt = hopper_runtime::require_lt
+pub use hopper::prelude::require_lte = hopper_runtime::require_lte
+pub use hopper::prelude::require_neq = hopper_runtime::require_neq
+pub use hopper::prelude::transfer_lamports = hopper_runtime::lamports::transfer_lamports
+pub use hopper::program_entrypoint = hopper_runtime::program_entrypoint
+pub use hopper::require = hopper_runtime::require
+pub use hopper::require_eq = hopper_runtime::require_eq
+pub use hopper::require_gt = hopper_runtime::require_gt
+pub use hopper::require_gte = hopper_runtime::require_gte
+pub use hopper::require_keys_eq = hopper_runtime::require_keys_eq
+pub use hopper::require_keys_neq = hopper_runtime::require_keys_neq
+pub use hopper::require_lt = hopper_runtime::require_lt
+pub use hopper::require_lte = hopper_runtime::require_lte
+pub use hopper::require_neq = hopper_runtime::require_neq
+pub use hopper::return_data::* = hopper_runtime::return_data::*
+pub use hopper::schema::* = hopper_schema::*
+pub use hopper::seeds = hopper_runtime::seeds
+pub use hopper::segment::AccessKind = hopper_runtime::segment_borrow::AccessKind
+pub use hopper::segment::FIELD_POLICY_AUTHORITY_GATED = hopper_runtime::segment::FIELD_POLICY_AUTHORITY_GATED
+pub use hopper::segment::FIELD_POLICY_CHECKED_MATH = hopper_runtime::segment::FIELD_POLICY_CHECKED_MATH
+pub use hopper::segment::FIELD_POLICY_IMMUTABLE_AFTER_INIT = hopper_runtime::segment::FIELD_POLICY_IMMUTABLE_AFTER_INIT
+pub use hopper::segment::FIELD_ROLE_AUTHORITY = hopper_runtime::segment::FIELD_ROLE_AUTHORITY
+pub use hopper::segment::FIELD_ROLE_BALANCE = hopper_runtime::segment::FIELD_ROLE_BALANCE
+pub use hopper::segment::FIELD_ROLE_DATA = hopper_runtime::segment::FIELD_ROLE_DATA
+pub use hopper::segment::FIELD_ROLE_VERSION = hopper_runtime::segment::FIELD_ROLE_VERSION
+pub use hopper::segment::FieldCapability = hopper_runtime::segment::FieldCapability
+pub use hopper::segment::MAX_REGISTRY_SEGMENTS = hopper_core::account::registry::MAX_REGISTRY_SEGMENTS
+pub use hopper::segment::MAX_SEGMENTS = hopper_core::account::segment::MAX_SEGMENTS
+pub use hopper::segment::REGISTRY_HEADER_SIZE = hopper_core::account::registry::REGISTRY_HEADER_SIZE
+pub use hopper::segment::REGISTRY_OFFSET = hopper_core::account::registry::REGISTRY_OFFSET
+pub use hopper::segment::Ref = hopper_runtime::borrow::Ref
+pub use hopper::segment::RefMut = hopper_runtime::borrow::RefMut
+pub use hopper::segment::SEGMENT_DESC_SIZE = hopper_core::account::segment::SEGMENT_DESC_SIZE
+pub use hopper::segment::SEGMENT_ENTRY_SIZE = hopper_core::account::registry::SEGMENT_ENTRY_SIZE
+pub use hopper::segment::SEG_FLAG_DYNAMIC = hopper_core::account::registry::SEG_FLAG_DYNAMIC
+pub use hopper::segment::SEG_FLAG_FROZEN = hopper_core::account::registry::SEG_FLAG_FROZEN
+pub use hopper::segment::SEG_FLAG_LOCKED = hopper_core::account::registry::SEG_FLAG_LOCKED
+pub use hopper::segment::SEG_ROLE_AUDIT = hopper_core::account::segment_role::SEG_ROLE_AUDIT
+pub use hopper::segment::SEG_ROLE_CACHE = hopper_core::account::segment_role::SEG_ROLE_CACHE
+pub use hopper::segment::SEG_ROLE_CORE = hopper_core::account::segment_role::SEG_ROLE_CORE
+pub use hopper::segment::SEG_ROLE_EXTENSION = hopper_core::account::segment_role::SEG_ROLE_EXTENSION
+pub use hopper::segment::SEG_ROLE_INDEX = hopper_core::account::segment_role::SEG_ROLE_INDEX
+pub use hopper::segment::SEG_ROLE_JOURNAL = hopper_core::account::segment_role::SEG_ROLE_JOURNAL
+pub use hopper::segment::SEG_ROLE_SHARD = hopper_core::account::segment_role::SEG_ROLE_SHARD
+pub use hopper::segment::SegRef = hopper_runtime::segment_lease::SegRef
+pub use hopper::segment::SegRefMut = hopper_runtime::segment_lease::SegRefMut
+pub use hopper::segment::Segment = hopper_runtime::segment::Segment
+pub use hopper::segment::SegmentBorrow = hopper_runtime::segment_borrow::SegmentBorrow
+pub use hopper::segment::SegmentBorrowGuard = hopper_runtime::segment_borrow::SegmentBorrowGuard
+pub use hopper::segment::SegmentBorrowRegistry = hopper_runtime::segment_borrow::SegmentBorrowRegistry
+pub use hopper::segment::SegmentDescriptor = hopper_core::account::segment::SegmentDescriptor
+pub use hopper::segment::SegmentEntry = hopper_core::account::registry::SegmentEntry
+pub use hopper::segment::SegmentId = hopper_core::account::registry::SegmentId
+pub use hopper::segment::SegmentLease = hopper_runtime::segment_lease::SegmentLease
+pub use hopper::segment::SegmentMap = hopper_core::segment_map::SegmentMap
+pub use hopper::segment::SegmentRegistry = hopper_core::account::registry::SegmentRegistry
+pub use hopper::segment::SegmentRegistryMut = hopper_core::account::registry::SegmentRegistryMut
+pub use hopper::segment::SegmentRole = hopper_core::account::segment_role::SegmentRole
+pub use hopper::segment::SegmentSlice = hopper_core::account::segment::SegmentSlice
+pub use hopper::segment::SegmentSliceMut = hopper_core::account::segment::SegmentSliceMut
+pub use hopper::segment::SegmentTable = hopper_core::account::segment::SegmentTable
+pub use hopper::segment::SegmentTableMut = hopper_core::account::segment::SegmentTableMut
+pub use hopper::segment::StaticSegment = hopper_core::segment_map::StaticSegment
+pub use hopper::segment::TypedSegment = hopper_runtime::segment::TypedSegment
+pub use hopper::segment::assert_segment_field_alignment = hopper_core::segment_map::assert_segment_field_alignment
+pub use hopper::segment::segment_id = hopper_core::account::registry::segment_id
+pub use hopper::substrate::AccountView = hopper_runtime::account::AccountView
+pub use hopper::substrate::Address = hopper_runtime::address::Address
+pub use hopper::substrate::CpiAccount = hopper_runtime::instruction::CpiAccount
+pub use hopper::substrate::CuBudget = hopper_native::budget::CuBudget
+pub use hopper::substrate::DataFingerprint = hopper_native::verify::DataFingerprint
+pub use hopper::substrate::InstructionAccount = hopper_runtime::instruction::InstructionAccount
+pub use hopper::substrate::InstructionView = hopper_runtime::instruction::InstructionView
+pub use hopper::substrate::LamportSnapshot = hopper_native::verify::LamportSnapshot
+pub use hopper::substrate::NativeAccountView = hopper_native::account_view::AccountView
+pub use hopper::substrate::NativeAddress = hopper_native::address::Address
+pub use hopper::substrate::ProgramError = hopper_runtime::error::ProgramError
+pub use hopper::substrate::ProgramResult = hopper_runtime::result::ProgramResult
+pub use hopper::substrate::Ref = hopper_runtime::borrow::Ref
+pub use hopper::substrate::RefMut = hopper_runtime::borrow::RefMut
+pub use hopper::substrate::RemainingLazy = hopper_runtime::remaining::RemainingLazy
+pub use hopper::substrate::RemainingLazySlot = hopper_runtime::remaining::RemainingLazySlot
+pub use hopper::substrate::ReturnData = hopper_native::return_data::ReturnData
+pub use hopper::substrate::RuntimeAccount = hopper_native::raw_account::RuntimeAccount
+pub use hopper::substrate::SUCCESS = hopper_runtime::SUCCESS
+pub use hopper::substrate::Seed = hopper_runtime::instruction::Seed
+pub use hopper::substrate::Signer = hopper_runtime::instruction::Signer
+pub use hopper::substrate::StoredAccountMeta = hopper_runtime::instruction::StoredAccountMeta
+pub use hopper::substrate::StoredInstruction = hopper_runtime::instruction::StoredInstruction
+pub use hopper::substrate::account_view = hopper_native::account_view
+pub use hopper::substrate::address = hopper_native::address
+pub use hopper::substrate::batch = hopper_native::batch
+pub use hopper::substrate::budget = hopper_native::budget
+pub use hopper::substrate::capability = hopper_native::capability
+pub use hopper::substrate::entrypoint = hopper_native::entrypoint
+pub use hopper::substrate::error = hopper_native::error
+pub use hopper::substrate::find_bump_for_address = hopper_native::pda::find_bump_for_address
+pub use hopper::substrate::hash = hopper_native::hash
+pub use hopper::substrate::introspect = hopper_native::introspect
+pub use hopper::substrate::lazy = hopper_native::lazy
+pub use hopper::substrate::lens = hopper_native::lens
+pub use hopper::substrate::log = hopper_native::log
+pub use hopper::substrate::mem = hopper_native::mem
+pub use hopper::substrate::pda = hopper_native::pda
+pub use hopper::substrate::pod = hopper_native::pod
+pub use hopper::substrate::raw = hopper_native::raw
+pub use hopper::substrate::raw_account = hopper_native::raw_account
+pub use hopper::substrate::raw_input = hopper_native::raw_input
+pub use hopper::substrate::read_bump_from_account = hopper_native::pda::read_bump_from_account
+pub use hopper::substrate::return_data = hopper_native::return_data
+pub use hopper::substrate::safe = hopper_native::safe
+pub use hopper::substrate::syscalls = hopper_native::syscalls
+pub use hopper::substrate::sysvar = hopper_native::sysvar
+pub use hopper::substrate::verify = hopper_native::verify
+pub use hopper::substrate::verify_pda_from_stored_bump = hopper_native::pda::verify_pda_from_stored_bump
+pub use hopper::substrate::verify_pda_strict = hopper_native::pda::verify_pda_strict
+pub use hopper::substrate::wire = hopper_native::wire
+pub use hopper::system::* = hopper_system::*
+pub use hopper::system::SYSTEM_PROGRAM_ID = hopper_runtime::system::SYSTEM_PROGRAM_ID
+pub use hopper::systems::* = hopper_core::prelude_core::*
+pub use hopper::systems::AccessKind = hopper_runtime::segment_borrow::AccessKind
+pub use hopper::systems::AccountHeader = hopper_core::account::header::AccountHeader
+pub use hopper::systems::AccountLayout = hopper_runtime::zerocopy::AccountLayout
+pub use hopper::systems::AccountProof = hopper_runtime::proof::AccountProof
+pub use hopper::systems::AccountReader = hopper_core::account::reader::AccountReader
+pub use hopper::systems::BoundedString = hopper_runtime::tail::BoundedString
+pub use hopper::systems::BoundedVec = hopper_runtime::tail::BoundedVec
+pub use hopper::systems::CLOSE_SENTINEL = hopper_core::account::lifecycle::CLOSE_SENTINEL
+pub use hopper::systems::CpiAccount = hopper_runtime::instruction::CpiAccount
+pub use hopper::systems::DynamicView = hopper_core::account::dynamic::DynamicView
+pub use hopper::systems::DynamicViewMut = hopper_core::account::dynamic::DynamicViewMut
+pub use hopper::systems::ExecutableChecked = hopper_runtime::proof::ExecutableChecked
+pub use hopper::systems::ExplainExternal = hopper_runtime::foreign::ExplainExternal
+pub use hopper::systems::ExternalAccount = hopper_runtime::foreign::ExternalAccount
+pub use hopper::systems::ExternalBytes = hopper_runtime::foreign::ExternalBytes
+pub use hopper::systems::ExternalChecked = hopper_runtime::foreign::ExternalChecked
+pub use hopper::systems::ExternalExplainSink = hopper_runtime::foreign::ExternalExplainSink
+pub use hopper::systems::ExternalLens = hopper_runtime::foreign::ExternalLens
+pub use hopper::systems::ExternalLensValue = hopper_runtime::foreign::ExternalLensValue
+pub use hopper::systems::ExternalProof = hopper_runtime::foreign::ExternalProof
+pub use hopper::systems::ExternalResolve = hopper_runtime::foreign::ExternalResolve
+pub use hopper::systems::ExternalZeroCopy = hopper_runtime::foreign::ExternalZeroCopy
+pub use hopper::systems::FIELD_POLICY_AUTHORITY_GATED = hopper_runtime::segment::FIELD_POLICY_AUTHORITY_GATED
+pub use hopper::systems::FIELD_POLICY_CHECKED_MATH = hopper_runtime::segment::FIELD_POLICY_CHECKED_MATH
+pub use hopper::systems::FIELD_POLICY_IMMUTABLE_AFTER_INIT = hopper_runtime::segment::FIELD_POLICY_IMMUTABLE_AFTER_INIT
+pub use hopper::systems::FIELD_ROLE_AUTHORITY = hopper_runtime::segment::FIELD_ROLE_AUTHORITY
+pub use hopper::systems::FIELD_ROLE_BALANCE = hopper_runtime::segment::FIELD_ROLE_BALANCE
+pub use hopper::systems::FIELD_ROLE_DATA = hopper_runtime::segment::FIELD_ROLE_DATA
+pub use hopper::systems::FIELD_ROLE_VERSION = hopper_runtime::segment::FIELD_ROLE_VERSION
+pub use hopper::systems::FieldCapability = hopper_runtime::segment::FieldCapability
+pub use hopper::systems::FieldInfo = hopper_runtime::field_map::FieldInfo
+pub use hopper::systems::FieldMap = hopper_runtime::field_map::FieldMap
+pub use hopper::systems::FingerprintTransition = hopper_core::abi::FingerprintTransition
+pub use hopper::systems::FixedLayout = hopper_core::account::pod::FixedLayout
+pub use hopper::systems::ForeignLens = hopper_runtime::foreign::ForeignLens
+pub use hopper::systems::ForeignManifest = hopper_runtime::foreign::ForeignManifest
+pub use hopper::systems::HEADER_FORMAT = hopper_core::account::header::HEADER_FORMAT
+pub use hopper::systems::HEADER_LEN = hopper_core::account::header::HEADER_LEN
+pub use hopper::systems::HasOneChecked = hopper_runtime::proof::HasOneChecked
+pub use hopper::systems::HopperHeader = hopper_runtime::layout::HopperHeader
+pub use hopper::systems::HopperInstructionPolicy = hopper_runtime::policy::HopperInstructionPolicy
+pub use hopper::systems::HopperProgramPolicy = hopper_runtime::policy::HopperProgramPolicy
+pub use hopper::systems::HopperProgramProfile = hopper_runtime::policy::HopperProgramProfile
+pub use hopper::systems::HopperString = hopper_runtime::tail::HopperString
+pub use hopper::systems::HopperVec = hopper_runtime::tail::HopperVec
+pub use hopper::systems::InstructionAccount = hopper_runtime::instruction::InstructionAccount
+pub use hopper::systems::InstructionView = hopper_runtime::instruction::InstructionView
+pub use hopper::systems::Interface = hopper_runtime::account_wrappers::Interface
+pub use hopper::systems::InterfaceAccount = hopper_runtime::account_wrappers::InterfaceAccount
+pub use hopper::systems::InterfaceAccountLayout = hopper_runtime::account_wrappers::InterfaceAccountLayout
+pub use hopper::systems::InterfaceAccountResolve = hopper_runtime::account_wrappers::InterfaceAccountResolve
+pub use hopper::systems::InterfaceSpec = hopper_runtime::account_wrappers::InterfaceSpec
+pub use hopper::systems::LayoutChecked = hopper_runtime::proof::LayoutChecked
+pub use hopper::systems::LayoutContract = hopper_runtime::layout::LayoutContract
+pub use hopper::systems::LayoutFingerprint = hopper_core::abi::LayoutFingerprint
+pub use hopper::systems::LayoutInfo = hopper_runtime::layout::LayoutInfo
+pub use hopper::systems::LayoutMigration = hopper_runtime::migrate::LayoutMigration
+pub use hopper::systems::MAX_REGISTRY_SEGMENTS = hopper_core::account::registry::MAX_REGISTRY_SEGMENTS
+pub use hopper::systems::MAX_SEGMENTS = hopper_core::account::segment::MAX_SEGMENTS
+pub use hopper::systems::MigrationEdge = hopper_runtime::migrate::MigrationEdge
+pub use hopper::systems::OwnerChecked = hopper_runtime::proof::OwnerChecked
+pub use hopper::systems::Pod = hopper_native::pod::Pod
+pub use hopper::systems::REGISTRY_HEADER_SIZE = hopper_core::account::registry::REGISTRY_HEADER_SIZE
+pub use hopper::systems::REGISTRY_OFFSET = hopper_core::account::registry::REGISTRY_OFFSET
+pub use hopper::systems::ReallocGuard = hopper_core::account::realloc_guard::ReallocGuard
+pub use hopper::systems::Ref = hopper_runtime::borrow::Ref
+pub use hopper::systems::RefMut = hopper_runtime::borrow::RefMut
+pub use hopper::systems::RemainingExternalAccounts = hopper_runtime::remaining::RemainingExternalAccounts
+pub use hopper::systems::RemainingGroup = hopper_runtime::remaining::RemainingGroup
+pub use hopper::systems::RemainingLazy = hopper_runtime::remaining::RemainingLazy
+pub use hopper::systems::RemainingLazySlot = hopper_runtime::remaining::RemainingLazySlot
+pub use hopper::systems::SEGMENT_DESC_SIZE = hopper_core::account::segment::SEGMENT_DESC_SIZE
+pub use hopper::systems::SEGMENT_ENTRY_SIZE = hopper_core::account::registry::SEGMENT_ENTRY_SIZE
+pub use hopper::systems::SEG_FLAG_DYNAMIC = hopper_core::account::registry::SEG_FLAG_DYNAMIC
+pub use hopper::systems::SEG_FLAG_FROZEN = hopper_core::account::registry::SEG_FLAG_FROZEN
+pub use hopper::systems::SEG_FLAG_LOCKED = hopper_core::account::registry::SEG_FLAG_LOCKED
+pub use hopper::systems::SEG_ROLE_AUDIT = hopper_core::account::segment_role::SEG_ROLE_AUDIT
+pub use hopper::systems::SEG_ROLE_CACHE = hopper_core::account::segment_role::SEG_ROLE_CACHE
+pub use hopper::systems::SEG_ROLE_CORE = hopper_core::account::segment_role::SEG_ROLE_CORE
+pub use hopper::systems::SEG_ROLE_EXTENSION = hopper_core::account::segment_role::SEG_ROLE_EXTENSION
+pub use hopper::systems::SEG_ROLE_INDEX = hopper_core::account::segment_role::SEG_ROLE_INDEX
+pub use hopper::systems::SEG_ROLE_JOURNAL = hopper_core::account::segment_role::SEG_ROLE_JOURNAL
+pub use hopper::systems::SEG_ROLE_SHARD = hopper_core::account::segment_role::SEG_ROLE_SHARD
+pub use hopper::systems::Seed = hopper_runtime::instruction::Seed
+pub use hopper::systems::SeedsChecked = hopper_runtime::proof::SeedsChecked
+pub use hopper::systems::SegRef = hopper_runtime::segment_lease::SegRef
+pub use hopper::systems::SegRefMut = hopper_runtime::segment_lease::SegRefMut
+pub use hopper::systems::Segment = hopper_runtime::segment::Segment
+pub use hopper::systems::SegmentBorrow = hopper_runtime::segment_borrow::SegmentBorrow
+pub use hopper::systems::SegmentBorrowGuard = hopper_runtime::segment_borrow::SegmentBorrowGuard
+pub use hopper::systems::SegmentBorrowRegistry = hopper_runtime::segment_borrow::SegmentBorrowRegistry
+pub use hopper::systems::SegmentDescriptor = hopper_core::account::segment::SegmentDescriptor
+pub use hopper::systems::SegmentEntry = hopper_core::account::registry::SegmentEntry
+pub use hopper::systems::SegmentId = hopper_core::account::registry::SegmentId
+pub use hopper::systems::SegmentLease = hopper_runtime::segment_lease::SegmentLease
+pub use hopper::systems::SegmentMap = hopper_core::segment_map::SegmentMap
+pub use hopper::systems::SegmentRegistry = hopper_core::account::registry::SegmentRegistry
+pub use hopper::systems::SegmentRegistryMut = hopper_core::account::registry::SegmentRegistryMut
+pub use hopper::systems::SegmentRole = hopper_core::account::segment_role::SegmentRole
+pub use hopper::systems::SegmentSlice = hopper_core::account::segment::SegmentSlice
+pub use hopper::systems::SegmentSliceMut = hopper_core::account::segment::SegmentSliceMut
+pub use hopper::systems::SegmentTable = hopper_core::account::segment::SegmentTable
+pub use hopper::systems::SegmentTableMut = hopper_core::account::segment::SegmentTableMut
+pub use hopper::systems::SignerChecked = hopper_runtime::proof::SignerChecked
+pub use hopper::systems::StaticSegment = hopper_core::segment_map::StaticSegment
+pub use hopper::systems::StoredAccountMeta = hopper_runtime::instruction::StoredAccountMeta
+pub use hopper::systems::StoredInstruction = hopper_runtime::instruction::StoredInstruction
+pub use hopper::systems::TailCodec = hopper_runtime::tail::TailCodec
+pub use hopper::systems::TailElement = hopper_runtime::tail::TailElement
+pub use hopper::systems::TokenExtensionsChecked = hopper_runtime::proof::TokenExtensionsChecked
+pub use hopper::systems::TransparentAddress = hopper_runtime::interop::TransparentAddress
+pub use hopper::systems::TypedSegment = hopper_runtime::segment::TypedSegment
+pub use hopper::systems::Unchecked = hopper_runtime::proof::Unchecked
+pub use hopper::systems::VerifiedAccount = hopper_core::account::verified::VerifiedAccount
+pub use hopper::systems::VerifiedAccountMut = hopper_core::account::verified::VerifiedAccountMut
+pub use hopper::systems::WireLayout = hopper_runtime::zerocopy::WireLayout
+pub use hopper::systems::WireType = hopper_core::abi::WireType
+pub use hopper::systems::WritableChecked = hopper_runtime::proof::WritableChecked
+pub use hopper::systems::ZeroCopy = hopper_runtime::zerocopy::ZeroCopy
+pub use hopper::systems::apply_pending_migrations = hopper_runtime::migrate::apply_pending_migrations
+pub use hopper::systems::assert_segment_field_alignment = hopper_core::segment_map::assert_segment_field_alignment
+pub use hopper::systems::check_header = hopper_core::account::header::check_header
+pub use hopper::systems::const_assert_pod = hopper_macros::const_assert_pod
+pub use hopper::systems::default_allocator = hopper_runtime::default_allocator
+pub use hopper::systems::effective_schema_epoch = hopper_runtime::layout::effective_schema_epoch
+pub use hopper::systems::ensure_fits_with_rent = hopper_runtime::migrate::ensure_fits_with_rent
+pub use hopper::systems::fast_entrypoint = hopper_runtime::fast_entrypoint
+pub use hopper::systems::find_and_verify_pda = hopper_core::check::find_and_verify_pda
+pub use hopper::systems::hopper_accounts = hopper_macros::hopper_accounts
+pub use hopper::systems::hopper_assert_compatible = hopper_macros::hopper_assert_compatible
+pub use hopper::systems::hopper_assert_fingerprint = hopper_macros::hopper_assert_fingerprint
+pub use hopper::systems::hopper_check = hopper_macros::hopper_check
+pub use hopper::systems::hopper_close = hopper_macros::hopper_close
+pub use hopper::systems::hopper_entrypoint = hopper_runtime::hopper_entrypoint
+pub use hopper::systems::hopper_error = hopper_macros::hopper_error
+pub use hopper::systems::hopper_exact_entrypoint = hopper_runtime::hopper_exact_entrypoint
+pub use hopper::systems::hopper_fast_entrypoint = hopper_runtime::hopper_fast_entrypoint
+pub use hopper::systems::hopper_init = hopper_macros::hopper_init
+pub use hopper::systems::hopper_interface = hopper_macros::hopper_interface
+pub use hopper::systems::hopper_invariant = hopper_macros::hopper_invariant
+pub use hopper::systems::hopper_layout = hopper_macros::hopper_layout
+pub use hopper::systems::hopper_lazy_entrypoint = hopper_runtime::hopper_lazy_entrypoint
+pub use hopper::systems::hopper_manifest = hopper_macros::hopper_manifest
+pub use hopper::systems::hopper_register_discs = hopper_macros::hopper_register_discs
+pub use hopper::systems::hopper_require = hopper_macros::hopper_require
+pub use hopper::systems::hopper_segment = hopper_macros::hopper_segment
+pub use hopper::systems::hopper_validate = hopper_macros::hopper_validate
+pub use hopper::systems::hopper_verify_pda = hopper_macros::hopper_verify_pda
+pub use hopper::systems::hopper_virtual = hopper_macros::hopper_virtual
+pub use hopper::systems::init_header = hopper_runtime::layout::init_header
+pub use hopper::systems::layout_migrations = hopper_runtime::layout_migrations
+pub use hopper::systems::lazy_entrypoint = hopper_runtime::lazy_entrypoint
+pub use hopper::systems::migrate_layout = hopper_runtime::migrate::migrate_layout
+pub use hopper::systems::migrate_layout_resizing = hopper_runtime::migrate::migrate_layout_resizing
+pub use hopper::systems::no_allocator = hopper_runtime::no_allocator
+pub use hopper::systems::nostd_panic_handler = hopper_runtime::nostd_panic_handler
+pub use hopper::systems::overlay = hopper_core::account::overlay::overlay
+pub use hopper::systems::overlay_mut = hopper_core::account::overlay::overlay_mut
+pub use hopper::systems::program_entrypoint = hopper_runtime::program_entrypoint
+pub use hopper::systems::read_discriminator = hopper_core::account::header::read_discriminator
+pub use hopper::systems::read_dynamic_u16 = hopper_core::account::dynamic::read_dynamic_u16
+pub use hopper::systems::read_dynamic_u32 = hopper_core::account::dynamic::read_dynamic_u32
+pub use hopper::systems::read_dynamic_u8 = hopper_core::account::dynamic::read_dynamic_u8
+pub use hopper::systems::read_header_flags = hopper_core::account::header::read_header_flags
+pub use hopper::systems::read_layout_id = hopper_core::account::header::read_layout_id
+pub use hopper::systems::read_schema_epoch = hopper_runtime::layout::read_schema_epoch
+pub use hopper::systems::read_version = hopper_core::account::header::read_version
+pub use hopper::systems::rent_exempt_min = hopper_core::check::rent_exempt_min
+pub use hopper::systems::safe_close = hopper_core::account::lifecycle::safe_close
+pub use hopper::systems::safe_close_with_sentinel = hopper_core::account::lifecycle::safe_close_with_sentinel
+pub use hopper::systems::safe_realloc = hopper_core::account::lifecycle::safe_realloc
+pub use hopper::systems::safe_realloc_bounded = hopper_core::account::lifecycle::safe_realloc_bounded
+pub use hopper::systems::segment_id = hopper_core::account::registry::segment_id
+pub use hopper::systems::validate_header_for_epoch_migration = hopper_runtime::migrate::validate_header_for_epoch_migration
+pub use hopper::systems::write_dynamic_u16 = hopper_core::account::dynamic::write_dynamic_u16
+pub use hopper::systems::write_dynamic_u32 = hopper_core::account::dynamic::write_dynamic_u32
+pub use hopper::systems::write_dynamic_u8 = hopper_core::account::dynamic::write_dynamic_u8
+pub use hopper::systems::write_header = hopper_core::account::header::write_header
+pub use hopper::systems::write_header_with_epoch = hopper_runtime::layout::write_header_with_epoch
+pub use hopper::sysvar::* = hopper_native::sysvar::*
+pub use hopper::sysvar::InstructionAccountMeta = hopper_core::check::InstructionAccountMeta
+pub use hopper::sysvar::InstructionsSysvar = hopper_core::check::InstructionsSysvar
+pub use hopper::sysvar::IntrospectedInstruction = hopper_core::check::IntrospectedInstruction
+pub use hopper::sysvar::SlotHashLookup = hopper_native::slot_hashes::SlotHashLookup
+pub use hopper::sysvar::SlotHashStatus = hopper_native::slot_hashes::SlotHashStatus
+pub use hopper::sysvar::current_instruction_index = hopper_core::check::current_instruction_index
+pub use hopper::sysvar::instruction_count = hopper_core::check::instruction_count
+pub use hopper::sysvar::read_program_id_at = hopper_core::check::read_program_id_at
+pub use hopper::sysvar::slot_hash = hopper_native::slot_hashes::slot_hash
+pub use hopper::sysvar::slot_hash_lookup = hopper_native::slot_hashes::slot_hash_lookup
+pub use hopper::sysvar::slot_hash_lookup_with = hopper_native::slot_hashes::slot_hash_lookup_with
+pub use hopper::token::* = hopper_token::*
+pub use hopper::token::InterfaceMint = hopper_solana::interface::InterfaceMint
+pub use hopper::token::InterfaceTokenAccount = hopper_solana::interface::InterfaceTokenAccount
+pub use hopper::token::TOKEN_PROGRAM_ID = hopper_runtime::token::TOKEN_PROGRAM_ID
+pub use hopper::token::TokenProgramKind = hopper_solana::interface::TokenProgramKind
+pub use hopper::token::interface_transfer_checked = hopper_solana::interface::interface_transfer_checked
+pub use hopper::token::interface_transfer_checked_signed = hopper_solana::interface::interface_transfer_checked_signed
+pub use hopper::token::interface_transfer_checked_signed_with_program = hopper_solana::interface::interface_transfer_checked_signed_with_program
+pub use hopper::token::interface_transfer_checked_with_program = hopper_solana::interface::interface_transfer_checked_with_program
+pub use hopper::token_2022::* = hopper_token_2022::*
+pub use hopper::token_2022::TOKEN_2022_PROGRAM_ID = hopper_solana::constants::TOKEN_2022_PROGRAM_ID
+pub use hopper::utils = hopper_runtime::utils

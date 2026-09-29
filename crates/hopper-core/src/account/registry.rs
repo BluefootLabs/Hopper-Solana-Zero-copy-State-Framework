@@ -276,6 +276,11 @@ impl<'a> SegmentRegistry<'a> {
         let (_, entry) = self.find(id)?;
         let start = entry.offset() as usize;
         let end = start + entry.size() as usize;
+        // The entry is account bytes. One that points below the data
+        // region names the header or the entry table as its segment.
+        if start < self.data_region_offset() {
+            return Err(ProgramError::InvalidAccountData);
+        }
         if end > self.data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -395,6 +400,12 @@ impl<'a> SegmentRegistryMut<'a> {
         self.count
     }
 
+    /// Where segment data begins (after all entries).
+    #[inline(always)]
+    pub fn data_region_offset(&self) -> usize {
+        self.entries_offset + self.count * SEGMENT_ENTRY_SIZE
+    }
+
     /// Initialize the registry with segment specifications.
     ///
     /// `specs` is `(segment_id, data_size, version)` per segment.
@@ -502,6 +513,7 @@ impl<'a> SegmentRegistryMut<'a> {
     /// bypass role enforcement (e.g., during initial account setup).
     #[inline]
     pub fn segment_data_mut(&mut self, id: &SegmentId) -> Result<&mut [u8], ProgramError> {
+        let floor = self.data_region_offset();
         let (_, entry) = self.find_mut(id)?;
         if entry.is_locked() || entry.is_frozen() {
             return Err(ProgramError::InvalidAccountData);
@@ -513,6 +525,11 @@ impl<'a> SegmentRegistryMut<'a> {
         let start = entry.offset() as usize;
         let size = entry.size() as usize;
         let end = start + size;
+        // A segment that starts below the data region would hand out the
+        // header or the entry table, lock flags included, as writable data.
+        if start < floor {
+            return Err(ProgramError::InvalidAccountData);
+        }
         if end > self.data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -528,6 +545,7 @@ impl<'a> SegmentRegistryMut<'a> {
         &mut self,
         id: &SegmentId,
     ) -> Result<&mut [u8], ProgramError> {
+        let floor = self.data_region_offset();
         let (_, entry) = self.find_mut(id)?;
         if entry.is_locked() || entry.is_frozen() {
             return Err(ProgramError::InvalidAccountData);
@@ -535,6 +553,11 @@ impl<'a> SegmentRegistryMut<'a> {
         let start = entry.offset() as usize;
         let size = entry.size() as usize;
         let end = start + size;
+        // A segment that starts below the data region would hand out the
+        // header or the entry table, lock flags included, as writable data.
+        if start < floor {
+            return Err(ProgramError::InvalidAccountData);
+        }
         if end > self.data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -706,6 +729,156 @@ mod tests {
         assert_eq!(reader.entry_count(), 2);
         assert_eq!(reader.read(0).unwrap().value, 3);
         assert_eq!(reader.read(1).unwrap().value, 4);
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Eq, PartialEq, Debug)]
+    struct Pair {
+        left: [u8; 4],
+        right: [u8; 4],
+    }
+
+    // SAFETY: two byte arrays: alignment 1, no padding, no pointers, and
+    // every bit pattern is a value.
+    unsafe impl crate::account::Zeroable for Pair {}
+    // SAFETY: as above.
+    unsafe impl crate::account::Pod for Pair {}
+
+    impl crate::account::FixedLayout for Pair {
+        const SIZE: usize = 8;
+    }
+
+    const CORE: SegmentId = segment_id("core");
+    const SIDE: SegmentId = segment_id("side");
+
+    /// Two segments: `core` of 8 bytes, `side` of 4.
+    fn two_segments() -> std::vec::Vec<u8> {
+        let total = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + 2 * SEGMENT_ENTRY_SIZE + 12;
+        let mut account = std::vec![0u8; total];
+        SegmentRegistryMut::init(&mut account, &[(CORE, 8, 1), (SIDE, 4, 1)]).unwrap();
+        account
+    }
+
+    #[test]
+    fn segment_overlays_read_and_write_the_segment_and_nothing_else() {
+        let mut account = two_segments();
+        let data_region = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + 2 * SEGMENT_ENTRY_SIZE;
+        {
+            let mut registry = SegmentRegistryMut::from_account_mut(&mut account).unwrap();
+            assert_eq!(registry.data_region_offset(), data_region);
+            let pair = registry.segment_overlay_mut::<Pair>(&CORE).unwrap();
+            pair.left = [1, 2, 3, 4];
+            pair.right = [5, 6, 7, 8];
+            // `side` holds 4 bytes; an 8-byte overlay does not fit it.
+            assert_eq!(
+                registry.segment_overlay_mut::<Pair>(&SIDE).unwrap_err(),
+                ProgramError::AccountDataTooSmall
+            );
+            assert_eq!(
+                registry
+                    .segment_overlay_mut::<Pair>(&segment_id("absent"))
+                    .unwrap_err(),
+                ProgramError::InvalidArgument
+            );
+        }
+        assert_eq!(
+            &account[data_region..data_region + 8],
+            &[1, 2, 3, 4, 5, 6, 7, 8]
+        );
+        assert_eq!(&account[data_region + 8..], &[0, 0, 0, 0]);
+
+        let registry = SegmentRegistry::from_account(&account).unwrap();
+        let pair = registry.segment_overlay::<Pair>(&CORE).unwrap();
+        assert_eq!(pair.left, [1, 2, 3, 4]);
+        assert_eq!(pair.right, [5, 6, 7, 8]);
+        assert_eq!(
+            registry.segment_overlay::<Pair>(&SIDE).unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
+    }
+
+    #[test]
+    fn entry_mut_is_bounded_by_the_count() {
+        let mut account = two_segments();
+        let mut registry = SegmentRegistryMut::from_account_mut(&mut account).unwrap();
+        assert_eq!(registry.entry_mut(0).unwrap().size(), 8);
+        assert_eq!(registry.entry_mut(1).unwrap().size(), 4);
+        assert_eq!(
+            registry.entry_mut(2).err(),
+            Some(ProgramError::InvalidArgument)
+        );
+        assert_eq!(
+            registry.entry_mut(usize::MAX).err(),
+            Some(ProgramError::InvalidArgument)
+        );
+        registry.entry_mut(1).unwrap().set_flags(SEG_FLAG_LOCKED);
+        assert_eq!(
+            registry.segment_data_mut(&SIDE).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+        assert!(registry.segment_data_mut(&CORE).is_ok());
+    }
+
+    #[test]
+    fn a_segment_that_points_at_the_entry_table_is_refused() {
+        let mut account = two_segments();
+        let data_region = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + 2 * SEGMENT_ENTRY_SIZE;
+        {
+            // Lock `side`, then aim `core` at the entry table: written
+            // through, it would clear the lock.
+            let mut registry = SegmentRegistryMut::from_account_mut(&mut account).unwrap();
+            registry.entry_mut(1).unwrap().set_flags(SEG_FLAG_LOCKED);
+            let core = registry.entry_mut(0).unwrap();
+            core.set_offset((REGISTRY_OFFSET + REGISTRY_HEADER_SIZE) as u32);
+            core.set_size((2 * SEGMENT_ENTRY_SIZE) as u32);
+
+            for offset in [0, REGISTRY_OFFSET, data_region - 1] {
+                registry.entry_mut(0).unwrap().set_offset(offset as u32);
+                assert_eq!(
+                    registry.segment_data_mut(&CORE).unwrap_err(),
+                    ProgramError::InvalidAccountData,
+                    "offset {offset}"
+                );
+                assert_eq!(
+                    registry.segment_data_mut_unchecked(&CORE).unwrap_err(),
+                    ProgramError::InvalidAccountData,
+                    "offset {offset}"
+                );
+                assert_eq!(
+                    registry.segment_overlay_mut::<Pair>(&CORE).unwrap_err(),
+                    ProgramError::InvalidAccountData,
+                    "offset {offset}"
+                );
+            }
+        }
+        let registry = SegmentRegistry::from_account(&account).unwrap();
+        assert_eq!(
+            registry.segment_data(&CORE).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+        assert_eq!(
+            registry.segment_overlay::<Pair>(&CORE).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+        // The untouched segment still reads.
+        assert_eq!(registry.segment_data(&SIDE).unwrap().len(), 4);
+    }
+
+    #[test]
+    fn a_segment_that_runs_past_the_account_is_refused() {
+        let mut account = two_segments();
+        let mut registry = SegmentRegistryMut::from_account_mut(&mut account).unwrap();
+        registry.entry_mut(1).unwrap().set_size(5);
+        assert_eq!(
+            registry.segment_data_mut(&SIDE).unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
+        registry.entry_mut(1).unwrap().set_size(u32::MAX);
+        registry.entry_mut(1).unwrap().set_offset(u32::MAX);
+        assert_eq!(
+            registry.segment_data_mut(&SIDE).unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
     }
 
     #[test]

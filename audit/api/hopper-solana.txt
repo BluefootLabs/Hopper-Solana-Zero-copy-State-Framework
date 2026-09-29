@@ -1,0 +1,311 @@
+# Public API of hopper-solana, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+hopper_solana::interface::TokenProgramKind::Spl
+hopper_solana::interface::TokenProgramKind::Token2022
+impl core::clone::Clone for hopper_solana::interface::TokenProgramKind
+impl core::clone::Clone for hopper_solana::transfer::TokenTransferOutcome
+impl core::cmp::Eq for hopper_solana::interface::TokenProgramKind
+impl core::cmp::Eq for hopper_solana::transfer::TokenTransferOutcome
+impl core::cmp::PartialEq for hopper_solana::interface::TokenProgramKind
+impl core::cmp::PartialEq for hopper_solana::transfer::TokenTransferOutcome
+impl core::convert::From<hopper_runtime::token::TokenProgram> for hopper_solana::interface::TokenProgramKind
+impl core::convert::From<hopper_solana::interface::TokenProgramKind> for hopper_runtime::token::TokenProgram
+impl core::fmt::Debug for hopper_solana::interface::TokenProgramKind
+impl core::fmt::Debug for hopper_solana::transfer::TokenTransferOutcome
+impl core::marker::Copy for hopper_solana::interface::TokenProgramKind
+impl core::marker::Copy for hopper_solana::transfer::TokenTransferOutcome
+impl core::marker::Freeze for hopper_solana::interface::TokenProgramKind [auto]
+impl core::marker::Freeze for hopper_solana::oracle::PythEma [auto]
+impl core::marker::Freeze for hopper_solana::oracle::PythPrice [auto]
+impl core::marker::Freeze for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::marker::Freeze for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl core::marker::Send for hopper_solana::interface::TokenProgramKind [auto]
+impl core::marker::Send for hopper_solana::oracle::PythEma [auto]
+impl core::marker::Send for hopper_solana::oracle::PythPrice [auto]
+impl core::marker::Send for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::marker::Send for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl core::marker::StructuralPartialEq for hopper_solana::interface::TokenProgramKind
+impl core::marker::StructuralPartialEq for hopper_solana::transfer::TokenTransferOutcome
+impl core::marker::Sync for hopper_solana::interface::TokenProgramKind [auto]
+impl core::marker::Sync for hopper_solana::oracle::PythEma [auto]
+impl core::marker::Sync for hopper_solana::oracle::PythPrice [auto]
+impl core::marker::Sync for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::marker::Sync for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl core::marker::Unpin for hopper_solana::interface::TokenProgramKind [auto]
+impl core::marker::Unpin for hopper_solana::oracle::PythEma [auto]
+impl core::marker::Unpin for hopper_solana::oracle::PythPrice [auto]
+impl core::marker::Unpin for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::marker::Unpin for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl core::marker::UnsafeUnpin for hopper_solana::interface::TokenProgramKind [auto]
+impl core::marker::UnsafeUnpin for hopper_solana::oracle::PythEma [auto]
+impl core::marker::UnsafeUnpin for hopper_solana::oracle::PythPrice [auto]
+impl core::marker::UnsafeUnpin for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::marker::UnsafeUnpin for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_solana::interface::TokenProgramKind [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_solana::oracle::PythEma [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_solana::oracle::PythPrice [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_solana::interface::TokenProgramKind [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_solana::oracle::PythEma [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_solana::oracle::PythPrice [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_solana::token2022_ext::TransferFeeConfig [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_solana::transfer::TokenTransferOutcome [auto]
+impl<'a, 'info> !core::marker::Send for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a, 'info> !core::marker::Sync for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a, 'info> core::marker::Freeze for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a, 'info> core::marker::Unpin for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a, 'info> core::marker::UnsafeUnpin for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a, 'info> core::panic::unwind_safe::RefUnwindSafe for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a, 'info> core::panic::unwind_safe::UnwindSafe for hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> [auto]
+impl<'a> core::clone::Clone for hopper_solana::interface::InterfaceMint<'a>
+impl<'a> core::clone::Clone for hopper_solana::interface::InterfaceTokenAccount<'a>
+impl<'a> core::fmt::Debug for hopper_solana::interface::InterfaceMint<'a>
+impl<'a> core::fmt::Debug for hopper_solana::interface::InterfaceTokenAccount<'a>
+impl<'a> core::marker::Copy for hopper_solana::interface::InterfaceMint<'a>
+impl<'a> core::marker::Copy for hopper_solana::interface::InterfaceTokenAccount<'a>
+impl<'a> core::marker::Freeze for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+impl<'a> core::marker::Send for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::marker::Send for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::marker::Send for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+impl<'a> core::marker::Sync for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::marker::Sync for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::marker::Sync for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_solana::interface::InterfaceMint<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_solana::interface::InterfaceTokenAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_solana::token2022_ext::TransferHook<'a> [auto]
+pub const fn hopper_solana::interface::TokenProgramKind::program_id(self) -> &'static hopper_runtime::address::Address
+pub const hopper_solana::constants::ATA_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::BPF_LOADER_UPGRADEABLE_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::COMPUTE_BUDGET_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::METADATA_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::SYSTEM_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::SYSVAR_CLOCK_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::SYSVAR_INSTRUCTIONS_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::SYSVAR_RENT_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::TOKEN_2022_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::constants::TOKEN_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_solana::crypto::ed25519::ED25519_PROGRAM: hopper_runtime::address::Address = _
+pub const hopper_solana::crypto::secp256k1::SECP256K1_PROGRAM: hopper_runtime::address::Address = _
+pub const hopper_solana::mint::MINT_LEN: usize = 82usize
+pub const hopper_solana::oracle::PYTH_HEADER_LEN: usize = 240usize
+pub const hopper_solana::oracle::PYTH_MAGIC: u32 = 2_712_847_316u32
+pub const hopper_solana::oracle::PYTH_PRICE_TYPE: u32 = 3u32
+pub const hopper_solana::oracle::PYTH_VERSION: u32 = 2u32
+pub const hopper_solana::oracle::STATUS_TRADING: u32 = 1u32
+pub const hopper_solana::token2022_ext::ACCOUNT_TYPE_MINT: u8 = 1u8
+pub const hopper_solana::token2022_ext::ACCOUNT_TYPE_OFFSET: usize = 165usize
+pub const hopper_solana::token2022_ext::ACCOUNT_TYPE_TOKEN: u8 = 2u8
+pub const hopper_solana::token2022_ext::EXT_CONFIDENTIAL_MINT_BURN: u16 = 24u16
+pub const hopper_solana::token2022_ext::EXT_CONFIDENTIAL_TRANSFER_ACCOUNT: u16 = 5u16
+pub const hopper_solana::token2022_ext::EXT_CONFIDENTIAL_TRANSFER_FEE_AMOUNT: u16 = 17u16
+pub const hopper_solana::token2022_ext::EXT_CONFIDENTIAL_TRANSFER_FEE_CONFIG: u16 = 16u16
+pub const hopper_solana::token2022_ext::EXT_CONFIDENTIAL_TRANSFER_MINT: u16 = 4u16
+pub const hopper_solana::token2022_ext::EXT_CPI_GUARD: u16 = 11u16
+pub const hopper_solana::token2022_ext::EXT_DEFAULT_ACCOUNT_STATE: u16 = 6u16
+pub const hopper_solana::token2022_ext::EXT_GROUP_MEMBER_POINTER: u16 = 22u16
+pub const hopper_solana::token2022_ext::EXT_GROUP_POINTER: u16 = 20u16
+pub const hopper_solana::token2022_ext::EXT_IMMUTABLE_OWNER: u16 = 7u16
+pub const hopper_solana::token2022_ext::EXT_INTEREST_BEARING: u16 = 10u16
+pub const hopper_solana::token2022_ext::EXT_MEMO_TRANSFER: u16 = 8u16
+pub const hopper_solana::token2022_ext::EXT_METADATA_POINTER: u16 = 18u16
+pub const hopper_solana::token2022_ext::EXT_MINT_CLOSE_AUTHORITY: u16 = 3u16
+pub const hopper_solana::token2022_ext::EXT_NON_TRANSFERABLE: u16 = 9u16
+pub const hopper_solana::token2022_ext::EXT_NON_TRANSFERABLE_ACCOUNT: u16 = 13u16
+pub const hopper_solana::token2022_ext::EXT_PAUSABLE: u16 = 26u16
+pub const hopper_solana::token2022_ext::EXT_PAUSABLE_ACCOUNT: u16 = 27u16
+pub const hopper_solana::token2022_ext::EXT_PERMANENT_DELEGATE: u16 = 12u16
+pub const hopper_solana::token2022_ext::EXT_PERMISSIONED_BURN: u16 = 28u16
+pub const hopper_solana::token2022_ext::EXT_SCALED_UI_AMOUNT: u16 = 25u16
+pub const hopper_solana::token2022_ext::EXT_TOKEN_GROUP: u16 = 21u16
+pub const hopper_solana::token2022_ext::EXT_TOKEN_GROUP_MEMBER: u16 = 23u16
+pub const hopper_solana::token2022_ext::EXT_TOKEN_METADATA: u16 = 19u16
+pub const hopper_solana::token2022_ext::EXT_TRANSFER_FEE_AMOUNT: u16 = 2u16
+pub const hopper_solana::token2022_ext::EXT_TRANSFER_FEE_CONFIG: u16 = 1u16
+pub const hopper_solana::token2022_ext::EXT_TRANSFER_HOOK: u16 = 14u16
+pub const hopper_solana::token2022_ext::EXT_TRANSFER_HOOK_ACCOUNT: u16 = 15u16
+pub const hopper_solana::token2022_ext::MAX_KNOWN_EXTENSION_TYPE: u16 = 28u16
+pub const hopper_solana::token2022_ext::MINT_BASE_SIZE: usize = 82usize
+pub const hopper_solana::token2022_ext::TLV_OFFSET: usize = 166usize
+pub const hopper_solana::token2022_ext::TOKEN_ACCOUNT_BASE_SIZE: usize = 165usize
+pub const hopper_solana::token2022_ext::TOKEN_MULTISIG_SIZE: usize = 355usize
+pub const hopper_solana::token::TOKEN_ACCOUNT_LEN: usize = 165usize
+pub enum hopper_solana::interface::TokenProgramKind
+pub fn hopper_solana::authority::accept_authority(data: &mut [u8], authority_offset: usize, pending_offset: usize, caller: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::authority::check_pending_authority(data: &[u8], pending_offset: usize, expected: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::authority::write_pending_authority(data: &mut [u8], pending_offset: usize, new_authority: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::balance::check_balance_decreased(account: &hopper_runtime::account::AccountView<'_>, balance_before: u64, max_decrease: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::balance::check_balance_delta(account: &hopper_runtime::account::AccountView<'_>, balance_before: u64, expected_delta: u64, tolerance_bps: u16) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::balance::check_balance_increased(account: &hopper_runtime::account::AccountView<'_>, balance_before: u64, min_increase: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::balance::check_lamport_balance_increased(account: &hopper_runtime::account::AccountView<'_>, balance_before: u64, min_increase: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::balance::snapshot_lamport_balance(account: &hopper_runtime::account::AccountView<'_>) -> u64
+pub fn hopper_solana::balance::snapshot_token_balance(account: &hopper_runtime::account::AccountView<'_>) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::compute::check_compute_remaining(min_cu: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::compute::remaining_compute_units() -> u64
+pub fn hopper_solana::compute::require_compute_remaining(min_cu: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::cpi_guard::assert_no_cpi(instructions_sysvar: &hopper_runtime::account::AccountView<'_>, our_program_id: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::cpi_guard::check_any_token_program_owner(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::cpi_guard::check_token_2022_program_owner(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::cpi_guard::check_token_program_owner(account: &hopper_runtime::account::AccountView<'_>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::cpi_guard::current_instruction_index(sysvar_data: &[u8]) -> core::result::Result<u16, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::cpi_guard::instruction_count(sysvar_data: &[u8]) -> core::result::Result<u16, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::crypto::ed25519::check_ed25519_signature(sysvar_data: &[u8], ed25519_ix_index: u16, expected_signer: &[u8; 32], expected_message: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::crypto::ed25519::check_ed25519_signature_at(sysvar_data: &[u8], ed25519_ix_index: u16, signature_index: usize, expected_signer: &[u8; 32], expected_message: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::crypto::ed25519::check_ed25519_signer(sysvar_data: &[u8], ed25519_ix_index: u16, expected_signer: &[u8; 32]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::crypto::ed25519::check_ed25519_signer_at(sysvar_data: &[u8], ed25519_ix_index: u16, signature_index: usize, expected_signer: &[u8; 32]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::crypto::merkle::sha256_leaf(data: &[u8]) -> [u8; 32]
+pub fn hopper_solana::crypto::merkle::verify_merkle_proof(root: &[u8; 32], leaf: &[u8; 32], proof: &[[u8; 32]]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::crypto::secp256k1::check_secp256k1_instruction(sysvar_data: &[u8], secp256k1_ix_index: u16, expected_eth_address: &[u8; 20], expected_message: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::crypto::secp256k1::check_secp256k1_instruction_at(sysvar_data: &[u8], secp256k1_ix_index: u16, signature_index: usize, expected_eth_address: &[u8; 20], expected_message: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::crypto::secp256k1::check_secp256k1_instruction_at_cross_instruction(sysvar_data: &[u8], secp256k1_ix_index: u16, signature_index: usize, expected_eth_address: &[u8; 20], expected_message: &[u8]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::crypto::secp256k1::check_secp256k1_message_hash(sysvar_data: &[u8], secp256k1_ix_index: u16, expected_eth_address: &[u8; 20], expected_message_hash: &[u8; 32]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::interface::InterfaceMint::assert_initialized(&self) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceMint::authority(&self) -> core::result::Result<core::option::Option<&'a hopper_runtime::address::Address>, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceMint::data(&self) -> &'a [u8]
+pub fn hopper_solana::interface::InterfaceMint::decimals(&self) -> core::result::Result<u8, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceMint::freeze_authority(&self) -> core::result::Result<core::option::Option<&'a hopper_runtime::address::Address>, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceMint::from_data(data: &'a [u8], kind: hopper_solana::interface::TokenProgramKind) -> core::result::Result<Self, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceMint::supply(&self) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::amount(&self) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::assert_initialized(&self) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::assert_mint(&self, expected: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::assert_owner(&self, expected: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::data(&self) -> &'a [u8]
+pub fn hopper_solana::interface::InterfaceTokenAccount::from_data(data: &'a [u8], kind: hopper_solana::interface::TokenProgramKind) -> core::result::Result<Self, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::mint(&self) -> core::result::Result<&'a hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::owner(&self) -> core::result::Result<&'a hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::InterfaceTokenAccount::state(&self) -> core::result::Result<u8, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::TokenProgramKind::for_account(view: &hopper_runtime::account::AccountView<'_>) -> core::result::Result<Self, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::TokenProgramKind::from_owner(owner: &hopper_runtime::address::Address) -> core::result::Result<Self, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::interface::interface_transfer_checked<'a>(source: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::interface::interface_transfer_checked_signed<'a>(source: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::interface::interface_transfer_checked_signed_with_program<'a>(source: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, token_program: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::interface::interface_transfer_checked_with_program<'a>(source: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, token_program: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::introspect::caller_program(data: &[u8], our_program: &hopper_runtime::address::Address) -> core::result::Result<core::option::Option<hopper_runtime::address::Address>, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::check_no_other_invocation(data: &[u8], current_idx: u16, program_id: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::introspect::check_no_subsequent_invocation(data: &[u8], current_idx: u16, program_id: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::introspect::count_program_invocations(data: &[u8], program_id: &hopper_runtime::address::Address) -> core::result::Result<u16, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::current_index(data: &[u8]) -> core::result::Result<u16, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::detect_flash_loan_bracket(data: &[u8], current_idx: u16, lender_program: &hopper_runtime::address::Address) -> core::result::Result<bool, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::instruction_account_key(data: &[u8], index: u16, account_index: u16) -> core::result::Result<hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::instruction_count(data: &[u8]) -> core::result::Result<u16, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::instruction_data_range(data: &[u8], index: u16) -> core::result::Result<(usize, usize), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::program_id_at(data: &[u8], index: u16) -> core::result::Result<hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::introspect::require_cpi_from(data: &[u8], expected_caller: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::introspect::require_top_level(data: &[u8], our_program: &hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::mint::check_mint_authority(data: &[u8], expected: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::mint::check_mint_initialized(data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::mint::mint_authority(data: &[u8]) -> core::result::Result<core::option::Option<&hopper_runtime::address::Address>, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::mint::mint_decimals(data: &[u8]) -> core::result::Result<u8, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::mint::mint_freeze_authority(data: &[u8]) -> core::result::Result<core::option::Option<&hopper_runtime::address::Address>, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::mint::mint_supply(data: &[u8]) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::oracle::check_pyth_confidence(price: i64, conf: u64, max_conf_pct: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::oracle::check_pyth_price_fresh(publish_time: i64, current_time: i64, max_age_seconds: i64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::oracle::pyth_agg_pub_slot(data: &[u8]) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::oracle::read_pyth_ema(data: &[u8]) -> core::result::Result<hopper_solana::oracle::PythEma, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::oracle::read_pyth_price(data: &[u8]) -> core::result::Result<hopper_solana::oracle::PythPrice, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_no_confidential_transfer(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_no_permanent_delegate(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_no_transfer_fee(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_no_transfer_hook(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_safe_token_2022_mint(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_transfer_hook_program(mint_data: &[u8], expected_program_id: &[u8; 32]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::check_transferable(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::find_extension_data(data: &[u8], base_size: usize, ext_type: u16) -> core::option::Option<&[u8]>
+pub fn hopper_solana::token2022_ext::mint_has_extension(mint_data: &[u8], ext_type: u16) -> bool
+pub fn hopper_solana::token2022_ext::read_transfer_fee_config(mint_data: &[u8]) -> core::result::Result<hopper_solana::token2022_ext::TransferFeeConfig, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::read_transfer_hook(mint_data: &[u8]) -> core::result::Result<core::option::Option<hopper_solana::token2022_ext::TransferHook<'_>>, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token2022_ext::token_has_extension(token_data: &[u8], ext_type: u16) -> bool
+pub fn hopper_solana::token2022_ext::validate_token_2022_mint_extensions(mint_data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::check_not_frozen(data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::check_token_balance_gte(data: &[u8], min_amount: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::check_token_initialized(data: &[u8]) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::check_token_mint(data: &[u8], expected: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::check_token_owner(data: &[u8], expected: &hopper_runtime::address::Address) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::token_account_amount(data: &[u8]) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::token_account_mint(data: &[u8]) -> core::result::Result<&hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::token_account_owner(data: &[u8]) -> core::result::Result<&hopper_runtime::address::Address, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::token::token_account_state(data: &[u8]) -> core::result::Result<u8, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::transfer::TokenTransferSnapshot::capture(source: &'a hopper_runtime::account::AccountView<'info>, destination: &'a hopper_runtime::account::AccountView<'info>, expected_mint: &hopper_runtime::address::Address, amount: u64, min_received: u64) -> core::result::Result<Self, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::transfer::TokenTransferSnapshot::verify(self) -> core::result::Result<hopper_solana::transfer::TokenTransferOutcome, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::twap::check_twap_deviation(spot_price: u64, twap_price: u64, max_deviation_bps: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_solana::twap::compute_twap(cumulative_start: u128, cumulative_end: u128, ts_start: i64, ts_end: i64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::twap::update_twap_cumulative(cumulative: u128, price: u64, last_ts: i64, now_ts: i64) -> core::result::Result<u128, hopper_runtime::error::ProgramError>
+pub fn hopper_solana::typed_cpi::allocate(account: &hopper_runtime::account::AccountView<'_>, space: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::assign<'a>(account: &'a hopper_runtime::account::AccountView<'a>, owner: &'a hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::ata_create<'a>(payer: &'a hopper_runtime::account::AccountView<'a>, associated_account: &'a hopper_runtime::account::AccountView<'a>, wallet: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, system_program: &'a hopper_runtime::account::AccountView<'a>, token_program: &'a hopper_runtime::account::AccountView<'a>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::ata_create_idempotent<'a>(payer: &'a hopper_runtime::account::AccountView<'a>, associated_account: &'a hopper_runtime::account::AccountView<'a>, wallet: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, system_program: &'a hopper_runtime::account::AccountView<'a>, token_program: &'a hopper_runtime::account::AccountView<'a>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::ata_recover_nested<'a>(nested_associated_account: &'a hopper_runtime::account::AccountView<'a>, nested_token_mint: &'a hopper_runtime::account::AccountView<'a>, destination_associated_account: &'a hopper_runtime::account::AccountView<'a>, owner_associated_account: &'a hopper_runtime::account::AccountView<'a>, owner_token_mint: &'a hopper_runtime::account::AccountView<'a>, wallet: &'a hopper_runtime::account::AccountView<'a>, token_program: &'a hopper_runtime::account::AccountView<'a>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::create_account<'a>(payer: &'a hopper_runtime::account::AccountView<'a>, new_account: &'a hopper_runtime::account::AccountView<'a>, lamports: u64, space: u64, owner: &'a hopper_runtime::address::Address) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::create_account_signed<'a>(payer: &'a hopper_runtime::account::AccountView<'a>, new_account: &'a hopper_runtime::account::AccountView<'a>, lamports: u64, space: u64, owner: &'a hopper_runtime::address::Address, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_2022_burn<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_2022_mint_to<'a>(mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_2022_mint_to_signed<'a>(mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_2022_transfer<'a>(source: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_2022_transfer_signed<'a>(source: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_approve_checked<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, delegate: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_burn_checked<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_burn_checked_signed<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_close_account<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_close_account_signed<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_mint_to_checked<'a>(mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_mint_to_checked_signed<'a>(mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_revoke<'a>(token_account: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_transfer_checked<'a>(source: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::token_transfer_checked_signed<'a>(source: &'a hopper_runtime::account::AccountView<'a>, mint: &'a hopper_runtime::account::AccountView<'a>, destination: &'a hopper_runtime::account::AccountView<'a>, authority: &'a hopper_runtime::account::AccountView<'a>, amount: u64, decimals: u8, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::transfer_sol<'a>(from: &'a hopper_runtime::account::AccountView<'a>, to: &'a hopper_runtime::account::AccountView<'a>, lamports: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_solana::typed_cpi::transfer_sol_signed<'a>(from: &'a hopper_runtime::account::AccountView<'a>, to: &'a hopper_runtime::account::AccountView<'a>, lamports: u64, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub hopper_solana::interface::InterfaceMint::kind: hopper_solana::interface::TokenProgramKind
+pub hopper_solana::interface::InterfaceTokenAccount::kind: hopper_solana::interface::TokenProgramKind
+pub hopper_solana::oracle::PythEma::conf: u64
+pub hopper_solana::oracle::PythEma::expo: i32
+pub hopper_solana::oracle::PythEma::price: i64
+pub hopper_solana::oracle::PythPrice::conf: u64
+pub hopper_solana::oracle::PythPrice::expo: i32
+pub hopper_solana::oracle::PythPrice::price: i64
+pub hopper_solana::oracle::PythPrice::publish_time: i64
+pub hopper_solana::token2022_ext::TransferFeeConfig::fee_bps: u16
+pub hopper_solana::token2022_ext::TransferFeeConfig::maximum_fee: u64
+pub hopper_solana::token2022_ext::TransferHook::authority: &'a [u8; 32]
+pub hopper_solana::token2022_ext::TransferHook::program_id: &'a [u8; 32]
+pub hopper_solana::transfer::TokenTransferOutcome::credited: u64
+pub hopper_solana::transfer::TokenTransferOutcome::debited: u64
+pub mod hopper_solana::ata
+pub mod hopper_solana::authority
+pub mod hopper_solana::balance
+pub mod hopper_solana::compute
+pub mod hopper_solana::constants
+pub mod hopper_solana::cpi_guard
+pub mod hopper_solana::crypto
+pub mod hopper_solana::crypto::ed25519
+pub mod hopper_solana::crypto::merkle
+pub mod hopper_solana::crypto::secp256k1
+pub mod hopper_solana::interface
+pub mod hopper_solana::introspect
+pub mod hopper_solana::mint
+pub mod hopper_solana::oracle
+pub mod hopper_solana::token
+pub mod hopper_solana::token2022_ext
+pub mod hopper_solana::transfer
+pub mod hopper_solana::twap
+pub mod hopper_solana::typed_cpi
+pub struct hopper_solana::interface::InterfaceMint<'a> { .. }
+pub struct hopper_solana::interface::InterfaceTokenAccount<'a> { .. }
+pub struct hopper_solana::oracle::PythEma {}
+pub struct hopper_solana::oracle::PythPrice {}
+pub struct hopper_solana::token2022_ext::TransferFeeConfig {}
+pub struct hopper_solana::token2022_ext::TransferHook<'a> {}
+pub struct hopper_solana::transfer::TokenTransferOutcome {}
+pub struct hopper_solana::transfer::TokenTransferSnapshot<'a, 'info> { .. }

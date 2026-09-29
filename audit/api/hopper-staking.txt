@@ -1,0 +1,9 @@
+# Public API of hopper-staking, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+pub const hopper_staking::REWARD_PRECISION: u128 = 1_000_000_000_000u128
+pub fn hopper_staking::emission_rate(total_rewards: u64, duration_seconds: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_staking::pending_rewards(user_staked: u64, reward_per_token: u128, user_reward_debt: u128) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_staking::rewards_earned(rate_per_second: u64, elapsed_seconds: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_staking::update_reward_debt(user_staked: u64, reward_per_token: u128) -> core::result::Result<u128, hopper_runtime::error::ProgramError>
+pub fn hopper_staking::update_reward_per_token(reward_per_token: u128, rewards_since_last: u64, total_staked: u64) -> core::result::Result<u128, hopper_runtime::error::ProgramError>

@@ -238,8 +238,18 @@ pub fn recover_ethereum_address(
     Ok(address)
 }
 
+/// Whether `point` is a valid encoding of a point on the curve.
+///
+/// In a program this is the curve syscall. On the host the Edwards
+/// answer is computed in Rust, by the same check that decides program
+/// derived addresses, so a unit test sees what the cluster would say.
+/// Ristretto has no host implementation and answers `false` there.
 #[inline]
 pub fn curve_validate_point(curve_id: u64, point: &[u8; 32]) -> Result<bool, ProgramError> {
+    #[cfg(not(target_os = "solana"))]
+    if curve_id == CURVE25519_EDWARDS {
+        return Ok(hopper_native::curve25519::is_on_curve(point));
+    }
     // SAFETY: `point` points to exactly 32 bytes; null output pointer requests
     // validation-only behavior from Solana's curve syscall.
     let rc = unsafe {

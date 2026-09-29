@@ -1,0 +1,4 @@
+# Public API of hopper-builtins, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+

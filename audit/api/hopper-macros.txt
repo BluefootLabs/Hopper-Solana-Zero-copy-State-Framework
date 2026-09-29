@@ -1,0 +1,25 @@
+# Public API of hopper-macros, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+macro hopper_macros::const_assert_pod! macro_rules! const_assert_pod { ($ty:ty, $size:expr) => { ... }; }
+macro hopper_macros::hopper_accounts! macro_rules! hopper_accounts { ( $(#[$attr:meta])* pub struct $name:ident { $( $field:ident : ( $($kind:tt)+ ) ),+ $(,)? } ) => { ... }; }
+macro hopper_macros::hopper_assert_compatible! macro_rules! hopper_assert_compatible { ($old:ty, $new:ty, append) => { ... }; ($old:ty, $new:ty, differs) => { ... }; }
+macro hopper_macros::hopper_assert_fingerprint! macro_rules! hopper_assert_fingerprint { ($layout:ty, $expected:expr) => { ... }; }
+macro hopper_macros::hopper_check! macro_rules! hopper_check { ($account:expr, $( $constraint:tt )+) => { ... }; }
+macro hopper_macros::hopper_close! macro_rules! hopper_close { ($account:expr, $destination:expr, $program_id:expr) => { ... }; ($account:expr, $destination:expr) => { ... }; }
+macro hopper_macros::hopper_error! macro_rules! hopper_error { ( base = $base:literal; $( $name:ident ),+ $(,)? ) => { ... }; }
+macro hopper_macros::hopper_init! macro_rules! hopper_init { ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty) => { ... }; ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr) => { ... }; ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr, signers = $signers:expr) => { ... }; ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr, signers = $signers:expr, bump = $bump:expr) => { ... }; }
+macro hopper_macros::hopper_interface! macro_rules! hopper_interface { ( $(#[$attr:meta])* pub struct $name:ident as $origin:ident, disc = $disc:literal, version = $ver:literal { $($body:tt)+ } ) => { ... }; ( $(#[$attr:meta])* pub struct $name:ident, disc = $disc:literal, version = $ver:literal { $( $(#[$field_attr:meta])* $field:ident : $fty:ty = $fsize:literal ),+ $(,)? } ) => { ... }; ( @origin $origin:ident; $(#[$attr:meta])* pub struct $name:ident, disc = $disc:literal, version = $ver:literal { $( $(#[$field_attr:meta])* $field:ident : $fty:ty = $fsize:literal ),+ $(,)? } ) => { ... }; }
+macro hopper_macros::hopper_invariant! macro_rules! hopper_invariant { ( $( $label:literal => $check:expr ),+ $(,)? ) => { ... }; }
+macro hopper_macros::hopper_layout! macro_rules! hopper_layout { ( $(#[$attr:meta])* pub struct $name:ident, disc = $disc:literal, version = $ver:literal { $( $(#[$field_attr:meta])* $field:ident : $fty:ty = $fsize:literal ),+ $(,)? } ) => { ... }; }
+macro hopper_macros::hopper_manifest! macro_rules! hopper_manifest { ( $const_name:ident = $name:ident { $( $field:ident : $fty:ty = $fsize:literal ),+ $(,)? } ) => { ... }; }
+macro hopper_macros::hopper_register_discs! macro_rules! hopper_register_discs { ( $( $layout:ty ),+ $(,)? ) => { ... }; }
+macro hopper_macros::hopper_require! macro_rules! hopper_require { ($cond:expr, $err:expr) => { ... }; }
+macro hopper_macros::hopper_segment! macro_rules! hopper_segment { ( $(#[$attr:meta])* pub struct $name:ident, disc = $disc:literal { $( $seg:ident : $sty:ty = $ssize:literal ),+ $(,)? } ) => { ... }; }
+macro hopper_macros::hopper_validate! macro_rules! hopper_validate { ( accounts = $accounts:expr, program_id = $program_id:expr, data = $data:expr, rules { $( $rule:expr ),+ $(,)? } ) => { ... }; }
+macro hopper_macros::hopper_verify_pda! macro_rules! hopper_verify_pda { ($account:expr, $seeds:expr, $program_id:expr, $layout:ty) => { ... }; }
+macro hopper_macros::hopper_virtual! macro_rules! hopper_virtual { ( slots = $n:literal, map { $( $slot:literal => account_index: $idx:literal $(, owned $( = $owner:expr )? )? $(, writable )? ),+ $(,)? } ) => { ... }; }
+pub use hopper_macros::hopper_core = hopper_core
+pub use hopper_macros::hopper_runtime = hopper_runtime
+pub use hopper_macros::hopper_schema = hopper_schema
+pub use hopper_macros::hopper_system = hopper_system

@@ -56,6 +56,8 @@ members = [
     "examples/hopper-external-oracle",
     "examples/hopper-argus-guard",
     "examples/hopper-tail-lab",
+    "examples/hopper-runtime-lab",
+    "examples/hopper-confidential-lab",
     "examples/hopper-stablecoin-memo-pay",
     "examples/hopper-styx-ferry",
     "examples/hopper-bounded-multisig",
@@ -241,6 +243,10 @@ explain = ["hopper-core/explain"]
 collections = ["hopper-core/collections"]
 
 cu-trace = ["hopper-runtime/cu-trace"]
+# A panic reports where it happened (and, with `panic-message`, what it
+# said) before the transaction fails. For the builds you debug with.
+panic-location = ["hopper-runtime/panic-location"]
+panic-message = ["hopper-runtime/panic-message"]
 # `hopper::hash::sha512` through the `sol_sha512` syscall; devnet and testnet
 # only on 2026-09-27, see crates/hopper-native/Cargo.toml.
 sha512-syscall = ["hopper-runtime/sha512-syscall"]

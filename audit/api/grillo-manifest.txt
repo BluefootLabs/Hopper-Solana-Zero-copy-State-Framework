@@ -1,0 +1,824 @@
+# Public API of grillo-manifest, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+fn grillo_manifest::MutationContractView::authorized_ranges(&self) -> &[grillo_manifest::RangeContract];
+fn grillo_manifest::MutationContractView::authorizes_lamports(&self, account_index: u8) -> bool { .. }
+fn grillo_manifest::MutationContractView::lamport_accounts(&self) -> &[u8];
+fn grillo_manifest::MutationContractView::mutation_complete(&self) -> bool;
+fn grillo_manifest::MutationContractView::requires_resolution(&self) -> bool { .. }
+fn grillo_manifest::MutationContractView::strict_writes(&self) -> bool;
+grillo_manifest::AddressConstraintV2::Any
+grillo_manifest::AddressConstraintV2::Exact { address: [u8; 32] }
+grillo_manifest::AddressConstraintV2::ProgramId
+grillo_manifest::ArgEncodingContract::BoundedString
+grillo_manifest::ArgEncodingContract::BoundedVec
+grillo_manifest::ArgEncodingContract::Fixed
+grillo_manifest::CpiPolicyV2::Declared { complete: bool, calls: alloc::vec::Vec<grillo_manifest::CpiEnvelopeV2> }
+grillo_manifest::CpiPolicyV2::Forbidden
+grillo_manifest::DeploymentBindingV2::ExactArtifact { executable_digest: [u8; 32] }
+grillo_manifest::DeploymentBindingV2::ExactDeployment { program_id: [u8; 32], loader_id: [u8; 32], executable_digest: [u8; 32] }
+grillo_manifest::DuplicatePolicyV2::Allow
+grillo_manifest::DuplicatePolicyV2::DenyAll
+grillo_manifest::DuplicatePolicyV2::DenyWritable
+grillo_manifest::EffectContractV2Error::InvalidContract(alloc::string::String)
+grillo_manifest::EffectContractV2Error::Json(alloc::string::String)
+grillo_manifest::EffectContractV2Error::UnsupportedVersion(alloc::string::String)
+grillo_manifest::ExecutablePolicyV2::MayChange
+grillo_manifest::ExecutablePolicyV2::Preserve
+grillo_manifest::ExecutablePolicyV2::Set { value: bool }
+grillo_manifest::LamportPolicyV2::CreditOnly
+grillo_manifest::LamportPolicyV2::DebitOnly
+grillo_manifest::LamportPolicyV2::MayChange
+grillo_manifest::LamportPolicyV2::Preserve
+grillo_manifest::LengthPolicyV2::Exact { length: u32 }
+grillo_manifest::LengthPolicyV2::MayChange
+grillo_manifest::LengthPolicyV2::Preserve
+grillo_manifest::LengthPolicyV2::Range { min: u32, max: u32 }
+grillo_manifest::OwnerPolicyV2::MayChange
+grillo_manifest::OwnerPolicyV2::Preserve
+grillo_manifest::OwnerPolicyV2::SetTo { target: grillo_manifest::OwnerTargetV2 }
+grillo_manifest::OwnerTargetV2::Exact { address: [u8; 32] }
+grillo_manifest::OwnerTargetV2::ProgramId
+grillo_manifest::OwnerTargetV2::SystemProgram
+grillo_manifest::ParseError::Json(alloc::string::String)
+grillo_manifest::ParseError::UnsupportedManifest(alloc::string::String)
+grillo_manifest::PresencePolicyV2::MayClose
+grillo_manifest::PresencePolicyV2::MayCreate
+grillo_manifest::PresencePolicyV2::MustClose
+grillo_manifest::PresencePolicyV2::MustCreate
+grillo_manifest::PresencePolicyV2::MustRemainPresent
+grillo_manifest::PresencePolicyV2::Preserve
+grillo_manifest::PrivilegeRequirementV2::Allowed
+grillo_manifest::PrivilegeRequirementV2::Forbidden
+grillo_manifest::PrivilegeRequirementV2::Required
+grillo_manifest::ResolveError::EnvelopeNotStaticallyAuthorized { account_index: u8, segment: alloc::string::String }
+grillo_manifest::ResolveError::InconsistentSelectorIdentity { argument: alloc::string::String, argument_index: u8 }
+grillo_manifest::ResolveError::InvalidArgumentDescriptor { argument: alloc::string::String, reason: &'static str }
+grillo_manifest::ResolveError::InvalidRule { segment: alloc::string::String, reason: &'static str }
+grillo_manifest::ResolveError::MissingArgumentDescriptor { argument: alloc::string::String }
+grillo_manifest::ResolveError::MissingSelectorValue { argument: alloc::string::String, argument_index: u8 }
+grillo_manifest::ResolveError::OverlappingRules { first_segment: alloc::string::String, second_segment: alloc::string::String }
+grillo_manifest::ResolveError::SelectorOutOfRange { argument: alloc::string::String, value: u32, count: u32 }
+grillo_manifest::ResolveError::TruncatedArgument { argument: alloc::string::String }
+grillo_manifest::ResolveError::UnsupportedSelectorType { argument: alloc::string::String, ty: alloc::string::String }
+grillo_manifest::authority::ApprovalError::DigestMismatch { side: &'static str, approved: alloc::string::String, actual: alloc::string::String }
+grillo_manifest::authority::ApprovalError::Schema(alloc::string::String)
+grillo_manifest::authority::ApprovalError::Unapproved(alloc::vec::Vec<grillo_manifest::authority::AuthorityFinding>)
+grillo_manifest::authority::AuthorityImpact::Info
+grillo_manifest::authority::AuthorityImpact::Narrowed
+grillo_manifest::authority::AuthorityImpact::Review
+grillo_manifest::authority::AuthorityImpact::Widened
+grillo_manifest::authority::AuthorityVerdict::NotWidened
+grillo_manifest::authority::AuthorityVerdict::Review
+grillo_manifest::authority::AuthorityVerdict::Widened
+impl core::clone::Clone for grillo_manifest::AccountRole
+impl core::clone::Clone for grillo_manifest::AccountRoleContractV2
+impl core::clone::Clone for grillo_manifest::AddressConstraintV2
+impl core::clone::Clone for grillo_manifest::ArgContract
+impl core::clone::Clone for grillo_manifest::ArgEncodingContract
+impl core::clone::Clone for grillo_manifest::ContractCompletenessV2
+impl core::clone::Clone for grillo_manifest::CpiAccountBindingV2
+impl core::clone::Clone for grillo_manifest::CpiEnvelopeV2
+impl core::clone::Clone for grillo_manifest::CpiPolicyV2
+impl core::clone::Clone for grillo_manifest::DataPolicyV2
+impl core::clone::Clone for grillo_manifest::DataRangeV2
+impl core::clone::Clone for grillo_manifest::DeploymentBindingV2
+impl core::clone::Clone for grillo_manifest::DuplicatePolicyV2
+impl core::clone::Clone for grillo_manifest::EffectContractV2
+impl core::clone::Clone for grillo_manifest::EffectContractV2Error
+impl core::clone::Clone for grillo_manifest::ExecutablePolicyV2
+impl core::clone::Clone for grillo_manifest::InstructionContract
+impl core::clone::Clone for grillo_manifest::InstructionEffectContractV2
+impl core::clone::Clone for grillo_manifest::LamportPolicyV2
+impl core::clone::Clone for grillo_manifest::LengthPolicyV2
+impl core::clone::Clone for grillo_manifest::MutationManifest
+impl core::clone::Clone for grillo_manifest::OwnerPolicyV2
+impl core::clone::Clone for grillo_manifest::OwnerTargetV2
+impl core::clone::Clone for grillo_manifest::ParametricRangeContract
+impl core::clone::Clone for grillo_manifest::ParseError
+impl core::clone::Clone for grillo_manifest::PresencePolicyV2
+impl core::clone::Clone for grillo_manifest::PrivilegeRequirementV2
+impl core::clone::Clone for grillo_manifest::RangeContract
+impl core::clone::Clone for grillo_manifest::RemainingAccountsContractV2
+impl core::clone::Clone for grillo_manifest::RemainingGroupV2
+impl core::clone::Clone for grillo_manifest::ResolveError
+impl core::clone::Clone for grillo_manifest::ResolvedInstructionContract
+impl core::clone::Clone for grillo_manifest::ResolvedSelector
+impl core::clone::Clone for grillo_manifest::TransitionPolicyV2
+impl core::clone::Clone for grillo_manifest::authority::ApprovalError
+impl core::clone::Clone for grillo_manifest::authority::AuthorityFinding
+impl core::clone::Clone for grillo_manifest::authority::AuthorityImpact
+impl core::clone::Clone for grillo_manifest::authority::AuthorityReport
+impl core::clone::Clone for grillo_manifest::authority::AuthorityVerdict
+impl core::cmp::Eq for grillo_manifest::AccountRole
+impl core::cmp::Eq for grillo_manifest::AccountRoleContractV2
+impl core::cmp::Eq for grillo_manifest::AddressConstraintV2
+impl core::cmp::Eq for grillo_manifest::ArgContract
+impl core::cmp::Eq for grillo_manifest::ArgEncodingContract
+impl core::cmp::Eq for grillo_manifest::ContractCompletenessV2
+impl core::cmp::Eq for grillo_manifest::CpiAccountBindingV2
+impl core::cmp::Eq for grillo_manifest::CpiEnvelopeV2
+impl core::cmp::Eq for grillo_manifest::CpiPolicyV2
+impl core::cmp::Eq for grillo_manifest::DataPolicyV2
+impl core::cmp::Eq for grillo_manifest::DataRangeV2
+impl core::cmp::Eq for grillo_manifest::DeploymentBindingV2
+impl core::cmp::Eq for grillo_manifest::DuplicatePolicyV2
+impl core::cmp::Eq for grillo_manifest::EffectContractV2
+impl core::cmp::Eq for grillo_manifest::EffectContractV2Error
+impl core::cmp::Eq for grillo_manifest::ExecutablePolicyV2
+impl core::cmp::Eq for grillo_manifest::InstructionContract
+impl core::cmp::Eq for grillo_manifest::InstructionEffectContractV2
+impl core::cmp::Eq for grillo_manifest::LamportPolicyV2
+impl core::cmp::Eq for grillo_manifest::LengthPolicyV2
+impl core::cmp::Eq for grillo_manifest::MutationManifest
+impl core::cmp::Eq for grillo_manifest::OwnerPolicyV2
+impl core::cmp::Eq for grillo_manifest::OwnerTargetV2
+impl core::cmp::Eq for grillo_manifest::ParametricRangeContract
+impl core::cmp::Eq for grillo_manifest::ParseError
+impl core::cmp::Eq for grillo_manifest::PresencePolicyV2
+impl core::cmp::Eq for grillo_manifest::PrivilegeRequirementV2
+impl core::cmp::Eq for grillo_manifest::RangeContract
+impl core::cmp::Eq for grillo_manifest::RemainingAccountsContractV2
+impl core::cmp::Eq for grillo_manifest::RemainingGroupV2
+impl core::cmp::Eq for grillo_manifest::ResolveError
+impl core::cmp::Eq for grillo_manifest::ResolvedInstructionContract
+impl core::cmp::Eq for grillo_manifest::ResolvedSelector
+impl core::cmp::Eq for grillo_manifest::TransitionPolicyV2
+impl core::cmp::Eq for grillo_manifest::authority::ApprovalError
+impl core::cmp::Eq for grillo_manifest::authority::AuthorityFinding
+impl core::cmp::Eq for grillo_manifest::authority::AuthorityImpact
+impl core::cmp::Eq for grillo_manifest::authority::AuthorityReport
+impl core::cmp::Eq for grillo_manifest::authority::AuthorityVerdict
+impl core::cmp::Ord for grillo_manifest::authority::AuthorityFinding
+impl core::cmp::Ord for grillo_manifest::authority::AuthorityImpact
+impl core::cmp::PartialEq for grillo_manifest::AccountRole
+impl core::cmp::PartialEq for grillo_manifest::AccountRoleContractV2
+impl core::cmp::PartialEq for grillo_manifest::AddressConstraintV2
+impl core::cmp::PartialEq for grillo_manifest::ArgContract
+impl core::cmp::PartialEq for grillo_manifest::ArgEncodingContract
+impl core::cmp::PartialEq for grillo_manifest::ContractCompletenessV2
+impl core::cmp::PartialEq for grillo_manifest::CpiAccountBindingV2
+impl core::cmp::PartialEq for grillo_manifest::CpiEnvelopeV2
+impl core::cmp::PartialEq for grillo_manifest::CpiPolicyV2
+impl core::cmp::PartialEq for grillo_manifest::DataPolicyV2
+impl core::cmp::PartialEq for grillo_manifest::DataRangeV2
+impl core::cmp::PartialEq for grillo_manifest::DeploymentBindingV2
+impl core::cmp::PartialEq for grillo_manifest::DuplicatePolicyV2
+impl core::cmp::PartialEq for grillo_manifest::EffectContractV2
+impl core::cmp::PartialEq for grillo_manifest::EffectContractV2Error
+impl core::cmp::PartialEq for grillo_manifest::ExecutablePolicyV2
+impl core::cmp::PartialEq for grillo_manifest::InstructionContract
+impl core::cmp::PartialEq for grillo_manifest::InstructionEffectContractV2
+impl core::cmp::PartialEq for grillo_manifest::LamportPolicyV2
+impl core::cmp::PartialEq for grillo_manifest::LengthPolicyV2
+impl core::cmp::PartialEq for grillo_manifest::MutationManifest
+impl core::cmp::PartialEq for grillo_manifest::OwnerPolicyV2
+impl core::cmp::PartialEq for grillo_manifest::OwnerTargetV2
+impl core::cmp::PartialEq for grillo_manifest::ParametricRangeContract
+impl core::cmp::PartialEq for grillo_manifest::ParseError
+impl core::cmp::PartialEq for grillo_manifest::PresencePolicyV2
+impl core::cmp::PartialEq for grillo_manifest::PrivilegeRequirementV2
+impl core::cmp::PartialEq for grillo_manifest::RangeContract
+impl core::cmp::PartialEq for grillo_manifest::RemainingAccountsContractV2
+impl core::cmp::PartialEq for grillo_manifest::RemainingGroupV2
+impl core::cmp::PartialEq for grillo_manifest::ResolveError
+impl core::cmp::PartialEq for grillo_manifest::ResolvedInstructionContract
+impl core::cmp::PartialEq for grillo_manifest::ResolvedSelector
+impl core::cmp::PartialEq for grillo_manifest::TransitionPolicyV2
+impl core::cmp::PartialEq for grillo_manifest::authority::ApprovalError
+impl core::cmp::PartialEq for grillo_manifest::authority::AuthorityFinding
+impl core::cmp::PartialEq for grillo_manifest::authority::AuthorityImpact
+impl core::cmp::PartialEq for grillo_manifest::authority::AuthorityReport
+impl core::cmp::PartialEq for grillo_manifest::authority::AuthorityVerdict
+impl core::cmp::PartialOrd for grillo_manifest::authority::AuthorityFinding
+impl core::cmp::PartialOrd for grillo_manifest::authority::AuthorityImpact
+impl core::default::Default for grillo_manifest::ArgEncodingContract
+impl core::error::Error for grillo_manifest::EffectContractV2Error
+impl core::error::Error for grillo_manifest::ParseError
+impl core::error::Error for grillo_manifest::ResolveError
+impl core::error::Error for grillo_manifest::authority::ApprovalError
+impl core::fmt::Debug for grillo_manifest::AccountRole
+impl core::fmt::Debug for grillo_manifest::AccountRoleContractV2
+impl core::fmt::Debug for grillo_manifest::AddressConstraintV2
+impl core::fmt::Debug for grillo_manifest::ArgContract
+impl core::fmt::Debug for grillo_manifest::ArgEncodingContract
+impl core::fmt::Debug for grillo_manifest::ContractCompletenessV2
+impl core::fmt::Debug for grillo_manifest::CpiAccountBindingV2
+impl core::fmt::Debug for grillo_manifest::CpiEnvelopeV2
+impl core::fmt::Debug for grillo_manifest::CpiPolicyV2
+impl core::fmt::Debug for grillo_manifest::DataPolicyV2
+impl core::fmt::Debug for grillo_manifest::DataRangeV2
+impl core::fmt::Debug for grillo_manifest::DeploymentBindingV2
+impl core::fmt::Debug for grillo_manifest::DuplicatePolicyV2
+impl core::fmt::Debug for grillo_manifest::EffectContractV2
+impl core::fmt::Debug for grillo_manifest::EffectContractV2Error
+impl core::fmt::Debug for grillo_manifest::ExecutablePolicyV2
+impl core::fmt::Debug for grillo_manifest::InstructionContract
+impl core::fmt::Debug for grillo_manifest::InstructionEffectContractV2
+impl core::fmt::Debug for grillo_manifest::LamportPolicyV2
+impl core::fmt::Debug for grillo_manifest::LengthPolicyV2
+impl core::fmt::Debug for grillo_manifest::MutationManifest
+impl core::fmt::Debug for grillo_manifest::OwnerPolicyV2
+impl core::fmt::Debug for grillo_manifest::OwnerTargetV2
+impl core::fmt::Debug for grillo_manifest::ParametricRangeContract
+impl core::fmt::Debug for grillo_manifest::ParseError
+impl core::fmt::Debug for grillo_manifest::PresencePolicyV2
+impl core::fmt::Debug for grillo_manifest::PrivilegeRequirementV2
+impl core::fmt::Debug for grillo_manifest::RangeContract
+impl core::fmt::Debug for grillo_manifest::RemainingAccountsContractV2
+impl core::fmt::Debug for grillo_manifest::RemainingGroupV2
+impl core::fmt::Debug for grillo_manifest::ResolveError
+impl core::fmt::Debug for grillo_manifest::ResolvedInstructionContract
+impl core::fmt::Debug for grillo_manifest::ResolvedSelector
+impl core::fmt::Debug for grillo_manifest::TransitionPolicyV2
+impl core::fmt::Debug for grillo_manifest::authority::ApprovalError
+impl core::fmt::Debug for grillo_manifest::authority::AuthorityFinding
+impl core::fmt::Debug for grillo_manifest::authority::AuthorityImpact
+impl core::fmt::Debug for grillo_manifest::authority::AuthorityReport
+impl core::fmt::Debug for grillo_manifest::authority::AuthorityVerdict
+impl core::fmt::Display for grillo_manifest::EffectContractV2Error
+impl core::fmt::Display for grillo_manifest::ParseError
+impl core::fmt::Display for grillo_manifest::ResolveError
+impl core::fmt::Display for grillo_manifest::authority::ApprovalError
+impl core::marker::Copy for grillo_manifest::ArgEncodingContract
+impl core::marker::Copy for grillo_manifest::ContractCompletenessV2
+impl core::marker::Copy for grillo_manifest::DataRangeV2
+impl core::marker::Copy for grillo_manifest::DuplicatePolicyV2
+impl core::marker::Copy for grillo_manifest::LamportPolicyV2
+impl core::marker::Copy for grillo_manifest::PresencePolicyV2
+impl core::marker::Copy for grillo_manifest::PrivilegeRequirementV2
+impl core::marker::Copy for grillo_manifest::RangeContract
+impl core::marker::Copy for grillo_manifest::authority::AuthorityImpact
+impl core::marker::Copy for grillo_manifest::authority::AuthorityVerdict
+impl core::marker::Freeze for grillo_manifest::AccountRole [auto]
+impl core::marker::Freeze for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::marker::Freeze for grillo_manifest::AddressConstraintV2 [auto]
+impl core::marker::Freeze for grillo_manifest::ArgContract [auto]
+impl core::marker::Freeze for grillo_manifest::ArgEncodingContract [auto]
+impl core::marker::Freeze for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::marker::Freeze for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::marker::Freeze for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::marker::Freeze for grillo_manifest::CpiPolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::DataPolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::DataRangeV2 [auto]
+impl core::marker::Freeze for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::marker::Freeze for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::EffectContractV2 [auto]
+impl core::marker::Freeze for grillo_manifest::EffectContractV2Error [auto]
+impl core::marker::Freeze for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::InstructionContract [auto]
+impl core::marker::Freeze for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::marker::Freeze for grillo_manifest::LamportPolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::LengthPolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::MutationManifest [auto]
+impl core::marker::Freeze for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::OwnerTargetV2 [auto]
+impl core::marker::Freeze for grillo_manifest::ParametricRangeContract [auto]
+impl core::marker::Freeze for grillo_manifest::ParseError [auto]
+impl core::marker::Freeze for grillo_manifest::PresencePolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::marker::Freeze for grillo_manifest::RangeContract [auto]
+impl core::marker::Freeze for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::marker::Freeze for grillo_manifest::RemainingGroupV2 [auto]
+impl core::marker::Freeze for grillo_manifest::ResolveError [auto]
+impl core::marker::Freeze for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::marker::Freeze for grillo_manifest::ResolvedSelector [auto]
+impl core::marker::Freeze for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::marker::Freeze for grillo_manifest::authority::ApprovalError [auto]
+impl core::marker::Freeze for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::marker::Freeze for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::marker::Freeze for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::marker::Freeze for grillo_manifest::authority::AuthorityReport [auto]
+impl core::marker::Freeze for grillo_manifest::authority::AuthorityVerdict [auto]
+impl core::marker::Send for grillo_manifest::AccountRole [auto]
+impl core::marker::Send for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::marker::Send for grillo_manifest::AddressConstraintV2 [auto]
+impl core::marker::Send for grillo_manifest::ArgContract [auto]
+impl core::marker::Send for grillo_manifest::ArgEncodingContract [auto]
+impl core::marker::Send for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::marker::Send for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::marker::Send for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::marker::Send for grillo_manifest::CpiPolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::DataPolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::DataRangeV2 [auto]
+impl core::marker::Send for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::marker::Send for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::EffectContractV2 [auto]
+impl core::marker::Send for grillo_manifest::EffectContractV2Error [auto]
+impl core::marker::Send for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::InstructionContract [auto]
+impl core::marker::Send for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::marker::Send for grillo_manifest::LamportPolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::LengthPolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::MutationManifest [auto]
+impl core::marker::Send for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::OwnerTargetV2 [auto]
+impl core::marker::Send for grillo_manifest::ParametricRangeContract [auto]
+impl core::marker::Send for grillo_manifest::ParseError [auto]
+impl core::marker::Send for grillo_manifest::PresencePolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::marker::Send for grillo_manifest::RangeContract [auto]
+impl core::marker::Send for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::marker::Send for grillo_manifest::RemainingGroupV2 [auto]
+impl core::marker::Send for grillo_manifest::ResolveError [auto]
+impl core::marker::Send for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::marker::Send for grillo_manifest::ResolvedSelector [auto]
+impl core::marker::Send for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::marker::Send for grillo_manifest::authority::ApprovalError [auto]
+impl core::marker::Send for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::marker::Send for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::marker::Send for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::marker::Send for grillo_manifest::authority::AuthorityReport [auto]
+impl core::marker::Send for grillo_manifest::authority::AuthorityVerdict [auto]
+impl core::marker::StructuralPartialEq for grillo_manifest::AccountRole
+impl core::marker::StructuralPartialEq for grillo_manifest::AccountRoleContractV2
+impl core::marker::StructuralPartialEq for grillo_manifest::AddressConstraintV2
+impl core::marker::StructuralPartialEq for grillo_manifest::ArgContract
+impl core::marker::StructuralPartialEq for grillo_manifest::ArgEncodingContract
+impl core::marker::StructuralPartialEq for grillo_manifest::ContractCompletenessV2
+impl core::marker::StructuralPartialEq for grillo_manifest::CpiAccountBindingV2
+impl core::marker::StructuralPartialEq for grillo_manifest::CpiEnvelopeV2
+impl core::marker::StructuralPartialEq for grillo_manifest::CpiPolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::DataPolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::DataRangeV2
+impl core::marker::StructuralPartialEq for grillo_manifest::DeploymentBindingV2
+impl core::marker::StructuralPartialEq for grillo_manifest::DuplicatePolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::EffectContractV2
+impl core::marker::StructuralPartialEq for grillo_manifest::EffectContractV2Error
+impl core::marker::StructuralPartialEq for grillo_manifest::ExecutablePolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::InstructionContract
+impl core::marker::StructuralPartialEq for grillo_manifest::InstructionEffectContractV2
+impl core::marker::StructuralPartialEq for grillo_manifest::LamportPolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::LengthPolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::MutationManifest
+impl core::marker::StructuralPartialEq for grillo_manifest::OwnerPolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::OwnerTargetV2
+impl core::marker::StructuralPartialEq for grillo_manifest::ParametricRangeContract
+impl core::marker::StructuralPartialEq for grillo_manifest::ParseError
+impl core::marker::StructuralPartialEq for grillo_manifest::PresencePolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::PrivilegeRequirementV2
+impl core::marker::StructuralPartialEq for grillo_manifest::RangeContract
+impl core::marker::StructuralPartialEq for grillo_manifest::RemainingAccountsContractV2
+impl core::marker::StructuralPartialEq for grillo_manifest::RemainingGroupV2
+impl core::marker::StructuralPartialEq for grillo_manifest::ResolveError
+impl core::marker::StructuralPartialEq for grillo_manifest::ResolvedInstructionContract
+impl core::marker::StructuralPartialEq for grillo_manifest::ResolvedSelector
+impl core::marker::StructuralPartialEq for grillo_manifest::TransitionPolicyV2
+impl core::marker::StructuralPartialEq for grillo_manifest::authority::ApprovalError
+impl core::marker::StructuralPartialEq for grillo_manifest::authority::AuthorityFinding
+impl core::marker::StructuralPartialEq for grillo_manifest::authority::AuthorityImpact
+impl core::marker::StructuralPartialEq for grillo_manifest::authority::AuthorityReport
+impl core::marker::StructuralPartialEq for grillo_manifest::authority::AuthorityVerdict
+impl core::marker::Sync for grillo_manifest::AccountRole [auto]
+impl core::marker::Sync for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::marker::Sync for grillo_manifest::AddressConstraintV2 [auto]
+impl core::marker::Sync for grillo_manifest::ArgContract [auto]
+impl core::marker::Sync for grillo_manifest::ArgEncodingContract [auto]
+impl core::marker::Sync for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::marker::Sync for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::marker::Sync for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::marker::Sync for grillo_manifest::CpiPolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::DataPolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::DataRangeV2 [auto]
+impl core::marker::Sync for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::marker::Sync for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::EffectContractV2 [auto]
+impl core::marker::Sync for grillo_manifest::EffectContractV2Error [auto]
+impl core::marker::Sync for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::InstructionContract [auto]
+impl core::marker::Sync for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::marker::Sync for grillo_manifest::LamportPolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::LengthPolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::MutationManifest [auto]
+impl core::marker::Sync for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::OwnerTargetV2 [auto]
+impl core::marker::Sync for grillo_manifest::ParametricRangeContract [auto]
+impl core::marker::Sync for grillo_manifest::ParseError [auto]
+impl core::marker::Sync for grillo_manifest::PresencePolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::marker::Sync for grillo_manifest::RangeContract [auto]
+impl core::marker::Sync for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::marker::Sync for grillo_manifest::RemainingGroupV2 [auto]
+impl core::marker::Sync for grillo_manifest::ResolveError [auto]
+impl core::marker::Sync for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::marker::Sync for grillo_manifest::ResolvedSelector [auto]
+impl core::marker::Sync for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::marker::Sync for grillo_manifest::authority::ApprovalError [auto]
+impl core::marker::Sync for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::marker::Sync for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::marker::Sync for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::marker::Sync for grillo_manifest::authority::AuthorityReport [auto]
+impl core::marker::Sync for grillo_manifest::authority::AuthorityVerdict [auto]
+impl core::marker::Unpin for grillo_manifest::AccountRole [auto]
+impl core::marker::Unpin for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::marker::Unpin for grillo_manifest::AddressConstraintV2 [auto]
+impl core::marker::Unpin for grillo_manifest::ArgContract [auto]
+impl core::marker::Unpin for grillo_manifest::ArgEncodingContract [auto]
+impl core::marker::Unpin for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::marker::Unpin for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::marker::Unpin for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::marker::Unpin for grillo_manifest::CpiPolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::DataPolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::DataRangeV2 [auto]
+impl core::marker::Unpin for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::marker::Unpin for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::EffectContractV2 [auto]
+impl core::marker::Unpin for grillo_manifest::EffectContractV2Error [auto]
+impl core::marker::Unpin for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::InstructionContract [auto]
+impl core::marker::Unpin for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::marker::Unpin for grillo_manifest::LamportPolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::LengthPolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::MutationManifest [auto]
+impl core::marker::Unpin for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::OwnerTargetV2 [auto]
+impl core::marker::Unpin for grillo_manifest::ParametricRangeContract [auto]
+impl core::marker::Unpin for grillo_manifest::ParseError [auto]
+impl core::marker::Unpin for grillo_manifest::PresencePolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::marker::Unpin for grillo_manifest::RangeContract [auto]
+impl core::marker::Unpin for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::marker::Unpin for grillo_manifest::RemainingGroupV2 [auto]
+impl core::marker::Unpin for grillo_manifest::ResolveError [auto]
+impl core::marker::Unpin for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::marker::Unpin for grillo_manifest::ResolvedSelector [auto]
+impl core::marker::Unpin for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::marker::Unpin for grillo_manifest::authority::ApprovalError [auto]
+impl core::marker::Unpin for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::marker::Unpin for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::marker::Unpin for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::marker::Unpin for grillo_manifest::authority::AuthorityReport [auto]
+impl core::marker::Unpin for grillo_manifest::authority::AuthorityVerdict [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::AccountRole [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::AddressConstraintV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ArgContract [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ArgEncodingContract [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::CpiPolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::DataPolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::DataRangeV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::EffectContractV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::EffectContractV2Error [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::InstructionContract [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::LamportPolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::LengthPolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::MutationManifest [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::OwnerTargetV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ParametricRangeContract [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ParseError [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::PresencePolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::RangeContract [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::RemainingGroupV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ResolveError [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::ResolvedSelector [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::authority::ApprovalError [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::authority::AuthorityReport [auto]
+impl core::marker::UnsafeUnpin for grillo_manifest::authority::AuthorityVerdict [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::AccountRole [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::AddressConstraintV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ArgContract [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ArgEncodingContract [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::CpiPolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::DataPolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::DataRangeV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::EffectContractV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::EffectContractV2Error [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::InstructionContract [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::LamportPolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::LengthPolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::MutationManifest [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::OwnerTargetV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ParametricRangeContract [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ParseError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::PresencePolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::RangeContract [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::RemainingGroupV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ResolveError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::ResolvedSelector [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::authority::ApprovalError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::authority::AuthorityReport [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_manifest::authority::AuthorityVerdict [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::AccountRole [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::AccountRoleContractV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::AddressConstraintV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ArgContract [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ArgEncodingContract [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ContractCompletenessV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::CpiAccountBindingV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::CpiEnvelopeV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::CpiPolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::DataPolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::DataRangeV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::DeploymentBindingV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::DuplicatePolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::EffectContractV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::EffectContractV2Error [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ExecutablePolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::InstructionContract [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::InstructionEffectContractV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::LamportPolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::LengthPolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::MutationManifest [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::OwnerPolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::OwnerTargetV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ParametricRangeContract [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ParseError [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::PresencePolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::PrivilegeRequirementV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::RangeContract [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::RemainingAccountsContractV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::RemainingGroupV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ResolveError [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ResolvedInstructionContract [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::ResolvedSelector [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::TransitionPolicyV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::authority::ApprovalError [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::authority::AuthorityDiff [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::authority::AuthorityFinding [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::authority::AuthorityImpact [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::authority::AuthorityReport [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_manifest::authority::AuthorityVerdict [auto]
+impl grillo_manifest::MutationContractView for grillo_manifest::InstructionContract
+impl grillo_manifest::MutationContractView for grillo_manifest::ResolvedInstructionContract
+impl serde_core::ser::Serialize for grillo_manifest::AccountRole
+impl serde_core::ser::Serialize for grillo_manifest::AccountRoleContractV2
+impl serde_core::ser::Serialize for grillo_manifest::AddressConstraintV2
+impl serde_core::ser::Serialize for grillo_manifest::ArgContract
+impl serde_core::ser::Serialize for grillo_manifest::ArgEncodingContract
+impl serde_core::ser::Serialize for grillo_manifest::ContractCompletenessV2
+impl serde_core::ser::Serialize for grillo_manifest::CpiAccountBindingV2
+impl serde_core::ser::Serialize for grillo_manifest::CpiEnvelopeV2
+impl serde_core::ser::Serialize for grillo_manifest::CpiPolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::DataPolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::DataRangeV2
+impl serde_core::ser::Serialize for grillo_manifest::DeploymentBindingV2
+impl serde_core::ser::Serialize for grillo_manifest::DuplicatePolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::EffectContractV2
+impl serde_core::ser::Serialize for grillo_manifest::ExecutablePolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::InstructionContract
+impl serde_core::ser::Serialize for grillo_manifest::InstructionEffectContractV2
+impl serde_core::ser::Serialize for grillo_manifest::LamportPolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::LengthPolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::MutationManifest
+impl serde_core::ser::Serialize for grillo_manifest::OwnerPolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::OwnerTargetV2
+impl serde_core::ser::Serialize for grillo_manifest::ParametricRangeContract
+impl serde_core::ser::Serialize for grillo_manifest::PresencePolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::PrivilegeRequirementV2
+impl serde_core::ser::Serialize for grillo_manifest::RangeContract
+impl serde_core::ser::Serialize for grillo_manifest::RemainingAccountsContractV2
+impl serde_core::ser::Serialize for grillo_manifest::RemainingGroupV2
+impl serde_core::ser::Serialize for grillo_manifest::TransitionPolicyV2
+impl serde_core::ser::Serialize for grillo_manifest::authority::AuthorityFinding
+impl serde_core::ser::Serialize for grillo_manifest::authority::AuthorityImpact
+impl serde_core::ser::Serialize for grillo_manifest::authority::AuthorityReport
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::AccountRole
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::AccountRoleContractV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::AddressConstraintV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::ArgContract
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::ArgEncodingContract
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::ContractCompletenessV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::CpiAccountBindingV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::CpiEnvelopeV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::CpiPolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::DataPolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::DataRangeV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::DeploymentBindingV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::DuplicatePolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::EffectContractV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::ExecutablePolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::InstructionContract
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::InstructionEffectContractV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::LamportPolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::LengthPolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::MutationManifest
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::OwnerPolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::OwnerTargetV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::ParametricRangeContract
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::PresencePolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::PrivilegeRequirementV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::RangeContract
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::RemainingAccountsContractV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::RemainingGroupV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::TransitionPolicyV2
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::authority::AuthorityFinding
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::authority::AuthorityImpact
+impl<'de> serde_core::de::Deserialize<'de> for grillo_manifest::authority::AuthorityReport
+pub const fn grillo_manifest::authority::AuthorityImpact::label(self) -> &'static str
+pub const fn grillo_manifest::authority::AuthorityVerdict::label(self) -> &'static str
+pub const grillo_manifest::EFFECT_ABI_V2: &str = "0.2"
+pub const grillo_manifest::authority::AUTHORITY_DIFF_SCHEMA: &str = "grillo.authority-diff.v1"
+pub enum grillo_manifest::AddressConstraintV2
+pub enum grillo_manifest::ArgEncodingContract
+pub enum grillo_manifest::CpiPolicyV2
+pub enum grillo_manifest::DeploymentBindingV2
+pub enum grillo_manifest::DuplicatePolicyV2
+pub enum grillo_manifest::EffectContractV2Error
+pub enum grillo_manifest::ExecutablePolicyV2
+pub enum grillo_manifest::LamportPolicyV2
+pub enum grillo_manifest::LengthPolicyV2
+pub enum grillo_manifest::OwnerPolicyV2
+pub enum grillo_manifest::OwnerTargetV2
+pub enum grillo_manifest::ParseError
+pub enum grillo_manifest::PresencePolicyV2
+pub enum grillo_manifest::PrivilegeRequirementV2
+pub enum grillo_manifest::ResolveError
+pub enum grillo_manifest::authority::ApprovalError
+pub enum grillo_manifest::authority::AuthorityImpact
+pub enum grillo_manifest::authority::AuthorityVerdict
+pub fn grillo_manifest::DataRangeV2::contains(self, offset: u64) -> bool
+pub fn grillo_manifest::DataRangeV2::end(self) -> u64
+pub fn grillo_manifest::DeploymentBindingV2::executable_digest(&self) -> [u8; 32]
+pub fn grillo_manifest::EffectContractV2::canonical_bytes(&self) -> core::result::Result<alloc::vec::Vec<u8>, grillo_manifest::EffectContractV2Error>
+pub fn grillo_manifest::EffectContractV2::commitment(&self) -> core::result::Result<[u8; 32], grillo_manifest::EffectContractV2Error>
+pub fn grillo_manifest::EffectContractV2::from_json(json: &str) -> core::result::Result<Self, grillo_manifest::EffectContractV2Error>
+pub fn grillo_manifest::EffectContractV2::instruction_for_data(&self, data: &[u8]) -> core::option::Option<&grillo_manifest::InstructionEffectContractV2>
+pub fn grillo_manifest::EffectContractV2::validate(&self) -> core::result::Result<(), grillo_manifest::EffectContractV2Error>
+pub fn grillo_manifest::InstructionContract::account_name(&self, index: u8) -> core::option::Option<&str>
+pub fn grillo_manifest::InstructionContract::authorized_for(&self, account_index: u8) -> impl core::iter::traits::iterator::Iterator<Item = &grillo_manifest::RangeContract>
+pub fn grillo_manifest::InstructionContract::authorizes_lamports(&self, index: u8) -> bool
+pub fn grillo_manifest::InstructionContract::commitment(&self) -> [u8; 32]
+pub fn grillo_manifest::InstructionContract::encode_canonical(&self, out: &mut alloc::vec::Vec<u8>)
+pub fn grillo_manifest::InstructionContract::resolve_effects(&self, argument_payload: &[u8]) -> core::result::Result<grillo_manifest::ResolvedInstructionContract, grillo_manifest::ResolveError>
+pub fn grillo_manifest::InstructionContract::resolve_effects_with_selectors(&self, selectors: &[u32]) -> core::result::Result<grillo_manifest::ResolvedInstructionContract, grillo_manifest::ResolveError>
+pub fn grillo_manifest::InstructionEffectContractV2::expanded_roles(&self) -> alloc::vec::Vec<(alloc::string::String, grillo_manifest::AccountRoleContractV2)>
+pub fn grillo_manifest::MutationManifest::canonical_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn grillo_manifest::MutationManifest::commitment(&self) -> [u8; 32]
+pub fn grillo_manifest::MutationManifest::from_json(json: &str) -> core::result::Result<Self, grillo_manifest::ParseError>
+pub fn grillo_manifest::MutationManifest::instruction(&self, name: &str) -> core::option::Option<&grillo_manifest::InstructionContract>
+pub fn grillo_manifest::MutationManifest::instruction_by_tag(&self, tag: u8) -> core::option::Option<&grillo_manifest::InstructionContract>
+pub fn grillo_manifest::ParametricRangeContract::envelope_end(&self) -> core::option::Option<u64>
+pub fn grillo_manifest::ParametricRangeContract::selected_range(&self, selector: u32) -> core::option::Option<grillo_manifest::RangeContract>
+pub fn grillo_manifest::RangeContract::contains_byte(&self, offset: u32) -> bool
+pub fn grillo_manifest::RangeContract::end(&self) -> u64
+pub fn grillo_manifest::ResolvedInstructionContract::authorized_for(&self, account_index: u8) -> impl core::iter::traits::iterator::Iterator<Item = &grillo_manifest::RangeContract>
+pub fn grillo_manifest::ResolvedInstructionContract::authorized_ranges(&self) -> &[grillo_manifest::RangeContract]
+pub fn grillo_manifest::ResolvedInstructionContract::commitment(&self) -> [u8; 32]
+pub fn grillo_manifest::ResolvedInstructionContract::lamport_accounts(&self) -> &[u8]
+pub fn grillo_manifest::ResolvedInstructionContract::mutation_complete(&self) -> bool
+pub fn grillo_manifest::ResolvedInstructionContract::name(&self) -> &str
+pub fn grillo_manifest::ResolvedInstructionContract::selectors(&self) -> &[grillo_manifest::ResolvedSelector]
+pub fn grillo_manifest::ResolvedInstructionContract::source_commitment(&self) -> [u8; 32]
+pub fn grillo_manifest::ResolvedInstructionContract::strict_writes(&self) -> bool
+pub fn grillo_manifest::ResolvedInstructionContract::tag(&self) -> u8
+pub fn grillo_manifest::authority::AuthorityDiff::between_json(old_json: &str, new_json: &str) -> core::result::Result<grillo_manifest::authority::AuthorityReport, grillo_manifest::ParseError>
+pub fn grillo_manifest::authority::AuthorityReport::check_approval(&self, approved: &grillo_manifest::authority::AuthorityReport) -> core::result::Result<(), grillo_manifest::authority::ApprovalError>
+pub fn grillo_manifest::authority::AuthorityReport::from_json(json: &str) -> core::result::Result<Self, grillo_manifest::ParseError>
+pub fn grillo_manifest::authority::AuthorityReport::render(&self) -> alloc::string::String
+pub fn grillo_manifest::authority::AuthorityReport::to_json(&self) -> alloc::string::String
+pub fn grillo_manifest::authority::AuthorityReport::verdict(&self) -> grillo_manifest::authority::AuthorityVerdict
+pub fn grillo_manifest::authority::AuthorityReport::with_impact(&self, impact: grillo_manifest::authority::AuthorityImpact) -> impl core::iter::traits::iterator::Iterator<Item = &grillo_manifest::authority::AuthorityFinding>
+pub fn grillo_manifest::sha256(data: &[u8]) -> [u8; 32]
+pub grillo_manifest::AccountRole::name: alloc::string::String
+pub grillo_manifest::AccountRole::signer: bool
+pub grillo_manifest::AccountRole::writable: bool
+pub grillo_manifest::AccountRoleContractV2::address: grillo_manifest::AddressConstraintV2
+pub grillo_manifest::AccountRoleContractV2::name: alloc::string::String
+pub grillo_manifest::AccountRoleContractV2::signer: grillo_manifest::PrivilegeRequirementV2
+pub grillo_manifest::AccountRoleContractV2::transition: grillo_manifest::TransitionPolicyV2
+pub grillo_manifest::AccountRoleContractV2::writable: grillo_manifest::PrivilegeRequirementV2
+pub grillo_manifest::ArgContract::canonical_type: alloc::string::String
+pub grillo_manifest::ArgContract::element_size: core::option::Option<u16>
+pub grillo_manifest::ArgContract::encoding: grillo_manifest::ArgEncodingContract
+pub grillo_manifest::ArgContract::max_len: core::option::Option<u16>
+pub grillo_manifest::ArgContract::name: alloc::string::String
+pub grillo_manifest::ArgContract::size: u16
+pub grillo_manifest::ContractCompletenessV2::accounts: bool
+pub grillo_manifest::ContractCompletenessV2::cpi: bool
+pub grillo_manifest::ContractCompletenessV2::data: bool
+pub grillo_manifest::ContractCompletenessV2::data_length: bool
+pub grillo_manifest::ContractCompletenessV2::executable: bool
+pub grillo_manifest::ContractCompletenessV2::lamports: bool
+pub grillo_manifest::ContractCompletenessV2::owner: bool
+pub grillo_manifest::ContractCompletenessV2::presence: bool
+pub grillo_manifest::CpiAccountBindingV2::child_position: u16
+pub grillo_manifest::CpiAccountBindingV2::parent_position: u16
+pub grillo_manifest::CpiAccountBindingV2::signer: grillo_manifest::PrivilegeRequirementV2
+pub grillo_manifest::CpiAccountBindingV2::writable: grillo_manifest::PrivilegeRequirementV2
+pub grillo_manifest::CpiEnvelopeV2::accounts: alloc::vec::Vec<grillo_manifest::CpiAccountBindingV2>
+pub grillo_manifest::CpiEnvelopeV2::allow_extra_accounts: bool
+pub grillo_manifest::CpiEnvelopeV2::allow_rollback: bool
+pub grillo_manifest::CpiEnvelopeV2::discriminator: alloc::vec::Vec<u8>
+pub grillo_manifest::CpiEnvelopeV2::executable_digest: [u8; 32]
+pub grillo_manifest::CpiEnvelopeV2::id: alloc::string::String
+pub grillo_manifest::CpiEnvelopeV2::loader_id: [u8; 32]
+pub grillo_manifest::CpiEnvelopeV2::max_calls: u16
+pub grillo_manifest::CpiEnvelopeV2::min_calls: u16
+pub grillo_manifest::CpiEnvelopeV2::program_id: [u8; 32]
+pub grillo_manifest::DataPolicyV2::ranges: alloc::vec::Vec<grillo_manifest::DataRangeV2>
+pub grillo_manifest::DataRangeV2::offset: u32
+pub grillo_manifest::DataRangeV2::size: u32
+pub grillo_manifest::EffectContractV2::deployment: grillo_manifest::DeploymentBindingV2
+pub grillo_manifest::EffectContractV2::effect_abi_version: alloc::string::String
+pub grillo_manifest::EffectContractV2::instructions: alloc::vec::Vec<grillo_manifest::InstructionEffectContractV2>
+pub grillo_manifest::InstructionContract::accounts: alloc::vec::Vec<grillo_manifest::AccountRole>
+pub grillo_manifest::InstructionContract::args: alloc::vec::Vec<grillo_manifest::ArgContract>
+pub grillo_manifest::InstructionContract::authorized: alloc::vec::Vec<grillo_manifest::RangeContract>
+pub grillo_manifest::InstructionContract::lamport_accounts: alloc::vec::Vec<u8>
+pub grillo_manifest::InstructionContract::mutation_complete: bool
+pub grillo_manifest::InstructionContract::name: alloc::string::String
+pub grillo_manifest::InstructionContract::parametric: alloc::vec::Vec<grillo_manifest::ParametricRangeContract>
+pub grillo_manifest::InstructionContract::strict_writes: bool
+pub grillo_manifest::InstructionContract::tag: u8
+pub grillo_manifest::InstructionEffectContractV2::accounts: alloc::vec::Vec<grillo_manifest::AccountRoleContractV2>
+pub grillo_manifest::InstructionEffectContractV2::completeness: grillo_manifest::ContractCompletenessV2
+pub grillo_manifest::InstructionEffectContractV2::cpi: grillo_manifest::CpiPolicyV2
+pub grillo_manifest::InstructionEffectContractV2::discriminator: alloc::vec::Vec<u8>
+pub grillo_manifest::InstructionEffectContractV2::name: alloc::string::String
+pub grillo_manifest::InstructionEffectContractV2::remaining_accounts: grillo_manifest::RemainingAccountsContractV2
+pub grillo_manifest::MutationManifest::instructions: alloc::vec::Vec<grillo_manifest::InstructionContract>
+pub grillo_manifest::MutationManifest::program_name: alloc::string::String
+pub grillo_manifest::MutationManifest::program_version: alloc::string::String
+pub grillo_manifest::ParametricRangeContract::account_index: u8
+pub grillo_manifest::ParametricRangeContract::argument_index: u8
+pub grillo_manifest::ParametricRangeContract::argument_name: alloc::string::String
+pub grillo_manifest::ParametricRangeContract::base_offset: u32
+pub grillo_manifest::ParametricRangeContract::cell_size: u32
+pub grillo_manifest::ParametricRangeContract::count: u32
+pub grillo_manifest::ParametricRangeContract::segment_name: alloc::string::String
+pub grillo_manifest::ParametricRangeContract::stride: u32
+pub grillo_manifest::RangeContract::account_index: u8
+pub grillo_manifest::RangeContract::offset: u32
+pub grillo_manifest::RangeContract::size: u32
+pub grillo_manifest::RemainingAccountsContractV2::allow_trailing: bool
+pub grillo_manifest::RemainingAccountsContractV2::complete: bool
+pub grillo_manifest::RemainingAccountsContractV2::duplicate_policy: grillo_manifest::DuplicatePolicyV2
+pub grillo_manifest::RemainingAccountsContractV2::groups: alloc::vec::Vec<grillo_manifest::RemainingGroupV2>
+pub grillo_manifest::RemainingGroupV2::name: alloc::string::String
+pub grillo_manifest::RemainingGroupV2::repeat: u16
+pub grillo_manifest::RemainingGroupV2::roles: alloc::vec::Vec<grillo_manifest::AccountRoleContractV2>
+pub grillo_manifest::ResolvedSelector::argument_index: u8
+pub grillo_manifest::ResolvedSelector::name: alloc::string::String
+pub grillo_manifest::ResolvedSelector::value: u32
+pub grillo_manifest::TransitionPolicyV2::data: grillo_manifest::DataPolicyV2
+pub grillo_manifest::TransitionPolicyV2::data_length: grillo_manifest::LengthPolicyV2
+pub grillo_manifest::TransitionPolicyV2::executable: grillo_manifest::ExecutablePolicyV2
+pub grillo_manifest::TransitionPolicyV2::lamports: grillo_manifest::LamportPolicyV2
+pub grillo_manifest::TransitionPolicyV2::owner: grillo_manifest::OwnerPolicyV2
+pub grillo_manifest::TransitionPolicyV2::presence: grillo_manifest::PresencePolicyV2
+pub grillo_manifest::authority::AuthorityFinding::account: core::option::Option<alloc::string::String>
+pub grillo_manifest::authority::AuthorityFinding::code: alloc::string::String
+pub grillo_manifest::authority::AuthorityFinding::detail: alloc::string::String
+pub grillo_manifest::authority::AuthorityFinding::impact: grillo_manifest::authority::AuthorityImpact
+pub grillo_manifest::authority::AuthorityFinding::instruction: alloc::string::String
+pub grillo_manifest::authority::AuthorityReport::findings: alloc::vec::Vec<grillo_manifest::authority::AuthorityFinding>
+pub grillo_manifest::authority::AuthorityReport::new_manifest_digest: alloc::string::String
+pub grillo_manifest::authority::AuthorityReport::new_program: alloc::string::String
+pub grillo_manifest::authority::AuthorityReport::old_manifest_digest: alloc::string::String
+pub grillo_manifest::authority::AuthorityReport::old_program: alloc::string::String
+pub grillo_manifest::authority::AuthorityReport::schema: alloc::string::String
+pub mod grillo_manifest::authority
+pub struct grillo_manifest::AccountRole {}
+pub struct grillo_manifest::AccountRoleContractV2 {}
+pub struct grillo_manifest::ArgContract {}
+pub struct grillo_manifest::ContractCompletenessV2 {}
+pub struct grillo_manifest::CpiAccountBindingV2 {}
+pub struct grillo_manifest::CpiEnvelopeV2 {}
+pub struct grillo_manifest::DataPolicyV2 {}
+pub struct grillo_manifest::DataRangeV2 {}
+pub struct grillo_manifest::EffectContractV2 {}
+pub struct grillo_manifest::InstructionContract {}
+pub struct grillo_manifest::InstructionEffectContractV2 {}
+pub struct grillo_manifest::MutationManifest {}
+pub struct grillo_manifest::ParametricRangeContract {}
+pub struct grillo_manifest::RangeContract {}
+pub struct grillo_manifest::RemainingAccountsContractV2 {}
+pub struct grillo_manifest::RemainingGroupV2 {}
+pub struct grillo_manifest::ResolvedInstructionContract { .. }
+pub struct grillo_manifest::ResolvedSelector {}
+pub struct grillo_manifest::TransitionPolicyV2 {}
+pub struct grillo_manifest::authority::AuthorityDiff;
+pub struct grillo_manifest::authority::AuthorityFinding {}
+pub struct grillo_manifest::authority::AuthorityReport {}
+pub trait grillo_manifest::MutationContractView [dyn compatible]

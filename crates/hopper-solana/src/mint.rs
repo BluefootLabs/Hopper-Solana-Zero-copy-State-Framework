@@ -54,7 +54,8 @@ pub fn check_mint_initialized(data: &[u8]) -> Result<(), ProgramError> {
     Ok(())
 }
 
-/// Read the mint authority (returns None if COption tag is 0).
+/// Read the mint authority: `None` when the option tag is 0, the key when
+/// it is 1, and an error for any other tag, as the token program does.
 #[inline(always)]
 pub fn mint_authority(data: &[u8]) -> Result<Option<&Address>, ProgramError> {
     if data.len() < MINT_LEN {
@@ -69,13 +70,18 @@ pub fn mint_authority(data: &[u8]) -> Result<Option<&Address>, ProgramError> {
     if tag == 0 {
         return Ok(None);
     }
+    // The token program writes 0 or 1 and refuses to unpack anything else.
+    if tag != 1 {
+        return Err(ProgramError::InvalidAccountData);
+    }
     // SAFETY: Length checked. Pubkey is [u8; 32], alignment 1.
     Ok(Some(unsafe {
         &*(data.as_ptr().add(MINT_AUTH_OFFSET + 4) as *const Address)
     }))
 }
 
-/// Read the freeze authority (returns None if COption tag is 0).
+/// Read the freeze authority: `None` when the option tag is 0, the key
+/// when it is 1, and an error for any other tag.
 #[inline(always)]
 pub fn mint_freeze_authority(data: &[u8]) -> Result<Option<&Address>, ProgramError> {
     if data.len() < MINT_LEN {
@@ -89,6 +95,10 @@ pub fn mint_freeze_authority(data: &[u8]) -> Result<Option<&Address>, ProgramErr
     ]);
     if tag == 0 {
         return Ok(None);
+    }
+    // The token program writes 0 or 1 and refuses to unpack anything else.
+    if tag != 1 {
+        return Err(ProgramError::InvalidAccountData);
     }
     // SAFETY: `data.len() >= MINT_LEN` was checked above and the 32 bytes
     // after the tag lie inside the mint; `Address` is `#[repr(transparent)]`

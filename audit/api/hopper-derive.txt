@@ -1,0 +1,35 @@
+# Public API of hopper-derive, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+proc_macro #[derive(hopper_derive::Accounts)] helpers(account, accounts, signer, instruction, validate, composite)
+proc_macro #[derive(hopper_derive::HopperInitSpace)]
+proc_macro #[hopper_derive::account]
+proc_macro #[hopper_derive::accounts]
+proc_macro #[hopper_derive::args]
+proc_macro #[hopper_derive::constant]
+proc_macro #[hopper_derive::context]
+proc_macro #[hopper_derive::crank]
+proc_macro #[hopper_derive::dynamic]
+proc_macro #[hopper_derive::dynamic_account]
+proc_macro #[hopper_derive::error]
+proc_macro #[hopper_derive::event]
+proc_macro #[hopper_derive::hopper_args]
+proc_macro #[hopper_derive::hopper_constant]
+proc_macro #[hopper_derive::hopper_context]
+proc_macro #[hopper_derive::hopper_crank]
+proc_macro #[hopper_derive::hopper_dynamic]
+proc_macro #[hopper_derive::hopper_dynamic_account]
+proc_macro #[hopper_derive::hopper_error]
+proc_macro #[hopper_derive::hopper_event]
+proc_macro #[hopper_derive::hopper_migrate]
+proc_macro #[hopper_derive::hopper_pod]
+proc_macro #[hopper_derive::hopper_program]
+proc_macro #[hopper_derive::hopper_state]
+proc_macro #[hopper_derive::hopper_unit_enum]
+proc_macro #[hopper_derive::migrate]
+proc_macro #[hopper_derive::pod]
+proc_macro #[hopper_derive::program]
+proc_macro #[hopper_derive::state]
+proc_macro #[hopper_derive::unit_enum]
+proc_macro hopper_derive::canonical_pda!
+proc_macro hopper_derive::declare_program!

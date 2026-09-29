@@ -1,0 +1,64 @@
+# Public API of hopper-associated-token, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+impl<'a> !core::marker::Send for hopper_associated_token::Create<'a> [auto]
+impl<'a> !core::marker::Send for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> !core::marker::Send for hopper_associated_token::RecoverNested<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_associated_token::Create<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_associated_token::RecoverNested<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_associated_token::Create<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_associated_token::RecoverNested<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_associated_token::Create<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_associated_token::RecoverNested<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_associated_token::Create<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_associated_token::RecoverNested<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_associated_token::Create<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_associated_token::RecoverNested<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_associated_token::Create<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_associated_token::CreateIdempotent<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_associated_token::RecoverNested<'a> [auto]
+pub const hopper_associated_token::layout::IX_CREATE: u8 = 0u8
+pub const hopper_associated_token::layout::IX_CREATE_IDEMPOTENT: u8 = 1u8
+pub const hopper_associated_token::layout::IX_RECOVER_NESTED: u8 = 2u8
+pub fn hopper_associated_token::Create::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_associated_token::Create::invoke_signed(&self, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_associated_token::CreateIdempotent::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_associated_token::CreateIdempotent::invoke_signed(&self, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_associated_token::RecoverNested::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_associated_token::RecoverNested::invoke_signed(&self, signers: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_associated_token::layout::encode_create() -> [u8; 1]
+pub fn hopper_associated_token::layout::encode_create_idempotent() -> [u8; 1]
+pub fn hopper_associated_token::layout::encode_recover_nested() -> [u8; 1]
+pub hopper_associated_token::Create::associated_account: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::Create::mint: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::Create::payer: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::Create::system_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::Create::token_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::Create::wallet: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::CreateIdempotent::associated_account: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::CreateIdempotent::mint: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::CreateIdempotent::payer: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::CreateIdempotent::system_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::CreateIdempotent::token_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::CreateIdempotent::wallet: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::destination_associated_account: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::nested_associated_account: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::nested_token_mint: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::owner_associated_account: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::owner_token_mint: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::token_program: &'a hopper_runtime::account::AccountView<'a>
+pub hopper_associated_token::RecoverNested::wallet: &'a hopper_runtime::account::AccountView<'a>
+pub mod hopper_associated_token::instructions
+pub mod hopper_associated_token::layout
+pub struct hopper_associated_token::Create<'a> {}
+pub struct hopper_associated_token::CreateIdempotent<'a> {}
+pub struct hopper_associated_token::RecoverNested<'a> {}
+pub struct hopper_associated_token::instructions::Create<'a> {}
+pub struct hopper_associated_token::instructions::CreateIdempotent<'a> {}
+pub struct hopper_associated_token::instructions::RecoverNested<'a> {}
+pub use hopper_associated_token::ATA_PROGRAM_ID = hopper_solana::constants::ATA_PROGRAM_ID

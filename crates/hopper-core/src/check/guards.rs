@@ -23,7 +23,8 @@ pub fn require_payer(account: &AccountView<'_>) -> ProgramResult {
     Ok(())
 }
 
-/// Validate an authority account: must be signer, owned by expected program.
+/// Validate an authority account: it must sign, and its address must be
+/// the one stored in the account it has authority over.
 #[inline(always)]
 pub fn require_authority(account: &AccountView<'_>, stored_authority: &[u8; 32]) -> ProgramResult {
     if !account.is_signer() {
@@ -31,10 +32,7 @@ pub fn require_authority(account: &AccountView<'_>, stored_authority: &[u8; 32])
     }
     // SAFETY: `Address` is `#[repr(transparent)]` over `[u8; 32]`, so the
     // cast changes the type and nothing else.
-    let addr: &[u8; 32] = unsafe {
-        // SAFETY: Address is [u8; 32].
-        &*(account.address() as *const Address as *const [u8; 32])
-    };
+    let addr: &[u8; 32] = unsafe { &*(account.address() as *const Address as *const [u8; 32]) };
     if !crate::check::keys_eq_fast(addr, stored_authority) {
         return Err(ProgramError::InvalidAccountData);
     }

@@ -235,6 +235,13 @@ pub mod return_data {
     pub use hopper_runtime::return_data::*;
 }
 
+/// The heap of a program that installed `default_allocator!`: how much is
+/// used, and checkpoints that give it back inside a loop.
+pub mod heap {
+    pub use hopper_runtime::__hopper_native::heap::*;
+    pub use hopper_runtime::__hopper_native::{BumpAllocator, HEAP_LENGTH, MAX_HEAP_LENGTH};
+}
+
 /// Sysvar access (Clock, Rent, EpochSchedule, SlotHashes, StakeHistory,
 /// LastRestartSlot, epoch stake) via direct syscalls, no account passing,
 /// no deserialization.
@@ -245,6 +252,13 @@ pub mod return_data {
 /// `hopper::substrate::sysvar` substrate path.
 pub mod sysvar {
     pub use hopper_runtime::__hopper_native::sysvar::*;
+
+    /// The hash of a given slot, read from SlotHashes in windows: 110
+    /// compute units for a recent slot, 220 for an older one, and an
+    /// answer that tells a skipped slot from one that is too old.
+    pub use hopper_runtime::__hopper_native::slot_hashes::{
+        slot_hash, slot_hash_lookup, slot_hash_lookup_with, SlotHashLookup, SlotHashStatus,
+    };
 
     // Instructions-sysvar introspection lives here too, so a single
     // `hopper::sysvar` import covers both the direct-syscall sysvars

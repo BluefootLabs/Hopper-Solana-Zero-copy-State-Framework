@@ -1,0 +1,46 @@
+# Public API of hopper-manager, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+hopper_manager::inspect::IdentifyOutcome::HeaderTooShort { data_len: usize }
+hopper_manager::inspect::IdentifyOutcome::Match { layout: &'a hopper_schema::LayoutManifest, header: hopper_schema::DecodedHeader, data_len: usize, size_mismatch: bool }
+hopper_manager::inspect::IdentifyOutcome::NoMatch { header: hopper_schema::DecodedHeader, data_len: usize }
+impl<'a> core::clone::Clone for hopper_manager::inspect::IdentifyOutcome<'a>
+impl<'a> core::fmt::Debug for hopper_manager::inspect::IdentifyOutcome<'a>
+impl<'a> core::marker::Copy for hopper_manager::inspect::IdentifyOutcome<'a>
+impl<'a> core::marker::Freeze for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+impl<'a> core::marker::Send for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+impl<'a> core::marker::Sync for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_manager::inspect::IdentifyOutcome<'a> [auto]
+pub enum hopper_manager::inspect::IdentifyOutcome<'a>
+pub fn hopper_manager::analyze::compatibility_report(manifest: &hopper_schema::ProgramManifest, layout_name: &str, from_version: u8, to_version: u8) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::analyze::field_diff_report(manifest: &hopper_schema::ProgramManifest, before: &[u8], after: &[u8]) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::compatibility_report(manifest: &hopper_schema::ProgramManifest, layout_name: &str, from_version: u8, to_version: u8) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::decode_account(manifest: &hopper_schema::ProgramManifest, data: &[u8], heading: &str) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::events_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::field_diff_report(manifest: &hopper_schema::ProgramManifest, before: &[u8], after: &[u8]) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::fingerprints_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::header_report(data: &[u8]) -> alloc::string::String
+pub fn hopper_manager::identify_account<'a>(manifest: &'a hopper_schema::ProgramManifest, data: &[u8]) -> hopper_manager::inspect::IdentifyOutcome<'a>
+pub fn hopper_manager::inspect::decode_account(manifest: &hopper_schema::ProgramManifest, data: &[u8], heading: &str) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::inspect::header_report(data: &[u8]) -> alloc::string::String
+pub fn hopper_manager::inspect::identify_account<'a>(manifest: &'a hopper_schema::ProgramManifest, data: &[u8]) -> hopper_manager::inspect::IdentifyOutcome<'a>
+pub fn hopper_manager::inspect::identify_report(manifest: &hopper_schema::ProgramManifest, data: &[u8]) -> alloc::string::String
+pub fn hopper_manager::inspect::segment_map_report(data: &[u8]) -> alloc::string::String
+pub fn hopper_manager::instruction_report(manifest: &hopper_schema::ProgramManifest, selector: &str) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::layouts_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::overview(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::policies_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::program_summary(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::segment_map_report(data: &[u8]) -> alloc::string::String
+pub fn hopper_manager::summary::events_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::summary::fingerprints_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::summary::instruction_report(manifest: &hopper_schema::ProgramManifest, selector: &str) -> core::result::Result<alloc::string::String, alloc::string::String>
+pub fn hopper_manager::summary::layouts_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::summary::policies_report(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub fn hopper_manager::summary::program_summary(manifest: &hopper_schema::ProgramManifest) -> alloc::string::String
+pub mod hopper_manager::analyze
+pub mod hopper_manager::inspect
+pub mod hopper_manager::summary

@@ -1,0 +1,7 @@
+# Public API of hopper-multisig, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+pub fn hopper_multisig::check_all_signers(accounts: &[&hopper_runtime::account::AccountView<'_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_multisig::check_any_signer(accounts: &[&hopper_runtime::account::AccountView<'_>]) -> hopper_runtime::result::ProgramResult
+pub fn hopper_multisig::check_threshold(accounts: &[&hopper_runtime::account::AccountView<'_>], threshold: u8) -> hopper_runtime::result::ProgramResult
+pub fn hopper_multisig::count_signers(accounts: &[&hopper_runtime::account::AccountView<'_>]) -> u8

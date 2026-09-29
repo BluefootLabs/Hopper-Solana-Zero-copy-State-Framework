@@ -1371,23 +1371,64 @@ macro_rules! const_assert_pod {
 /// ```ignore
 /// hopper_interface! {
 ///     /// Read-only view of Program A's Vault.
-///     pub struct VaultView, disc = 1, version = 1 {
+///     pub struct VaultView as Vault, disc = 1, version = 1 {
 ///         authority: TypedAddress<Authority> = 32,
 ///         balance:   WireU64                = 8,
 ///         bump:      u8                     = 1,
 ///     }
 /// }
 ///
-/// let verified = VaultView::load_foreign(vault_account, &PROGRAM_A_ID)?;
+/// let verified = VaultView::load_cross_program(vault_account, &PROGRAM_A_ID)?;
 /// let balance = verified.get().balance.get();
 /// ```
 ///
-/// If the fields match Program A's Vault exactly, the LAYOUT_IDs will
-/// be identical and `load_foreign` succeeds. Any structural divergence
-/// produces a different hash and the load fails.
+/// The layout's name is part of the fingerprint, so the view has to say
+/// which layout it reads. `pub struct VaultView as Vault` names the local
+/// type `VaultView` and fingerprints it as `Vault`; `pub struct Vault`
+/// alone does both with one name. With the name, version, and fields of
+/// Program A's `Vault`, the LAYOUT_IDs are identical and the load
+/// succeeds. Any structural divergence produces a different hash and the
+/// load fails.
 #[macro_export]
 macro_rules! hopper_interface {
     (
+        $(#[$attr:meta])*
+        pub struct $name:ident as $origin:ident, disc = $disc:literal, version = $ver:literal
+        { $($body:tt)+ }
+    ) => {
+        $crate::hopper_interface! {
+            @origin $origin;
+            $(#[$attr])*
+            pub struct $name, disc = $disc, version = $ver
+            { $($body)+ }
+        }
+    };
+    // The rule every earlier release had, unchanged, so existing callers
+    // match it exactly as before.
+    (
+        $(#[$attr:meta])*
+        pub struct $name:ident, disc = $disc:literal, version = $ver:literal
+        {
+            $(
+                $(#[$field_attr:meta])*
+                $field:ident : $fty:ty = $fsize:literal
+            ),+ $(,)?
+        }
+    ) => {
+        $crate::hopper_interface! {
+            @origin $name;
+            $(#[$attr])*
+            pub struct $name, disc = $disc, version = $ver
+            {
+                $(
+                    $(#[$field_attr])*
+                    $field : $fty = $fsize
+                ),+
+            }
+        }
+    };
+    (
+        @origin $origin:ident;
         $(#[$attr:meta])*
         pub struct $name:ident, disc = $disc:literal, version = $ver:literal
         {
@@ -1523,14 +1564,19 @@ macro_rules! hopper_interface {
             /// Expected version of the originating layout.
             pub const VERSION: u8 = $ver;
 
+            /// Name of the layout this view reads, as the owning program
+            /// declared it.
+            pub const ORIGIN: &'static str = stringify!($origin);
+
             /// Deterministic layout fingerprint.
             ///
-            /// Matches the originating layout's `LAYOUT_ID` if the field
-            /// names, types, sizes, and ordering are identical.
+            /// Matches the originating layout's `LAYOUT_ID` if the layout
+            /// name, version, and the field names, types, sizes, and
+            /// ordering are identical.
             pub const LAYOUT_ID: [u8; 8] = {
                 const INPUT: &str = concat!(
                     "hopper:v1:",
-                    stringify!($name), ":",
+                    stringify!($origin), ":",
                     stringify!($ver), ":",
                     $( stringify!($field), ":", stringify!($fty), ":", stringify!($fsize), ",", )+
                 );

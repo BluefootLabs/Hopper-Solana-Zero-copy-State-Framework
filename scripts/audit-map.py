@@ -23,7 +23,10 @@ site at which hash. `--check` reports every reviewed site whose code has
 changed since, so a sign-off cannot silently outlive the code it covered.
 
     python scripts/audit-map.py                 write the map
-    python scripts/audit-map.py --verify        fail if the committed map is stale
+    python scripts/audit-map.py --verify        fail if the committed map is stale,
+                                                if a site has no reasoning of its
+                                                own, or if no test reaches a site
+                                                that runs on the host
     python scripts/audit-map.py --check         report review drift (exit 2 on drift)
     python scripts/audit-map.py --sign ID --reviewer NAME [--note TEXT]
     python scripts/audit-map.py --show ID       print one site with its code
@@ -31,6 +34,7 @@ changed since, so a sign-off cannot silently outlive the code it covered.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import hashlib
 import json
 import re
@@ -135,12 +139,47 @@ def spans(masked: str, pattern: str) -> list[tuple[int, int, str]]:
     """(start, end, name) of every item the pattern opens, body included."""
     found = []
     for match in re.finditer(pattern, masked):
-        brace = masked.find("{", match.end())
-        semi = masked.find(";", match.end())
-        if brace < 0 or (0 <= semi < brace):
+        brace = body_open(masked, match.end())
+        if brace is None:
             continue
         found.append((match.start(), matching_brace(masked, brace), match.group(1)))
     return found
+
+
+TEST_ITEM = re.compile(
+    r"#\[cfg\((?:all\(\s*)?(test|kani)\b[^\]]*\]\s*(?:#\[[^\]]*\]\s*)*"
+    r"(?:pub(?:\([a-z]+\))?\s+)?(?:const\s+)?(?:unsafe\s+)?(?:mod|fn)\s+\w+"
+)
+
+
+def test_items(masked: str) -> list[tuple[int, int, str]]:
+    """Every module or function compiled only for tests or proofs:
+    `#[cfg(test)]`, `#[cfg(kani)]`, and `#[cfg(all(test, ...))]`."""
+    found = []
+    for match in TEST_ITEM.finditer(masked):
+        brace = body_open(masked, match.end())
+        if brace is None:
+            continue
+        found.append((match.start(), matching_brace(masked, brace), match.group(1)))
+    return found
+
+
+def body_open(masked: str, start: int) -> int | None:
+    """The `{` that opens the body of the item whose header starts at
+    `start`, or `None` for a declaration that ends in `;`. A `;` inside
+    parentheses or brackets (an array type in a signature) ends nothing."""
+    depth = 0
+    for k in range(start, min(len(masked), start + 4000)):
+        c = masked[k]
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        elif depth == 0 and c == "{":
+            return k
+        elif depth == 0 and c == ";":
+            return None
+    return None
 
 
 def line_of(text: str, offset: int) -> int:
@@ -253,16 +292,42 @@ def justification(lines: list[str], line: int, kind: str) -> tuple[str, str]:
     return "", "none"
 
 
+def on_chain_only(text: str, masked: str, at: int) -> bool:
+    """Whether the site sits under `#[cfg(target_os = "solana")]`: on the
+    attribute's own item or statement, or inside a block it gates. Such a
+    site cannot run in a host test; the VM suites and devnet cover it."""
+    gate = re.compile(r'#\[cfg\((?:all\()?\s*target_os\s*=\s*"solana"')
+    # `masked` blanks the string, so match on the text.
+    for match in gate.finditer(text, max(0, at - 6000), at):
+        close = text.find("]", match.end())
+        if close < 0:
+            continue
+        rest = masked[close + 1:]
+        item = re.match(r"\s*(?:#\[[^\]]*\]\s*)*", rest)
+        begin = close + 1 + (item.end() if item else 0)
+        brace = masked.find("{", begin)
+        semi = masked.find(";", begin)
+        if brace >= 0 and (semi < 0 or brace < semi):
+            end = matching_brace(masked, brace)
+        else:
+            end = semi if semi >= 0 else begin
+        if begin <= at <= end:
+            return True
+    return False
+
+
 def build() -> dict:
     sources = [
         name for name in tracked("*.rs")
         if (name.startswith(("crates/", "src/", "tools/")))
         and "/tests/" not in name and "/benches/" not in name and "/examples/" not in name
-        and "/fuzz/" not in name
+        and "/fuzz/" not in name and not name.endswith("_tests.rs")
     ]
     test_files = [
         name for name in tracked("*.rs")
         if "/tests/" in name or name.startswith(("tests/", "fuzz/", "bench/"))
+        # A `*_tests.rs` module is declared under `#[cfg(test)]` by its parent.
+        or name.endswith("_tests.rs")
     ]
 
     # Test regions: whole test files, and `#[cfg(test)]` / `#[cfg(kani)]`
@@ -278,28 +343,51 @@ def build() -> dict:
         text = (ROOT / name).read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
         masked = mask(text)
         parsed[name] = (text, masked)
-        test_spans = [
-            (a, b, kind) for a, b, kind in (
-                (m.start(), matching_brace(masked, masked.find("{", m.end())), m.group(1))
-                for m in re.finditer(r"#\[cfg\((test|kani)\)\]\s*(?:#\[[^\]]*\]\s*)*(?:pub\s+)?mod\s+\w+\s*", masked)
-                if masked.find("{", m.end()) >= 0
-            )
-        ]
-        for a, b, kind in test_spans:
+        for a, b, kind in test_items(masked):
             label = f"{name} ({'proof' if kind == 'kani' else 'test'} module)"
             regions.append((label, masked[a:b]))
     region_index = [(label, body) for label, body in regions]
+
+    # Which functions do the tests reach? A test calls some by name; those
+    # call others. The graph is by name, within the audited sources, and
+    # skips names too common to mean one function.
+    call = re.compile(r"\b([a-z_][a-z0-9_]*)\s*(?:::<[^>()]*>)?\s*\(")
+    by_path = re.compile(r"::([a-z_][a-z0-9_]*)\s*[,)]")
+    defined: dict[str, set[str]] = {}
+    for name in sources:
+        text, masked = parsed[name]
+        in_test = [(a, b) for a, b, _ in test_items(masked)]
+        for start, end, function in spans(masked, r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)"):
+            if any(a <= start <= b for a, b in in_test):
+                continue
+            if function in COMMON or len(function) <= 3:
+                continue
+            body = masked[start:end]
+            callees = {c for c in call.findall(body) if c != function}
+            callees.update(by_path.findall(body))
+            defined.setdefault(function, set()).update(callees)
+    called_by_tests: set[str] = set()
+    for _, body in region_index:
+        called_by_tests.update(c for c in call.findall(body) if c in defined)
+    # `reached_from[f]` is a function a test calls by name that leads to `f`.
+    # Breadth first and in sorted order, so every run of the script names
+    # the same (and the nearest) tested function for each site.
+    reached_from: dict[str, str] = {f: f for f in sorted(called_by_tests)}
+    frontier = deque(sorted(called_by_tests))
+    while frontier:
+        function = frontier.popleft()
+        for callee in sorted(defined.get(function, ())):
+            if callee in defined and callee not in reached_from:
+                reached_from[callee] = reached_from[function]
+                frontier.append(callee)
 
     for name in sources:
         text, masked = parsed[name]
         lines = text.split("\n")
         fns = spans(masked, r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)")
         impls = spans(masked, r"\bimpl\b[^{;]*?\b([A-Z][A-Za-z0-9_]*)\s*(?:<[^{;]*>)?\s*(?:where[^{]*)?(?=\{)")
-        test_spans = [
-            (m.start(), matching_brace(masked, masked.find("{", m.end())))
-            for m in re.finditer(r"#\[cfg\((?:test|kani)\)\]\s*(?:#\[[^\]]*\]\s*)*(?:pub\s+)?mod\s+\w+\s*", masked)
-            if masked.find("{", m.end()) >= 0
-        ]
+        test_spans = [(a, b) for a, b, _ in test_items(masked)]
+        macros = spans(masked, r"\bmacro_rules!\s*([A-Za-z_][A-Za-z0-9_]*)")
         ordinals: dict[str, int] = {}
         for match in re.finditer(r"\bunsafe\b", masked):
             at = match.start()
@@ -323,9 +411,9 @@ def build() -> dict:
                 open_at = masked.find("{", match.end())
                 end = matching_brace(masked, open_at)
             else:
-                brace = masked.find("{", match.end())
-                semi = masked.find(";", match.end())
-                if brace < 0 or (0 <= semi < brace):
+                brace = body_open(masked, match.end())
+                if brace is None:
+                    semi = masked.find(";", match.end())
                     end = semi if semi >= 0 else match.end()
                 else:
                     end = matching_brace(masked, brace)
@@ -335,6 +423,10 @@ def build() -> dict:
                 function = own.group(1) if own else "?"
             elif enclosing:
                 function = max(enclosing, key=lambda f: f[0])[2]
+            elif any(m[0] <= at <= m[1] for m in macros):
+                # Code a macro expands at its call site: a test reaches it
+                # by invoking the macro.
+                function = max((m for m in macros if m[0] <= at <= m[1]), key=lambda m: m[0])[2] + "!"
             else:
                 named = re.match(r"\s*(?:impl|trait)\b[^{;]*?([A-Z][A-Za-z0-9_]*)\s*(?:for\s+([A-Za-z_][A-Za-z0-9_:<>, ]*))?", masked[match.end():])
                 function = (named.group(2) or named.group(1)).strip() if named else "(module)"
@@ -351,7 +443,10 @@ def build() -> dict:
             calls = []
             attributable = function not in COMMON and len(function) > 3 and kind in ("fn", "block")
             if attributable:
-                needle = re.compile(r"\b" + re.escape(function) + r"\s*(?:::<[^>]*>)?\s*\(")
+                if function.endswith("!"):
+                    needle = re.compile(r"\b" + re.escape(function) + r"\s*[\(\[\{]")
+                else:
+                    needle = re.compile(r"\b" + re.escape(function) + r"\s*(?:::<[^>]*>)?\s*\(")
                 for label, body in region_index:
                     if needle.search(body):
                         calls.append(label)
@@ -371,6 +466,12 @@ def build() -> dict:
                     else found
                 ),
                 "tests": sorted(set(calls))[:12],
+                "reached_through": (
+                    reached_from.get(function)
+                    if attributable and not calls and reached_from.get(function) != function
+                    else None
+                ),
+                "on_chain_only": on_chain_only(text, masked, at),
                 "test_attribution": "by name" if attributable else "not attributable",
                 "lines_of_code": code.count("\n") + 1,
                 "sha256": hashlib.sha256(normalized.encode()).hexdigest(),
@@ -395,7 +496,10 @@ def priority(site: dict) -> int:
     elif site["justification_class"] in ("shared", "unlabelled"):
         score += 1
     if not site["tests"]:
-        score += 3 if site["test_attribution"] == "by name" else 1
+        if site.get("reached_through") or site.get("on_chain_only"):
+            score += 1
+        else:
+            score += 3 if site["test_attribution"] == "by name" else 1
     if site["public"]:
         score += 2
     if site["kind"] in ("impl", "extern"):
@@ -444,7 +548,25 @@ def render(data: dict) -> str:
     add(f"- `unlabelled`: a comment directly above with no `SAFETY` label: {by_class['unlabelled']:,}")
     add(f"- `boilerplate`: the sentence every unreasoned site carries: {by_class['boilerplate']:,}")
     add(f"- `none`: no comment next to the site: {by_class['none']:,}")
+    indirect = sum(1 for s in sites if not s["tests"] and s.get("reached_through"))
+    vm_only = sum(
+        1 for s in sites
+        if not s["tests"] and not s.get("reached_through") and s.get("on_chain_only")
+    )
+    unreached = sum(
+        1 for s in sites
+        if s["test_attribution"] == "by name" and not s["tests"]
+        and not s.get("reached_through") and not s.get("on_chain_only")
+    )
     add(f"- Enclosing function called by name from a test, proof, or fuzz target: {tested:,} of {attributable:,} attributable")
+    add(f"- Not called by name, reached through a function a test calls: {indirect:,}")
+    add(f"- Compiled for the VM only, so covered by the compiled-program suites and devnet, not by host tests: {vm_only:,}")
+    add(f"- Attributable, on the host, and not reached from any test: {unreached:,}")
+    add("")
+    add("\"Reached through\" follows calls by name inside the audited sources,")
+    add("starting from the functions the tests call. It is a text match, so it")
+    add("over-counts a little where two functions share a name and under-counts")
+    add("calls made through a trait or a macro.")
     add("")
     add("Reading the numbers: \"boilerplate\" means the site carries the sentence")
     add("\"part of Hopper's reviewed zero-copy/backend boundary\", which says a")
@@ -486,16 +608,24 @@ def render(data: dict) -> str:
     add("")
     add("## Reading order")
     add("")
-    add("The sixty sites to read first: public, thinly justified, and not called")
-    add("by name from any test. `python scripts/audit-map.py --show <id>` prints a")
-    add("site with its code.")
+    add("The sixty sites to read first: public, thinly justified, and not reached")
+    add("from any test. `python scripts/audit-map.py --show <id>` prints a site")
+    add("with its code.")
     add("")
     add("| Site | Line | Kind | Justification | Tests |")
-    add("|---|---:|---|---|---:|")
+    add("|---|---:|---|---|---|")
     ranked = sorted(sites, key=lambda s: (-priority(s), s["file"], s["line"]))
     for site in ranked[:60]:
         kind = ("pub " if site["public"] else "") + ("unsafe " + site["kind"])
-        add(f"| `{site['id']}` | {site['line']} | {kind} | {site['justification_class']} | {len(site['tests'])} |")
+        if site["tests"]:
+            tests = str(len(site["tests"]))
+        elif site.get("reached_through"):
+            tests = f"through `{site['reached_through']}`"
+        elif site.get("on_chain_only"):
+            tests = "VM only"
+        else:
+            tests = "none"
+        add(f"| `{site['id']}` | {site['line']} | {kind} | {site['justification_class']} | {tests} |")
     add("")
     add("## Review ledger")
     add("")
@@ -599,7 +729,27 @@ def main() -> int:
         if stale:
             print("stale: " + ", ".join(stale) + " (run scripts/audit-map.py)")
             return 1
-        print(f"unsafe map is current: {len(data['sites'])} sites")
+        # The ratchet: a new site arrives with its reasoning written down
+        # and with a test that reaches it, or the gate fails.
+        bare = [
+            s for s in data["sites"]
+            if s["justification_class"] in ("none", "unlabelled", "boilerplate")
+        ]
+        unreached = [
+            s for s in data["sites"]
+            if s["test_attribution"] == "by name" and not s["tests"]
+            and not s.get("reached_through") and not s.get("on_chain_only")
+        ]
+        for site in bare:
+            print(f"UNJUSTIFIED  {site['id']}  {site['file']}:{site['line']}")
+        for site in unreached:
+            print(f"UNREACHED    {site['id']}  {site['file']}:{site['line']}")
+        if bare or unreached:
+            print(f"{len(bare)} sites without their own reasoning, "
+                  f"{len(unreached)} host sites no test reaches")
+            return 1
+        print(f"unsafe map is current: {len(data['sites'])} sites, "
+              "each justified, each host site reached by a test")
         return 0
 
     MAP_JSON.write_text(text_json, encoding="utf-8", newline="\n")

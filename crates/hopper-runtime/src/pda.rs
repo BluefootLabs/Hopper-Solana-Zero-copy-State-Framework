@@ -69,28 +69,26 @@ pub fn create_program_address(
 ///
 /// Iterates bump seeds 255..=0 until a valid PDA is found.
 ///
+/// Runs off chain too, with the const SHA-256 and curve check in
+/// `hopper_native`, and returns what the cluster returns, so a PDA check
+/// can be exercised in a plain unit test.
+///
 /// # Panics
 ///
 /// Panics if no viable bump exists (matching upstream
-/// `Pubkey::find_program_address`), and on non-SVM hosts, where the sha256
-/// syscall is unavailable. The earlier host fallback silently returned
-/// `(Address::default(), 0)`, the all-zero System Program address; which
-/// made host tests "pass" derivation while comparing against a meaningless
-/// key. Host tests should exercise PDA paths through the SVM harness.
+/// `Pubkey::find_program_address`).
 #[inline]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
-    #[cfg(target_os = "solana")]
-    {
-        crate::native_boundary::find_program_address(seeds, program_id)
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (seeds, program_id);
-        panic!(
-            "hopper: find_program_address requires the SVM sha256 syscall; \
-             run PDA paths under the SVM harness (target_os = \"solana\")"
-        );
-    }
+    crate::native_boundary::find_program_address(seeds, program_id)
+}
+
+/// The canonical program-derived address of `seeds` under `program_id`
+/// and its bump, found at compile time. The seeds may be any `const`
+/// expressions. See `hopper_native::pda::find_program_address_const`.
+pub const fn find_program_address_const(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
+    let backend = hopper_native::address::Address::new_from_array(*program_id.as_array());
+    let (address, bump) = hopper_native::pda::find_program_address_const(seeds, &backend);
+    (Address::new_from_array(address.to_bytes()), bump)
 }
 
 /// Hopper-facing alias for PDA derivation.
@@ -140,20 +138,12 @@ pub fn verify_pda_address(
     program_id: &Address,
     expected: &Address,
 ) -> Result<(), ProgramError> {
-    #[cfg(target_os = "solana")]
-    {
-        hopper_native::pda::verify_program_address(
-            seeds,
-            crate::native_boundary::as_backend_address(program_id),
-            crate::native_boundary::as_backend_address(expected),
-        )
-        .map_err(ProgramError::from)
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (seeds, program_id, expected);
-        Err(ProgramError::InvalidSeeds)
-    }
+    hopper_native::pda::verify_program_address(
+        seeds,
+        crate::native_boundary::as_backend_address(program_id),
+        crate::native_boundary::as_backend_address(expected),
+    )
+    .map_err(ProgramError::from)
 }
 
 /// [`verify_pda_address`] kept out of line.
@@ -205,20 +195,12 @@ pub fn find_bump_for_address(
     program_id: &Address,
     expected: &Address,
 ) -> Result<u8, ProgramError> {
-    #[cfg(target_os = "solana")]
-    {
-        hopper_native::pda::find_bump_for_address(
-            seeds,
-            crate::native_boundary::as_backend_address(program_id),
-            crate::native_boundary::as_backend_address(expected),
-        )
-        .map_err(ProgramError::from)
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (seeds, program_id, expected);
-        Err(ProgramError::InvalidSeeds)
-    }
+    hopper_native::pda::find_bump_for_address(
+        seeds,
+        crate::native_boundary::as_backend_address(program_id),
+        crate::native_boundary::as_backend_address(expected),
+    )
+    .map_err(ProgramError::from)
 }
 
 /// The canonical bump for `seeds`, found with the curve check on every

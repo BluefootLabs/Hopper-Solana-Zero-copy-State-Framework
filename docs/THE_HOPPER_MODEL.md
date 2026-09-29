@@ -375,12 +375,20 @@ program can read another program's headered account by verifying that header:
 
 ```rust
 hopper_interface! {
-    ExternalVault, expected_owner = "VaultProgramId...", layout_id = [...];
+    pub struct VaultView as Vault, disc = 1, version = 1 {
+        authority: TypedAddress<Authority> = 32,
+        balance:   WireU64                = 8,
+        bump:      u8                     = 1,
+    }
 }
+
+let vault = VaultView::load_cross_program(account, &VAULT_PROGRAM_ID)?;
 ```
 
-This generates a read-only overlay that checks the owner and layout_id
-but requires no crate dependency on the source program.
+`VaultView` is the local type. `as Vault` names the layout the owning
+program declared, which is part of the fingerprint. The generated overlay
+is read-only, checks the owner and the layout id, and needs no crate
+dependency on the source program.
 
 ## Error Handling
 

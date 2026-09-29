@@ -28,6 +28,37 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   supplied accounts; measure the actual program because the result is shape-
   and dispatch-dependent.
 
+## Heap, panics, SlotHashes, and PDAs off chain
+
+```rust
+// A 256 KiB heap. Transactions that allocate past 32 KiB request the frame
+// (`hopper tx send --heap-frame 262144`); the others work without it.
+hopper_native::default_allocator!(heap = 256 * 1024);
+```
+
+The allocator hands out memory forward from above Hopper's scratch region
+and grows the most recent block in place, so a vector that grows to 200 KiB
+occupies 200 KiB. `heap::mark()` and `heap::release_to(mark)` rewind it
+inside a loop; `heap::used()` says how much is taken.
+
+The `panic-location` feature makes a panic report `file:line:column`
+through `sol_panic_`, and `panic-message` logs the message. Without them a
+panic aborts silently, which is what a production build wants.
+
+`slot_hashes::slot_hash_lookup(slot)` finds a slot's hash with partial reads
+of the 20 KB SlotHashes sysvar, one read for a recent slot and two for most
+others, and says why there is none: `Skipped`, `TooOld`, or `Ahead`.
+
+`pda::find_program_address` and the other PDA functions run in a plain
+`cargo test` with the cluster's answers; the curve check is a const Ed25519
+decompression in Rust. `pda::find_program_address_const(seeds, program_id)`
+derives an address and bump at compile time.
+
+In 0.5, `AccountView::layout_id` returns `Option<[u8; 8]>` by value and
+`DataFingerprint::capture` returns a `Result`; both read under the borrow
+rules now. See the
+[migration notes](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/MIGRATION_0_5.md).
+
 ## Safety posture
 
 PDA helpers enforce Solana's seed domain before hashing: at most 16 total

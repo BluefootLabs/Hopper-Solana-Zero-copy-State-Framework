@@ -1,0 +1,575 @@
+# Public API of grillo-verifier, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+grillo_verifier::AccountStateV2::Absent
+grillo_verifier::AccountStateV2::Present { lamports: u64, owner: [u8; 32], executable: bool, data: alloc::vec::Vec<u8> }
+grillo_verifier::BindErrorV2::AccountCount { expected: usize, actual: usize }
+grillo_verifier::BindErrorV2::AccountPosition { expected: u16, actual: u16 }
+grillo_verifier::BindErrorV2::AddressMismatch { position: u16 }
+grillo_verifier::BindErrorV2::CpiAccountMismatch { child_index: usize, child_position: u16 }
+grillo_verifier::BindErrorV2::CpiAccountNotVisible { child_index: usize, child_position: u16 }
+grillo_verifier::BindErrorV2::CpiContextMismatch { child_index: usize, field: &'static str }
+grillo_verifier::BindErrorV2::CpiCount { envelope: alloc::string::String, min: u16, max: u16, actual: usize }
+grillo_verifier::BindErrorV2::CpiPrivilegeEscalation { child_index: usize, child_position: u16, privilege: &'static str }
+grillo_verifier::BindErrorV2::CpiRollbackForbidden { child_index: usize }
+grillo_verifier::BindErrorV2::DeploymentMismatch { field: &'static str }
+grillo_verifier::BindErrorV2::DeploymentSlotAfterInvocation { deployment_slot: u64, bank_slot: u64 }
+grillo_verifier::BindErrorV2::DuplicateAccount { first: u16, second: u16 }
+grillo_verifier::BindErrorV2::DuplicateState { pubkey: [u8; 32] }
+grillo_verifier::BindErrorV2::ExtraState { pubkey: [u8; 32] }
+grillo_verifier::BindErrorV2::ForbiddenCpi
+grillo_verifier::BindErrorV2::FrameLimitExceeded { resource: &'static str, max: usize, actual: usize }
+grillo_verifier::BindErrorV2::IncompleteRollbackEvidence { child_index: usize }
+grillo_verifier::BindErrorV2::InstructionNotFound
+grillo_verifier::BindErrorV2::InvalidContract(alloc::string::String)
+grillo_verifier::BindErrorV2::InvalidFrame(alloc::string::String)
+grillo_verifier::BindErrorV2::ManifestCommitmentMismatch
+grillo_verifier::BindErrorV2::MissingState { pubkey: [u8; 32] }
+grillo_verifier::BindErrorV2::PrivilegeMismatch { position: u16, privilege: &'static str }
+grillo_verifier::BindErrorV2::RolledBackMutation { child_index: usize, pubkey: [u8; 32] }
+grillo_verifier::BindErrorV2::TransactionAccountMismatch { first: u16, second: u16 }
+grillo_verifier::BindErrorV2::UndeclaredCpi { child_index: usize }
+grillo_verifier::DecodeError::BadMagic(u8)
+grillo_verifier::DecodeError::BadVersion(u8)
+grillo_verifier::DecodeError::LengthMismatch { declared_count: usize, expected_len: usize, actual_len: usize }
+grillo_verifier::DecodeError::TooShort { len: usize }
+grillo_verifier::EffectVerdictV2::Inconclusive(grillo_verifier::InconclusiveReasonV2)
+grillo_verifier::EffectVerdictV2::Pass(grillo_verifier::PassEvidenceV2)
+grillo_verifier::EffectVerdictV2::Violation(alloc::vec::Vec<grillo_verifier::ViolationV2>)
+grillo_verifier::EvidenceProvenanceV2::Fixture
+grillo_verifier::EvidenceProvenanceV2::ProviderClaimed { provider: [u8; 32], signature: [u8; 64] }
+grillo_verifier::EvidenceProvenanceV2::ReplayClaimed { source: alloc::string::String }
+grillo_verifier::EvidenceProvenanceV2::RpcObserved { endpoint: alloc::string::String }
+grillo_verifier::InconclusiveReason::DuplicateAccountSnapshot { account_index: u8 }
+grillo_verifier::InconclusiveReason::NoByteContract
+grillo_verifier::InconclusiveReason::ParametricArgumentsRequired
+grillo_verifier::InconclusiveReason::PartialTouchMap { overflowed: bool, skipped: bool }
+grillo_verifier::InconclusiveReasonV2::ContractDimensionIncomplete(&'static str)
+grillo_verifier::InconclusiveReasonV2::EvidenceDimensionIncomplete(&'static str)
+grillo_verifier::InconclusiveReasonV2::InvocationBoundaryRequired
+grillo_verifier::InconclusiveReasonV2::InvocationDidNotSucceed
+grillo_verifier::InvocationOutcomeV2::Failed
+grillo_verifier::InvocationOutcomeV2::RolledBack
+grillo_verifier::InvocationOutcomeV2::Succeeded
+grillo_verifier::ObservationBoundaryV2::InvocationEntryExit
+grillo_verifier::ObservationBoundaryV2::TransactionPrePost
+grillo_verifier::ObservationBoundaryV2::Unknown
+grillo_verifier::UnverifiedAuthenticityV2::Unauthenticated
+grillo_verifier::Verdict::Inconclusive(grillo_verifier::InconclusiveReason)
+grillo_verifier::Verdict::Pass(grillo_verifier::PassEvidence)
+grillo_verifier::Verdict::Violation(alloc::vec::Vec<grillo_verifier::Violation>)
+grillo_verifier::Violation::UnauthorizedAcquisition { account_index: u8, offset: u32, size: u32 }
+grillo_verifier::Violation::UnauthorizedLamportDelta { account_index: u8, pre_lamports: u64, post_lamports: u64 }
+grillo_verifier::Violation::UntrackedWrite { account_index: u8, offset: u32 }
+grillo_verifier::ViolationV2::DataLengthTransition { role: alloc::string::String, position: u16, pre: u32, post: u32 }
+grillo_verifier::ViolationV2::DataWriteOutsidePolicy { role: alloc::string::String, position: u16, offset: u32 }
+grillo_verifier::ViolationV2::ExecutableTransition { role: alloc::string::String, position: u16 }
+grillo_verifier::ViolationV2::LamportTransition { role: alloc::string::String, position: u16, pre: u64, post: u64 }
+grillo_verifier::ViolationV2::OwnerTransition { role: alloc::string::String, position: u16 }
+grillo_verifier::ViolationV2::PresenceTransition { role: alloc::string::String, position: u16 }
+impl core::clone::Clone for grillo_verifier::AccountStateV2
+impl core::clone::Clone for grillo_verifier::AccountTransitionV2
+impl core::clone::Clone for grillo_verifier::BindErrorV2
+impl core::clone::Clone for grillo_verifier::BoundInvocationV2
+impl core::clone::Clone for grillo_verifier::DecodeError
+impl core::clone::Clone for grillo_verifier::DeploymentIdentityV2
+impl core::clone::Clone for grillo_verifier::EffectVerdictV2
+impl core::clone::Clone for grillo_verifier::EvidenceCompletenessV2
+impl core::clone::Clone for grillo_verifier::EvidenceProvenanceV2
+impl core::clone::Clone for grillo_verifier::InconclusiveReason
+impl core::clone::Clone for grillo_verifier::InconclusiveReasonV2
+impl core::clone::Clone for grillo_verifier::InvocationAccountRefV2
+impl core::clone::Clone for grillo_verifier::InvocationFrameV2
+impl core::clone::Clone for grillo_verifier::InvocationOutcomeV2
+impl core::clone::Clone for grillo_verifier::NetworkIdentityV2
+impl core::clone::Clone for grillo_verifier::ObservationBoundaryV2
+impl core::clone::Clone for grillo_verifier::PassEvidence
+impl core::clone::Clone for grillo_verifier::PassEvidenceV2
+impl core::clone::Clone for grillo_verifier::ResolvedAccountRoleV2
+impl core::clone::Clone for grillo_verifier::TouchEvidenceV2
+impl core::clone::Clone for grillo_verifier::TouchMap
+impl core::clone::Clone for grillo_verifier::TouchRecord
+impl core::clone::Clone for grillo_verifier::TransactionIdentityV2
+impl core::clone::Clone for grillo_verifier::UnverifiedAuthenticityV2
+impl core::clone::Clone for grillo_verifier::Verdict
+impl core::clone::Clone for grillo_verifier::Violation
+impl core::clone::Clone for grillo_verifier::ViolationV2
+impl core::cmp::Eq for grillo_verifier::AccountStateV2
+impl core::cmp::Eq for grillo_verifier::AccountTransitionV2
+impl core::cmp::Eq for grillo_verifier::BindErrorV2
+impl core::cmp::Eq for grillo_verifier::DecodeError
+impl core::cmp::Eq for grillo_verifier::DeploymentIdentityV2
+impl core::cmp::Eq for grillo_verifier::EffectVerdictV2
+impl core::cmp::Eq for grillo_verifier::EvidenceCompletenessV2
+impl core::cmp::Eq for grillo_verifier::EvidenceProvenanceV2
+impl core::cmp::Eq for grillo_verifier::InconclusiveReason
+impl core::cmp::Eq for grillo_verifier::InconclusiveReasonV2
+impl core::cmp::Eq for grillo_verifier::InvocationAccountRefV2
+impl core::cmp::Eq for grillo_verifier::InvocationFrameV2
+impl core::cmp::Eq for grillo_verifier::InvocationOutcomeV2
+impl core::cmp::Eq for grillo_verifier::NetworkIdentityV2
+impl core::cmp::Eq for grillo_verifier::ObservationBoundaryV2
+impl core::cmp::Eq for grillo_verifier::PassEvidence
+impl core::cmp::Eq for grillo_verifier::PassEvidenceV2
+impl core::cmp::Eq for grillo_verifier::ResolvedAccountRoleV2
+impl core::cmp::Eq for grillo_verifier::TouchEvidenceV2
+impl core::cmp::Eq for grillo_verifier::TouchMap
+impl core::cmp::Eq for grillo_verifier::TouchRecord
+impl core::cmp::Eq for grillo_verifier::TransactionIdentityV2
+impl core::cmp::Eq for grillo_verifier::UnverifiedAuthenticityV2
+impl core::cmp::Eq for grillo_verifier::Verdict
+impl core::cmp::Eq for grillo_verifier::Violation
+impl core::cmp::Eq for grillo_verifier::ViolationV2
+impl core::cmp::PartialEq for grillo_verifier::AccountStateV2
+impl core::cmp::PartialEq for grillo_verifier::AccountTransitionV2
+impl core::cmp::PartialEq for grillo_verifier::BindErrorV2
+impl core::cmp::PartialEq for grillo_verifier::DecodeError
+impl core::cmp::PartialEq for grillo_verifier::DeploymentIdentityV2
+impl core::cmp::PartialEq for grillo_verifier::EffectVerdictV2
+impl core::cmp::PartialEq for grillo_verifier::EvidenceCompletenessV2
+impl core::cmp::PartialEq for grillo_verifier::EvidenceProvenanceV2
+impl core::cmp::PartialEq for grillo_verifier::InconclusiveReason
+impl core::cmp::PartialEq for grillo_verifier::InconclusiveReasonV2
+impl core::cmp::PartialEq for grillo_verifier::InvocationAccountRefV2
+impl core::cmp::PartialEq for grillo_verifier::InvocationFrameV2
+impl core::cmp::PartialEq for grillo_verifier::InvocationOutcomeV2
+impl core::cmp::PartialEq for grillo_verifier::NetworkIdentityV2
+impl core::cmp::PartialEq for grillo_verifier::ObservationBoundaryV2
+impl core::cmp::PartialEq for grillo_verifier::PassEvidence
+impl core::cmp::PartialEq for grillo_verifier::PassEvidenceV2
+impl core::cmp::PartialEq for grillo_verifier::ResolvedAccountRoleV2
+impl core::cmp::PartialEq for grillo_verifier::TouchEvidenceV2
+impl core::cmp::PartialEq for grillo_verifier::TouchMap
+impl core::cmp::PartialEq for grillo_verifier::TouchRecord
+impl core::cmp::PartialEq for grillo_verifier::TransactionIdentityV2
+impl core::cmp::PartialEq for grillo_verifier::UnverifiedAuthenticityV2
+impl core::cmp::PartialEq for grillo_verifier::Verdict
+impl core::cmp::PartialEq for grillo_verifier::Violation
+impl core::cmp::PartialEq for grillo_verifier::ViolationV2
+impl core::default::Default for grillo_verifier::PassEvidence
+impl core::error::Error for grillo_verifier::BindErrorV2
+impl core::error::Error for grillo_verifier::DecodeError
+impl core::fmt::Debug for grillo_verifier::AccountStateV2
+impl core::fmt::Debug for grillo_verifier::AccountTransitionV2
+impl core::fmt::Debug for grillo_verifier::BindErrorV2
+impl core::fmt::Debug for grillo_verifier::BoundInvocationV2
+impl core::fmt::Debug for grillo_verifier::DecodeError
+impl core::fmt::Debug for grillo_verifier::DeploymentIdentityV2
+impl core::fmt::Debug for grillo_verifier::EffectVerdictV2
+impl core::fmt::Debug for grillo_verifier::EvidenceCompletenessV2
+impl core::fmt::Debug for grillo_verifier::EvidenceProvenanceV2
+impl core::fmt::Debug for grillo_verifier::InconclusiveReason
+impl core::fmt::Debug for grillo_verifier::InconclusiveReasonV2
+impl core::fmt::Debug for grillo_verifier::InvocationAccountRefV2
+impl core::fmt::Debug for grillo_verifier::InvocationFrameV2
+impl core::fmt::Debug for grillo_verifier::InvocationOutcomeV2
+impl core::fmt::Debug for grillo_verifier::NetworkIdentityV2
+impl core::fmt::Debug for grillo_verifier::ObservationBoundaryV2
+impl core::fmt::Debug for grillo_verifier::PassEvidence
+impl core::fmt::Debug for grillo_verifier::PassEvidenceV2
+impl core::fmt::Debug for grillo_verifier::ResolvedAccountRoleV2
+impl core::fmt::Debug for grillo_verifier::TouchEvidenceV2
+impl core::fmt::Debug for grillo_verifier::TouchMap
+impl core::fmt::Debug for grillo_verifier::TouchRecord
+impl core::fmt::Debug for grillo_verifier::TransactionIdentityV2
+impl core::fmt::Debug for grillo_verifier::UnverifiedAuthenticityV2
+impl core::fmt::Debug for grillo_verifier::Verdict
+impl core::fmt::Debug for grillo_verifier::Violation
+impl core::fmt::Debug for grillo_verifier::ViolationV2
+impl core::fmt::Display for grillo_verifier::BindErrorV2
+impl core::fmt::Display for grillo_verifier::DecodeError
+impl core::marker::Copy for grillo_verifier::DecodeError
+impl core::marker::Copy for grillo_verifier::EvidenceCompletenessV2
+impl core::marker::Copy for grillo_verifier::InvocationOutcomeV2
+impl core::marker::Copy for grillo_verifier::ObservationBoundaryV2
+impl core::marker::Copy for grillo_verifier::TouchRecord
+impl core::marker::Copy for grillo_verifier::UnverifiedAuthenticityV2
+impl core::marker::Freeze for grillo_verifier::AccountStateV2 [auto]
+impl core::marker::Freeze for grillo_verifier::AccountTransitionV2 [auto]
+impl core::marker::Freeze for grillo_verifier::BindErrorV2 [auto]
+impl core::marker::Freeze for grillo_verifier::BoundInvocationV2 [auto]
+impl core::marker::Freeze for grillo_verifier::DecodeError [auto]
+impl core::marker::Freeze for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::marker::Freeze for grillo_verifier::EffectVerdictV2 [auto]
+impl core::marker::Freeze for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::marker::Freeze for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::marker::Freeze for grillo_verifier::InconclusiveReason [auto]
+impl core::marker::Freeze for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::marker::Freeze for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::marker::Freeze for grillo_verifier::InvocationFrameV2 [auto]
+impl core::marker::Freeze for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::marker::Freeze for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::marker::Freeze for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::marker::Freeze for grillo_verifier::PassEvidence [auto]
+impl core::marker::Freeze for grillo_verifier::PassEvidenceV2 [auto]
+impl core::marker::Freeze for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::marker::Freeze for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::marker::Freeze for grillo_verifier::TouchMap [auto]
+impl core::marker::Freeze for grillo_verifier::TouchRecord [auto]
+impl core::marker::Freeze for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::marker::Freeze for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::marker::Freeze for grillo_verifier::Verdict [auto]
+impl core::marker::Freeze for grillo_verifier::Violation [auto]
+impl core::marker::Freeze for grillo_verifier::ViolationV2 [auto]
+impl core::marker::Send for grillo_verifier::AccountStateV2 [auto]
+impl core::marker::Send for grillo_verifier::AccountTransitionV2 [auto]
+impl core::marker::Send for grillo_verifier::BindErrorV2 [auto]
+impl core::marker::Send for grillo_verifier::BoundInvocationV2 [auto]
+impl core::marker::Send for grillo_verifier::DecodeError [auto]
+impl core::marker::Send for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::marker::Send for grillo_verifier::EffectVerdictV2 [auto]
+impl core::marker::Send for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::marker::Send for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::marker::Send for grillo_verifier::InconclusiveReason [auto]
+impl core::marker::Send for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::marker::Send for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::marker::Send for grillo_verifier::InvocationFrameV2 [auto]
+impl core::marker::Send for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::marker::Send for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::marker::Send for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::marker::Send for grillo_verifier::PassEvidence [auto]
+impl core::marker::Send for grillo_verifier::PassEvidenceV2 [auto]
+impl core::marker::Send for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::marker::Send for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::marker::Send for grillo_verifier::TouchMap [auto]
+impl core::marker::Send for grillo_verifier::TouchRecord [auto]
+impl core::marker::Send for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::marker::Send for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::marker::Send for grillo_verifier::Verdict [auto]
+impl core::marker::Send for grillo_verifier::Violation [auto]
+impl core::marker::Send for grillo_verifier::ViolationV2 [auto]
+impl core::marker::StructuralPartialEq for grillo_verifier::AccountStateV2
+impl core::marker::StructuralPartialEq for grillo_verifier::AccountTransitionV2
+impl core::marker::StructuralPartialEq for grillo_verifier::BindErrorV2
+impl core::marker::StructuralPartialEq for grillo_verifier::DecodeError
+impl core::marker::StructuralPartialEq for grillo_verifier::DeploymentIdentityV2
+impl core::marker::StructuralPartialEq for grillo_verifier::EffectVerdictV2
+impl core::marker::StructuralPartialEq for grillo_verifier::EvidenceCompletenessV2
+impl core::marker::StructuralPartialEq for grillo_verifier::EvidenceProvenanceV2
+impl core::marker::StructuralPartialEq for grillo_verifier::InconclusiveReason
+impl core::marker::StructuralPartialEq for grillo_verifier::InconclusiveReasonV2
+impl core::marker::StructuralPartialEq for grillo_verifier::InvocationAccountRefV2
+impl core::marker::StructuralPartialEq for grillo_verifier::InvocationFrameV2
+impl core::marker::StructuralPartialEq for grillo_verifier::InvocationOutcomeV2
+impl core::marker::StructuralPartialEq for grillo_verifier::NetworkIdentityV2
+impl core::marker::StructuralPartialEq for grillo_verifier::ObservationBoundaryV2
+impl core::marker::StructuralPartialEq for grillo_verifier::PassEvidence
+impl core::marker::StructuralPartialEq for grillo_verifier::PassEvidenceV2
+impl core::marker::StructuralPartialEq for grillo_verifier::ResolvedAccountRoleV2
+impl core::marker::StructuralPartialEq for grillo_verifier::TouchEvidenceV2
+impl core::marker::StructuralPartialEq for grillo_verifier::TouchMap
+impl core::marker::StructuralPartialEq for grillo_verifier::TouchRecord
+impl core::marker::StructuralPartialEq for grillo_verifier::TransactionIdentityV2
+impl core::marker::StructuralPartialEq for grillo_verifier::UnverifiedAuthenticityV2
+impl core::marker::StructuralPartialEq for grillo_verifier::Verdict
+impl core::marker::StructuralPartialEq for grillo_verifier::Violation
+impl core::marker::StructuralPartialEq for grillo_verifier::ViolationV2
+impl core::marker::Sync for grillo_verifier::AccountStateV2 [auto]
+impl core::marker::Sync for grillo_verifier::AccountTransitionV2 [auto]
+impl core::marker::Sync for grillo_verifier::BindErrorV2 [auto]
+impl core::marker::Sync for grillo_verifier::BoundInvocationV2 [auto]
+impl core::marker::Sync for grillo_verifier::DecodeError [auto]
+impl core::marker::Sync for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::marker::Sync for grillo_verifier::EffectVerdictV2 [auto]
+impl core::marker::Sync for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::marker::Sync for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::marker::Sync for grillo_verifier::InconclusiveReason [auto]
+impl core::marker::Sync for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::marker::Sync for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::marker::Sync for grillo_verifier::InvocationFrameV2 [auto]
+impl core::marker::Sync for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::marker::Sync for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::marker::Sync for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::marker::Sync for grillo_verifier::PassEvidence [auto]
+impl core::marker::Sync for grillo_verifier::PassEvidenceV2 [auto]
+impl core::marker::Sync for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::marker::Sync for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::marker::Sync for grillo_verifier::TouchMap [auto]
+impl core::marker::Sync for grillo_verifier::TouchRecord [auto]
+impl core::marker::Sync for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::marker::Sync for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::marker::Sync for grillo_verifier::Verdict [auto]
+impl core::marker::Sync for grillo_verifier::Violation [auto]
+impl core::marker::Sync for grillo_verifier::ViolationV2 [auto]
+impl core::marker::Unpin for grillo_verifier::AccountStateV2 [auto]
+impl core::marker::Unpin for grillo_verifier::AccountTransitionV2 [auto]
+impl core::marker::Unpin for grillo_verifier::BindErrorV2 [auto]
+impl core::marker::Unpin for grillo_verifier::BoundInvocationV2 [auto]
+impl core::marker::Unpin for grillo_verifier::DecodeError [auto]
+impl core::marker::Unpin for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::marker::Unpin for grillo_verifier::EffectVerdictV2 [auto]
+impl core::marker::Unpin for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::marker::Unpin for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::marker::Unpin for grillo_verifier::InconclusiveReason [auto]
+impl core::marker::Unpin for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::marker::Unpin for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::marker::Unpin for grillo_verifier::InvocationFrameV2 [auto]
+impl core::marker::Unpin for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::marker::Unpin for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::marker::Unpin for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::marker::Unpin for grillo_verifier::PassEvidence [auto]
+impl core::marker::Unpin for grillo_verifier::PassEvidenceV2 [auto]
+impl core::marker::Unpin for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::marker::Unpin for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::marker::Unpin for grillo_verifier::TouchMap [auto]
+impl core::marker::Unpin for grillo_verifier::TouchRecord [auto]
+impl core::marker::Unpin for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::marker::Unpin for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::marker::Unpin for grillo_verifier::Verdict [auto]
+impl core::marker::Unpin for grillo_verifier::Violation [auto]
+impl core::marker::Unpin for grillo_verifier::ViolationV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::AccountStateV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::AccountTransitionV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::BindErrorV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::BoundInvocationV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::DecodeError [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::EffectVerdictV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::InconclusiveReason [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::InvocationFrameV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::PassEvidence [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::PassEvidenceV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::TouchMap [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::TouchRecord [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::Verdict [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::Violation [auto]
+impl core::marker::UnsafeUnpin for grillo_verifier::ViolationV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::AccountStateV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::AccountTransitionV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::BindErrorV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::BoundInvocationV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::DecodeError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::EffectVerdictV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::InconclusiveReason [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::InvocationFrameV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::PassEvidence [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::PassEvidenceV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::TouchMap [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::TouchRecord [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::Verdict [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::Violation [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::ViolationV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::AccountStateV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::AccountTransitionV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::BindErrorV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::BoundInvocationV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::DecodeError [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::DeploymentIdentityV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::EffectVerdictV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::EvidenceCompletenessV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::EvidenceProvenanceV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::InconclusiveReason [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::InconclusiveReasonV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::InvocationAccountRefV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::InvocationFrameV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::InvocationOutcomeV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::NetworkIdentityV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::ObservationBoundaryV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::PassEvidence [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::PassEvidenceV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::ResolvedAccountRoleV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::TouchEvidenceV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::TouchMap [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::TouchRecord [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::TransactionIdentityV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::UnverifiedAuthenticityV2 [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::Verdict [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::Violation [auto]
+impl core::panic::unwind_safe::UnwindSafe for grillo_verifier::ViolationV2 [auto]
+impl<'a> core::clone::Clone for grillo_verifier::AccountDelta<'a>
+impl<'a> core::fmt::Debug for grillo_verifier::AccountDelta<'a>
+impl<'a> core::marker::Freeze for grillo_verifier::AccountDelta<'a> [auto]
+impl<'a> core::marker::Send for grillo_verifier::AccountDelta<'a> [auto]
+impl<'a> core::marker::Sync for grillo_verifier::AccountDelta<'a> [auto]
+impl<'a> core::marker::Unpin for grillo_verifier::AccountDelta<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for grillo_verifier::AccountDelta<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for grillo_verifier::AccountDelta<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for grillo_verifier::AccountDelta<'a> [auto]
+pub const grillo_verifier::MAX_TOUCH_RECORDS: usize = 32usize
+pub const grillo_verifier::TOUCH_MAP_FLAG_OVERFLOWED: u8 = 1u8
+pub const grillo_verifier::TOUCH_MAP_FLAG_SKIPPED: u8 = 2u8
+pub const grillo_verifier::TOUCH_MAP_HEADER_LEN: usize = 4usize
+pub const grillo_verifier::TOUCH_MAP_MAGIC: u8 = 122u8
+pub const grillo_verifier::TOUCH_MAP_RECORD_LEN: usize = 9usize
+pub const grillo_verifier::TOUCH_MAP_VERSION: u8 = 1u8
+pub enum grillo_verifier::AccountStateV2
+pub enum grillo_verifier::BindErrorV2
+pub enum grillo_verifier::DecodeError
+pub enum grillo_verifier::EffectVerdictV2
+pub enum grillo_verifier::EvidenceProvenanceV2
+pub enum grillo_verifier::InconclusiveReason
+pub enum grillo_verifier::InconclusiveReasonV2
+pub enum grillo_verifier::InvocationOutcomeV2
+pub enum grillo_verifier::ObservationBoundaryV2
+pub enum grillo_verifier::UnverifiedAuthenticityV2
+pub enum grillo_verifier::Verdict
+pub enum grillo_verifier::Violation
+pub enum grillo_verifier::ViolationV2
+pub fn grillo_verifier::AccountDelta::new(account_index: u8, pre: &'a [u8], post: &'a [u8]) -> Self
+pub fn grillo_verifier::AccountDelta::with_lamports(self, pre_lamports: u64, post_lamports: u64) -> Self
+pub fn grillo_verifier::AccountStateV2::data_len(&self) -> usize
+pub fn grillo_verifier::AccountStateV2::is_present(&self) -> bool
+pub fn grillo_verifier::AccountStateV2::lamports(&self) -> u64
+pub fn grillo_verifier::BoundInvocationV2::authenticity(&self) -> grillo_verifier::UnverifiedAuthenticityV2
+pub fn grillo_verifier::BoundInvocationV2::commitment(&self) -> [u8; 32]
+pub fn grillo_verifier::BoundInvocationV2::contract_commitment(&self) -> [u8; 32]
+pub fn grillo_verifier::BoundInvocationV2::frame_commitment(&self) -> [u8; 32]
+pub fn grillo_verifier::BoundInvocationV2::instruction_name(&self) -> &str
+pub fn grillo_verifier::BoundInvocationV2::provenance(&self) -> &grillo_verifier::EvidenceProvenanceV2
+pub fn grillo_verifier::BoundInvocationV2::roles(&self) -> &[grillo_verifier::ResolvedAccountRoleV2]
+pub fn grillo_verifier::EffectVerdictV2::is_pass(&self) -> bool
+pub fn grillo_verifier::EvidenceCompletenessV2::all_state_dimensions(self) -> bool
+pub fn grillo_verifier::InvocationFrameV2::commitment(&self) -> [u8; 32]
+pub fn grillo_verifier::ResolvedAccountRoleV2::contract(&self) -> &grillo_manifest::effect_v2::AccountRoleContractV2
+pub fn grillo_verifier::ResolvedAccountRoleV2::name(&self) -> &str
+pub fn grillo_verifier::ResolvedAccountRoleV2::position(&self) -> u16
+pub fn grillo_verifier::ResolvedAccountRoleV2::pubkey(&self) -> [u8; 32]
+pub fn grillo_verifier::TouchMap::is_partial(&self) -> bool
+pub fn grillo_verifier::TouchMap::writes(&self) -> impl core::iter::traits::iterator::Iterator<Item = &grillo_verifier::TouchRecord>
+pub fn grillo_verifier::TouchRecord::end(&self) -> u64
+pub fn grillo_verifier::Verdict::is_pass(&self) -> bool
+pub fn grillo_verifier::Verdict::render(&self) -> alloc::string::String
+pub fn grillo_verifier::bind_invocation_v2(contract: &grillo_manifest::effect_v2::EffectContractV2, frame: &grillo_verifier::InvocationFrameV2) -> core::result::Result<grillo_verifier::BoundInvocationV2, grillo_verifier::BindErrorV2>
+pub fn grillo_verifier::decode_touch_map(bytes: &[u8]) -> core::result::Result<grillo_verifier::TouchMap, grillo_verifier::DecodeError>
+pub fn grillo_verifier::verify(contract: &grillo_manifest::manifest::InstructionContract, deltas: &[grillo_verifier::AccountDelta<'_>], touch_map: &grillo_verifier::TouchMap) -> grillo_verifier::Verdict
+pub fn grillo_verifier::verify_bound_invocation_v2(bound: &grillo_verifier::BoundInvocationV2) -> grillo_verifier::EffectVerdictV2
+pub fn grillo_verifier::verify_invocation(contract: &grillo_manifest::manifest::InstructionContract, argument_payload: &[u8], deltas: &[grillo_verifier::AccountDelta<'_>], touch_map: &grillo_verifier::TouchMap) -> core::result::Result<grillo_verifier::Verdict, grillo_manifest::resolve::ResolveError>
+pub fn grillo_verifier::verify_resolved(contract: &grillo_manifest::resolve::ResolvedInstructionContract, deltas: &[grillo_verifier::AccountDelta<'_>], touch_map: &grillo_verifier::TouchMap) -> grillo_verifier::Verdict
+pub grillo_verifier::AccountDelta::account_index: u8
+pub grillo_verifier::AccountDelta::lamports_observed: bool
+pub grillo_verifier::AccountDelta::post: &'a [u8]
+pub grillo_verifier::AccountDelta::post_lamports: u64
+pub grillo_verifier::AccountDelta::pre: &'a [u8]
+pub grillo_verifier::AccountDelta::pre_lamports: u64
+pub grillo_verifier::AccountTransitionV2::post: grillo_verifier::AccountStateV2
+pub grillo_verifier::AccountTransitionV2::pre: grillo_verifier::AccountStateV2
+pub grillo_verifier::AccountTransitionV2::pubkey: [u8; 32]
+pub grillo_verifier::DeploymentIdentityV2::deployment_slot: core::option::Option<u64>
+pub grillo_verifier::DeploymentIdentityV2::executable_digest: [u8; 32]
+pub grillo_verifier::DeploymentIdentityV2::loader_id: [u8; 32]
+pub grillo_verifier::DeploymentIdentityV2::manifest_commitment: [u8; 32]
+pub grillo_verifier::DeploymentIdentityV2::program_id: [u8; 32]
+pub grillo_verifier::DeploymentIdentityV2::programdata_address: core::option::Option<[u8; 32]>
+pub grillo_verifier::EvidenceCompletenessV2::accounts: bool
+pub grillo_verifier::EvidenceCompletenessV2::cpi: bool
+pub grillo_verifier::EvidenceCompletenessV2::data: bool
+pub grillo_verifier::EvidenceCompletenessV2::data_length: bool
+pub grillo_verifier::EvidenceCompletenessV2::executable: bool
+pub grillo_verifier::EvidenceCompletenessV2::lamports: bool
+pub grillo_verifier::EvidenceCompletenessV2::owner: bool
+pub grillo_verifier::EvidenceCompletenessV2::presence: bool
+pub grillo_verifier::EvidenceCompletenessV2::touch: bool
+pub grillo_verifier::InvocationAccountRefV2::position: u16
+pub grillo_verifier::InvocationAccountRefV2::pubkey: [u8; 32]
+pub grillo_verifier::InvocationAccountRefV2::signer: bool
+pub grillo_verifier::InvocationAccountRefV2::transaction_index: u16
+pub grillo_verifier::InvocationAccountRefV2::writable: bool
+pub grillo_verifier::InvocationFrameV2::accounts: alloc::vec::Vec<grillo_verifier::InvocationAccountRefV2>
+pub grillo_verifier::InvocationFrameV2::boundary: grillo_verifier::ObservationBoundaryV2
+pub grillo_verifier::InvocationFrameV2::children: alloc::vec::Vec<grillo_verifier::InvocationFrameV2>
+pub grillo_verifier::InvocationFrameV2::deployment: grillo_verifier::DeploymentIdentityV2
+pub grillo_verifier::InvocationFrameV2::evidence: grillo_verifier::EvidenceCompletenessV2
+pub grillo_verifier::InvocationFrameV2::instruction_data: alloc::vec::Vec<u8>
+pub grillo_verifier::InvocationFrameV2::network: grillo_verifier::NetworkIdentityV2
+pub grillo_verifier::InvocationFrameV2::outcome: grillo_verifier::InvocationOutcomeV2
+pub grillo_verifier::InvocationFrameV2::provenance: grillo_verifier::EvidenceProvenanceV2
+pub grillo_verifier::InvocationFrameV2::states: alloc::vec::Vec<grillo_verifier::AccountTransitionV2>
+pub grillo_verifier::InvocationFrameV2::touch: grillo_verifier::TouchEvidenceV2
+pub grillo_verifier::InvocationFrameV2::transaction: grillo_verifier::TransactionIdentityV2
+pub grillo_verifier::NetworkIdentityV2::genesis_hash: [u8; 32]
+pub grillo_verifier::PassEvidence::acquired_unchanged: alloc::vec::Vec<grillo_manifest::manifest::RangeContract>
+pub grillo_verifier::PassEvidence::changed: alloc::vec::Vec<grillo_manifest::manifest::RangeContract>
+pub grillo_verifier::PassEvidence::changed_bytes: u64
+pub grillo_verifier::PassEvidence::observed_data_accounts: alloc::vec::Vec<u8>
+pub grillo_verifier::PassEvidence::observed_lamport_accounts: alloc::vec::Vec<u8>
+pub grillo_verifier::PassEvidenceV2::authenticity: grillo_verifier::UnverifiedAuthenticityV2
+pub grillo_verifier::PassEvidenceV2::bound_commitment: [u8; 32]
+pub grillo_verifier::PassEvidenceV2::changed_data_bytes: u64
+pub grillo_verifier::PassEvidenceV2::contract_commitment: [u8; 32]
+pub grillo_verifier::PassEvidenceV2::frame_commitment: [u8; 32]
+pub grillo_verifier::PassEvidenceV2::observed_accounts: alloc::vec::Vec<[u8; 32]>
+pub grillo_verifier::PassEvidenceV2::provenance: grillo_verifier::EvidenceProvenanceV2
+pub grillo_verifier::PassEvidenceV2::verdict_commitment: [u8; 32]
+pub grillo_verifier::TouchEvidenceV2::complete: bool
+pub grillo_verifier::TouchEvidenceV2::digest: core::option::Option<[u8; 32]>
+pub grillo_verifier::TouchMap::overflowed: bool
+pub grillo_verifier::TouchMap::records: alloc::vec::Vec<grillo_verifier::TouchRecord>
+pub grillo_verifier::TouchMap::skipped: bool
+pub grillo_verifier::TouchRecord::offset: u32
+pub grillo_verifier::TouchRecord::size: u32
+pub grillo_verifier::TouchRecord::slot: u8
+pub grillo_verifier::TouchRecord::write: bool
+pub grillo_verifier::TransactionIdentityV2::bank_slot: u64
+pub grillo_verifier::TransactionIdentityV2::invocation_path: alloc::vec::Vec<u16>
+pub grillo_verifier::TransactionIdentityV2::message_hash: [u8; 32]
+pub grillo_verifier::TransactionIdentityV2::outer_instruction_index: u16
+pub grillo_verifier::TransactionIdentityV2::signature: [u8; 64]
+pub struct grillo_verifier::AccountDelta<'a> {}
+pub struct grillo_verifier::AccountTransitionV2 {}
+pub struct grillo_verifier::BoundInvocationV2 { .. }
+pub struct grillo_verifier::DeploymentIdentityV2 {}
+pub struct grillo_verifier::EvidenceCompletenessV2 {}
+pub struct grillo_verifier::InvocationAccountRefV2 {}
+pub struct grillo_verifier::InvocationFrameV2 {}
+pub struct grillo_verifier::NetworkIdentityV2 {}
+pub struct grillo_verifier::PassEvidence {}
+pub struct grillo_verifier::PassEvidenceV2 {}
+pub struct grillo_verifier::ResolvedAccountRoleV2 { .. }
+pub struct grillo_verifier::TouchEvidenceV2 {}
+pub struct grillo_verifier::TouchMap {}
+pub struct grillo_verifier::TouchRecord {}
+pub struct grillo_verifier::TransactionIdentityV2 {}
+pub use grillo_verifier::AccountRoleContractV2 = grillo_manifest::effect_v2::AccountRoleContractV2
+pub use grillo_verifier::AddressConstraintV2 = grillo_manifest::effect_v2::AddressConstraintV2
+pub use grillo_verifier::ContractCompletenessV2 = grillo_manifest::effect_v2::ContractCompletenessV2
+pub use grillo_verifier::CpiAccountBindingV2 = grillo_manifest::effect_v2::CpiAccountBindingV2
+pub use grillo_verifier::CpiEnvelopeV2 = grillo_manifest::effect_v2::CpiEnvelopeV2
+pub use grillo_verifier::CpiPolicyV2 = grillo_manifest::effect_v2::CpiPolicyV2
+pub use grillo_verifier::DataPolicyV2 = grillo_manifest::effect_v2::DataPolicyV2
+pub use grillo_verifier::DataRangeV2 = grillo_manifest::effect_v2::DataRangeV2
+pub use grillo_verifier::DeploymentBindingV2 = grillo_manifest::effect_v2::DeploymentBindingV2
+pub use grillo_verifier::DuplicatePolicyV2 = grillo_manifest::effect_v2::DuplicatePolicyV2
+pub use grillo_verifier::EFFECT_ABI_V2 = grillo_manifest::effect_v2::EFFECT_ABI_V2
+pub use grillo_verifier::EffectContractV2 = grillo_manifest::effect_v2::EffectContractV2
+pub use grillo_verifier::EffectContractV2Error = grillo_manifest::effect_v2::EffectContractV2Error
+pub use grillo_verifier::ExecutablePolicyV2 = grillo_manifest::effect_v2::ExecutablePolicyV2
+pub use grillo_verifier::InstructionContract = grillo_manifest::manifest::InstructionContract
+pub use grillo_verifier::InstructionEffectContractV2 = grillo_manifest::effect_v2::InstructionEffectContractV2
+pub use grillo_verifier::LamportPolicyV2 = grillo_manifest::effect_v2::LamportPolicyV2
+pub use grillo_verifier::LengthPolicyV2 = grillo_manifest::effect_v2::LengthPolicyV2
+pub use grillo_verifier::MutationManifest = grillo_manifest::manifest::MutationManifest
+pub use grillo_verifier::OwnerPolicyV2 = grillo_manifest::effect_v2::OwnerPolicyV2
+pub use grillo_verifier::OwnerTargetV2 = grillo_manifest::effect_v2::OwnerTargetV2
+pub use grillo_verifier::ParametricRangeContract = grillo_manifest::manifest::ParametricRangeContract
+pub use grillo_verifier::PresencePolicyV2 = grillo_manifest::effect_v2::PresencePolicyV2
+pub use grillo_verifier::PrivilegeRequirementV2 = grillo_manifest::effect_v2::PrivilegeRequirementV2
+pub use grillo_verifier::RangeContract = grillo_manifest::manifest::RangeContract
+pub use grillo_verifier::RemainingAccountsContractV2 = grillo_manifest::effect_v2::RemainingAccountsContractV2
+pub use grillo_verifier::RemainingGroupV2 = grillo_manifest::effect_v2::RemainingGroupV2
+pub use grillo_verifier::ResolveError = grillo_manifest::resolve::ResolveError
+pub use grillo_verifier::ResolvedInstructionContract = grillo_manifest::resolve::ResolvedInstructionContract
+pub use grillo_verifier::TransitionPolicyV2 = grillo_manifest::effect_v2::TransitionPolicyV2
+pub use grillo_verifier::authority = grillo_manifest::authority

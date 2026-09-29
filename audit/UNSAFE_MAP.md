@@ -11,13 +11,21 @@ one, with a SHA-256 of its code.
 
 ## Totals
 
-- Sites: 857 (221 more inside test and proof modules are not listed)
-- `specific`: a `SAFETY` comment or `# Safety` section written for the site: 775
-- `shared`: the `SAFETY` comment of a neighbouring site within three lines: 82
+- Sites: 851 (247 more inside test and proof modules are not listed)
+- `specific`: a `SAFETY` comment or `# Safety` section written for the site: 770
+- `shared`: the `SAFETY` comment of a neighbouring site within three lines: 81
 - `unlabelled`: a comment directly above with no `SAFETY` label: 0
 - `boilerplate`: the sentence every unreasoned site carries: 0
 - `none`: no comment next to the site: 0
-- Enclosing function called by name from a test, proof, or fuzz target: 349 of 655 attributable
+- Enclosing function called by name from a test, proof, or fuzz target: 460 of 652 attributable
+- Not called by name, reached through a function a test calls: 173
+- Compiled for the VM only, so covered by the compiled-program suites and devnet, not by host tests: 31
+- Attributable, on the host, and not reached from any test: 0
+
+"Reached through" follows calls by name inside the audited sources,
+starting from the functions the tests call. It is a text match, so it
+over-counts a little where two functions share a name and under-counts
+calls made through a trait or a macro.
 
 Reading the numbers: "boilerplate" means the site carries the sentence
 "part of Hopper's reviewed zero-copy/backend boundary", which says a
@@ -31,13 +39,13 @@ names too common to attribute (`new`, `get`, `load`).
 
 | Crate | Sites | Specific | Shared | Unlabelled | Boilerplate | None | Public unsafe fn | Called from a test |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `hopper-native` | 354 | 297 | 57 | 0 | 0 | 0 | 37 | 157 |
-| `hopper-runtime` | 307 | 297 | 10 | 0 | 0 | 0 | 58 | 117 |
-| `hopper-core` | 127 | 118 | 9 | 0 | 0 | 0 | 6 | 46 |
+| `hopper-native` | 362 | 306 | 56 | 0 | 0 | 0 | 39 | 227 |
+| `hopper-runtime` | 293 | 283 | 10 | 0 | 0 | 0 | 58 | 136 |
+| `hopper-core` | 127 | 118 | 9 | 0 | 0 | 0 | 6 | 62 |
 | `hopper-builtins` | 25 | 25 | 0 | 0 | 0 | 0 | 8 | 22 |
 | `hopper-macros-proc` | 19 | 15 | 4 | 0 | 0 | 0 | 0 | 1 |
-| `hopper-macros` | 9 | 7 | 2 | 0 | 0 | 0 | 1 | 0 |
-| `hopper-solana` | 7 | 7 | 0 | 0 | 0 | 0 | 0 | 2 |
+| `hopper-macros` | 9 | 7 | 2 | 0 | 0 | 0 | 1 | 3 |
+| `hopper-solana` | 7 | 7 | 0 | 0 | 0 | 0 | 0 | 5 |
 | `hopper-svm` | 4 | 4 | 0 | 0 | 0 | 0 | 0 | 2 |
 | `hopper-lang (facade)` | 3 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `hopper-memo` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 |
@@ -47,101 +55,100 @@ names too common to attribute (`new`, `get`, `load`).
 
 | File | Sites | Boilerplate or none | Not called from a test |
 |---|---:|---:|---:|
-| `crates/hopper-native/src/account_view.rs` | 69 | 0 | 17 |
-| `crates/hopper-native/src/raw_input.rs` | 67 | 0 | 44 |
+| `crates/hopper-native/src/account_view.rs` | 69 | 0 | 15 |
+| `crates/hopper-native/src/raw_input.rs` | 67 | 0 | 4 |
 | `crates/hopper-runtime/src/account.rs` | 47 | 0 | 18 |
-| `crates/hopper-runtime/src/syscalls.rs` | 44 | 0 | 44 |
+| `crates/hopper-runtime/src/syscalls.rs` | 44 | 0 | 42 |
+| `crates/hopper-native/src/entrypoint.rs` | 32 | 0 | 19 |
 | `crates/hopper-native/src/pod.rs` | 31 | 0 | 30 |
-| `crates/hopper-native/src/project.rs` | 27 | 0 | 25 |
-| `crates/hopper-native/src/entrypoint.rs` | 26 | 0 | 18 |
+| `crates/hopper-native/src/project.rs` | 27 | 0 | 15 |
 | `crates/hopper-builtins/src/lib.rs` | 25 | 0 | 3 |
-| `crates/hopper-runtime/src/lib.rs` | 21 | 0 | 21 |
+| `crates/hopper-runtime/src/lib.rs` | 21 | 0 | 20 |
 | `crates/hopper-native/src/pda.rs` | 19 | 0 | 0 |
-| `crates/hopper-runtime/src/segment_borrow.rs` | 19 | 0 | 9 |
 | `crates/hopper-native/src/mem.rs` | 17 | 0 | 1 |
 | `crates/hopper-runtime/src/cpi.rs` | 17 | 0 | 14 |
 | `crates/hopper-native/src/lazy.rs` | 16 | 0 | 6 |
 | `crates/hopper-runtime/src/borrow.rs` | 16 | 0 | 6 |
-| `crates/hopper-runtime/src/native_boundary.rs` | 14 | 0 | 8 |
-| `crates/hopper-native/src/lens.rs` | 13 | 0 | 6 |
-| `crates/hopper-native/src/cpi.rs` | 12 | 0 | 8 |
+| `crates/hopper-runtime/src/native_boundary.rs` | 14 | 0 | 5 |
+| `crates/hopper-native/src/lens.rs` | 13 | 0 | 0 |
+| `crates/hopper-runtime/src/segment_borrow.rs` | 13 | 0 | 3 |
+| `crates/hopper-native/src/cpi.rs` | 12 | 0 | 5 |
 | `crates/hopper-native/src/wire.rs` | 12 | 0 | 12 |
-| `crates/hopper-runtime/src/crypto.rs` | 12 | 0 | 6 |
+| `crates/hopper-runtime/src/crypto.rs` | 12 | 0 | 3 |
 | `crates/hopper-runtime/src/memory.rs` | 12 | 0 | 3 |
-| `crates/hopper-runtime/src/context.rs` | 11 | 0 | 5 |
-| `crates/hopper-core/src/account/segment.rs` | 9 | 0 | 8 |
+| `crates/hopper-runtime/src/context.rs` | 11 | 0 | 4 |
+| `crates/hopper-core/src/account/segment.rs` | 9 | 0 | 7 |
 | `crates/hopper-core/src/frame/mod.rs` | 9 | 0 | 0 |
-| `crates/hopper-macros/src/lib.rs` | 9 | 0 | 9 |
-| `crates/hopper-core/src/abi/typed_address.rs` | 8 | 0 | 7 |
+| `crates/hopper-macros/src/lib.rs` | 9 | 0 | 6 |
+| `crates/hopper-core/src/abi/typed_address.rs` | 8 | 0 | 6 |
 | `crates/hopper-core/src/account/pod.rs` | 8 | 0 | 0 |
-| `crates/hopper-core/src/account/registry.rs` | 8 | 0 | 6 |
+| `crates/hopper-core/src/account/registry.rs` | 8 | 0 | 3 |
 | `crates/hopper-core/src/cpi/mod.rs` | 8 | 0 | 2 |
-| `crates/hopper-core/src/manifest.rs` | 8 | 0 | 7 |
+| `crates/hopper-core/src/manifest.rs` | 8 | 0 | 5 |
 | `crates/hopper-macros-proc/src/context.rs` | 8 | 0 | 8 |
 | `crates/hopper-native/src/instruction.rs` | 8 | 0 | 8 |
 | `crates/hopper-native/src/borrow.rs` | 7 | 0 | 4 |
 | `crates/hopper-native/src/sysvar.rs` | 7 | 0 | 4 |
 | `crates/hopper-runtime/src/account_wrappers.rs` | 7 | 0 | 0 |
 | `crates/hopper-runtime/src/dyn_cpi.rs` | 7 | 0 | 1 |
-| `crates/hopper-runtime/src/segment_lease.rs` | 7 | 0 | 5 |
+| `crates/hopper-runtime/src/segment_lease.rs` | 7 | 0 | 2 |
 | `crates/hopper-runtime/src/zerocopy.rs` | 7 | 0 | 7 |
 | `crates/hopper-core/src/account/verified.rs` | 6 | 0 | 2 |
-| `crates/hopper-core/src/collections/fixed_vec.rs` | 6 | 0 | 5 |
+| `crates/hopper-core/src/collections/fixed_vec.rs` | 6 | 0 | 4 |
 | `crates/hopper-core/src/collections/packed_map.rs` | 6 | 0 | 6 |
 | `crates/hopper-macros-proc/src/state.rs` | 6 | 0 | 6 |
-| `crates/hopper-runtime/src/address.rs` | 6 | 0 | 5 |
-| `crates/hopper-runtime/src/token_differential_tests.rs` | 6 | 0 | 6 |
-| `crates/hopper-core/src/collections/slab.rs` | 5 | 0 | 3 |
+| `crates/hopper-runtime/src/address.rs` | 6 | 0 | 3 |
+| `crates/hopper-core/src/collections/slab.rs` | 5 | 0 | 2 |
 | `crates/hopper-core/src/collections/sorted_vec.rs` | 5 | 0 | 2 |
 | `crates/hopper-native/src/hash.rs` | 5 | 0 | 2 |
 | `crates/hopper-native/src/log.rs` | 5 | 0 | 4 |
 | `crates/hopper-runtime/src/instruction.rs` | 5 | 0 | 5 |
-| `crates/hopper-runtime/src/interop.rs` | 5 | 0 | 5 |
+| `crates/hopper-runtime/src/interop.rs` | 5 | 0 | 3 |
 | `crates/hopper-core/src/abi/boolean.rs` | 4 | 0 | 4 |
 | `crates/hopper-core/src/abi/integers.rs` | 4 | 0 | 4 |
-| `crates/hopper-core/src/check/mod.rs` | 4 | 0 | 4 |
-| `crates/hopper-runtime/src/lazy.rs` | 4 | 0 | 2 |
+| `crates/hopper-core/src/check/mod.rs` | 4 | 0 | 2 |
+| `crates/hopper-runtime/src/lazy.rs` | 4 | 0 | 1 |
 | `crates/hopper-runtime/src/return_data.rs` | 4 | 0 | 1 |
 | `crates/hopper-svm/src/lib.rs` | 4 | 0 | 2 |
 | `crates/hopper-core/src/account/header.rs` | 3 | 0 | 3 |
 | `crates/hopper-core/src/collections/journal.rs` | 3 | 0 | 2 |
 | `crates/hopper-core/src/collections/slot_map.rs` | 3 | 0 | 1 |
-| `crates/hopper-core/src/event/mod.rs` | 3 | 0 | 2 |
+| `crates/hopper-core/src/event/mod.rs` | 3 | 0 | 1 |
 | `crates/hopper-macros-proc/src/pod.rs` | 3 | 0 | 3 |
 | `crates/hopper-native/src/return_data.rs` | 3 | 0 | 1 |
 | `crates/hopper-runtime/src/error.rs` | 3 | 0 | 3 |
-| `crates/hopper-runtime/src/layout.rs` | 3 | 0 | 1 |
+| `crates/hopper-runtime/src/layout.rs` | 3 | 0 | 0 |
 | `crates/hopper-runtime/src/log.rs` | 3 | 0 | 2 |
 | `crates/hopper-runtime/src/token_batch.rs` | 3 | 0 | 1 |
 | `crates/hopper-runtime/src/write_policy.rs` | 3 | 0 | 2 |
-| `crates/hopper-core/src/account/reader.rs` | 2 | 0 | 1 |
+| `crates/hopper-core/src/account/reader.rs` | 2 | 0 | 0 |
 | `crates/hopper-core/src/accounts/hopper_account.rs` | 2 | 0 | 2 |
 | `crates/hopper-core/src/accounts/program_account.rs` | 2 | 0 | 2 |
 | `crates/hopper-core/src/accounts/unchecked.rs` | 2 | 0 | 2 |
 | `crates/hopper-core/src/collections/ring_buffer.rs` | 2 | 0 | 2 |
 | `crates/hopper-core/src/virtual_state/mod.rs` | 2 | 0 | 0 |
 | `crates/hopper-native/src/budget.rs` | 2 | 0 | 1 |
+| `crates/hopper-native/src/heap.rs` | 2 | 0 | 0 |
 | `crates/hopper-native/src/introspect.rs` | 2 | 0 | 2 |
-| `crates/hopper-native/src/syscalls.rs` | 2 | 0 | 2 |
-| `crates/hopper-native/src/system.rs` | 2 | 0 | 1 |
+| `crates/hopper-native/src/syscalls.rs` | 2 | 0 | 1 |
+| `crates/hopper-native/src/system.rs` | 2 | 0 | 0 |
 | `crates/hopper-runtime/src/borrow_registry.rs` | 2 | 0 | 1 |
-| `crates/hopper-runtime/src/cpi_dedup_tests.rs` | 2 | 0 | 0 |
 | `crates/hopper-runtime/src/cpi_event.rs` | 2 | 0 | 0 |
 | `crates/hopper-runtime/src/enum_byte.rs` | 2 | 0 | 2 |
 | `crates/hopper-runtime/src/foreign.rs` | 2 | 0 | 0 |
 | `crates/hopper-runtime/src/migrate.rs` | 2 | 0 | 0 |
 | `crates/hopper-runtime/src/option_byte.rs` | 2 | 0 | 2 |
 | `crates/hopper-runtime/src/pda.rs` | 2 | 0 | 0 |
-| `crates/hopper-runtime/src/token.rs` | 2 | 0 | 2 |
+| `crates/hopper-runtime/src/token.rs` | 2 | 0 | 0 |
 | `crates/hopper-solana/src/crypto/merkle.rs` | 2 | 0 | 2 |
-| `crates/hopper-solana/src/mint.rs` | 2 | 0 | 1 |
-| `crates/hopper-solana/src/token.rs` | 2 | 0 | 2 |
+| `crates/hopper-solana/src/mint.rs` | 2 | 0 | 0 |
+| `crates/hopper-solana/src/token.rs` | 2 | 0 | 0 |
 | `src/receipts.rs` | 2 | 0 | 2 |
-| `crates/hopper-core/src/abi/field_ref.rs` | 1 | 0 | 1 |
+| `crates/hopper-core/src/abi/field_ref.rs` | 1 | 0 | 0 |
 | `crates/hopper-core/src/abi/mod.rs` | 1 | 0 | 1 |
-| `crates/hopper-core/src/account/cursor.rs` | 1 | 0 | 1 |
+| `crates/hopper-core/src/account/cursor.rs` | 1 | 0 | 0 |
 | `crates/hopper-core/src/accounts/segmented.rs` | 1 | 0 | 0 |
-| `crates/hopper-core/src/check/guards.rs` | 1 | 0 | 1 |
+| `crates/hopper-core/src/check/guards.rs` | 1 | 0 | 0 |
 | `crates/hopper-macros-proc/src/args.rs` | 1 | 0 | 1 |
 | `crates/hopper-macros-proc/src/event.rs` | 1 | 0 | 0 |
 | `crates/hopper-memo/src/lib.rs` | 1 | 0 | 0 |
@@ -156,72 +163,72 @@ names too common to attribute (`new`, `get`, `load`).
 
 ## Reading order
 
-The sixty sites to read first: public, thinly justified, and not called
-by name from any test. `python scripts/audit-map.py --show <id>` prints a
-site with its code.
+The sixty sites to read first: public, thinly justified, and not reached
+from any test. `python scripts/audit-map.py --show <id>` prints a site
+with its code.
 
 | Site | Line | Kind | Justification | Tests |
-|---|---:|---|---|---:|
-| `crates/hopper-builtins/src/lib.rs::bcmp#1` | 272 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/cpi.rs::invoke_unchecked#1` | 145 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/cpi.rs::invoke_signed_unchecked#1` | 190 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/entrypoint.rs::entrypoint#1` | 101 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/entrypoint.rs::entrypoint#4` | 213 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/project.rs::project_safe_mut#1` | 171 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/project.rs::project_mut#1` | 265 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/cpi.rs::invoke_unchecked#1` | 69 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/cpi.rs::invoke_signed_unchecked#1` | 87 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#1` | 669 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#5` | 749 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#14` | 881 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/native_boundary.rs::entrypoint#1` | 236 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_log_data#1` | 69 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_sha256#1` | 90 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_keccak256#1` | 111 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_blake3#1` | 134 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_secp256k1_recover#1` | 158 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_curve_validate_point#1` | 192 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_curve_group_op#1` | 225 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_curve_multiscalar_mul#1` | 267 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_poseidon#1` | 308 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_alt_bn128_group_op#1` | 343 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_alt_bn128_compression#1` | 373 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_big_mod_exp#1` | 401 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_get_processed_sibling_instruction#1` | 437 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_set_return_data#1` | 466 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_get_return_data#1` | 489 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_memcpy_#1` | 528 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_memmove_#1` | 548 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_memcmp_#1` | 569 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/syscalls.rs::sol_memset_#1` | 595 | pub unsafe fn | specific | 0 |
-| `crates/hopper-macros/src/lib.rs::load_unchecked#1` | 418 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/account_view.rs::initialize_original_data_len#1` | 146 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/account_view.rs::disc_unchecked#1` | 811 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/entrypoint.rs::entrypoint#12` | 329 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/project.rs::project_hopper_mut#1` | 366 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_into#1` | 784 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/context.rs::raw_unchecked#1` | 920 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/memory.rs::copy#1` | 27 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/native_boundary.rs::account_owner#1` | 46 | pub unsafe fn | specific | 0 |
-| `crates/hopper-native/src/entrypoint.rs::entrypoint#7` | 232 | unsafe block | shared | 0 |
-| `crates/hopper-native/src/entrypoint.rs::dealloc#1` | 367 | unsafe fn | shared | 0 |
-| `crates/hopper-native/src/instruction.rs::preflight_cpi_accounts#1` | 210 | unsafe block | shared | 0 |
-| `crates/hopper-native/src/lazy.rs::tail_ptr#1` | 171 | unsafe block | specific | 0 |
-| `crates/hopper-native/src/lazy.rs::parse_one_account#1` | 368 | unsafe fn | specific | 0 |
-| `crates/hopper-native/src/lazy.rs::parse_one_account#2` | 372 | unsafe block | specific | 0 |
-| `crates/hopper-runtime/src/account.rs::segment_mut_ungated#2` | 456 | unsafe block | shared | 0 |
-| `crates/hopper-runtime/src/context.rs::as_mut_ptr#1` | 952 | pub unsafe fn | specific | 0 |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#8` | 772 | unsafe block | shared | 0 |
-| `crates/hopper-runtime/src/rent.rs::live_rent#1` | 122 | unsafe block | specific | 0 |
-| `crates/hopper-runtime/src/segment_borrow.rs::bare_account_view_load_mut_records_ambiently#4` | 2069 | unsafe block | specific | 0 |
-| `crates/hopper-runtime/src/token_differential_tests.rs::(module)#1` | 63 | unsafe block | specific | 0 |
-| `crates/hopper-runtime/src/token_differential_tests.rs::token_program_owning_selects_the_program_and_refuses_others#1` | 1222 | unsafe block | specific | 0 |
-| `crates/hopper-runtime/src/token_differential_tests.rs::token_program_owning_selects_the_program_and_refuses_others#3` | 1242 | unsafe block | specific | 0 |
-| `crates/hopper-svm/src/lib.rs::to_fixture#1` | 188 | unsafe block | specific | 0 |
+|---|---:|---|---|---|
+| `crates/hopper-builtins/src/lib.rs::bcmp#1` | 272 | pub unsafe fn | specific | VM only |
+| `crates/hopper-native/src/cpi.rs::invoke_unchecked#1` | 145 | pub unsafe fn | specific | through `invoke_signed` |
+| `crates/hopper-native/src/cpi.rs::invoke_signed_unchecked#1` | 190 | pub unsafe fn | specific | through `invoke_signed` |
+| `crates/hopper-native/src/entrypoint.rs::entrypoint#1` | 101 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-native/src/entrypoint.rs::entrypoint#4` | 213 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_into#1` | 784 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/context.rs::as_mut_ptr#1` | 952 | pub unsafe fn | specific | none |
+| `crates/hopper-runtime/src/cpi.rs::invoke_unchecked#1` | 69 | pub unsafe fn | specific | through `invoke_signed` |
+| `crates/hopper-runtime/src/cpi.rs::invoke_signed_unchecked#1` | 87 | pub unsafe fn | specific | through `invoke_signed` |
+| `crates/hopper-runtime/src/lib.rs::entrypoint#1` | 673 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/lib.rs::entrypoint#5` | 753 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/lib.rs::entrypoint#14` | 885 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/native_boundary.rs::entrypoint#1` | 227 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_log_data#1` | 69 | pub unsafe fn | specific | through `emit_event` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_sha256#1` | 90 | pub unsafe fn | specific | through `based_try_find_program_address` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_keccak256#1` | 111 | pub unsafe fn | specific | through `keccak256` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_blake3#1` | 134 | pub unsafe fn | specific | through `blake3` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_secp256k1_recover#1` | 158 | pub unsafe fn | specific | through `secp256k1_recover` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_curve_validate_point#1` | 192 | pub unsafe fn | specific | through `based_try_find_program_address` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_curve_group_op#1` | 225 | pub unsafe fn | specific | through `curve_group_mul` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_curve_multiscalar_mul#1` | 267 | pub unsafe fn | specific | through `curve_multiscalar_mul` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_poseidon#1` | 308 | pub unsafe fn | specific | through `poseidon_hashv` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_alt_bn128_group_op#1` | 343 | pub unsafe fn | specific | through `alt_bn128_g1_addition_be` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_alt_bn128_compression#1` | 373 | pub unsafe fn | specific | through `alt_bn128_g1_compress_be` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_big_mod_exp#1` | 401 | pub unsafe fn | specific | through `big_mod_exp` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_set_return_data#1` | 466 | pub unsafe fn | specific | through `set_return_data` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_get_return_data#1` | 489 | pub unsafe fn | specific | through `get_return_data` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_memcpy_#1` | 528 | pub unsafe fn | specific | through `copy_nonoverlapping` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_memmove_#1` | 548 | pub unsafe fn | specific | through `memmove` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_memcmp_#1` | 569 | pub unsafe fn | specific | through `compare` |
+| `crates/hopper-runtime/src/syscalls.rs::sol_memset_#1` | 595 | pub unsafe fn | specific | through `fill` |
 | `crates/hopper-builtins/src/lib.rs::memcmp_inline#1` | 85 | pub unsafe fn | specific | 1 |
 | `crates/hopper-builtins/src/lib.rs::bcmp_inline#1` | 128 | pub unsafe fn | specific | 1 |
 | `crates/hopper-builtins/src/lib.rs::memcpy_inline#1` | 166 | pub unsafe fn | specific | 1 |
 | `crates/hopper-builtins/src/lib.rs::memset_inline#1` | 191 | pub unsafe fn | specific | 1 |
+| `crates/hopper-builtins/src/lib.rs::memcmp#1` | 246 | pub unsafe fn | specific | 1 |
+| `crates/hopper-builtins/src/lib.rs::memcpy#1` | 294 | pub unsafe fn | specific | 1 |
+| `crates/hopper-core/src/abi/mod.rs::WireType#1` | 32 | pub unsafe trait | specific | none |
+| `crates/hopper-core/src/accounts/hopper_account.rs::owner#1` | 104 | pub unsafe fn | specific | none |
+| `crates/hopper-core/src/accounts/program_account.rs::owner#1` | 70 | pub unsafe fn | specific | none |
+| `crates/hopper-core/src/accounts/unchecked.rs::owner#1` | 54 | pub unsafe fn | specific | none |
+| `crates/hopper-core/src/frame/mod.rs::segment_mut_unchecked#1` | 337 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/account_view.rs::owner#1` | 79 | pub unsafe fn | specific | none |
+| `crates/hopper-native/src/account_view.rs::initialize_original_data_len#1` | 146 | pub unsafe fn | specific | through `deserialize_accounts` |
+| `crates/hopper-native/src/account_view.rs::segment_ref_unchecked#1` | 445 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/account_view.rs::segment_mut_unchecked#1` | 510 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/account_view.rs::close_unchecked#1` | 696 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/account_view.rs::disc_unchecked#1` | 811 | pub unsafe fn | specific | through `project_mut` |
+| `crates/hopper-native/src/entrypoint.rs::process_entrypoint#1` | 39 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/entrypoint.rs::entrypoint#12` | 329 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-native/src/heap.rs::release_to#1` | 68 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/lazy.rs::lazy_deserialize#1` | 422 | pub unsafe fn | specific | 3 |
+| `crates/hopper-native/src/mem.rs::memcpy#1` | 18 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/mem.rs::memmove#1` | 41 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/mem.rs::memset#1` | 64 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/mem.rs::memcmp#1` | 88 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/pod.rs::Zeroable#1` | 42 | pub unsafe trait | specific | none |
+| `crates/hopper-native/src/pod.rs::Pod#1` | 71 | pub unsafe trait | specific | none |
+| `crates/hopper-native/src/pod.rs::ValuePod#1` | 83 | pub unsafe trait | specific | none |
+| `crates/hopper-native/src/project.rs::Projectable#1` | 84 | pub unsafe trait | specific | none |
 
 ## Review ledger
 

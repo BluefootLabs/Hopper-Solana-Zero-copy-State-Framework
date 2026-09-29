@@ -7,7 +7,111 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## Unreleased
 
+### Breaking
+
+The next release of hopper-native and hopper-runtime is 0.5.0, and so is
+the next release of every published crate whose public signatures name
+their types, which is all of them except hopper-macros and hopper-derive
+(0.4.1, additions only), grillo-manifest, grillo-verifier, and
+hopper-topology (0.1.1), and hopper-builtins (unchanged).
+`python scripts/api-lock.py --against-published` prints this plan from the
+code and the versions on crates.io. [docs/MIGRATION_0_5.md](docs/MIGRATION_0_5.md)
+has a before and after for each change.
+
+- `AccountView::layout_id` returns `Option<[u8; 8]>`, was
+  `Option<&[u8; 8]>` (hopper-native and hopper-runtime). The old reference
+  pointed into account data with no borrow tracking. Compare with
+  `Some(ID)` instead of `Some(&ID)`.
+- `DataFingerprint::capture` returns `Result<DataFingerprint,
+  ProgramError>` and fails with `AccountBorrowFailed` while the data is
+  exclusively borrowed. Add `?`.
+- `hopper_native::hash::MAX_HASH_SEGMENTS` is 20,000, was 16. It is the
+  runtime's real limit now. An array sized with it would be 320 KB; size
+  arrays by your own count.
+- `token::MintProgram` and `token_mint::MintProgram` are aliases of
+  `token::TokenProgram`, which has the same two variants. Code that names
+  a variant or calls a method compiles unchanged. A glob import of the
+  variants (`use MintProgram::*`) or a trait implemented for both names
+  does not.
+- `token_mint::MintExtension` has seven variants 0.4.5 did not
+  (`DefaultAccountState`, `InterestBearing`, `ScaledUiAmount`, `Pausable`,
+  `GroupPointer`, `GroupMemberPointer`, `PermissionedBurn`), which breaks
+  an exhaustive `match` on it. It is `#[non_exhaustive]` from 0.5, so the
+  next extension is not a break: match with a wildcard arm.
+- `FieldRef::as_address` returns a reference that lives as long as the
+  bytes the view was made over, not as long as the view. Existing callers
+  compile unchanged.
+
 ### Added
+
+- **Every confidential-transfer instruction, run against the Token-2022
+  mainnet runs.** `examples/hopper-confidential-lab` puts each of the
+  fifteen builders behind an instruction, and its tests drive the whole
+  flow through them under Mollusk with the ZK ElGamal proof program and
+  real proofs, made off chain with `solana-zk-sdk` and
+  `spl-token-confidential-transfer-proof-generation`. Token-2022 is
+  `program@v11.0.0` as dumped from mainnet-beta on 2026-09-29 (a pinned
+  fixture; the test checks its SHA-256): configure with the proof in a
+  context-state account and by instruction offset, configure from an
+  ElGamal registry with Token-2022 growing the account at the payer's
+  cost, approve, deposit, apply, withdraw, transfer with three proofs
+  (the recipient and the auditor decrypt the amount), transfer with a fee
+  with five (the withheld fee decrypts under the withdraw authority's
+  key), the four credit toggles, and empty with a zero-ciphertext proof.
+  Replayed proofs and a registry for another owner are refused. Devnet's
+  `program@v11.1.0` passes the same tests. Public clusters cannot run the
+  flow today because the proof program is disabled on all three; Mollusk's
+  bundled Token-2022 (v7.0.0) cannot either, as its ciphertext operations
+  are compiled out.
+- **SlotHashes by slot.** `sysvar::slot_hash(slot)` and
+  `slot_hash_lookup(slot)` find a slot's hash with partial reads of the
+  20 KB sysvar: one read of 16 entries for a recent slot, then a window
+  placed by interpolation. The answer says why there is no hash
+  (`Skipped`, `TooOld`, `Ahead`) and how many reads it took. Two reads
+  cover most lookups; the worst case measured over a 512-entry sysvar with
+  skipped slots is four. One read costs 535 CU for the whole instruction
+  in the runtime lab.
+- **A heap that can use a requested heap frame.** The default allocator
+  allocates forward from above Hopper's scratch region, grows the last
+  block in place, and takes the heap size it may use:
+  `default_allocator!(heap = 256 * 1024)`. `hopper::heap::{used, mark,
+  release_to}` read and rewind it. A vector grown to 200 KiB one KiB at a
+  time occupies exactly 200 KiB; a loop that allocates 8 KiB a hundred
+  times runs through a 12 KiB heap with a checkpoint (14,419 CU).
+  `hopper tx send --heap-frame <bytes>` adds the `RequestHeapFrame`
+  instruction.
+- **Panics that say where.** The `panic-location` feature makes the panic
+  handler report `file:line:column` through `sol_panic_`, and
+  `panic-message` logs the message. Without them a panic aborts silently
+  (90 CU in the runtime lab; 559 CU with both).
+- **PDAs in plain unit tests.** `find_program_address`,
+  `create_program_address`, `verify_program_address`, and the bump helpers
+  run on the host with the same answers as the cluster: the curve check is
+  a const Ed25519 decompression in Rust, checked against `solana-pubkey`.
+  `find_program_address_const` derives an address at compile time.
+- **`examples/hopper-runtime-lab`**: the allocator, the panic handler, and
+  the SlotHashes lookup under Mollusk, each measured.
+- **`hopper_interface!` names the layout it reads**:
+  `pub struct VaultView as Vault` fingerprints the view as `Vault`, and
+  `ORIGIN` holds that name. The rule every earlier release accepted is
+  unchanged.
+- **A public API lock.** `scripts/api-lock.py` writes the signature of
+  every public item of every published crate to `audit/api/`, CI fails
+  when it is stale, and `--against-published` names the version each crate
+  needs, following breaks through the crates that expose them. It reports
+  the `layout_id` and `capture` changes, which cargo-semver-checks 0.50
+  passes.
+- **The unsafe map follows calls and gates coverage.** A site no test
+  calls by name records the tested function a call chain reaches it
+  through, or that it only compiles for the VM; code inside an exported
+  macro is attributed to the macro. `--verify` now also fails on a site
+  without its own reasoning and on a host site no test reaches. All 61
+  such sites got tests: `crates/hopper-native/tests/projection_and_lenses.rs`,
+  `nonce_state.rs`, `crates/hopper-core/tests/checks_and_views.rs`,
+  `crates/hopper-runtime/src/unsafe_site_tests.rs`,
+  `crates/hopper-solana/tests/readers.rs`, `tests/unverified_loads.rs`.
+- `hopper_native::project::HOPPER_HEADER_LEN`, `Debug` for `Ref` and
+  `RefMut`, and `SegmentRegistryMut::data_region_offset`.
 
 - **Value rules on layout fields.** `#[check(rule)]` on a field of a
   `#[hopper::state]` struct (or the fixed body of a `#[hopper::account]`)
@@ -302,6 +406,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- **`project_hopper` and `project_hopper_mut` read inside the header.**
+  They projected at offset 10 while the Hopper header is 16 bytes, so the
+  first six bytes of `T` were the layout id and reserved bytes. They read
+  at `HOPPER_HEADER_LEN` now; the docs that said "10-byte header" are
+  corrected.
+- **A segment registry entry could point at the header.** `segment_data`,
+  `segment_data_mut`, and the overlays checked that a segment ended inside
+  the account, not that it started after the entry table. An entry aimed
+  at the table handed out the lock flags of every segment as writable
+  data. An entry below the data region is refused with
+  `InvalidAccountData`.
+- **`hopper_interface!` could not do what its docs showed.** The layout
+  name is part of the fingerprint, so the documented `VaultView` never
+  matched `Vault`. The new `as` form fixes it without changing the old
+  rule's fingerprint.
+- **`mint_authority` and `mint_freeze_authority` took any nonzero option
+  tag as present.** The token program writes 0 or 1 and refuses anything
+  else; so do the readers.
+- **`lens::read_field_pod` promised a run-time alignment check it did not
+  make.** The check is a compile-time assertion now, so a hand-written
+  `Pod` impl with alignment above 1 fails to build.
+- **`crypto::curve_validate_point` answered `false` for every point off
+  chain.** It computes the Edwards answer on the host now.
+- **The unsafe map could differ between two runs** of the script on the
+  same tree; the reachability walk is ordered.
+- **RUSTSEC-2026-0285** in rustls 0.23.43 (through the RPC client the CLI
+  uses): updated to 0.23.45.
 - **The unsafe inventory cited tests that did not exist.** Seventeen
   citations in `docs/UNSAFE_INVARIANTS.md` named test files and functions
   that were never in the tree, and three rows described behaviour the code

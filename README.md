@@ -16,7 +16,7 @@ other Solana programs through checked CPI helpers.
 | SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
 | Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
 | Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
-| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI), on-mint metadata and groups, and the confidential-transfer instructions, plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
+| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI), on-mint metadata and groups, and the confidential-transfer instructions (run end to end against mainnet's Token-2022 with real proofs), plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
 | NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
 The escrow example supports classic SPL Token with explicit mint/account
@@ -69,10 +69,12 @@ funded example through its account creation, authorization, transfers, and tests
 
 - **Framework:** typed accounts, constraints, value rules on layout fields, dispatch,
   initialization, account closure, migrations, bounded collections, and generated clients.
-- **Runtime:** checked account borrows, PDA helpers, CPI validation, and optional
-  policies restricting tracked data and lamport writes.
+- **Runtime:** checked account borrows, PDA helpers that also run in plain unit
+  tests, CPI validation, and optional policies restricting tracked data and
+  lamport writes.
 - **Native:** loader-memory parsing, duplicate-account resolution, entrypoints,
-  Solana syscalls, and explicit low-level APIs.
+  Solana syscalls, a heap allocator that uses a requested heap frame, SlotHashes
+  lookup by slot, panics that report file and line, and explicit low-level APIs.
 
 `hopper-native` has no crate dependencies. `hopper-runtime` uses that native
 layer directly. Application programs run on Solana's SVM; no off-chain service
@@ -114,10 +116,13 @@ pub tier: u8,
 
 The framework holds itself to the same standard. `audit/UNSAFE_MAP.md`
 lists every `unsafe` site in Hopper with the justification written next to
-it, the tests that call it, and a hash of its code. It also says which
-sites are thinly justified, so a reviewer knows where to start. A review
-ledger ties each sign-off to the code that was read and flags anything
-edited since. Hopper has not had an independent security audit; the
+it, the tests that reach it, and a hash of its code, and CI fails when a
+site has no reasoning of its own or runs on the host without a test that
+reaches it. A review ledger ties each sign-off to the code that was read
+and flags anything edited since. `audit/api/` locks the signature of every
+public item, and `scripts/api-lock.py --against-published` names the
+version the next release needs, including the breaks cargo-semver-checks
+does not see. Hopper has not had an independent security audit; the
 [self-audit guide](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SELF_AUDIT.md)
 covers what these checks prove and what they do not.
 
@@ -140,6 +145,11 @@ passed a separate 34-transaction run. See the [release record](docs/RELEASE_0_4_
 for package lineage and scoped validation. Repository examples are not published
 crates; `grillo-*` and `hopper-topology` keep their own 0.1.0 versions.
 
+The next release is **0.5.0**: two safe readers in `hopper-native` changed
+signature to close unsound borrows, and every crate that exposes the
+runtime's types moves with them. See
+[moving to 0.5](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/MIGRATION_0_5.md).
+
 ## Documentation
 
 - [Program architecture](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ARCHITECTURE.md)
@@ -150,7 +160,9 @@ crates; `grillo-*` and `hopper-topology` keep their own 0.1.0 versions.
 - [On-chain write policies](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ONCHAIN_BYTE_POLICIES.md)
 - [Capabilities and integration boundaries](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/PROGRAM_CAPABILITIES.md)
 - [Safety and unsafe invariants](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/UNSAFE_INVARIANTS.md)
-- [Self-audit](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SELF_AUDIT.md) and the [unsafe map](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/audit/UNSAFE_MAP.md)
+- [Self-audit](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SELF_AUDIT.md), the [unsafe map](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/audit/UNSAFE_MAP.md), and the [public API lock](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/api)
+- [Token-2022, including confidential transfers](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/TOKEN_2022_GUIDE.md)
+- [Moving to 0.5](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/MIGRATION_0_5.md)
 
 Framework code is licensed under MIT OR Apache-2.0 unless a component states
 otherwise. See [security reporting](SECURITY.md) before disclosing a vulnerability.

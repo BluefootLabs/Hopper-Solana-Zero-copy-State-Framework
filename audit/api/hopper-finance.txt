@@ -1,0 +1,48 @@
+# Public API of hopper-finance, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+pub fn hopper_finance::amm::check_k_invariant(reserve_a_before: u64, reserve_b_before: u64, reserve_a_after: u64, reserve_b_after: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_finance::amm::constant_product_in(reserve_in: u64, reserve_out: u64, amount_out: u64, fee_bps: u16) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::amm::constant_product_out(reserve_in: u64, reserve_out: u64, amount_in: u64, fee_bps: u16) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::amm::initial_lp_amount(amount_a: u64, amount_b: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::amm::isqrt(val: u128) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::amm::price_impact_bps(amount_in: u64, reserve_in: u64) -> u16
+pub fn hopper_finance::amm::proportional_lp_amount(amount_a: u64, amount_b: u64, reserve_a: u64, reserve_b: u64, lp_supply: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::check_k_invariant(reserve_a_before: u64, reserve_b_before: u64, reserve_a_after: u64, reserve_b_after: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_finance::check_max_amount(amount: u64, maximum: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::check_max_input(actual_input: u64, maximum_input: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::check_min_amount(amount: u64, minimum: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::check_nonzero(amount: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::check_price_bounds(price: u64, min_price: u64, max_price: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::check_slippage(actual_output: u64, minimum_output: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::check_within_bps(actual: u64, expected: u64, tolerance_bps: u16) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::constant_product_in(reserve_in: u64, reserve_out: u64, amount_out: u64, fee_bps: u16) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::constant_product_out(reserve_in: u64, reserve_out: u64, amount_in: u64, fee_bps: u16) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::initial_lp_amount(amount_a: u64, amount_b: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::isqrt(val: u128) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::prelude::check_k_invariant(reserve_a_before: u64, reserve_b_before: u64, reserve_a_after: u64, reserve_b_after: u64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_finance::prelude::check_max_amount(amount: u64, maximum: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::check_max_input(actual_input: u64, maximum_input: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::check_min_amount(amount: u64, minimum: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::check_nonzero(amount: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::check_price_bounds(price: u64, min_price: u64, max_price: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::check_slippage(actual_output: u64, minimum_output: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::check_within_bps(actual: u64, expected: u64, tolerance_bps: u16) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::prelude::constant_product_in(reserve_in: u64, reserve_out: u64, amount_out: u64, fee_bps: u16) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::prelude::constant_product_out(reserve_in: u64, reserve_out: u64, amount_in: u64, fee_bps: u16) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::prelude::initial_lp_amount(amount_a: u64, amount_b: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::prelude::isqrt(val: u128) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::prelude::price_impact_bps(amount_in: u64, reserve_in: u64) -> u16
+pub fn hopper_finance::prelude::proportional_lp_amount(amount_a: u64, amount_b: u64, reserve_a: u64, reserve_b: u64, lp_supply: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::price_impact_bps(amount_in: u64, reserve_in: u64) -> u16
+pub fn hopper_finance::proportional_lp_amount(amount_a: u64, amount_b: u64, reserve_a: u64, reserve_b: u64, lp_supply: u64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>
+pub fn hopper_finance::slippage::check_max_amount(amount: u64, maximum: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::slippage::check_max_input(actual_input: u64, maximum_input: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::slippage::check_min_amount(amount: u64, minimum: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::slippage::check_nonzero(amount: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::slippage::check_price_bounds(price: u64, min_price: u64, max_price: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::slippage::check_slippage(actual_output: u64, minimum_output: u64) -> hopper_runtime::result::ProgramResult
+pub fn hopper_finance::slippage::check_within_bps(actual: u64, expected: u64, tolerance_bps: u16) -> hopper_runtime::result::ProgramResult
+pub mod hopper_finance::amm
+pub mod hopper_finance::prelude
+pub mod hopper_finance::slippage

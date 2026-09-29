@@ -74,7 +74,9 @@ pub mod batch;
 #[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub mod budget;
 pub mod capability;
+pub mod curve25519;
 pub mod hash;
+pub mod heap;
 pub mod introspect;
 pub mod lazy;
 pub mod lens;
@@ -91,6 +93,7 @@ pub mod mem;
 #[doc(hidden)]
 pub mod project;
 pub mod return_data;
+pub mod slot_hashes;
 pub mod sysvar;
 pub mod verify;
 pub mod wire;
@@ -118,8 +121,8 @@ pub use account_view::AccountView;
 pub use address::Address;
 pub use borrow::{Ref, RefMut};
 pub use entrypoint::{
-    BumpAllocator, HEAP_LENGTH, HEAP_RUNTIME_RESERVED, HEAP_START_ADDRESS, RENT_CACHE_BYTES,
-    RENT_CACHE_HEAP_OFFSET,
+    BumpAllocator, HeapMark, HEAP_LENGTH, HEAP_RUNTIME_RESERVED, HEAP_START_ADDRESS,
+    MAX_HEAP_LENGTH, RENT_CACHE_BYTES, RENT_CACHE_HEAP_OFFSET,
 };
 pub use error::ProgramError;
 pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};

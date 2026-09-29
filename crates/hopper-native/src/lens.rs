@@ -19,15 +19,15 @@
 //! ```ignore
 //! use hopper_native::lens;
 //!
-//! // Read a 32-byte address at offset 10 from a foreign program's account
-//! // (skip 10-byte Hopper header: disc + version + layout_id).
-//! let authority = lens::read_address(oracle_account, 10)?;
+//! // Read a 32-byte address from a Hopper account another program owns.
+//! // The body starts after the 16-byte header.
+//! let authority = lens::read_address(oracle_account, 16)?;
 //!
-//! // Read a u64 price at offset 42.
-//! let price = lens::read_le_u64(oracle_account, 42)?;
+//! // Read a u64 price at offset 48.
+//! let price = lens::read_le_u64(oracle_account, 48)?;
 //!
 //! // Read a typed struct at an offset.
-//! let data: &MyPodType = lens::read_field::<MyPodType>(account, 10)?;
+//! let data = lens::read_field::<MyPodType>(account, 16)?;
 //! ```
 
 use crate::account_view::AccountView;
@@ -58,8 +58,9 @@ pub fn read_field<'a, T: Projectable>(
 /// This is the Safety-Audit-compliant lens: requires the substrate
 /// [`crate::Pod`] bound, so the compiler rejects types with padding,
 /// non-alignment-1 fields, or forbidden bit patterns at the call site.
-/// Bounds and alignment are still checked at runtime, just as in the
-/// generic [`read_field`] escape hatch.
+/// Bounds are checked at runtime. Alignment is settled at compile time:
+/// `Pod` promises alignment 1, and a hand-written `Pod` impl that breaks
+/// the promise fails to build here instead of reading misaligned.
 ///
 /// Use this in cross-program readers that want the checked projection
 /// contract without dropping down to hand-written pointer arithmetic.
@@ -68,13 +69,19 @@ pub fn read_field<'a, T: Projectable>(
 ///
 /// ```ignore
 /// use hopper_native::{lens, wire::LeU64};
-/// let counter: &LeU64 = lens::read_field_pod(foreign_account, 16)?;
+/// let counter = lens::read_field_pod::<LeU64>(foreign_account, 16)?;
 /// ```
 #[inline]
 pub fn read_field_pod<'a, T: crate::Pod>(
     account: &'a AccountView<'a>,
     offset: usize,
 ) -> Result<Ref<'a, T>, ProgramError> {
+    const {
+        assert!(
+            core::mem::align_of::<T>() == 1,
+            "read_field_pod: a Pod type must have alignment 1"
+        );
+    }
     let data_len = account.data_len();
     let size = core::mem::size_of::<T>();
     let end = offset

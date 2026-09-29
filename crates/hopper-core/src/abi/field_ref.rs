@@ -81,9 +81,10 @@ impl<'a> FieldRef<'a> {
         self.read_u8().map(|v| v != 0)
     }
 
-    /// Borrow as a 32-byte address reference.
+    /// Borrow as a 32-byte address reference. The reference lives as long
+    /// as the bytes the view was made over, not as long as the view.
     #[inline(always)]
-    pub fn as_address(&self) -> Result<&[u8; 32], ProgramError> {
+    pub fn as_address(&self) -> Result<&'a [u8; 32], ProgramError> {
         if self.data.len() < 32 {
             return Err(ProgramError::InvalidAccountData);
         }

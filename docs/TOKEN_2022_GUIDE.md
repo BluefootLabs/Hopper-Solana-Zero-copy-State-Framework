@@ -247,9 +247,53 @@ authority, then the multisig signers. A proof by offset with no sysvar
 account is refused with `NotEnoughAccountKeys` before the CPI. Every
 builder is compared with the `spl-token-2022-interface` constructor for
 all 32 combinations of proof locations, with a single authority and with
-a multisig. The confidential builders are checked against the canonical
-constructors; they have not been run against a live confidential mint,
-which needs proofs generated off chain.
+a multisig.
+
+### Run against the program mainnet runs
+
+`examples/hopper-confidential-lab` puts each builder behind an instruction
+and drives the whole flow through them under Mollusk, against the
+Token-2022 that mainnet-beta runs (`program@v11.0.0`, dumped on 2026-09-29
+and pinned by hash) and the ZK ElGamal proof program, with proofs made by
+`solana-zk-sdk` and `spl-token-confidential-transfer-proof-generation`:
+
+| Step through Hopper's builder | Proofs | CU, lab instruction |
+|---|---|---:|
+| Create a confidential mint (`InitializeMint`, then `InitializeMint2`) | | 6,592 |
+| Configure, proof in a context-state account | pubkey validity | 11,343 |
+| Configure, proof by instruction offset | pubkey validity | 14,294 |
+| Configure from an ElGamal registry (Token-2022 grows the account) | | 14,144 |
+| Approve, update the mint | | 2,870, 2,438 |
+| Deposit | | 11,304 |
+| Apply the pending balance | | 9,330 |
+| Withdraw | equality, range u64 | 7,418 |
+| Transfer | equality, validity, range u128 | 16,746 |
+| Transfer on a fee mint | five | 46,703 |
+| A credit toggle (any of the four) | | 2,360 |
+| Empty, proof by instruction offset | zero ciphertext | 9,280 |
+
+The proof program's own cost is separate: 2,600 CU for a pubkey validity
+proof, 6,400 for equality, 16,400 for three-handle validity, 111,000 for a
+u64 range proof, 200,000 for u128, and 368,000 for u256. The tests decrypt
+what landed: the recipient reads the transferred amount, the auditor reads
+it from the ciphertexts the builder carried, and the withdraw authority
+reads the withheld fee. A replayed withdraw proof is refused (`Balance
+mismatch`), and so is a registry that belongs to someone else.
+
+Two things the lab found that are easy to trip on:
+
+- On a mint with a confidential transfer fee, size new accounts for
+  `ConfidentialTransferFeeAmount` yourself. `GetAccountDataSize` makes
+  room for the transfer-fee amount and the confidential state, and
+  `ConfigureAccount` then fails with `InvalidAccountData`.
+- The Token-2022 that Mollusk 0.15 bundles is v7.0.0, whose ciphertext
+  operations are compiled out: it answers `Deposit` with
+  `InvalidInstructionData`. Test confidential flows against a current dump.
+
+No public cluster can run this flow today. The ZK ElGamal proof program is
+disabled on mainnet-beta, testnet, and devnet, and Token-2022 only moves a
+confidential balance against a proof that program verified. The builders
+are ready for the day it is enabled.
 
 ## Extension constraints
 

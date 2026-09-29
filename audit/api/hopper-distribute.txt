@@ -1,0 +1,5 @@
+# Public API of hopper-distribute, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+pub fn hopper_distribute::extract_fee(amount: u64, fee_bps: u64, flat_fee: u64) -> core::result::Result<(u64, u64), hopper_runtime::error::ProgramError>
+pub fn hopper_distribute::proportional_split(total: u64, shares: &[u64], out: &mut [u64]) -> core::result::Result<(), hopper_runtime::error::ProgramError>

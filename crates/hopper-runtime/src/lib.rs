@@ -62,6 +62,8 @@ pub mod instruction;
 pub mod layout;
 pub mod option_byte;
 pub mod pda;
+#[cfg(test)]
+mod pda_host_tests;
 pub mod remaining;
 pub mod rent;
 pub mod return_data;
@@ -80,6 +82,8 @@ pub mod token_confidential_ix;
 mod token_differential_tests;
 pub mod token_metadata_ix;
 pub mod token_mint;
+#[cfg(test)]
+mod unsafe_site_tests;
 pub mod write_policy;
 
 pub use account::AccountView;
@@ -1037,20 +1041,25 @@ macro_rules! no_allocator {
 /// Install the default bump allocator over the SVM heap region. Opt-in
 /// counterpart to [`no_allocator!`] for programs that need `alloc` on a
 /// cold path. See [`hopper_native::BumpAllocator`].
+///
+/// `default_allocator!(heap = 128 * 1024)` declares a larger heap, up to
+/// 256 KiB, for transactions that carry `RequestHeapFrame`.
 #[macro_export]
 macro_rules! default_allocator {
     () => {
+        $crate::default_allocator!(heap = $crate::__hopper_native::HEAP_LENGTH);
+    };
+    (heap = $len:expr) => {
         #[cfg(target_os = "solana")]
         #[global_allocator]
         static ALLOCATOR: $crate::__hopper_native::BumpAllocator =
-            $crate::__hopper_native::BumpAllocator {
-                start: $crate::__hopper_native::HEAP_START_ADDRESS,
-                len: $crate::__hopper_native::HEAP_LENGTH,
-            };
+            $crate::__hopper_native::BumpAllocator::new($len);
     };
 }
 
-/// Abort a panicking no_std program immediately without burning its remaining CU.
+/// Abort a panicking no_std program immediately without burning its remaining
+/// CU. With the `panic-location` feature the file, line, and column are
+/// reported first; with `panic-message`, the message.
 #[macro_export]
 macro_rules! nostd_panic_handler {
     () => {

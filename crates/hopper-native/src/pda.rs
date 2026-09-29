@@ -11,6 +11,64 @@ const CURVE25519_EDWARDS: u64 = 0;
 #[cfg(target_os = "solana")]
 const PDA_MARKER_BYTES: &[u8; 21] = crate::address::PDA_MARKER;
 
+/// The PDA hash of `seeds` (every seed the caller passes, a bump included
+/// if there is one), `program_id`, and the marker. Off chain and in
+/// `const` evaluation; on chain the same bytes go through `sol_sha256`.
+const fn pda_hash(seeds: &[&[u8]], bump: Option<u8>, program_id: &Address) -> [u8; 32] {
+    let mut hasher = crate::sha256::ConstSha256::new();
+    let mut i = 0;
+    while i < seeds.len() {
+        hasher = hasher.update(seeds[i]);
+        i += 1;
+    }
+    if let Some(bump) = bump {
+        hasher = hasher.update(&[bump]);
+    }
+    hasher
+        .update(program_id.as_array())
+        .update(crate::address::PDA_MARKER)
+        .finalize()
+}
+
+/// The canonical program-derived address of `seeds` under `program_id`
+/// and its bump, found at compile time.
+///
+/// This is `find_program_address` as a `const fn`: bumps 255 down to 0,
+/// the first whose hash is not a point of the ed25519 curve. The seeds
+/// may be any `const` expressions (a declared program id, another
+/// constant address), not only literals. A program that knows its seeds
+/// at build time pays nothing on chain for the search and stores no bump:
+///
+/// ```ignore
+/// const CONFIG: (Address, u8) = find_program_address_const(&[b"config"], &crate::ID);
+/// ```
+///
+/// Panics (a compile error in a `const`) on 16 or more seeds, a seed
+/// longer than 32 bytes, or when no bump yields an address off the curve.
+pub const fn find_program_address_const(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
+    assert!(
+        seeds.len() < MAX_SEEDS,
+        "a PDA takes at most 15 seeds plus its bump"
+    );
+    let mut i = 0;
+    while i < seeds.len() {
+        assert!(
+            seeds[i].len() <= MAX_SEED_LEN,
+            "a PDA seed is at most 32 bytes"
+        );
+        i += 1;
+    }
+    let mut bump = u8::MAX;
+    loop {
+        let hash = pda_hash(seeds, Some(bump), program_id);
+        if !crate::curve25519::is_on_curve(&hash) {
+            return (Address::new_from_array(hash), bump);
+        }
+        assert!(bump != 0, "no bump yields an address off the curve");
+        bump -= 1;
+    }
+}
+
 /// SHA-based paths must accept exactly the seed domain that the PDA signing
 /// syscall accepts. A helper which appends a bump reserves one of the 16 slots.
 #[inline(always)]
@@ -64,8 +122,14 @@ pub fn create_program_address(
     }
     #[cfg(not(target_os = "solana"))]
     {
-        let _ = (seeds, program_id);
-        Err(ProgramError::InvalidSeeds)
+        // Off chain: the same hash and the same curve rejection the
+        // syscall applies.
+        let hash = pda_hash(seeds, None, program_id);
+        if crate::curve25519::is_on_curve(&hash) {
+            Err(ProgramError::InvalidSeeds)
+        } else {
+            Ok(Address::new_from_array(hash))
+        }
     }
 }
 
@@ -90,19 +154,9 @@ pub fn create_program_address(
 /// `bump = stored` (one hash, no search), not outlining the search.
 #[inline(always)]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
-    #[cfg(target_os = "solana")]
-    {
-        match based_try_find_program_address(seeds, program_id) {
-            Ok(found) => found,
-            Err(_) => panic!("hopper: unable to find a viable program address bump seed"),
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (seeds, program_id);
-        panic!(
-            "hopper: find_program_address requires the SVM sha256 syscall (target_os = \"solana\")"
-        );
+    match based_try_find_program_address(seeds, program_id) {
+        Ok(found) => found,
+        Err(_) => panic!("hopper: unable to find a viable program address bump seed"),
     }
 }
 
@@ -204,8 +258,11 @@ pub fn verify_program_address(
     }
     #[cfg(not(target_os = "solana"))]
     {
-        let _ = (seeds, program_id, expected);
-        Err(ProgramError::InvalidSeeds)
+        if pda_hash(seeds, None, program_id) == *expected.as_array() {
+            Ok(())
+        } else {
+            Err(ProgramError::InvalidSeeds)
+        }
     }
 }
 
@@ -300,8 +357,17 @@ pub fn based_try_find_program_address(
     }
     #[cfg(not(target_os = "solana"))]
     {
-        let _ = (seeds, program_id);
-        Err(ProgramError::InvalidSeeds)
+        let mut bump = u8::MAX;
+        loop {
+            let hash = pda_hash(seeds, Some(bump), program_id);
+            if !crate::curve25519::is_on_curve(&hash) {
+                return Ok((Address::new_from_array(hash), bump));
+            }
+            if bump == 0 {
+                return Err(ProgramError::InvalidSeeds);
+            }
+            bump -= 1;
+        }
     }
 }
 
@@ -476,8 +542,17 @@ pub fn find_bump_for_address(
     }
     #[cfg(not(target_os = "solana"))]
     {
-        let _ = (seeds, program_id, expected);
-        Err(ProgramError::InvalidSeeds)
+        // The same hash-match search as on chain: no curve check.
+        let mut bump = u8::MAX;
+        loop {
+            if pda_hash(seeds, Some(bump), program_id) == *expected.as_array() {
+                return Ok(bump);
+            }
+            if bump == 0 {
+                return Err(ProgramError::InvalidSeeds);
+            }
+            bump -= 1;
+        }
     }
 }
 

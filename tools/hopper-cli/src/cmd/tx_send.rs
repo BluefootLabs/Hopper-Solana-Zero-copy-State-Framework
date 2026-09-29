@@ -66,16 +66,36 @@ pub const V1_DEFAULT_COMPUTE_LIMIT: u32 = 200_000;
 /// legacy 64 MiB default would cost 16,384 CU of block space per send.
 pub const V1_DEFAULT_LOADED_DATA_LIMIT: u32 = 4 * 1024 * 1024;
 
+/// The heap every transaction gets, and the smallest frame one can request.
+pub const MIN_HEAP_FRAME: u32 = 32 * 1024;
+/// The largest heap frame a transaction can request.
+pub const MAX_HEAP_FRAME: u32 = 256 * 1024;
+
+/// A heap frame the runtime accepts: 32 KiB to 256 KiB, a multiple of
+/// 1 KiB. Anything else fails the transaction before it executes, so it is
+/// refused here.
+pub fn check_heap_frame(bytes: u32) -> Result<u32, String> {
+    if !(MIN_HEAP_FRAME..=MAX_HEAP_FRAME).contains(&bytes) || !bytes.is_multiple_of(1024) {
+        return Err(format!(
+            "--heap-frame {bytes}: a heap frame is a multiple of 1024 between \
+             {MIN_HEAP_FRAME} and {MAX_HEAP_FRAME} bytes"
+        ));
+    }
+    Ok(bytes)
+}
+
 /// Which envelope a send builds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Envelope {
-    /// Legacy message; compute limit via a ComputeBudget instruction.
-    Legacy,
+    /// Legacy message; compute limit and heap frame via ComputeBudget
+    /// instructions.
+    Legacy { heap_frame: Option<u32> },
     /// SIMD-0385 v1 message with its config mask.
     V1 {
         compute_limit: u32,
         loaded_data_limit: u32,
         priority_fee_lamports: Option<u64>,
+        heap_frame: Option<u32>,
     },
 }
 
@@ -85,10 +105,12 @@ pub fn v1_config(
     compute_limit: u32,
     loaded_data_limit: u32,
     priority_fee_lamports: Option<u64>,
+    heap_frame: Option<u32>,
 ) -> TransactionConfig {
-    let config = TransactionConfig::empty()
+    let mut config = TransactionConfig::empty()
         .with_compute_unit_limit(compute_limit)
         .with_loaded_accounts_data_size_limit(loaded_data_limit);
+    config.heap_size = heap_frame;
     match priority_fee_lamports {
         Some(fee) => config.with_priority_fee(fee),
         None => config,
@@ -111,7 +133,7 @@ impl SignedTx {
         blockhash: solana_hash::Hash,
     ) -> Result<Self, String> {
         match envelope {
-            Envelope::Legacy => Ok(SignedTx::Legacy(Transaction::new_signed_with_payer(
+            Envelope::Legacy { .. } => Ok(SignedTx::Legacy(Transaction::new_signed_with_payer(
                 instructions,
                 Some(&payer.pubkey()),
                 signers,
@@ -121,12 +143,18 @@ impl SignedTx {
                 compute_limit,
                 loaded_data_limit,
                 priority_fee_lamports,
+                heap_frame,
             } => {
                 let message = V1Message::try_compile_with_config(
                     &payer.pubkey(),
                     instructions,
                     blockhash,
-                    v1_config(compute_limit, loaded_data_limit, priority_fee_lamports),
+                    v1_config(
+                        compute_limit,
+                        loaded_data_limit,
+                        priority_fee_lamports,
+                        heap_frame,
+                    ),
                 )
                 .map_err(|e| format!("compile transaction v1 message: {e:?}"))?;
                 // Client-side mirror of the sanitizer: 64 addresses, 64
@@ -239,7 +267,8 @@ fn print_usage() {
     eprintln!("Usage: hopper tx send --program <pubkey> [--data <hex>]");
     eprintln!("           --account <pubkey|payer>[:s][:w] ...   (ordered; repeat per slot)");
     eprintln!("           --keypair <path> [--signer <path>]... [--rpc <url>]");
-    eprintln!("           [--compute-limit <units>] [--allow-failure] [--dry-run]");
+    eprintln!("           [--compute-limit <units>] [--heap-frame <bytes>]");
+    eprintln!("           [--allow-failure] [--dry-run]");
     eprintln!("           [--v1 [--loaded-data-limit <bytes>] [--priority-fee <lamports>]]");
     eprintln!();
     eprintln!("Send one instruction with explicit account metas and raw hex data,");
@@ -275,6 +304,7 @@ pub fn cmd_tx_send(args: &[String]) {
     let mut v1 = false;
     let mut loaded_data_limit: Option<u32> = None;
     let mut priority_fee: Option<u64> = None;
+    let mut heap_frame: Option<u32> = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -336,6 +366,21 @@ pub fn cmd_tx_send(args: &[String]) {
                 i += 1;
                 compute_limit = args.get(i).and_then(|v| v.parse().ok());
             }
+            "--heap-frame" => {
+                i += 1;
+                let parsed = args.get(i).and_then(|v| v.parse::<u32>().ok());
+                heap_frame = match parsed.map(check_heap_frame) {
+                    Some(Ok(bytes)) => Some(bytes),
+                    Some(Err(e)) => {
+                        eprintln!("hopper tx send failed: {e}");
+                        process::exit(1);
+                    }
+                    None => {
+                        eprintln!("--heap-frame expects a byte count");
+                        process::exit(1);
+                    }
+                };
+            }
             "--allow-failure" => allow_failure = true,
             "--dry-run" => dry_run = true,
             other => {
@@ -347,7 +392,13 @@ pub fn cmd_tx_send(args: &[String]) {
         i += 1;
     }
 
-    let envelope = match resolve_envelope(v1, compute_limit, loaded_data_limit, priority_fee) {
+    let envelope = match resolve_envelope(
+        v1,
+        compute_limit,
+        loaded_data_limit,
+        priority_fee,
+        heap_frame,
+    ) {
         Ok(envelope) => envelope,
         Err(e) => {
             eprintln!("hopper tx send failed: {e}");
@@ -380,6 +431,7 @@ pub fn resolve_envelope(
     compute_limit: Option<u32>,
     loaded_data_limit: Option<u32>,
     priority_fee: Option<u64>,
+    heap_frame: Option<u32>,
 ) -> Result<Envelope, String> {
     if !v1 {
         if loaded_data_limit.is_some() {
@@ -388,7 +440,7 @@ pub fn resolve_envelope(
         if priority_fee.is_some() {
             return Err("--priority-fee is a transaction v1 option; add --v1".to_string());
         }
-        return Ok(Envelope::Legacy);
+        return Ok(Envelope::Legacy { heap_frame });
     }
     let loaded = loaded_data_limit.unwrap_or(V1_DEFAULT_LOADED_DATA_LIMIT);
     if loaded == 0 {
@@ -406,6 +458,7 @@ pub fn resolve_envelope(
         compute_limit: compute,
         loaded_data_limit: loaded,
         priority_fee_lamports: priority_fee,
+        heap_frame,
     })
 }
 
@@ -515,18 +568,25 @@ fn run_send(
             .collect::<String>()
     );
     match envelope {
-        Envelope::Legacy => {
+        Envelope::Legacy { heap_frame } => {
             println!("envelope  : legacy");
             if let Some(cu) = compute_limit {
                 println!("cu limit  : {cu} (ComputeBudget instruction)");
+            }
+            if let Some(bytes) = heap_frame {
+                println!("heap      : {bytes} bytes (ComputeBudget instruction)");
             }
         }
         Envelope::V1 {
             compute_limit,
             loaded_data_limit,
             priority_fee_lamports,
+            heap_frame,
         } => {
             println!("envelope  : transaction v1 (SIMD-0385)");
+            if let Some(bytes) = heap_frame {
+                println!("heap      : {bytes} bytes (config mask)");
+            }
             println!("cu limit  : {compute_limit} (config mask)");
             println!("data limit: {loaded_data_limit} bytes loaded accounts (config mask)");
             if let Some(fee) = priority_fee_lamports {
@@ -538,7 +598,15 @@ fn run_send(
         println!("preflight : skipped (--allow-failure; an on-chain refusal will land)");
     }
     let mut instructions: Vec<Instruction> = Vec::new();
-    if let (Envelope::Legacy, Some(units)) = (envelope, compute_limit) {
+    if let Envelope::Legacy {
+        heap_frame: Some(bytes),
+    } = envelope
+    {
+        instructions.push(
+            solana_compute_budget_interface::ComputeBudgetInstruction::request_heap_frame(bytes),
+        );
+    }
+    if let (Envelope::Legacy { .. }, Some(units)) = (envelope, compute_limit) {
         // v1 carries the limit in its config mask; a ComputeBudget
         // instruction there would execute (150 CU) and configure nothing.
         instructions.push(
@@ -569,7 +637,7 @@ fn run_send(
     println!(
         "wire      : {wire_bytes}/{wire_max} bytes ({})",
         match envelope {
-            Envelope::Legacy => "legacy",
+            Envelope::Legacy { .. } => "legacy",
             Envelope::V1 { .. } => "v1",
         }
     );
@@ -671,44 +739,71 @@ mod tests {
     #[test]
     fn envelope_flags_fold_and_v1_only_options_are_refused_on_legacy() {
         assert_eq!(
-            resolve_envelope(false, None, None, None).unwrap(),
-            Envelope::Legacy
+            resolve_envelope(false, None, None, None, None).unwrap(),
+            Envelope::Legacy { heap_frame: None }
         );
-        assert!(resolve_envelope(false, None, Some(1024), None)
+        assert!(resolve_envelope(false, None, Some(1024), None, None)
             .unwrap_err()
             .contains("--v1"));
-        assert!(resolve_envelope(false, None, None, Some(5))
+        assert!(resolve_envelope(false, None, None, Some(5), None)
             .unwrap_err()
             .contains("--v1"));
         assert_eq!(
-            resolve_envelope(true, None, None, None).unwrap(),
+            resolve_envelope(true, None, None, None, None).unwrap(),
             Envelope::V1 {
                 compute_limit: V1_DEFAULT_COMPUTE_LIMIT,
                 loaded_data_limit: V1_DEFAULT_LOADED_DATA_LIMIT,
                 priority_fee_lamports: None,
+                heap_frame: None,
             }
         );
         assert_eq!(
-            resolve_envelope(true, Some(50_000), Some(65_536), Some(1_000)).unwrap(),
+            resolve_envelope(true, Some(50_000), Some(65_536), Some(1_000), None).unwrap(),
             Envelope::V1 {
                 compute_limit: 50_000,
                 loaded_data_limit: 65_536,
                 priority_fee_lamports: Some(1_000),
+                heap_frame: None,
             }
         );
         // A zero limit is a guaranteed failure on chain; refuse it locally.
-        assert!(resolve_envelope(true, Some(0), None, None).is_err());
-        assert!(resolve_envelope(true, None, Some(0), None).is_err());
+        assert!(resolve_envelope(true, Some(0), None, None, None).is_err());
+        assert!(resolve_envelope(true, None, Some(0), None, None).is_err());
+    }
+
+    #[test]
+    fn a_heap_frame_is_checked_and_carried_by_either_envelope() {
+        for bad in [
+            0,
+            1024,
+            32 * 1024 - 1024,
+            32 * 1024 + 1,
+            256 * 1024 + 1024,
+            u32::MAX,
+        ] {
+            assert!(check_heap_frame(bad).is_err(), "{bad}");
+        }
+        for good in [32 * 1024, 33 * 1024, 128 * 1024, 256 * 1024] {
+            assert_eq!(check_heap_frame(good), Ok(good));
+        }
+        assert_eq!(
+            resolve_envelope(false, None, None, None, Some(64 * 1024)),
+            Ok(Envelope::Legacy {
+                heap_frame: Some(64 * 1024)
+            })
+        );
+        let config = v1_config(1_000, 2_000, None, Some(64 * 1024));
+        assert_eq!(config.heap_size, Some(64 * 1024));
     }
 
     #[test]
     fn v1_config_always_sets_both_limits() {
-        let config = v1_config(200_000, 65_536, None);
+        let config = v1_config(200_000, 65_536, None, None);
         assert_eq!(config.compute_unit_limit, Some(200_000));
         assert_eq!(config.loaded_accounts_data_size_limit, Some(65_536));
         assert_eq!(config.priority_fee, None);
         assert_eq!(config.heap_size, None, "heap stays at the 32 KiB default");
-        let config = v1_config(200_000, 65_536, Some(7));
+        let config = v1_config(200_000, 65_536, Some(7), None);
         assert_eq!(config.priority_fee, Some(7));
     }
 
@@ -729,6 +824,7 @@ mod tests {
             compute_limit: 10_000,
             loaded_data_limit: 32 * 1024,
             priority_fee_lamports: Some(500),
+            heap_frame: None,
         };
         let tx = SignedTx::build(
             envelope,
@@ -760,7 +856,7 @@ mod tests {
         // The same instruction as a legacy envelope is a different, smaller
         // ceiling and a different codec; both must build from one call site.
         let legacy = SignedTx::build(
-            Envelope::Legacy,
+            Envelope::Legacy { heap_frame: None },
             &[ix],
             &payer,
             &[&payer],

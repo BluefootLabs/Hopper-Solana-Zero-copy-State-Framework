@@ -1,0 +1,426 @@
+# Public API of hopper-sdk, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+hopper_sdk::FingerprintCheck::Match
+hopper_sdk::FingerprintCheck::Mismatch { expected: [u8; 8], actual: [u8; 8] }
+hopper_sdk::FingerprintError::TooShort
+hopper_sdk::FingerprintError::UnknownLayout
+hopper_sdk::ReaderError::BufferTooShort { required: usize, got: usize }
+hopper_sdk::ReaderError::Fingerprint(hopper_sdk::FingerprintError)
+hopper_sdk::ReaderError::LayoutMismatch { expected: [u8; 8], actual: [u8; 8] }
+hopper_sdk::ReaderError::SizeMismatch { wire: u16, requested: usize }
+hopper_sdk::ReaderError::UnknownField
+hopper_sdk::ReceiptError::InvalidCompatImpact(u8)
+hopper_sdk::ReceiptError::InvalidFailureStage(u8)
+hopper_sdk::ReceiptError::InvalidPhase(u8)
+hopper_sdk::ReceiptError::ReservedNonZero
+hopper_sdk::ReceiptError::TooShort { got: usize }
+hopper_sdk::SdkError::Fingerprint(hopper_sdk::FingerprintError)
+hopper_sdk::SdkError::Reader(hopper_sdk::ReaderError)
+hopper_sdk::SdkError::Receipt(hopper_sdk::ReceiptError)
+hopper_sdk::builder::BuildError::AccountCountMismatch { expected: usize, got: usize }
+hopper_sdk::builder::BuildError::ArgCountMismatch { expected: usize, got: usize }
+hopper_sdk::builder::BuildError::ArgSizeMismatch { index: usize, expected: u16, got: usize }
+hopper_sdk::builder::BuildError::UnknownInstruction
+hopper_sdk::diff::DiffError::BufferTooShort
+hopper_sdk::diff::DiffError::LengthMismatch { before: usize, after: usize }
+hopper_sdk::receipt::CompatImpact::Append = 1
+hopper_sdk::receipt::CompatImpact::Breaking = 3
+hopper_sdk::receipt::CompatImpact::Migration = 2
+hopper_sdk::receipt::CompatImpact::None = 0
+hopper_sdk::receipt::FailureStage::Handler = 2
+hopper_sdk::receipt::FailureStage::Invariant = 3
+hopper_sdk::receipt::FailureStage::None = 0
+hopper_sdk::receipt::FailureStage::Post = 4
+hopper_sdk::receipt::FailureStage::Teardown = 5
+hopper_sdk::receipt::FailureStage::Validation = 1
+hopper_sdk::receipt::Phase::Close = 2
+hopper_sdk::receipt::Phase::Init = 1
+hopper_sdk::receipt::Phase::Migrate = 3
+hopper_sdk::receipt::Phase::ReadOnly = 4
+hopper_sdk::receipt::Phase::Update = 0
+impl core::clone::Clone for hopper_sdk::DecodedReceipt
+impl core::clone::Clone for hopper_sdk::FingerprintCheck
+impl core::clone::Clone for hopper_sdk::FingerprintError
+impl core::clone::Clone for hopper_sdk::ReaderError
+impl core::clone::Clone for hopper_sdk::ReceiptError
+impl core::clone::Clone for hopper_sdk::ReceiptNarrative
+impl core::clone::Clone for hopper_sdk::ReceiptWire
+impl core::clone::Clone for hopper_sdk::builder::AccountMeta
+impl core::clone::Clone for hopper_sdk::builder::BuildError
+impl core::clone::Clone for hopper_sdk::builder::BuiltInstruction
+impl core::clone::Clone for hopper_sdk::diff::DiffError
+impl core::clone::Clone for hopper_sdk::receipt::CompatImpact
+impl core::clone::Clone for hopper_sdk::receipt::FailureStage
+impl core::clone::Clone for hopper_sdk::receipt::Phase
+impl core::clone::Clone for hopper_sdk::receipt::ReceiptIndexRecord
+impl core::cmp::Eq for hopper_sdk::DecodedReceipt
+impl core::cmp::Eq for hopper_sdk::FingerprintCheck
+impl core::cmp::Eq for hopper_sdk::FingerprintError
+impl core::cmp::Eq for hopper_sdk::ReaderError
+impl core::cmp::Eq for hopper_sdk::ReceiptError
+impl core::cmp::Eq for hopper_sdk::builder::BuildError
+impl core::cmp::Eq for hopper_sdk::diff::DiffError
+impl core::cmp::Eq for hopper_sdk::receipt::CompatImpact
+impl core::cmp::Eq for hopper_sdk::receipt::FailureStage
+impl core::cmp::Eq for hopper_sdk::receipt::Phase
+impl core::cmp::Eq for hopper_sdk::receipt::ReceiptIndexRecord
+impl core::cmp::PartialEq for hopper_sdk::DecodedReceipt
+impl core::cmp::PartialEq for hopper_sdk::FingerprintCheck
+impl core::cmp::PartialEq for hopper_sdk::FingerprintError
+impl core::cmp::PartialEq for hopper_sdk::ReaderError
+impl core::cmp::PartialEq for hopper_sdk::ReceiptError
+impl core::cmp::PartialEq for hopper_sdk::builder::BuildError
+impl core::cmp::PartialEq for hopper_sdk::diff::DiffError
+impl core::cmp::PartialEq for hopper_sdk::receipt::CompatImpact
+impl core::cmp::PartialEq for hopper_sdk::receipt::FailureStage
+impl core::cmp::PartialEq for hopper_sdk::receipt::Phase
+impl core::cmp::PartialEq for hopper_sdk::receipt::ReceiptIndexRecord
+impl core::convert::From<hopper_sdk::FingerprintError> for hopper_sdk::ReaderError
+impl core::convert::From<hopper_sdk::FingerprintError> for hopper_sdk::SdkError
+impl core::convert::From<hopper_sdk::ReaderError> for hopper_sdk::SdkError
+impl core::convert::From<hopper_sdk::ReceiptError> for hopper_sdk::SdkError
+impl core::error::Error for hopper_sdk::SdkError
+impl core::fmt::Debug for hopper_sdk::DecodedReceipt
+impl core::fmt::Debug for hopper_sdk::FingerprintCheck
+impl core::fmt::Debug for hopper_sdk::FingerprintError
+impl core::fmt::Debug for hopper_sdk::ReaderError
+impl core::fmt::Debug for hopper_sdk::ReceiptError
+impl core::fmt::Debug for hopper_sdk::ReceiptNarrative
+impl core::fmt::Debug for hopper_sdk::ReceiptWire
+impl core::fmt::Debug for hopper_sdk::SdkError
+impl core::fmt::Debug for hopper_sdk::builder::AccountMeta
+impl core::fmt::Debug for hopper_sdk::builder::BuildError
+impl core::fmt::Debug for hopper_sdk::builder::BuiltInstruction
+impl core::fmt::Debug for hopper_sdk::diff::DiffError
+impl core::fmt::Debug for hopper_sdk::receipt::CompatImpact
+impl core::fmt::Debug for hopper_sdk::receipt::FailureStage
+impl core::fmt::Debug for hopper_sdk::receipt::Phase
+impl core::fmt::Debug for hopper_sdk::receipt::ReceiptIndexRecord
+impl core::fmt::Display for hopper_sdk::SdkError
+impl core::iter::traits::iterator::Iterator for hopper_sdk::receipt::ChangedFieldIter
+impl core::iter::traits::iterator::Iterator for hopper_sdk::receipt::ChangedSegmentIter
+impl core::marker::Copy for hopper_sdk::DecodedReceipt
+impl core::marker::Copy for hopper_sdk::FingerprintCheck
+impl core::marker::Copy for hopper_sdk::FingerprintError
+impl core::marker::Copy for hopper_sdk::ReaderError
+impl core::marker::Copy for hopper_sdk::ReceiptError
+impl core::marker::Copy for hopper_sdk::ReceiptWire
+impl core::marker::Copy for hopper_sdk::builder::AccountMeta
+impl core::marker::Copy for hopper_sdk::builder::BuildError
+impl core::marker::Copy for hopper_sdk::diff::DiffError
+impl core::marker::Copy for hopper_sdk::receipt::CompatImpact
+impl core::marker::Copy for hopper_sdk::receipt::FailureStage
+impl core::marker::Copy for hopper_sdk::receipt::Phase
+impl core::marker::Copy for hopper_sdk::receipt::ReceiptIndexRecord
+impl core::marker::Freeze for hopper_sdk::DecodedReceipt [auto]
+impl core::marker::Freeze for hopper_sdk::FingerprintCheck [auto]
+impl core::marker::Freeze for hopper_sdk::FingerprintError [auto]
+impl core::marker::Freeze for hopper_sdk::ReaderError [auto]
+impl core::marker::Freeze for hopper_sdk::ReceiptError [auto]
+impl core::marker::Freeze for hopper_sdk::ReceiptNarrative [auto]
+impl core::marker::Freeze for hopper_sdk::ReceiptWire [auto]
+impl core::marker::Freeze for hopper_sdk::SdkError [auto]
+impl core::marker::Freeze for hopper_sdk::builder::AccountMeta [auto]
+impl core::marker::Freeze for hopper_sdk::builder::BuildError [auto]
+impl core::marker::Freeze for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::marker::Freeze for hopper_sdk::diff::DiffError [auto]
+impl core::marker::Freeze for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::marker::Freeze for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::marker::Freeze for hopper_sdk::receipt::CompatImpact [auto]
+impl core::marker::Freeze for hopper_sdk::receipt::FailureStage [auto]
+impl core::marker::Freeze for hopper_sdk::receipt::Phase [auto]
+impl core::marker::Freeze for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl core::marker::Send for hopper_sdk::DecodedReceipt [auto]
+impl core::marker::Send for hopper_sdk::FingerprintCheck [auto]
+impl core::marker::Send for hopper_sdk::FingerprintError [auto]
+impl core::marker::Send for hopper_sdk::ReaderError [auto]
+impl core::marker::Send for hopper_sdk::ReceiptError [auto]
+impl core::marker::Send for hopper_sdk::ReceiptNarrative [auto]
+impl core::marker::Send for hopper_sdk::ReceiptWire [auto]
+impl core::marker::Send for hopper_sdk::SdkError [auto]
+impl core::marker::Send for hopper_sdk::builder::AccountMeta [auto]
+impl core::marker::Send for hopper_sdk::builder::BuildError [auto]
+impl core::marker::Send for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::marker::Send for hopper_sdk::diff::DiffError [auto]
+impl core::marker::Send for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::marker::Send for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::marker::Send for hopper_sdk::receipt::CompatImpact [auto]
+impl core::marker::Send for hopper_sdk::receipt::FailureStage [auto]
+impl core::marker::Send for hopper_sdk::receipt::Phase [auto]
+impl core::marker::Send for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl core::marker::StructuralPartialEq for hopper_sdk::DecodedReceipt
+impl core::marker::StructuralPartialEq for hopper_sdk::FingerprintCheck
+impl core::marker::StructuralPartialEq for hopper_sdk::FingerprintError
+impl core::marker::StructuralPartialEq for hopper_sdk::ReaderError
+impl core::marker::StructuralPartialEq for hopper_sdk::ReceiptError
+impl core::marker::StructuralPartialEq for hopper_sdk::builder::BuildError
+impl core::marker::StructuralPartialEq for hopper_sdk::diff::DiffError
+impl core::marker::StructuralPartialEq for hopper_sdk::receipt::CompatImpact
+impl core::marker::StructuralPartialEq for hopper_sdk::receipt::FailureStage
+impl core::marker::StructuralPartialEq for hopper_sdk::receipt::Phase
+impl core::marker::StructuralPartialEq for hopper_sdk::receipt::ReceiptIndexRecord
+impl core::marker::Sync for hopper_sdk::DecodedReceipt [auto]
+impl core::marker::Sync for hopper_sdk::FingerprintCheck [auto]
+impl core::marker::Sync for hopper_sdk::FingerprintError [auto]
+impl core::marker::Sync for hopper_sdk::ReaderError [auto]
+impl core::marker::Sync for hopper_sdk::ReceiptError [auto]
+impl core::marker::Sync for hopper_sdk::ReceiptNarrative [auto]
+impl core::marker::Sync for hopper_sdk::ReceiptWire [auto]
+impl core::marker::Sync for hopper_sdk::SdkError [auto]
+impl core::marker::Sync for hopper_sdk::builder::AccountMeta [auto]
+impl core::marker::Sync for hopper_sdk::builder::BuildError [auto]
+impl core::marker::Sync for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::marker::Sync for hopper_sdk::diff::DiffError [auto]
+impl core::marker::Sync for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::marker::Sync for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::marker::Sync for hopper_sdk::receipt::CompatImpact [auto]
+impl core::marker::Sync for hopper_sdk::receipt::FailureStage [auto]
+impl core::marker::Sync for hopper_sdk::receipt::Phase [auto]
+impl core::marker::Sync for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl core::marker::Unpin for hopper_sdk::DecodedReceipt [auto]
+impl core::marker::Unpin for hopper_sdk::FingerprintCheck [auto]
+impl core::marker::Unpin for hopper_sdk::FingerprintError [auto]
+impl core::marker::Unpin for hopper_sdk::ReaderError [auto]
+impl core::marker::Unpin for hopper_sdk::ReceiptError [auto]
+impl core::marker::Unpin for hopper_sdk::ReceiptNarrative [auto]
+impl core::marker::Unpin for hopper_sdk::ReceiptWire [auto]
+impl core::marker::Unpin for hopper_sdk::SdkError [auto]
+impl core::marker::Unpin for hopper_sdk::builder::AccountMeta [auto]
+impl core::marker::Unpin for hopper_sdk::builder::BuildError [auto]
+impl core::marker::Unpin for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::marker::Unpin for hopper_sdk::diff::DiffError [auto]
+impl core::marker::Unpin for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::marker::Unpin for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::marker::Unpin for hopper_sdk::receipt::CompatImpact [auto]
+impl core::marker::Unpin for hopper_sdk::receipt::FailureStage [auto]
+impl core::marker::Unpin for hopper_sdk::receipt::Phase [auto]
+impl core::marker::Unpin for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::DecodedReceipt [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::FingerprintCheck [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::FingerprintError [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::ReaderError [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::ReceiptError [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::ReceiptNarrative [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::ReceiptWire [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::SdkError [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::builder::AccountMeta [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::builder::BuildError [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::diff::DiffError [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::receipt::CompatImpact [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::receipt::FailureStage [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::receipt::Phase [auto]
+impl core::marker::UnsafeUnpin for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::DecodedReceipt [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::FingerprintCheck [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::FingerprintError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::ReaderError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::ReceiptError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::ReceiptNarrative [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::ReceiptWire [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::SdkError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::builder::AccountMeta [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::builder::BuildError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::diff::DiffError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::receipt::CompatImpact [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::receipt::FailureStage [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::receipt::Phase [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::DecodedReceipt [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::FingerprintCheck [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::FingerprintError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::ReaderError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::ReceiptError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::ReceiptNarrative [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::ReceiptWire [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::SdkError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::builder::AccountMeta [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::builder::BuildError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::builder::BuiltInstruction [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::diff::DiffError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::receipt::ChangedFieldIter [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::receipt::ChangedSegmentIter [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::receipt::CompatImpact [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::receipt::FailureStage [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::receipt::Phase [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_sdk::receipt::ReceiptIndexRecord [auto]
+impl<'a> core::clone::Clone for hopper_sdk::diff::FieldDelta<'a>
+impl<'a> core::fmt::Debug for hopper_sdk::SegmentReader<'a>
+impl<'a> core::fmt::Debug for hopper_sdk::builder::InstructionBuilder<'a>
+impl<'a> core::fmt::Debug for hopper_sdk::diff::FieldDelta<'a>
+impl<'a> core::marker::Copy for hopper_sdk::diff::FieldDelta<'a>
+impl<'a> core::marker::Freeze for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_sdk::diff::FieldDelta<'a> [auto]
+impl<'a> core::marker::Send for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::marker::Send for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::marker::Send for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::marker::Send for hopper_sdk::diff::FieldDelta<'a> [auto]
+impl<'a> core::marker::Sync for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::marker::Sync for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::marker::Sync for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::marker::Sync for hopper_sdk::diff::FieldDelta<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_sdk::diff::FieldDelta<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_sdk::diff::FieldDelta<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_sdk::diff::FieldDelta<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_sdk::Narrator<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_sdk::SegmentReader<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_sdk::builder::InstructionBuilder<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_sdk::diff::FieldDelta<'a> [auto]
+pub const fn hopper_sdk::DecodedReceipt::changed_field_count(&self) -> u32
+pub const fn hopper_sdk::DecodedReceipt::changed_segment_count(&self) -> u32
+pub const fn hopper_sdk::DecodedReceipt::is_mutation(&self) -> bool
+pub const fn hopper_sdk::DecodedReceipt::is_readonly(&self) -> bool
+pub const fn hopper_sdk::DecodedReceipt::size_delta(&self) -> i64
+pub const fn hopper_sdk::Narrator::with_all(layout: &'a hopper_schema::LayoutManifest, errors: &'a hopper_schema::ErrorRegistry) -> Self
+pub const fn hopper_sdk::Narrator::with_layout(layout: &'a hopper_schema::LayoutManifest) -> Self
+pub const fn hopper_sdk::SegmentReader::bytes(&self) -> &'a [u8]
+pub const fn hopper_sdk::SegmentReader::layout(&self) -> &'a hopper_schema::LayoutManifest
+pub const fn hopper_sdk::receipt::CompatImpact::name(self) -> &'static str
+pub const fn hopper_sdk::receipt::FailureStage::name(self) -> &'static str
+pub const fn hopper_sdk::receipt::Phase::name(self) -> &'static str
+pub const hopper_sdk::fingerprint::LAYOUT_ID_OFFSET: usize = 4usize
+pub const hopper_sdk::receipt::FAILED_INVARIANT_NONE: u8 = 255u8
+pub const hopper_sdk::receipt::RECEIPT_SIZE: usize = 72usize
+pub const hopper_sdk::receipt::RECEIPT_SIZE_LEGACY: usize = 64usize
+pub enum hopper_sdk::FingerprintCheck
+pub enum hopper_sdk::FingerprintError
+pub enum hopper_sdk::ReaderError
+pub enum hopper_sdk::ReceiptError
+pub enum hopper_sdk::SdkError
+pub enum hopper_sdk::builder::BuildError
+pub enum hopper_sdk::diff::DiffError
+pub enum hopper_sdk::fingerprint::FingerprintCheck
+pub enum hopper_sdk::fingerprint::FingerprintError
+pub enum hopper_sdk::reader::ReaderError
+pub enum hopper_sdk::receipt::CompatImpact
+pub enum hopper_sdk::receipt::FailureStage
+pub enum hopper_sdk::receipt::Phase
+pub enum hopper_sdk::receipt::ReceiptError
+pub fn hopper_sdk::DecodedReceipt::changed_field_indices(&self) -> hopper_sdk::receipt::ChangedFieldIter
+pub fn hopper_sdk::DecodedReceipt::changed_segment_indices(&self) -> hopper_sdk::receipt::ChangedSegmentIter
+pub fn hopper_sdk::DecodedReceipt::index_key(&self) -> [u8; 16]
+pub fn hopper_sdk::DecodedReceipt::index_record(&self) -> hopper_sdk::receipt::ReceiptIndexRecord
+pub fn hopper_sdk::DecodedReceipt::parse(buf: &[u8]) -> core::result::Result<Self, hopper_sdk::ReceiptError>
+pub fn hopper_sdk::Narrator::narrate(&self, r: &hopper_sdk::DecodedReceipt) -> hopper_sdk::ReceiptNarrative
+pub fn hopper_sdk::ReceiptWire::from_slice(buf: &[u8]) -> core::result::Result<Self, hopper_sdk::ReceiptError>
+pub fn hopper_sdk::SegmentReader::field(&self, name: &str) -> core::option::Option<&'a hopper_schema::FieldDescriptor>
+pub fn hopper_sdk::SegmentReader::layout_id(&self) -> [u8; 8]
+pub fn hopper_sdk::SegmentReader::new(bytes: &'a [u8], layout: &'a hopper_schema::LayoutManifest) -> core::result::Result<Self, hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::offset_of(&self, name: &str) -> core::option::Option<usize>
+pub fn hopper_sdk::SegmentReader::read_pubkey(&self, name: &str) -> core::result::Result<[u8; 32], hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::read_raw(&self, name: &str) -> core::result::Result<&'a [u8], hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::read_u128(&self, name: &str) -> core::result::Result<u128, hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::read_u16(&self, name: &str) -> core::result::Result<u16, hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::read_u32(&self, name: &str) -> core::result::Result<u32, hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::read_u64(&self, name: &str) -> core::result::Result<u64, hopper_sdk::ReaderError>
+pub fn hopper_sdk::SegmentReader::read_u8(&self, name: &str) -> core::result::Result<u8, hopper_sdk::ReaderError>
+pub fn hopper_sdk::builder::InstructionBuilder::account(self, pubkey: [u8; 32]) -> Self
+pub fn hopper_sdk::builder::InstructionBuilder::arg(self, bytes: &'a [u8]) -> Self
+pub fn hopper_sdk::builder::InstructionBuilder::build(self) -> core::result::Result<hopper_sdk::builder::BuiltInstruction, hopper_sdk::builder::BuildError>
+pub fn hopper_sdk::builder::InstructionBuilder::new(manifest: &'a hopper_schema::ProgramManifest, program_id: [u8; 32], ix_name: &str) -> core::result::Result<Self, hopper_sdk::builder::BuildError>
+pub fn hopper_sdk::diff::field_change_mask(before: &[u8], after: &[u8], manifest: &hopper_schema::LayoutManifest) -> u64
+pub fn hopper_sdk::diff::fixed_size_diff<'a>(before: &'a [u8], after: &'a [u8], manifest: &'a hopper_schema::LayoutManifest) -> core::result::Result<alloc::vec::Vec<hopper_sdk::diff::FieldDelta<'a>>, hopper_sdk::diff::DiffError>
+pub fn hopper_sdk::fingerprint::check_against_layout(bytes: &[u8], layout: &hopper_schema::LayoutManifest) -> core::result::Result<hopper_sdk::FingerprintCheck, hopper_sdk::FingerprintError>
+pub fn hopper_sdk::fingerprint::check_in_idl(bytes: &[u8], idl: &hopper_schema::ProgramIdl, layout_name: &str) -> core::result::Result<hopper_sdk::FingerprintCheck, hopper_sdk::FingerprintError>
+pub fn hopper_sdk::fingerprint::identify_in_idl<'a>(bytes: &[u8], idl: &'a hopper_schema::ProgramIdl) -> core::option::Option<&'a hopper_schema::LayoutManifest>
+pub fn hopper_sdk::fingerprint::read_layout_id(bytes: &[u8]) -> core::result::Result<[u8; 8], hopper_sdk::FingerprintError>
+pub hopper_sdk::DecodedReceipt::after_fingerprint: [u8; 8]
+pub hopper_sdk::DecodedReceipt::before_fingerprint: [u8; 8]
+pub hopper_sdk::DecodedReceipt::changed_bytes: u32
+pub hopper_sdk::DecodedReceipt::changed_fields: u64
+pub hopper_sdk::DecodedReceipt::changed_regions: u16
+pub hopper_sdk::DecodedReceipt::committed: bool
+pub hopper_sdk::DecodedReceipt::compat_impact: hopper_sdk::receipt::CompatImpact
+pub hopper_sdk::DecodedReceipt::cpi_count: u8
+pub hopper_sdk::DecodedReceipt::cpi_invoked: bool
+pub hopper_sdk::DecodedReceipt::failed_error_code: u32
+pub hopper_sdk::DecodedReceipt::failed_invariant_idx: u8
+pub hopper_sdk::DecodedReceipt::failure_stage: hopper_sdk::receipt::FailureStage
+pub hopper_sdk::DecodedReceipt::had_failure: bool
+pub hopper_sdk::DecodedReceipt::invariants_checked: u16
+pub hopper_sdk::DecodedReceipt::invariants_passed: bool
+pub hopper_sdk::DecodedReceipt::journal_appends: u16
+pub hopper_sdk::DecodedReceipt::layout_id: [u8; 8]
+pub hopper_sdk::DecodedReceipt::migration_flags: u8
+pub hopper_sdk::DecodedReceipt::new_size: u32
+pub hopper_sdk::DecodedReceipt::old_size: u32
+pub hopper_sdk::DecodedReceipt::phase: hopper_sdk::receipt::Phase
+pub hopper_sdk::DecodedReceipt::policy_flags: u32
+pub hopper_sdk::DecodedReceipt::segment_changed_mask: u16
+pub hopper_sdk::DecodedReceipt::validation_bundle_id: u16
+pub hopper_sdk::DecodedReceipt::was_resized: bool
+pub hopper_sdk::Narrator::errors: core::option::Option<&'a hopper_schema::ErrorRegistry>
+pub hopper_sdk::Narrator::layout: core::option::Option<&'a hopper_schema::LayoutManifest>
+pub hopper_sdk::ReceiptNarrative::failure_line: core::option::Option<alloc::string::String>
+pub hopper_sdk::ReceiptNarrative::field_changes: alloc::vec::Vec<alloc::string::String>
+pub hopper_sdk::ReceiptNarrative::flags: alloc::vec::Vec<alloc::string::String>
+pub hopper_sdk::ReceiptNarrative::severity: &'static str
+pub hopper_sdk::ReceiptNarrative::summary: alloc::string::String
+pub hopper_sdk::builder::AccountMeta::is_signer: bool
+pub hopper_sdk::builder::AccountMeta::is_writable: bool
+pub hopper_sdk::builder::AccountMeta::pubkey: [u8; 32]
+pub hopper_sdk::builder::BuiltInstruction::accounts: alloc::vec::Vec<hopper_sdk::builder::AccountMeta>
+pub hopper_sdk::builder::BuiltInstruction::data: alloc::vec::Vec<u8>
+pub hopper_sdk::builder::BuiltInstruction::program_id: [u8; 32]
+pub hopper_sdk::diff::FieldDelta::after: &'a [u8]
+pub hopper_sdk::diff::FieldDelta::before: &'a [u8]
+pub hopper_sdk::diff::FieldDelta::field: &'a hopper_schema::FieldDescriptor
+pub hopper_sdk::receipt::ReceiptIndexRecord::changed_bytes: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::changed_field_count: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::changed_fields: u64
+pub hopper_sdk::receipt::ReceiptIndexRecord::changed_segment_count: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::compat_impact: hopper_sdk::receipt::CompatImpact
+pub hopper_sdk::receipt::ReceiptIndexRecord::failed_error_code: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::failed_invariant_idx: u8
+pub hopper_sdk::receipt::ReceiptIndexRecord::failure_stage: hopper_sdk::receipt::FailureStage
+pub hopper_sdk::receipt::ReceiptIndexRecord::had_failure: bool
+pub hopper_sdk::receipt::ReceiptIndexRecord::index_key: [u8; 16]
+pub hopper_sdk::receipt::ReceiptIndexRecord::layout_id: [u8; 8]
+pub hopper_sdk::receipt::ReceiptIndexRecord::migration_flags: u8
+pub hopper_sdk::receipt::ReceiptIndexRecord::new_size: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::old_size: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::phase: hopper_sdk::receipt::Phase
+pub hopper_sdk::receipt::ReceiptIndexRecord::policy_flags: u32
+pub hopper_sdk::receipt::ReceiptIndexRecord::segment_changed_mask: u16
+pub hopper_sdk::receipt::ReceiptIndexRecord::validation_bundle_id: u16
+pub mod hopper_sdk::builder
+pub mod hopper_sdk::diff
+pub mod hopper_sdk::fingerprint
+pub mod hopper_sdk::reader
+pub mod hopper_sdk::receipt
+pub mod hopper_sdk::receipt::narrative
+pub struct hopper_sdk::DecodedReceipt {}
+pub struct hopper_sdk::Narrator<'a> {}
+pub struct hopper_sdk::ReceiptNarrative {}
+pub struct hopper_sdk::ReceiptWire(pub [u8; 72])
+pub struct hopper_sdk::SegmentReader<'a> { .. }
+pub struct hopper_sdk::builder::AccountMeta {}
+pub struct hopper_sdk::builder::BuiltInstruction {}
+pub struct hopper_sdk::builder::InstructionBuilder<'a> { .. }
+pub struct hopper_sdk::diff::FieldDelta<'a> {}
+pub struct hopper_sdk::reader::SegmentReader<'a> { .. }
+pub struct hopper_sdk::receipt::ChangedFieldIter { .. }
+pub struct hopper_sdk::receipt::ChangedSegmentIter { .. }
+pub struct hopper_sdk::receipt::DecodedReceipt {}
+pub struct hopper_sdk::receipt::ReceiptIndexRecord {}
+pub struct hopper_sdk::receipt::ReceiptWire(pub [u8; 72])
+pub struct hopper_sdk::receipt::narrative::Narrator<'a> {}
+pub struct hopper_sdk::receipt::narrative::ReceiptNarrative {}
+pub unsafe fn hopper_sdk::SegmentReader::new_unchecked(bytes: &'a [u8], layout: &'a hopper_schema::LayoutManifest) -> Self

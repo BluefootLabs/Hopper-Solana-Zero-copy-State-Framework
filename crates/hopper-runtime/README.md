@@ -38,7 +38,7 @@ also retain their native borrow through a movable release lease, fixing pointer
 provenance during wrapping and projection. Both regressions pass Miri. Other
 host CPIs remain validation-only no-ops; test callee behavior in an SVM or on devnet.
 
-PDA helpers: find_program_address, create_program_address, plus Hopper's verify-only sha256 path that skips curve_validate for stored-bump PDA verification.
+PDA helpers: find_program_address, create_program_address, plus Hopper's verify-only sha256 path that skips curve_validate for stored-bump PDA verification. They run in a plain `cargo test` with the cluster's answers, and `find_program_address_const` derives an address and bump at compile time.
 
 All PDA paths reject oversized seed lists instead of truncating them. The
 16-seed limit includes the bump, and each seed is limited to 32 bytes.
@@ -74,6 +74,14 @@ checked, allocation-free `MintPlan` for legacy and Token-2022 mints. It ties exa
 space to explicit extension initialization, reads live rent, and supports PDA
 and prefunded creation. It does not initialize unsupported extensions or infer
 application authority policy. Propagate CPI errors to preserve rollback.
+
+Token-2022 confidential transfers: a builder for each of the fifteen
+instructions in `token_confidential_ix`, run end to end against mainnet's
+Token-2022 with real proofs in the repository's confidential lab.
+
+In 0.5, `AccountView::layout_id` returns `Option<[u8; 8]>` by value, and
+`token::MintProgram` is an alias of `TokenProgram`. See the
+[migration notes](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/MIGRATION_0_5.md).
 
 Most users touch this crate transitively through hopper::prelude::*. Reach for hopper-runtime directly when writing a crate that needs the runtime surface without higher-level framework features.
 

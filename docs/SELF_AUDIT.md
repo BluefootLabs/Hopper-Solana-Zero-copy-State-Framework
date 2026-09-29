@@ -146,33 +146,39 @@ piece claims. Hopper does that week for you and keeps the result current.
 
 ```text
 python scripts/audit-map.py            # write the map
-python scripts/audit-map.py --verify   # fail if the committed map is stale
+python scripts/audit-map.py --verify   # the gate
 python scripts/audit-map.py --show <id>
 ```
 
 [audit/UNSAFE_MAP.md](../audit/UNSAFE_MAP.md) lists every `unsafe` block,
-function, impl, and trait in the framework outside test code: 857 sites
-across eleven crates at the time of writing. For each one
-`audit/unsafe-map.json` records:
+function, impl, and trait in the framework outside test code: 851 sites at
+the time of writing. For each one `audit/unsafe-map.json` records:
 
-- the file, the line, and the enclosing function;
+- the file, the line, and the enclosing function (or the macro whose
+  expansion carries the site);
 - the justification written next to it, and what kind it is: written for
   that site, shared with a neighbour, or the boilerplate sentence that
   says someone looked without saying why the code is sound;
 - the tests, proofs, and fuzz targets that call the enclosing function by
-  name;
+  name, or, when none does, the tested function a call chain reaches it
+  through, or that the site only compiles for the VM;
 - a SHA-256 of the site's code.
 
-The map is blunt about weak spots. It counts the sites that carry only a
-boilerplate sentence or no reasoning at all, and the gate keeps that count
-visible. The first run found 167 boilerplate sites and 44 with no argument.
-Every one was read and rewritten, and the count is zero today. Reading
-them turned up real defects, which are listed in the changelog: safe
-readers that looked at account bytes underneath a live exclusive borrow,
-and a header accessor that handed out an untracked reference.
+`--verify` is a ratchet. It fails when the committed map is stale, when a
+site has no reasoning of its own, and when a site that runs on the host is
+not reached from any test. A new `unsafe` block lands with its argument
+written down and a test that runs it, or the build is red.
 
-The map also ranks the sixty sites to read first: public, and not called
-by name from any test. That list is where a reviewer's time should go.
+Getting there was the audit. The first run found 167 boilerplate sites and
+44 with no argument; every one was read and rewritten. The next pass read
+the 61 host sites no test reached and wrote a test for each. Both passes
+found real defects, all in the changelog: safe readers that looked at
+account bytes underneath a live exclusive borrow, a header accessor that
+handed out an untracked reference, `project_hopper` reading six bytes
+inside the 16-byte header, a segment registry entry that could point at
+the header and the lock flags, mint readers that took any nonzero option
+tag as present, and a cross-program interface form whose documented usage
+could never match.
 
 Sites are named `path::function#n`, not by line number, so an edit
 somewhere else in the file does not rename them.
@@ -192,6 +198,40 @@ python scripts/audit-map.py --check
 signed site that no longer exists, and how many sites nobody has signed.
 It exits 2 when a signed site changed. A release cannot quietly carry a
 sign-off for code that was edited after the reviewer read it.
+
+### The public API lock
+
+The unsafe map covers what the code does. The API lock covers what it
+promises:
+
+```text
+python scripts/api-lock.py                       # write audit/api/<crate>.txt
+python scripts/api-lock.py --verify              # the gate
+python scripts/api-lock.py --against-published   # the release plan
+```
+
+`audit/api/` holds one file per published crate with the signature of
+every public item, rendered from rustdoc JSON: functions, fields, variants
+with their discriminants, constant values, trait items, impls, and macro
+rules. A change to the public surface is a diff in review, and `--verify`
+fails CI when the lock and the code disagree.
+
+`--against-published` renders the version on crates.io the same way and
+says what the next release has to be called. A changed signature, a
+changed constant, a removed item, a new variant on an exhaustive enum, or
+a new required trait item is a break; a macro that only gained rules, a
+function that became `const`, and new items are not. A crate whose own
+signatures name a dependency that breaks needs a new minor version as
+well, and the plan follows that through the whole graph. `--strict` fails
+when a manifest version is lower than the plan requires.
+
+cargo-semver-checks 0.50 passes the tree that changed
+`AccountView::layout_id` from `Option<&[u8; 8]>` to `Option<[u8; 8]>` and
+`DataFingerprint::capture` from `Self` to a `Result`: it has no lint for a
+changed return type. The lock reports both, and two more the changelog
+had missed: `MAX_HASH_SEGMENTS` went from 16 to 20,000, and
+`MintExtension`, an enum callers could match exhaustively, gained seven
+variants. It names 0.5.0 for every crate that exposes the runtime's types.
 
 ## The framework checks itself the same way
 

@@ -21,6 +21,12 @@ default = ["cpi", "legacy-projectable"]
 cpi = []
 copy = []
 cu-trace = []
+# A panic reports its file, line, and column through `sol_panic_` before
+# the transaction fails. Costs the file names in read-only data.
+panic-location = []
+# A panic logs its message first. Links the formatting machinery: for
+# debugging builds.
+panic-message = []
 # Opt-in for `solana-define-syscall`'s `unstable-static-syscalls`.
 # Saves 1-3 CU per syscall by replacing dynamic dispatch with direct
 # calls. Off by default until the upstream feature stabilizes.

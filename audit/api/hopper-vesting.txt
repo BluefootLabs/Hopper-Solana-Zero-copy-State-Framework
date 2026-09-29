@@ -1,0 +1,8 @@
+# Public API of hopper-vesting, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+pub fn hopper_vesting::check_cliff_reached(cliff_time: i64, now: i64) -> core::result::Result<(), hopper_runtime::error::ProgramError>
+pub fn hopper_vesting::claimable(vested: u64, already_claimed: u64) -> u64
+pub fn hopper_vesting::elapsed_steps(start: i64, now: i64, step_duration: i64) -> u32
+pub fn hopper_vesting::unlocked_at_step(total: u64, num_steps: u32, steps_elapsed: u32) -> u64
+pub fn hopper_vesting::vested_amount(total: u64, start: i64, cliff: i64, end: i64, now: i64) -> core::result::Result<u64, hopper_runtime::error::ProgramError>

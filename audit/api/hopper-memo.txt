@@ -1,0 +1,20 @@
+# Public API of hopper-memo, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+impl<'a, 'b, 'c> !core::marker::Send for hopper_memo::Memo<'a, 'b, 'c> [auto]
+impl<'a, 'b, 'c> !core::marker::Sync for hopper_memo::Memo<'a, 'b, 'c> [auto]
+impl<'a, 'b, 'c> core::marker::Freeze for hopper_memo::Memo<'a, 'b, 'c> [auto]
+impl<'a, 'b, 'c> core::marker::Unpin for hopper_memo::Memo<'a, 'b, 'c> [auto]
+impl<'a, 'b, 'c> core::marker::UnsafeUnpin for hopper_memo::Memo<'a, 'b, 'c> [auto]
+impl<'a, 'b, 'c> core::panic::unwind_safe::RefUnwindSafe for hopper_memo::Memo<'a, 'b, 'c> [auto]
+impl<'a, 'b, 'c> core::panic::unwind_safe::UnwindSafe for hopper_memo::Memo<'a, 'b, 'c> [auto]
+pub const hopper_memo::MAX_MEMO_SIGNERS: usize = 16usize
+pub const hopper_memo::MEMO_PROGRAM_ID: hopper_runtime::address::Address = _
+pub const hopper_memo::v1::MEMO_V1_PROGRAM_ID: hopper_runtime::address::Address = _
+pub fn hopper_memo::Memo::invoke(&self) -> hopper_runtime::result::ProgramResult
+pub fn hopper_memo::Memo::invoke_signed(&self, signers_seeds: &[hopper_runtime::instruction::Signer<'_, '_>]) -> hopper_runtime::result::ProgramResult
+pub hopper_memo::Memo::memo: &'b [u8]
+pub hopper_memo::Memo::program_id: core::option::Option<&'c hopper_runtime::address::Address>
+pub hopper_memo::Memo::signers: &'a [&'a hopper_runtime::account::AccountView<'a>]
+pub mod hopper_memo::v1
+pub struct hopper_memo::Memo<'a, 'b, 'c> {}

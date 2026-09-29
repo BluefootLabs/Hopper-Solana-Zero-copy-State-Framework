@@ -1,0 +1,58 @@
+# Public API of hopper-svm, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+impl core::clone::Clone for hopper_svm::AccountFixture
+impl core::clone::Clone for hopper_svm::HopperSvm
+impl core::clone::Clone for hopper_svm::ProcessResult
+impl core::cmp::Eq for hopper_svm::AccountFixture
+impl core::cmp::Eq for hopper_svm::ProcessResult
+impl core::cmp::PartialEq for hopper_svm::AccountFixture
+impl core::cmp::PartialEq for hopper_svm::ProcessResult
+impl core::default::Default for hopper_svm::HopperSvm
+impl core::fmt::Debug for hopper_svm::AccountFixture
+impl core::fmt::Debug for hopper_svm::HopperSvm
+impl core::fmt::Debug for hopper_svm::ProcessResult
+impl core::marker::Freeze for hopper_svm::AccountFixture [auto]
+impl core::marker::Freeze for hopper_svm::HopperSvm [auto]
+impl core::marker::Freeze for hopper_svm::ProcessResult [auto]
+impl core::marker::Send for hopper_svm::AccountFixture [auto]
+impl core::marker::Send for hopper_svm::HopperSvm [auto]
+impl core::marker::Send for hopper_svm::ProcessResult [auto]
+impl core::marker::StructuralPartialEq for hopper_svm::AccountFixture
+impl core::marker::StructuralPartialEq for hopper_svm::ProcessResult
+impl core::marker::Sync for hopper_svm::AccountFixture [auto]
+impl core::marker::Sync for hopper_svm::HopperSvm [auto]
+impl core::marker::Sync for hopper_svm::ProcessResult [auto]
+impl core::marker::Unpin for hopper_svm::AccountFixture [auto]
+impl core::marker::Unpin for hopper_svm::HopperSvm [auto]
+impl core::marker::Unpin for hopper_svm::ProcessResult [auto]
+impl core::marker::UnsafeUnpin for hopper_svm::AccountFixture [auto]
+impl core::marker::UnsafeUnpin for hopper_svm::HopperSvm [auto]
+impl core::marker::UnsafeUnpin for hopper_svm::ProcessResult [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_svm::AccountFixture [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_svm::HopperSvm [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_svm::ProcessResult [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_svm::AccountFixture [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_svm::HopperSvm [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_svm::ProcessResult [auto]
+pub fn hopper_svm::AccountFixture::executable(self) -> Self
+pub fn hopper_svm::AccountFixture::new(address: hopper_runtime::address::Address, owner: hopper_runtime::address::Address, lamports: u64, data_len: usize) -> Self
+pub fn hopper_svm::AccountFixture::signer(self) -> Self
+pub fn hopper_svm::AccountFixture::with_data(address: hopper_runtime::address::Address, owner: hopper_runtime::address::Address, lamports: u64, data: alloc::vec::Vec<u8>) -> Self
+pub fn hopper_svm::AccountFixture::writable(self) -> Self
+pub fn hopper_svm::HopperSvm::new() -> Self
+pub fn hopper_svm::HopperSvm::process_instruction(&self, program_id: hopper_runtime::address::Address, instruction_data: &[u8], accounts: &[hopper_svm::AccountFixture], process: hopper_svm::ProcessInstruction) -> hopper_svm::ProcessResult
+pub hopper_svm::AccountFixture::address: hopper_runtime::address::Address
+pub hopper_svm::AccountFixture::data: alloc::vec::Vec<u8>
+pub hopper_svm::AccountFixture::executable: bool
+pub hopper_svm::AccountFixture::is_signer: bool
+pub hopper_svm::AccountFixture::is_writable: bool
+pub hopper_svm::AccountFixture::lamports: u64
+pub hopper_svm::AccountFixture::owner: hopper_runtime::address::Address
+pub hopper_svm::ProcessResult::compute_units_consumed: u64
+pub hopper_svm::ProcessResult::program_result: hopper_runtime::result::ProgramResult
+pub hopper_svm::ProcessResult::resulting_accounts: alloc::vec::Vec<hopper_svm::AccountFixture>
+pub struct hopper_svm::AccountFixture {}
+pub struct hopper_svm::HopperSvm;
+pub struct hopper_svm::ProcessResult {}
+pub type hopper_svm::ProcessInstruction = for<'info> fn(&'info hopper_runtime::address::Address, &'info [hopper_runtime::account::AccountView<'info>], &'info [u8]) -> hopper_runtime::result::ProgramResult

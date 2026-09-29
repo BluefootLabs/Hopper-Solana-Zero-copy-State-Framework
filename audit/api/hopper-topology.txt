@@ -1,0 +1,500 @@
+# Public API of hopper-topology, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+hopper_topology::CandidateKind::Current
+hopper_topology::CandidateKind::Horizontal
+hopper_topology::CandidateKind::Hybrid
+hopper_topology::CandidateKind::Vertical
+hopper_topology::CertificateGrade::Certified
+hopper_topology::CertificateGrade::Exploratory
+hopper_topology::CertificateGrade::Incomplete
+hopper_topology::CertificateGrade::Infeasible
+hopper_topology::CertificateGrade::Observed
+hopper_topology::CertificateGrade::ReplayValidated
+hopper_topology::ProvenanceKind::ConfirmedCluster
+hopper_topology::ProvenanceKind::DeterministicReplay
+hopper_topology::ProvenanceKind::HostSimulation
+hopper_topology::ProvenanceKind::Synthetic
+hopper_topology::SelectionPolicy::CapitalFirst
+hopper_topology::SelectionPolicy::MinimalMigration
+hopper_topology::SelectionPolicy::ThroughputFirst
+impl core::clone::Clone for hopper_topology::BucketAssignment
+impl core::clone::Clone for hopper_topology::CandidateKind
+impl core::clone::Clone for hopper_topology::CandidateMetrics
+impl core::clone::Clone for hopper_topology::CandidatePlan
+impl core::clone::Clone for hopper_topology::CandidateSpace
+impl core::clone::Clone for hopper_topology::CertificateGrade
+impl core::clone::Clone for hopper_topology::ClusterConstraints
+impl core::clone::Clone for hopper_topology::Completeness
+impl core::clone::Clone for hopper_topology::LogicalAccess
+impl core::clone::Clone for hopper_topology::LogicalAtom
+impl core::clone::Clone for hopper_topology::PhysicalAccount
+impl core::clone::Clone for hopper_topology::PlacementGroup
+impl core::clone::Clone for hopper_topology::ProjectBudgets
+impl core::clone::Clone for hopper_topology::Provenance
+impl core::clone::Clone for hopper_topology::ProvenanceKind
+impl core::clone::Clone for hopper_topology::Ratio
+impl core::clone::Clone for hopper_topology::RejectedCandidate
+impl core::clone::Clone for hopper_topology::SelectionPolicy
+impl core::clone::Clone for hopper_topology::TopologyCertificate
+impl core::clone::Clone for hopper_topology::TopologyError
+impl core::clone::Clone for hopper_topology::TopologyPlan
+impl core::clone::Clone for hopper_topology::TransactionClass
+impl core::clone::Clone for hopper_topology::VirtualBucket
+impl core::clone::Clone for hopper_topology::WorkloadProfile
+impl core::cmp::Eq for hopper_topology::BucketAssignment
+impl core::cmp::Eq for hopper_topology::CandidateKind
+impl core::cmp::Eq for hopper_topology::CandidateMetrics
+impl core::cmp::Eq for hopper_topology::CandidatePlan
+impl core::cmp::Eq for hopper_topology::CandidateSpace
+impl core::cmp::Eq for hopper_topology::CertificateGrade
+impl core::cmp::Eq for hopper_topology::ClusterConstraints
+impl core::cmp::Eq for hopper_topology::Completeness
+impl core::cmp::Eq for hopper_topology::LogicalAccess
+impl core::cmp::Eq for hopper_topology::LogicalAtom
+impl core::cmp::Eq for hopper_topology::PhysicalAccount
+impl core::cmp::Eq for hopper_topology::PlacementGroup
+impl core::cmp::Eq for hopper_topology::ProjectBudgets
+impl core::cmp::Eq for hopper_topology::Provenance
+impl core::cmp::Eq for hopper_topology::ProvenanceKind
+impl core::cmp::Eq for hopper_topology::Ratio
+impl core::cmp::Eq for hopper_topology::RejectedCandidate
+impl core::cmp::Eq for hopper_topology::SelectionPolicy
+impl core::cmp::Eq for hopper_topology::TopologyCertificate
+impl core::cmp::Eq for hopper_topology::TopologyError
+impl core::cmp::Eq for hopper_topology::TopologyPlan
+impl core::cmp::Eq for hopper_topology::TransactionClass
+impl core::cmp::Eq for hopper_topology::VirtualBucket
+impl core::cmp::Eq for hopper_topology::WorkloadProfile
+impl core::cmp::Ord for hopper_topology::LogicalAccess
+impl core::cmp::PartialEq for hopper_topology::BucketAssignment
+impl core::cmp::PartialEq for hopper_topology::CandidateKind
+impl core::cmp::PartialEq for hopper_topology::CandidateMetrics
+impl core::cmp::PartialEq for hopper_topology::CandidatePlan
+impl core::cmp::PartialEq for hopper_topology::CandidateSpace
+impl core::cmp::PartialEq for hopper_topology::CertificateGrade
+impl core::cmp::PartialEq for hopper_topology::ClusterConstraints
+impl core::cmp::PartialEq for hopper_topology::Completeness
+impl core::cmp::PartialEq for hopper_topology::LogicalAccess
+impl core::cmp::PartialEq for hopper_topology::LogicalAtom
+impl core::cmp::PartialEq for hopper_topology::PhysicalAccount
+impl core::cmp::PartialEq for hopper_topology::PlacementGroup
+impl core::cmp::PartialEq for hopper_topology::ProjectBudgets
+impl core::cmp::PartialEq for hopper_topology::Provenance
+impl core::cmp::PartialEq for hopper_topology::ProvenanceKind
+impl core::cmp::PartialEq for hopper_topology::Ratio
+impl core::cmp::PartialEq for hopper_topology::RejectedCandidate
+impl core::cmp::PartialEq for hopper_topology::SelectionPolicy
+impl core::cmp::PartialEq for hopper_topology::TopologyCertificate
+impl core::cmp::PartialEq for hopper_topology::TopologyError
+impl core::cmp::PartialEq for hopper_topology::TopologyPlan
+impl core::cmp::PartialEq for hopper_topology::TransactionClass
+impl core::cmp::PartialEq for hopper_topology::VirtualBucket
+impl core::cmp::PartialEq for hopper_topology::WorkloadProfile
+impl core::cmp::PartialOrd for hopper_topology::LogicalAccess
+impl core::error::Error for hopper_topology::TopologyError
+impl core::fmt::Debug for hopper_topology::BucketAssignment
+impl core::fmt::Debug for hopper_topology::CandidateKind
+impl core::fmt::Debug for hopper_topology::CandidateMetrics
+impl core::fmt::Debug for hopper_topology::CandidatePlan
+impl core::fmt::Debug for hopper_topology::CandidateSpace
+impl core::fmt::Debug for hopper_topology::CertificateGrade
+impl core::fmt::Debug for hopper_topology::ClusterConstraints
+impl core::fmt::Debug for hopper_topology::Completeness
+impl core::fmt::Debug for hopper_topology::LogicalAccess
+impl core::fmt::Debug for hopper_topology::LogicalAtom
+impl core::fmt::Debug for hopper_topology::PhysicalAccount
+impl core::fmt::Debug for hopper_topology::PlacementGroup
+impl core::fmt::Debug for hopper_topology::ProjectBudgets
+impl core::fmt::Debug for hopper_topology::Provenance
+impl core::fmt::Debug for hopper_topology::ProvenanceKind
+impl core::fmt::Debug for hopper_topology::Ratio
+impl core::fmt::Debug for hopper_topology::RejectedCandidate
+impl core::fmt::Debug for hopper_topology::SelectionPolicy
+impl core::fmt::Debug for hopper_topology::TopologyCertificate
+impl core::fmt::Debug for hopper_topology::TopologyError
+impl core::fmt::Debug for hopper_topology::TopologyPlan
+impl core::fmt::Debug for hopper_topology::TransactionClass
+impl core::fmt::Debug for hopper_topology::VirtualBucket
+impl core::fmt::Debug for hopper_topology::WorkloadProfile
+impl core::fmt::Display for hopper_topology::TopologyError
+impl core::marker::Copy for hopper_topology::BucketAssignment
+impl core::marker::Copy for hopper_topology::CandidateKind
+impl core::marker::Copy for hopper_topology::CertificateGrade
+impl core::marker::Copy for hopper_topology::ProvenanceKind
+impl core::marker::Copy for hopper_topology::Ratio
+impl core::marker::Copy for hopper_topology::SelectionPolicy
+impl core::marker::Freeze for hopper_topology::BucketAssignment [auto]
+impl core::marker::Freeze for hopper_topology::CandidateKind [auto]
+impl core::marker::Freeze for hopper_topology::CandidateMetrics [auto]
+impl core::marker::Freeze for hopper_topology::CandidatePlan [auto]
+impl core::marker::Freeze for hopper_topology::CandidateSpace [auto]
+impl core::marker::Freeze for hopper_topology::CertificateGrade [auto]
+impl core::marker::Freeze for hopper_topology::ClusterConstraints [auto]
+impl core::marker::Freeze for hopper_topology::Completeness [auto]
+impl core::marker::Freeze for hopper_topology::LogicalAccess [auto]
+impl core::marker::Freeze for hopper_topology::LogicalAtom [auto]
+impl core::marker::Freeze for hopper_topology::PhysicalAccount [auto]
+impl core::marker::Freeze for hopper_topology::PlacementGroup [auto]
+impl core::marker::Freeze for hopper_topology::ProjectBudgets [auto]
+impl core::marker::Freeze for hopper_topology::Provenance [auto]
+impl core::marker::Freeze for hopper_topology::ProvenanceKind [auto]
+impl core::marker::Freeze for hopper_topology::Ratio [auto]
+impl core::marker::Freeze for hopper_topology::RejectedCandidate [auto]
+impl core::marker::Freeze for hopper_topology::SelectionPolicy [auto]
+impl core::marker::Freeze for hopper_topology::TopologyCertificate [auto]
+impl core::marker::Freeze for hopper_topology::TopologyError [auto]
+impl core::marker::Freeze for hopper_topology::TopologyPlan [auto]
+impl core::marker::Freeze for hopper_topology::TransactionClass [auto]
+impl core::marker::Freeze for hopper_topology::VirtualBucket [auto]
+impl core::marker::Freeze for hopper_topology::WorkloadProfile [auto]
+impl core::marker::Send for hopper_topology::BucketAssignment [auto]
+impl core::marker::Send for hopper_topology::CandidateKind [auto]
+impl core::marker::Send for hopper_topology::CandidateMetrics [auto]
+impl core::marker::Send for hopper_topology::CandidatePlan [auto]
+impl core::marker::Send for hopper_topology::CandidateSpace [auto]
+impl core::marker::Send for hopper_topology::CertificateGrade [auto]
+impl core::marker::Send for hopper_topology::ClusterConstraints [auto]
+impl core::marker::Send for hopper_topology::Completeness [auto]
+impl core::marker::Send for hopper_topology::LogicalAccess [auto]
+impl core::marker::Send for hopper_topology::LogicalAtom [auto]
+impl core::marker::Send for hopper_topology::PhysicalAccount [auto]
+impl core::marker::Send for hopper_topology::PlacementGroup [auto]
+impl core::marker::Send for hopper_topology::ProjectBudgets [auto]
+impl core::marker::Send for hopper_topology::Provenance [auto]
+impl core::marker::Send for hopper_topology::ProvenanceKind [auto]
+impl core::marker::Send for hopper_topology::Ratio [auto]
+impl core::marker::Send for hopper_topology::RejectedCandidate [auto]
+impl core::marker::Send for hopper_topology::SelectionPolicy [auto]
+impl core::marker::Send for hopper_topology::TopologyCertificate [auto]
+impl core::marker::Send for hopper_topology::TopologyError [auto]
+impl core::marker::Send for hopper_topology::TopologyPlan [auto]
+impl core::marker::Send for hopper_topology::TransactionClass [auto]
+impl core::marker::Send for hopper_topology::VirtualBucket [auto]
+impl core::marker::Send for hopper_topology::WorkloadProfile [auto]
+impl core::marker::StructuralPartialEq for hopper_topology::BucketAssignment
+impl core::marker::StructuralPartialEq for hopper_topology::CandidateKind
+impl core::marker::StructuralPartialEq for hopper_topology::CandidateMetrics
+impl core::marker::StructuralPartialEq for hopper_topology::CandidatePlan
+impl core::marker::StructuralPartialEq for hopper_topology::CandidateSpace
+impl core::marker::StructuralPartialEq for hopper_topology::CertificateGrade
+impl core::marker::StructuralPartialEq for hopper_topology::ClusterConstraints
+impl core::marker::StructuralPartialEq for hopper_topology::Completeness
+impl core::marker::StructuralPartialEq for hopper_topology::LogicalAccess
+impl core::marker::StructuralPartialEq for hopper_topology::LogicalAtom
+impl core::marker::StructuralPartialEq for hopper_topology::PhysicalAccount
+impl core::marker::StructuralPartialEq for hopper_topology::PlacementGroup
+impl core::marker::StructuralPartialEq for hopper_topology::ProjectBudgets
+impl core::marker::StructuralPartialEq for hopper_topology::Provenance
+impl core::marker::StructuralPartialEq for hopper_topology::ProvenanceKind
+impl core::marker::StructuralPartialEq for hopper_topology::Ratio
+impl core::marker::StructuralPartialEq for hopper_topology::RejectedCandidate
+impl core::marker::StructuralPartialEq for hopper_topology::SelectionPolicy
+impl core::marker::StructuralPartialEq for hopper_topology::TopologyCertificate
+impl core::marker::StructuralPartialEq for hopper_topology::TopologyError
+impl core::marker::StructuralPartialEq for hopper_topology::TopologyPlan
+impl core::marker::StructuralPartialEq for hopper_topology::TransactionClass
+impl core::marker::StructuralPartialEq for hopper_topology::VirtualBucket
+impl core::marker::StructuralPartialEq for hopper_topology::WorkloadProfile
+impl core::marker::Sync for hopper_topology::BucketAssignment [auto]
+impl core::marker::Sync for hopper_topology::CandidateKind [auto]
+impl core::marker::Sync for hopper_topology::CandidateMetrics [auto]
+impl core::marker::Sync for hopper_topology::CandidatePlan [auto]
+impl core::marker::Sync for hopper_topology::CandidateSpace [auto]
+impl core::marker::Sync for hopper_topology::CertificateGrade [auto]
+impl core::marker::Sync for hopper_topology::ClusterConstraints [auto]
+impl core::marker::Sync for hopper_topology::Completeness [auto]
+impl core::marker::Sync for hopper_topology::LogicalAccess [auto]
+impl core::marker::Sync for hopper_topology::LogicalAtom [auto]
+impl core::marker::Sync for hopper_topology::PhysicalAccount [auto]
+impl core::marker::Sync for hopper_topology::PlacementGroup [auto]
+impl core::marker::Sync for hopper_topology::ProjectBudgets [auto]
+impl core::marker::Sync for hopper_topology::Provenance [auto]
+impl core::marker::Sync for hopper_topology::ProvenanceKind [auto]
+impl core::marker::Sync for hopper_topology::Ratio [auto]
+impl core::marker::Sync for hopper_topology::RejectedCandidate [auto]
+impl core::marker::Sync for hopper_topology::SelectionPolicy [auto]
+impl core::marker::Sync for hopper_topology::TopologyCertificate [auto]
+impl core::marker::Sync for hopper_topology::TopologyError [auto]
+impl core::marker::Sync for hopper_topology::TopologyPlan [auto]
+impl core::marker::Sync for hopper_topology::TransactionClass [auto]
+impl core::marker::Sync for hopper_topology::VirtualBucket [auto]
+impl core::marker::Sync for hopper_topology::WorkloadProfile [auto]
+impl core::marker::Unpin for hopper_topology::BucketAssignment [auto]
+impl core::marker::Unpin for hopper_topology::CandidateKind [auto]
+impl core::marker::Unpin for hopper_topology::CandidateMetrics [auto]
+impl core::marker::Unpin for hopper_topology::CandidatePlan [auto]
+impl core::marker::Unpin for hopper_topology::CandidateSpace [auto]
+impl core::marker::Unpin for hopper_topology::CertificateGrade [auto]
+impl core::marker::Unpin for hopper_topology::ClusterConstraints [auto]
+impl core::marker::Unpin for hopper_topology::Completeness [auto]
+impl core::marker::Unpin for hopper_topology::LogicalAccess [auto]
+impl core::marker::Unpin for hopper_topology::LogicalAtom [auto]
+impl core::marker::Unpin for hopper_topology::PhysicalAccount [auto]
+impl core::marker::Unpin for hopper_topology::PlacementGroup [auto]
+impl core::marker::Unpin for hopper_topology::ProjectBudgets [auto]
+impl core::marker::Unpin for hopper_topology::Provenance [auto]
+impl core::marker::Unpin for hopper_topology::ProvenanceKind [auto]
+impl core::marker::Unpin for hopper_topology::Ratio [auto]
+impl core::marker::Unpin for hopper_topology::RejectedCandidate [auto]
+impl core::marker::Unpin for hopper_topology::SelectionPolicy [auto]
+impl core::marker::Unpin for hopper_topology::TopologyCertificate [auto]
+impl core::marker::Unpin for hopper_topology::TopologyError [auto]
+impl core::marker::Unpin for hopper_topology::TopologyPlan [auto]
+impl core::marker::Unpin for hopper_topology::TransactionClass [auto]
+impl core::marker::Unpin for hopper_topology::VirtualBucket [auto]
+impl core::marker::Unpin for hopper_topology::WorkloadProfile [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::BucketAssignment [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::CandidateKind [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::CandidateMetrics [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::CandidatePlan [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::CandidateSpace [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::CertificateGrade [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::ClusterConstraints [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::Completeness [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::LogicalAccess [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::LogicalAtom [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::PhysicalAccount [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::PlacementGroup [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::ProjectBudgets [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::Provenance [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::ProvenanceKind [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::Ratio [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::RejectedCandidate [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::SelectionPolicy [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::TopologyCertificate [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::TopologyError [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::TopologyPlan [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::TransactionClass [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::VirtualBucket [auto]
+impl core::marker::UnsafeUnpin for hopper_topology::WorkloadProfile [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::BucketAssignment [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::CandidateKind [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::CandidateMetrics [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::CandidatePlan [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::CandidateSpace [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::CertificateGrade [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::ClusterConstraints [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::Completeness [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::LogicalAccess [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::LogicalAtom [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::PhysicalAccount [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::PlacementGroup [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::ProjectBudgets [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::Provenance [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::ProvenanceKind [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::Ratio [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::RejectedCandidate [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::SelectionPolicy [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::TopologyCertificate [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::TopologyError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::TopologyPlan [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::TransactionClass [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::VirtualBucket [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_topology::WorkloadProfile [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::BucketAssignment [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::CandidateKind [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::CandidateMetrics [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::CandidatePlan [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::CandidateSpace [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::CertificateGrade [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::ClusterConstraints [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::Completeness [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::LogicalAccess [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::LogicalAtom [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::PhysicalAccount [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::PlacementGroup [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::ProjectBudgets [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::Provenance [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::ProvenanceKind [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::Ratio [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::RejectedCandidate [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::SelectionPolicy [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::TopologyCertificate [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::TopologyError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::TopologyPlan [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::TransactionClass [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::VirtualBucket [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_topology::WorkloadProfile [auto]
+impl serde_core::ser::Serialize for hopper_topology::BucketAssignment
+impl serde_core::ser::Serialize for hopper_topology::CandidateKind
+impl serde_core::ser::Serialize for hopper_topology::CandidateMetrics
+impl serde_core::ser::Serialize for hopper_topology::CandidatePlan
+impl serde_core::ser::Serialize for hopper_topology::CandidateSpace
+impl serde_core::ser::Serialize for hopper_topology::CertificateGrade
+impl serde_core::ser::Serialize for hopper_topology::ClusterConstraints
+impl serde_core::ser::Serialize for hopper_topology::Completeness
+impl serde_core::ser::Serialize for hopper_topology::LogicalAccess
+impl serde_core::ser::Serialize for hopper_topology::LogicalAtom
+impl serde_core::ser::Serialize for hopper_topology::PhysicalAccount
+impl serde_core::ser::Serialize for hopper_topology::PlacementGroup
+impl serde_core::ser::Serialize for hopper_topology::ProjectBudgets
+impl serde_core::ser::Serialize for hopper_topology::Provenance
+impl serde_core::ser::Serialize for hopper_topology::ProvenanceKind
+impl serde_core::ser::Serialize for hopper_topology::Ratio
+impl serde_core::ser::Serialize for hopper_topology::RejectedCandidate
+impl serde_core::ser::Serialize for hopper_topology::SelectionPolicy
+impl serde_core::ser::Serialize for hopper_topology::TopologyCertificate
+impl serde_core::ser::Serialize for hopper_topology::TopologyPlan
+impl serde_core::ser::Serialize for hopper_topology::TransactionClass
+impl serde_core::ser::Serialize for hopper_topology::VirtualBucket
+impl serde_core::ser::Serialize for hopper_topology::WorkloadProfile
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::BucketAssignment
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::CandidateKind
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::CandidateMetrics
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::CandidatePlan
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::CandidateSpace
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::CertificateGrade
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::ClusterConstraints
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::Completeness
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::LogicalAccess
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::LogicalAtom
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::PhysicalAccount
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::PlacementGroup
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::ProjectBudgets
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::Provenance
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::ProvenanceKind
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::Ratio
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::RejectedCandidate
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::SelectionPolicy
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::TopologyCertificate
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::TopologyPlan
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::TransactionClass
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::VirtualBucket
+impl<'de> serde_core::de::Deserialize<'de> for hopper_topology::WorkloadProfile
+pub const hopper_topology::PLAN_SCHEMA_V1: &str = "hopper.topology.plan.v0.1"
+pub const hopper_topology::PROFILE_SCHEMA_V1: &str = "hopper.topology.profile.v0.1"
+pub const hopper_topology::Ratio::ZERO: Self
+pub enum hopper_topology::CandidateKind
+pub enum hopper_topology::CertificateGrade
+pub enum hopper_topology::ProvenanceKind
+pub enum hopper_topology::SelectionPolicy
+pub fn hopper_topology::Completeness::is_complete(&self) -> bool
+pub fn hopper_topology::Ratio::compare(self, other: Self) -> core::cmp::Ordering
+pub fn hopper_topology::Ratio::new(numerator: u128, denominator: u128) -> Self
+pub fn hopper_topology::commit_profile(profile: &hopper_topology::WorkloadProfile) -> core::result::Result<alloc::string::String, hopper_topology::TopologyError>
+pub fn hopper_topology::route_bucket(routing_seed: &str, bucket: u16, shard_count: u16) -> u16
+pub fn hopper_topology::sha256_hex(domain: &[u8], bytes: &[u8]) -> alloc::string::String
+pub fn hopper_topology::solve(profile: hopper_topology::WorkloadProfile) -> core::result::Result<hopper_topology::TopologyPlan, hopper_topology::TopologyError>
+pub hopper_topology::BucketAssignment::bucket: u16
+pub hopper_topology::BucketAssignment::shard: u16
+pub hopper_topology::CandidateMetrics::max_transaction_account_locks: u32
+pub hopper_topology::CandidateMetrics::max_transaction_bytes: u32
+pub hopper_topology::CandidateMetrics::migration_bytes_upper_bound: u64
+pub hopper_topology::CandidateMetrics::physical_accounts: u32
+pub hopper_topology::CandidateMetrics::total_account_data_bytes: u64
+pub hopper_topology::CandidateMetrics::total_rent_lamports: u64
+pub hopper_topology::CandidateMetrics::total_storage_bytes: u64
+pub hopper_topology::CandidateMetrics::weighted_lock_conflict: hopper_topology::Ratio
+pub hopper_topology::CandidatePlan::bucket_assignments: alloc::vec::Vec<hopper_topology::BucketAssignment>
+pub hopper_topology::CandidatePlan::groups: alloc::vec::Vec<hopper_topology::PlacementGroup>
+pub hopper_topology::CandidatePlan::id: alloc::string::String
+pub hopper_topology::CandidatePlan::kind: hopper_topology::CandidateKind
+pub hopper_topology::CandidatePlan::metrics: hopper_topology::CandidateMetrics
+pub hopper_topology::CandidatePlan::physical_layout: alloc::vec::Vec<hopper_topology::PhysicalAccount>
+pub hopper_topology::CandidatePlan::shard_count: core::option::Option<u16>
+pub hopper_topology::CandidateSpace::include_horizontal: bool
+pub hopper_topology::CandidateSpace::include_hybrid: bool
+pub hopper_topology::CandidateSpace::include_vertical: bool
+pub hopper_topology::CandidateSpace::routing_seed: alloc::string::String
+pub hopper_topology::CandidateSpace::shard_counts: alloc::vec::Vec<u16>
+pub hopper_topology::ClusterConstraints::account_header_bytes: u32
+pub hopper_topology::ClusterConstraints::account_storage_overhead_bytes: u32
+pub hopper_topology::ClusterConstraints::additional_account_message_bytes: u16
+pub hopper_topology::ClusterConstraints::feature_set: alloc::string::String
+pub hopper_topology::ClusterConstraints::genesis_hash: alloc::string::String
+pub hopper_topology::ClusterConstraints::max_account_data_bytes: u64
+pub hopper_topology::ClusterConstraints::max_transaction_account_locks: u16
+pub hopper_topology::ClusterConstraints::max_transaction_bytes: u16
+pub hopper_topology::ClusterConstraints::observed_slot: u64
+pub hopper_topology::ClusterConstraints::rent_exempt_base_bytes: u32
+pub hopper_topology::ClusterConstraints::rent_lamports_per_byte: u64
+pub hopper_topology::Completeness::cpi_frames_complete: bool
+pub hopper_topology::Completeness::partial_records: u64
+pub hopper_topology::Completeness::reads_complete: bool
+pub hopper_topology::Completeness::remaining_accounts_resolved: bool
+pub hopper_topology::Completeness::transaction_accounts_complete: bool
+pub hopper_topology::Completeness::writes_complete: bool
+pub hopper_topology::LogicalAccess::atom: alloc::string::String
+pub hopper_topology::LogicalAccess::bucket: u16
+pub hopper_topology::LogicalAtom::current_account: alloc::string::String
+pub hopper_topology::LogicalAtom::id: alloc::string::String
+pub hopper_topology::LogicalAtom::shardable: bool
+pub hopper_topology::LogicalAtom::size_bytes: u64
+pub hopper_topology::PhysicalAccount::data_bytes: u64
+pub hopper_topology::PhysicalAccount::group: alloc::string::String
+pub hopper_topology::PhysicalAccount::id: alloc::string::String
+pub hopper_topology::PhysicalAccount::shard: core::option::Option<u16>
+pub hopper_topology::PlacementGroup::atoms: alloc::vec::Vec<alloc::string::String>
+pub hopper_topology::PlacementGroup::id: alloc::string::String
+pub hopper_topology::PlacementGroup::sharded: bool
+pub hopper_topology::ProjectBudgets::max_migration_bytes: u64
+pub hopper_topology::ProjectBudgets::max_physical_accounts: u32
+pub hopper_topology::ProjectBudgets::max_total_rent_lamports: u64
+pub hopper_topology::Provenance::first_slot: core::option::Option<u64>
+pub hopper_topology::Provenance::kind: hopper_topology::ProvenanceKind
+pub hopper_topology::Provenance::last_slot: core::option::Option<u64>
+pub hopper_topology::Provenance::source_id: alloc::string::String
+pub hopper_topology::Ratio::denominator: u128
+pub hopper_topology::Ratio::numerator: u128
+pub hopper_topology::RejectedCandidate::id: alloc::string::String
+pub hopper_topology::RejectedCandidate::kind: hopper_topology::CandidateKind
+pub hopper_topology::RejectedCandidate::metrics: core::option::Option<hopper_topology::CandidateMetrics>
+pub hopper_topology::RejectedCandidate::reasons: alloc::vec::Vec<alloc::string::String>
+pub hopper_topology::RejectedCandidate::shard_count: core::option::Option<u16>
+pub hopper_topology::TopologyCertificate::claims: alloc::vec::Vec<alloc::string::String>
+pub hopper_topology::TopologyCertificate::downgrade_reasons: alloc::vec::Vec<alloc::string::String>
+pub hopper_topology::TopologyCertificate::grade: hopper_topology::CertificateGrade
+pub hopper_topology::TopologyCertificate::input_commitment: alloc::string::String
+pub hopper_topology::TopologyCertificate::nonclaims: alloc::vec::Vec<alloc::string::String>
+pub hopper_topology::TopologyCertificate::plan_commitment: alloc::string::String
+pub hopper_topology::TopologyPlan::certificate: hopper_topology::TopologyCertificate
+pub hopper_topology::TopologyPlan::chosen_candidate_id: core::option::Option<alloc::string::String>
+pub hopper_topology::TopologyPlan::feasible_candidates: alloc::vec::Vec<hopper_topology::CandidatePlan>
+pub hopper_topology::TopologyPlan::input_commitment: alloc::string::String
+pub hopper_topology::TopologyPlan::pareto_candidate_ids: alloc::vec::Vec<alloc::string::String>
+pub hopper_topology::TopologyPlan::plan_commitment: alloc::string::String
+pub hopper_topology::TopologyPlan::rejected_candidates: alloc::vec::Vec<hopper_topology::RejectedCandidate>
+pub hopper_topology::TopologyPlan::routing_bucket_collision_floor: hopper_topology::Ratio
+pub hopper_topology::TopologyPlan::schema: alloc::string::String
+pub hopper_topology::TopologyPlan::selected_policy: hopper_topology::SelectionPolicy
+pub hopper_topology::TransactionClass::fixed_account_locks: u16
+pub hopper_topology::TransactionClass::fixed_message_bytes: u16
+pub hopper_topology::TransactionClass::id: alloc::string::String
+pub hopper_topology::TransactionClass::reads: alloc::vec::Vec<hopper_topology::LogicalAccess>
+pub hopper_topology::TransactionClass::weight: u64
+pub hopper_topology::TransactionClass::writes: alloc::vec::Vec<hopper_topology::LogicalAccess>
+pub hopper_topology::VirtualBucket::id: u16
+pub hopper_topology::VirtualBucket::weight: u64
+pub hopper_topology::WorkloadProfile::atoms: alloc::vec::Vec<hopper_topology::LogicalAtom>
+pub hopper_topology::WorkloadProfile::budgets: hopper_topology::ProjectBudgets
+pub hopper_topology::WorkloadProfile::candidate_space: hopper_topology::CandidateSpace
+pub hopper_topology::WorkloadProfile::cluster: hopper_topology::ClusterConstraints
+pub hopper_topology::WorkloadProfile::completeness: hopper_topology::Completeness
+pub hopper_topology::WorkloadProfile::manifest_commitment: alloc::string::String
+pub hopper_topology::WorkloadProfile::policy: hopper_topology::SelectionPolicy
+pub hopper_topology::WorkloadProfile::program_id: alloc::string::String
+pub hopper_topology::WorkloadProfile::provenance: hopper_topology::Provenance
+pub hopper_topology::WorkloadProfile::schema: alloc::string::String
+pub hopper_topology::WorkloadProfile::transactions: alloc::vec::Vec<hopper_topology::TransactionClass>
+pub hopper_topology::WorkloadProfile::virtual_buckets: alloc::vec::Vec<hopper_topology::VirtualBucket>
+pub struct hopper_topology::BucketAssignment {}
+pub struct hopper_topology::CandidateMetrics {}
+pub struct hopper_topology::CandidatePlan {}
+pub struct hopper_topology::CandidateSpace {}
+pub struct hopper_topology::ClusterConstraints {}
+pub struct hopper_topology::Completeness {}
+pub struct hopper_topology::LogicalAccess {}
+pub struct hopper_topology::LogicalAtom {}
+pub struct hopper_topology::PhysicalAccount {}
+pub struct hopper_topology::PlacementGroup {}
+pub struct hopper_topology::ProjectBudgets {}
+pub struct hopper_topology::Provenance {}
+pub struct hopper_topology::Ratio {}
+pub struct hopper_topology::RejectedCandidate {}
+pub struct hopper_topology::TopologyCertificate {}
+pub struct hopper_topology::TopologyError { .. }
+pub struct hopper_topology::TopologyPlan {}
+pub struct hopper_topology::TransactionClass {}
+pub struct hopper_topology::VirtualBucket {}
+pub struct hopper_topology::WorkloadProfile {}

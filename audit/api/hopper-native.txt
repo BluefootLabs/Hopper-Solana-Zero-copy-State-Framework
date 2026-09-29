@@ -1,0 +1,1966 @@
+# Public API of hopper-native, rendered from rustdoc JSON by
+# scripts/api-lock.py with default features. Do not edit by hand: run the
+# script. A line that changes or disappears is a breaking change.
+fn hopper_native::arith::LeanMul::checked_mul_lean(self, rhs: Self) -> core::option::Option<Self>;
+hopper_native::ProgramError::AccountAlreadyInitialized = 8
+hopper_native::ProgramError::AccountBorrowFailed = 11
+hopper_native::ProgramError::AccountDataTooSmall = 4
+hopper_native::ProgramError::AccountNotRentExempt = 15
+hopper_native::ProgramError::ArithmeticOverflow = 23
+hopper_native::ProgramError::BorshIoError = 14
+hopper_native::ProgramError::BuiltinProgramsMustConsumeComputeUnits = 21
+hopper_native::ProgramError::Custom(u32) = 0
+hopper_native::ProgramError::IllegalOwner = 17
+hopper_native::ProgramError::Immutable = 24
+hopper_native::ProgramError::IncorrectAuthority = 25
+hopper_native::ProgramError::IncorrectProgramId = 6
+hopper_native::ProgramError::InsufficientFunds = 5
+hopper_native::ProgramError::InvalidAccountData = 3
+hopper_native::ProgramError::InvalidAccountOwner = 22
+hopper_native::ProgramError::InvalidArgument = 1
+hopper_native::ProgramError::InvalidInstructionData = 2
+hopper_native::ProgramError::InvalidRealloc = 19
+hopper_native::ProgramError::InvalidSeeds = 13
+hopper_native::ProgramError::MaxAccountsDataAllocationsExceeded = 18
+hopper_native::ProgramError::MaxInstructionTraceLengthExceeded = 20
+hopper_native::ProgramError::MaxSeedLengthExceeded = 12
+hopper_native::ProgramError::MissingRequiredSignature = 7
+hopper_native::ProgramError::NotEnoughAccountKeys = 10
+hopper_native::ProgramError::UninitializedAccount = 9
+hopper_native::ProgramError::UnsupportedSysvar = 16
+hopper_native::raw_input::DirectMappingError::ArithmeticOverflow
+hopper_native::raw_input::DirectMappingError::InstructionDataMismatch
+hopper_native::raw_input::DirectMappingError::MalformedDuplicate { slot: usize, duplicate_of: usize }
+hopper_native::raw_input::DirectMappingError::NonCanonicalPointer { slot: usize }
+hopper_native::raw_input::DirectMappingError::NullInput
+hopper_native::raw_input::DirectMappingError::PointerMisaligned { slot: usize }
+hopper_native::raw_input::DirectMappingError::PointerOutOfBounds { slot: usize }
+hopper_native::raw_input::DirectMappingError::PointerTableMisaligned
+hopper_native::raw_input::DirectMappingError::TooManyAccounts { count: usize, capacity: usize }
+hopper_native::raw_input::DirectMappingError::TruncatedInput
+hopper_native::raw_input::FrameError::AccountCountOutOfRange(u64)
+hopper_native::raw_input::FrameError::DataLenOutOfRange { slot: usize, data_len: u64 }
+hopper_native::raw_input::FrameError::MalformedDuplicateMarker { slot: usize, marker: u8 }
+hopper_native::raw_input::FrameError::OffsetOverflow { slot: usize }
+hopper_native::raw_input::FrameError::UnexpectedEof { needed: usize, at: usize }
+hopper_native::slot_hashes::SlotHashStatus::Ahead
+hopper_native::slot_hashes::SlotHashStatus::Found([u8; 32])
+hopper_native::slot_hashes::SlotHashStatus::Skipped
+hopper_native::slot_hashes::SlotHashStatus::TooOld
+impl !core::marker::Send for hopper_native::raw_input::RawInstructionFrame [auto]
+impl !core::marker::Sync for hopper_native::raw_input::RawInstructionFrame [auto]
+impl core::alloc::global::GlobalAlloc for hopper_native::BumpAllocator
+impl core::clone::Clone for hopper_native::Address
+impl core::clone::Clone for hopper_native::BalanceSnapshot
+impl core::clone::Clone for hopper_native::CuBudget
+impl core::clone::Clone for hopper_native::DataFingerprint
+impl core::clone::Clone for hopper_native::HeapMark
+impl core::clone::Clone for hopper_native::LamportSnapshot
+impl core::clone::Clone for hopper_native::LeBool
+impl core::clone::Clone for hopper_native::LeI16
+impl core::clone::Clone for hopper_native::LeI32
+impl core::clone::Clone for hopper_native::LeI64
+impl core::clone::Clone for hopper_native::LeU128
+impl core::clone::Clone for hopper_native::LeU16
+impl core::clone::Clone for hopper_native::LeU32
+impl core::clone::Clone for hopper_native::LeU64
+impl core::clone::Clone for hopper_native::ProgramError
+impl core::clone::Clone for hopper_native::RuntimeAccount
+impl core::clone::Clone for hopper_native::expert::ProcessedInstruction
+impl core::clone::Clone for hopper_native::expert::ProcessedInstructionAccount
+impl core::clone::Clone for hopper_native::raw_input::DirectMappingError
+impl core::clone::Clone for hopper_native::raw_input::FrameError
+impl core::clone::Clone for hopper_native::raw_input::FrameInfo
+impl core::clone::Clone for hopper_native::raw_input::RawAccountIndex
+impl core::clone::Clone for hopper_native::raw_input::RawInstructionFrame
+impl core::clone::Clone for hopper_native::sha256::ConstSha256
+impl core::clone::Clone for hopper_native::slot_hashes::SlotHashLookup
+impl core::clone::Clone for hopper_native::slot_hashes::SlotHashStatus
+impl core::clone::Clone for hopper_native::sysvar::Clock
+impl core::clone::Clone for hopper_native::sysvar::EpochRewards
+impl core::clone::Clone for hopper_native::sysvar::EpochSchedule
+impl core::clone::Clone for hopper_native::sysvar::Rent
+impl core::clone::Clone for hopper_native::sysvar::SlotHash
+impl core::clone::Clone for hopper_native::sysvar::StakeHistoryEntry
+impl core::cmp::Eq for hopper_native::Address
+impl core::cmp::Eq for hopper_native::HeapMark
+impl core::cmp::Eq for hopper_native::LeBool
+impl core::cmp::Eq for hopper_native::LeI16
+impl core::cmp::Eq for hopper_native::LeI32
+impl core::cmp::Eq for hopper_native::LeI64
+impl core::cmp::Eq for hopper_native::LeU128
+impl core::cmp::Eq for hopper_native::LeU16
+impl core::cmp::Eq for hopper_native::LeU32
+impl core::cmp::Eq for hopper_native::LeU64
+impl core::cmp::Eq for hopper_native::ProgramError
+impl core::cmp::Eq for hopper_native::expert::ProcessedInstructionAccount
+impl core::cmp::Eq for hopper_native::raw_input::DirectMappingError
+impl core::cmp::Eq for hopper_native::raw_input::FrameError
+impl core::cmp::Eq for hopper_native::raw_input::FrameInfo
+impl core::cmp::Eq for hopper_native::raw_input::RawAccountIndex
+impl core::cmp::Eq for hopper_native::slot_hashes::SlotHashLookup
+impl core::cmp::Eq for hopper_native::slot_hashes::SlotHashStatus
+impl core::cmp::Eq for hopper_native::sysvar::EpochRewards
+impl core::cmp::Eq for hopper_native::sysvar::SlotHash
+impl core::cmp::Eq for hopper_native::sysvar::StakeHistoryEntry
+impl core::cmp::Ord for hopper_native::Address
+impl core::cmp::Ord for hopper_native::LeI16
+impl core::cmp::Ord for hopper_native::LeI32
+impl core::cmp::Ord for hopper_native::LeI64
+impl core::cmp::Ord for hopper_native::LeU128
+impl core::cmp::Ord for hopper_native::LeU16
+impl core::cmp::Ord for hopper_native::LeU32
+impl core::cmp::Ord for hopper_native::LeU64
+impl core::cmp::PartialEq for hopper_native::Address
+impl core::cmp::PartialEq for hopper_native::HeapMark
+impl core::cmp::PartialEq for hopper_native::LeBool
+impl core::cmp::PartialEq for hopper_native::LeI16
+impl core::cmp::PartialEq for hopper_native::LeI32
+impl core::cmp::PartialEq for hopper_native::LeI64
+impl core::cmp::PartialEq for hopper_native::LeU128
+impl core::cmp::PartialEq for hopper_native::LeU16
+impl core::cmp::PartialEq for hopper_native::LeU32
+impl core::cmp::PartialEq for hopper_native::LeU64
+impl core::cmp::PartialEq for hopper_native::ProgramError
+impl core::cmp::PartialEq for hopper_native::expert::ProcessedInstructionAccount
+impl core::cmp::PartialEq for hopper_native::raw_input::DirectMappingError
+impl core::cmp::PartialEq for hopper_native::raw_input::FrameError
+impl core::cmp::PartialEq for hopper_native::raw_input::FrameInfo
+impl core::cmp::PartialEq for hopper_native::raw_input::RawAccountIndex
+impl core::cmp::PartialEq for hopper_native::slot_hashes::SlotHashLookup
+impl core::cmp::PartialEq for hopper_native::slot_hashes::SlotHashStatus
+impl core::cmp::PartialEq for hopper_native::sysvar::EpochRewards
+impl core::cmp::PartialEq for hopper_native::sysvar::SlotHash
+impl core::cmp::PartialEq for hopper_native::sysvar::StakeHistoryEntry
+impl core::cmp::PartialEq<i16> for hopper_native::LeI16
+impl core::cmp::PartialEq<i32> for hopper_native::LeI32
+impl core::cmp::PartialEq<i64> for hopper_native::LeI64
+impl core::cmp::PartialEq<u128> for hopper_native::LeU128
+impl core::cmp::PartialEq<u16> for hopper_native::LeU16
+impl core::cmp::PartialEq<u32> for hopper_native::LeU32
+impl core::cmp::PartialEq<u64> for hopper_native::LeU64
+impl core::cmp::PartialOrd for hopper_native::Address
+impl core::cmp::PartialOrd for hopper_native::LeI16
+impl core::cmp::PartialOrd for hopper_native::LeI32
+impl core::cmp::PartialOrd for hopper_native::LeI64
+impl core::cmp::PartialOrd for hopper_native::LeU128
+impl core::cmp::PartialOrd for hopper_native::LeU16
+impl core::cmp::PartialOrd for hopper_native::LeU32
+impl core::cmp::PartialOrd for hopper_native::LeU64
+impl core::cmp::PartialOrd<i16> for hopper_native::LeI16
+impl core::cmp::PartialOrd<i32> for hopper_native::LeI32
+impl core::cmp::PartialOrd<i64> for hopper_native::LeI64
+impl core::cmp::PartialOrd<u128> for hopper_native::LeU128
+impl core::cmp::PartialOrd<u16> for hopper_native::LeU16
+impl core::cmp::PartialOrd<u32> for hopper_native::LeU32
+impl core::cmp::PartialOrd<u64> for hopper_native::LeU64
+impl core::convert::AsMut<[u8]> for hopper_native::Address
+impl core::convert::AsRef<[u8; 32]> for hopper_native::Address
+impl core::convert::AsRef<[u8]> for hopper_native::Address
+impl core::convert::From<[u8; 32]> for hopper_native::Address
+impl core::convert::From<bool> for hopper_native::LeBool
+impl core::convert::From<hopper_native::Address> for [u8; 32]
+impl core::convert::From<hopper_native::LeBool> for bool
+impl core::convert::From<hopper_native::LeI16> for i16
+impl core::convert::From<hopper_native::LeI32> for i32
+impl core::convert::From<hopper_native::LeI64> for i64
+impl core::convert::From<hopper_native::LeU128> for u128
+impl core::convert::From<hopper_native::LeU16> for u16
+impl core::convert::From<hopper_native::LeU32> for u32
+impl core::convert::From<hopper_native::LeU64> for u64
+impl core::convert::From<hopper_native::ProgramError> for u64
+impl core::convert::From<i16> for hopper_native::LeI16
+impl core::convert::From<i32> for hopper_native::LeI32
+impl core::convert::From<i64> for hopper_native::LeI64
+impl core::convert::From<u128> for hopper_native::LeU128
+impl core::convert::From<u16> for hopper_native::LeU16
+impl core::convert::From<u32> for hopper_native::LeU32
+impl core::convert::From<u64> for hopper_native::LeU64
+impl core::convert::From<u64> for hopper_native::ProgramError
+impl core::convert::TryFrom<&[u8]> for hopper_native::Address
+impl core::default::Default for hopper_native::Address
+impl core::default::Default for hopper_native::LeBool
+impl core::default::Default for hopper_native::LeI16
+impl core::default::Default for hopper_native::LeI32
+impl core::default::Default for hopper_native::LeI64
+impl core::default::Default for hopper_native::LeU128
+impl core::default::Default for hopper_native::LeU16
+impl core::default::Default for hopper_native::LeU32
+impl core::default::Default for hopper_native::LeU64
+impl core::default::Default for hopper_native::RuntimeAccount
+impl core::default::Default for hopper_native::expert::ProcessedInstructionAccount
+impl core::default::Default for hopper_native::sha256::ConstSha256
+impl core::default::Default for hopper_native::sysvar::Clock
+impl core::default::Default for hopper_native::sysvar::EpochRewards
+impl core::default::Default for hopper_native::sysvar::EpochSchedule
+impl core::default::Default for hopper_native::sysvar::Rent
+impl core::default::Default for hopper_native::sysvar::StakeHistoryEntry
+impl core::fmt::Debug for hopper_native::Address
+impl core::fmt::Debug for hopper_native::BalanceSnapshot
+impl core::fmt::Debug for hopper_native::DataFingerprint
+impl core::fmt::Debug for hopper_native::HeapMark
+impl core::fmt::Debug for hopper_native::LamportSnapshot
+impl core::fmt::Debug for hopper_native::LeBool
+impl core::fmt::Debug for hopper_native::LeI16
+impl core::fmt::Debug for hopper_native::LeI32
+impl core::fmt::Debug for hopper_native::LeI64
+impl core::fmt::Debug for hopper_native::LeU128
+impl core::fmt::Debug for hopper_native::LeU16
+impl core::fmt::Debug for hopper_native::LeU32
+impl core::fmt::Debug for hopper_native::LeU64
+impl core::fmt::Debug for hopper_native::ProgramError
+impl core::fmt::Debug for hopper_native::expert::ProcessedInstruction
+impl core::fmt::Debug for hopper_native::expert::ProcessedInstructionAccount
+impl core::fmt::Debug for hopper_native::raw_input::DirectMappingError
+impl core::fmt::Debug for hopper_native::raw_input::FrameError
+impl core::fmt::Debug for hopper_native::raw_input::FrameInfo
+impl core::fmt::Debug for hopper_native::raw_input::RawAccountIndex
+impl core::fmt::Debug for hopper_native::slot_hashes::SlotHashLookup
+impl core::fmt::Debug for hopper_native::slot_hashes::SlotHashStatus
+impl core::fmt::Debug for hopper_native::sysvar::Clock
+impl core::fmt::Debug for hopper_native::sysvar::EpochRewards
+impl core::fmt::Debug for hopper_native::sysvar::EpochSchedule
+impl core::fmt::Debug for hopper_native::sysvar::Rent
+impl core::fmt::Debug for hopper_native::sysvar::SlotHash
+impl core::fmt::Debug for hopper_native::sysvar::StakeHistoryEntry
+impl core::fmt::Display for hopper_native::LeBool
+impl core::fmt::Display for hopper_native::LeI16
+impl core::fmt::Display for hopper_native::LeI32
+impl core::fmt::Display for hopper_native::LeI64
+impl core::fmt::Display for hopper_native::LeU128
+impl core::fmt::Display for hopper_native::LeU16
+impl core::fmt::Display for hopper_native::LeU32
+impl core::fmt::Display for hopper_native::LeU64
+impl core::fmt::Display for hopper_native::ProgramError
+impl core::fmt::Display for hopper_native::raw_input::FrameError
+impl core::fmt::Write for hopper_native::log::StackWriter<'_>
+impl core::hash::Hash for hopper_native::Address
+impl core::hash::Hash for hopper_native::LeBool
+impl core::hash::Hash for hopper_native::LeI16
+impl core::hash::Hash for hopper_native::LeI32
+impl core::hash::Hash for hopper_native::LeI64
+impl core::hash::Hash for hopper_native::LeU128
+impl core::hash::Hash for hopper_native::LeU16
+impl core::hash::Hash for hopper_native::LeU32
+impl core::hash::Hash for hopper_native::LeU64
+impl core::marker::Copy for hopper_native::BalanceSnapshot
+impl core::marker::Copy for hopper_native::CuBudget
+impl core::marker::Copy for hopper_native::DataFingerprint
+impl core::marker::Copy for hopper_native::HeapMark
+impl core::marker::Copy for hopper_native::LamportSnapshot
+impl core::marker::Copy for hopper_native::LeBool
+impl core::marker::Copy for hopper_native::LeI16
+impl core::marker::Copy for hopper_native::LeI32
+impl core::marker::Copy for hopper_native::LeI64
+impl core::marker::Copy for hopper_native::LeU128
+impl core::marker::Copy for hopper_native::LeU16
+impl core::marker::Copy for hopper_native::LeU32
+impl core::marker::Copy for hopper_native::LeU64
+impl core::marker::Copy for hopper_native::raw_input::DirectMappingError
+impl core::marker::Copy for hopper_native::raw_input::FrameError
+impl core::marker::Copy for hopper_native::raw_input::RawAccountIndex
+impl core::marker::Copy for hopper_native::sha256::ConstSha256
+impl core::marker::Copy for hopper_native::slot_hashes::SlotHashLookup
+impl core::marker::Copy for hopper_native::slot_hashes::SlotHashStatus
+impl core::marker::Copy for hopper_native::sysvar::Clock
+impl core::marker::Copy for hopper_native::sysvar::EpochRewards
+impl core::marker::Copy for hopper_native::sysvar::EpochSchedule
+impl core::marker::Copy for hopper_native::sysvar::Rent
+impl core::marker::Copy for hopper_native::sysvar::SlotHash
+impl core::marker::Copy for hopper_native::sysvar::StakeHistoryEntry
+impl core::marker::Freeze for hopper_native::Address [auto]
+impl core::marker::Freeze for hopper_native::BalanceSnapshot [auto]
+impl core::marker::Freeze for hopper_native::BumpAllocator [auto]
+impl core::marker::Freeze for hopper_native::CuBudget [auto]
+impl core::marker::Freeze for hopper_native::DataFingerprint [auto]
+impl core::marker::Freeze for hopper_native::HeapMark [auto]
+impl core::marker::Freeze for hopper_native::LamportSnapshot [auto]
+impl core::marker::Freeze for hopper_native::LeBool [auto]
+impl core::marker::Freeze for hopper_native::LeI16 [auto]
+impl core::marker::Freeze for hopper_native::LeI32 [auto]
+impl core::marker::Freeze for hopper_native::LeI64 [auto]
+impl core::marker::Freeze for hopper_native::LeU128 [auto]
+impl core::marker::Freeze for hopper_native::LeU16 [auto]
+impl core::marker::Freeze for hopper_native::LeU32 [auto]
+impl core::marker::Freeze for hopper_native::LeU64 [auto]
+impl core::marker::Freeze for hopper_native::ProgramError [auto]
+impl core::marker::Freeze for hopper_native::ReturnData [auto]
+impl core::marker::Freeze for hopper_native::RuntimeAccount [auto]
+impl core::marker::Freeze for hopper_native::expert::ProcessedInstruction [auto]
+impl core::marker::Freeze for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::marker::Freeze for hopper_native::raw_input::DirectMappingError [auto]
+impl core::marker::Freeze for hopper_native::raw_input::FrameError [auto]
+impl core::marker::Freeze for hopper_native::raw_input::FrameInfo [auto]
+impl core::marker::Freeze for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::marker::Freeze for hopper_native::raw_input::RawInstructionFrame [auto]
+impl core::marker::Freeze for hopper_native::sha256::ConstSha256 [auto]
+impl core::marker::Freeze for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::marker::Freeze for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::marker::Freeze for hopper_native::sysvar::Clock [auto]
+impl core::marker::Freeze for hopper_native::sysvar::EpochRewards [auto]
+impl core::marker::Freeze for hopper_native::sysvar::EpochSchedule [auto]
+impl core::marker::Freeze for hopper_native::sysvar::Rent [auto]
+impl core::marker::Freeze for hopper_native::sysvar::SlotHash [auto]
+impl core::marker::Freeze for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl core::marker::Send for hopper_native::Address [auto]
+impl core::marker::Send for hopper_native::BalanceSnapshot [auto]
+impl core::marker::Send for hopper_native::BumpAllocator [auto]
+impl core::marker::Send for hopper_native::CuBudget [auto]
+impl core::marker::Send for hopper_native::DataFingerprint [auto]
+impl core::marker::Send for hopper_native::HeapMark [auto]
+impl core::marker::Send for hopper_native::LamportSnapshot [auto]
+impl core::marker::Send for hopper_native::LeBool [auto]
+impl core::marker::Send for hopper_native::LeI16 [auto]
+impl core::marker::Send for hopper_native::LeI32 [auto]
+impl core::marker::Send for hopper_native::LeI64 [auto]
+impl core::marker::Send for hopper_native::LeU128 [auto]
+impl core::marker::Send for hopper_native::LeU16 [auto]
+impl core::marker::Send for hopper_native::LeU32 [auto]
+impl core::marker::Send for hopper_native::LeU64 [auto]
+impl core::marker::Send for hopper_native::ProgramError [auto]
+impl core::marker::Send for hopper_native::ReturnData [auto]
+impl core::marker::Send for hopper_native::RuntimeAccount [auto]
+impl core::marker::Send for hopper_native::expert::ProcessedInstruction [auto]
+impl core::marker::Send for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::marker::Send for hopper_native::raw_input::DirectMappingError [auto]
+impl core::marker::Send for hopper_native::raw_input::FrameError [auto]
+impl core::marker::Send for hopper_native::raw_input::FrameInfo [auto]
+impl core::marker::Send for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::marker::Send for hopper_native::sha256::ConstSha256 [auto]
+impl core::marker::Send for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::marker::Send for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::marker::Send for hopper_native::sysvar::Clock [auto]
+impl core::marker::Send for hopper_native::sysvar::EpochRewards [auto]
+impl core::marker::Send for hopper_native::sysvar::EpochSchedule [auto]
+impl core::marker::Send for hopper_native::sysvar::Rent [auto]
+impl core::marker::Send for hopper_native::sysvar::SlotHash [auto]
+impl core::marker::Send for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl core::marker::StructuralPartialEq for hopper_native::HeapMark
+impl core::marker::StructuralPartialEq for hopper_native::LeBool
+impl core::marker::StructuralPartialEq for hopper_native::LeI16
+impl core::marker::StructuralPartialEq for hopper_native::LeI32
+impl core::marker::StructuralPartialEq for hopper_native::LeI64
+impl core::marker::StructuralPartialEq for hopper_native::LeU128
+impl core::marker::StructuralPartialEq for hopper_native::LeU16
+impl core::marker::StructuralPartialEq for hopper_native::LeU32
+impl core::marker::StructuralPartialEq for hopper_native::LeU64
+impl core::marker::StructuralPartialEq for hopper_native::ProgramError
+impl core::marker::StructuralPartialEq for hopper_native::expert::ProcessedInstructionAccount
+impl core::marker::StructuralPartialEq for hopper_native::raw_input::DirectMappingError
+impl core::marker::StructuralPartialEq for hopper_native::raw_input::FrameError
+impl core::marker::StructuralPartialEq for hopper_native::raw_input::FrameInfo
+impl core::marker::StructuralPartialEq for hopper_native::raw_input::RawAccountIndex
+impl core::marker::StructuralPartialEq for hopper_native::slot_hashes::SlotHashLookup
+impl core::marker::StructuralPartialEq for hopper_native::slot_hashes::SlotHashStatus
+impl core::marker::StructuralPartialEq for hopper_native::sysvar::EpochRewards
+impl core::marker::StructuralPartialEq for hopper_native::sysvar::SlotHash
+impl core::marker::StructuralPartialEq for hopper_native::sysvar::StakeHistoryEntry
+impl core::marker::Sync for hopper_native::Address [auto]
+impl core::marker::Sync for hopper_native::BalanceSnapshot [auto]
+impl core::marker::Sync for hopper_native::BumpAllocator [auto]
+impl core::marker::Sync for hopper_native::CuBudget [auto]
+impl core::marker::Sync for hopper_native::DataFingerprint [auto]
+impl core::marker::Sync for hopper_native::HeapMark [auto]
+impl core::marker::Sync for hopper_native::LamportSnapshot [auto]
+impl core::marker::Sync for hopper_native::LeBool [auto]
+impl core::marker::Sync for hopper_native::LeI16 [auto]
+impl core::marker::Sync for hopper_native::LeI32 [auto]
+impl core::marker::Sync for hopper_native::LeI64 [auto]
+impl core::marker::Sync for hopper_native::LeU128 [auto]
+impl core::marker::Sync for hopper_native::LeU16 [auto]
+impl core::marker::Sync for hopper_native::LeU32 [auto]
+impl core::marker::Sync for hopper_native::LeU64 [auto]
+impl core::marker::Sync for hopper_native::ProgramError [auto]
+impl core::marker::Sync for hopper_native::ReturnData [auto]
+impl core::marker::Sync for hopper_native::RuntimeAccount [auto]
+impl core::marker::Sync for hopper_native::expert::ProcessedInstruction [auto]
+impl core::marker::Sync for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::marker::Sync for hopper_native::raw_input::DirectMappingError [auto]
+impl core::marker::Sync for hopper_native::raw_input::FrameError [auto]
+impl core::marker::Sync for hopper_native::raw_input::FrameInfo [auto]
+impl core::marker::Sync for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::marker::Sync for hopper_native::sha256::ConstSha256 [auto]
+impl core::marker::Sync for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::marker::Sync for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::marker::Sync for hopper_native::sysvar::Clock [auto]
+impl core::marker::Sync for hopper_native::sysvar::EpochRewards [auto]
+impl core::marker::Sync for hopper_native::sysvar::EpochSchedule [auto]
+impl core::marker::Sync for hopper_native::sysvar::Rent [auto]
+impl core::marker::Sync for hopper_native::sysvar::SlotHash [auto]
+impl core::marker::Sync for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl core::marker::Unpin for hopper_native::Address [auto]
+impl core::marker::Unpin for hopper_native::BalanceSnapshot [auto]
+impl core::marker::Unpin for hopper_native::BumpAllocator [auto]
+impl core::marker::Unpin for hopper_native::CuBudget [auto]
+impl core::marker::Unpin for hopper_native::DataFingerprint [auto]
+impl core::marker::Unpin for hopper_native::HeapMark [auto]
+impl core::marker::Unpin for hopper_native::LamportSnapshot [auto]
+impl core::marker::Unpin for hopper_native::LeBool [auto]
+impl core::marker::Unpin for hopper_native::LeI16 [auto]
+impl core::marker::Unpin for hopper_native::LeI32 [auto]
+impl core::marker::Unpin for hopper_native::LeI64 [auto]
+impl core::marker::Unpin for hopper_native::LeU128 [auto]
+impl core::marker::Unpin for hopper_native::LeU16 [auto]
+impl core::marker::Unpin for hopper_native::LeU32 [auto]
+impl core::marker::Unpin for hopper_native::LeU64 [auto]
+impl core::marker::Unpin for hopper_native::ProgramError [auto]
+impl core::marker::Unpin for hopper_native::ReturnData [auto]
+impl core::marker::Unpin for hopper_native::RuntimeAccount [auto]
+impl core::marker::Unpin for hopper_native::expert::ProcessedInstruction [auto]
+impl core::marker::Unpin for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::marker::Unpin for hopper_native::raw_input::DirectMappingError [auto]
+impl core::marker::Unpin for hopper_native::raw_input::FrameError [auto]
+impl core::marker::Unpin for hopper_native::raw_input::FrameInfo [auto]
+impl core::marker::Unpin for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::marker::Unpin for hopper_native::raw_input::RawInstructionFrame [auto]
+impl core::marker::Unpin for hopper_native::sha256::ConstSha256 [auto]
+impl core::marker::Unpin for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::marker::Unpin for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::marker::Unpin for hopper_native::sysvar::Clock [auto]
+impl core::marker::Unpin for hopper_native::sysvar::EpochRewards [auto]
+impl core::marker::Unpin for hopper_native::sysvar::EpochSchedule [auto]
+impl core::marker::Unpin for hopper_native::sysvar::Rent [auto]
+impl core::marker::Unpin for hopper_native::sysvar::SlotHash [auto]
+impl core::marker::Unpin for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl core::marker::UnsafeUnpin for hopper_native::Address [auto]
+impl core::marker::UnsafeUnpin for hopper_native::BalanceSnapshot [auto]
+impl core::marker::UnsafeUnpin for hopper_native::BumpAllocator [auto]
+impl core::marker::UnsafeUnpin for hopper_native::CuBudget [auto]
+impl core::marker::UnsafeUnpin for hopper_native::DataFingerprint [auto]
+impl core::marker::UnsafeUnpin for hopper_native::HeapMark [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LamportSnapshot [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeBool [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeI16 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeI32 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeI64 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeU128 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeU16 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeU32 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::LeU64 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::ProgramError [auto]
+impl core::marker::UnsafeUnpin for hopper_native::ReturnData [auto]
+impl core::marker::UnsafeUnpin for hopper_native::RuntimeAccount [auto]
+impl core::marker::UnsafeUnpin for hopper_native::expert::ProcessedInstruction [auto]
+impl core::marker::UnsafeUnpin for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::marker::UnsafeUnpin for hopper_native::raw_input::DirectMappingError [auto]
+impl core::marker::UnsafeUnpin for hopper_native::raw_input::FrameError [auto]
+impl core::marker::UnsafeUnpin for hopper_native::raw_input::FrameInfo [auto]
+impl core::marker::UnsafeUnpin for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::marker::UnsafeUnpin for hopper_native::raw_input::RawInstructionFrame [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sha256::ConstSha256 [auto]
+impl core::marker::UnsafeUnpin for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::marker::UnsafeUnpin for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sysvar::Clock [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sysvar::EpochRewards [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sysvar::EpochSchedule [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sysvar::Rent [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sysvar::SlotHash [auto]
+impl core::marker::UnsafeUnpin for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl core::ops::arith::Add for hopper_native::LeI16
+impl core::ops::arith::Add for hopper_native::LeI32
+impl core::ops::arith::Add for hopper_native::LeI64
+impl core::ops::arith::Add for hopper_native::LeU128
+impl core::ops::arith::Add for hopper_native::LeU16
+impl core::ops::arith::Add for hopper_native::LeU32
+impl core::ops::arith::Add for hopper_native::LeU64
+impl core::ops::arith::Add<i16> for hopper_native::LeI16
+impl core::ops::arith::Add<i32> for hopper_native::LeI32
+impl core::ops::arith::Add<i64> for hopper_native::LeI64
+impl core::ops::arith::Add<u128> for hopper_native::LeU128
+impl core::ops::arith::Add<u16> for hopper_native::LeU16
+impl core::ops::arith::Add<u32> for hopper_native::LeU32
+impl core::ops::arith::Add<u64> for hopper_native::LeU64
+impl core::ops::arith::AddAssign for hopper_native::LeI16
+impl core::ops::arith::AddAssign for hopper_native::LeI32
+impl core::ops::arith::AddAssign for hopper_native::LeI64
+impl core::ops::arith::AddAssign for hopper_native::LeU128
+impl core::ops::arith::AddAssign for hopper_native::LeU16
+impl core::ops::arith::AddAssign for hopper_native::LeU32
+impl core::ops::arith::AddAssign for hopper_native::LeU64
+impl core::ops::arith::AddAssign<i16> for hopper_native::LeI16
+impl core::ops::arith::AddAssign<i32> for hopper_native::LeI32
+impl core::ops::arith::AddAssign<i64> for hopper_native::LeI64
+impl core::ops::arith::AddAssign<u128> for hopper_native::LeU128
+impl core::ops::arith::AddAssign<u16> for hopper_native::LeU16
+impl core::ops::arith::AddAssign<u32> for hopper_native::LeU32
+impl core::ops::arith::AddAssign<u64> for hopper_native::LeU64
+impl core::ops::arith::Div for hopper_native::LeI16
+impl core::ops::arith::Div for hopper_native::LeI32
+impl core::ops::arith::Div for hopper_native::LeI64
+impl core::ops::arith::Div for hopper_native::LeU128
+impl core::ops::arith::Div for hopper_native::LeU16
+impl core::ops::arith::Div for hopper_native::LeU32
+impl core::ops::arith::Div for hopper_native::LeU64
+impl core::ops::arith::Div<i16> for hopper_native::LeI16
+impl core::ops::arith::Div<i32> for hopper_native::LeI32
+impl core::ops::arith::Div<i64> for hopper_native::LeI64
+impl core::ops::arith::Div<u128> for hopper_native::LeU128
+impl core::ops::arith::Div<u16> for hopper_native::LeU16
+impl core::ops::arith::Div<u32> for hopper_native::LeU32
+impl core::ops::arith::Div<u64> for hopper_native::LeU64
+impl core::ops::arith::DivAssign for hopper_native::LeI16
+impl core::ops::arith::DivAssign for hopper_native::LeI32
+impl core::ops::arith::DivAssign for hopper_native::LeI64
+impl core::ops::arith::DivAssign for hopper_native::LeU128
+impl core::ops::arith::DivAssign for hopper_native::LeU16
+impl core::ops::arith::DivAssign for hopper_native::LeU32
+impl core::ops::arith::DivAssign for hopper_native::LeU64
+impl core::ops::arith::DivAssign<i16> for hopper_native::LeI16
+impl core::ops::arith::DivAssign<i32> for hopper_native::LeI32
+impl core::ops::arith::DivAssign<i64> for hopper_native::LeI64
+impl core::ops::arith::DivAssign<u128> for hopper_native::LeU128
+impl core::ops::arith::DivAssign<u16> for hopper_native::LeU16
+impl core::ops::arith::DivAssign<u32> for hopper_native::LeU32
+impl core::ops::arith::DivAssign<u64> for hopper_native::LeU64
+impl core::ops::arith::Mul for hopper_native::LeI16
+impl core::ops::arith::Mul for hopper_native::LeI32
+impl core::ops::arith::Mul for hopper_native::LeI64
+impl core::ops::arith::Mul for hopper_native::LeU128
+impl core::ops::arith::Mul for hopper_native::LeU16
+impl core::ops::arith::Mul for hopper_native::LeU32
+impl core::ops::arith::Mul for hopper_native::LeU64
+impl core::ops::arith::Mul<i16> for hopper_native::LeI16
+impl core::ops::arith::Mul<i32> for hopper_native::LeI32
+impl core::ops::arith::Mul<i64> for hopper_native::LeI64
+impl core::ops::arith::Mul<u128> for hopper_native::LeU128
+impl core::ops::arith::Mul<u16> for hopper_native::LeU16
+impl core::ops::arith::Mul<u32> for hopper_native::LeU32
+impl core::ops::arith::Mul<u64> for hopper_native::LeU64
+impl core::ops::arith::MulAssign for hopper_native::LeI16
+impl core::ops::arith::MulAssign for hopper_native::LeI32
+impl core::ops::arith::MulAssign for hopper_native::LeI64
+impl core::ops::arith::MulAssign for hopper_native::LeU128
+impl core::ops::arith::MulAssign for hopper_native::LeU16
+impl core::ops::arith::MulAssign for hopper_native::LeU32
+impl core::ops::arith::MulAssign for hopper_native::LeU64
+impl core::ops::arith::MulAssign<i16> for hopper_native::LeI16
+impl core::ops::arith::MulAssign<i32> for hopper_native::LeI32
+impl core::ops::arith::MulAssign<i64> for hopper_native::LeI64
+impl core::ops::arith::MulAssign<u128> for hopper_native::LeU128
+impl core::ops::arith::MulAssign<u16> for hopper_native::LeU16
+impl core::ops::arith::MulAssign<u32> for hopper_native::LeU32
+impl core::ops::arith::MulAssign<u64> for hopper_native::LeU64
+impl core::ops::arith::Rem for hopper_native::LeI16
+impl core::ops::arith::Rem for hopper_native::LeI32
+impl core::ops::arith::Rem for hopper_native::LeI64
+impl core::ops::arith::Rem for hopper_native::LeU128
+impl core::ops::arith::Rem for hopper_native::LeU16
+impl core::ops::arith::Rem for hopper_native::LeU32
+impl core::ops::arith::Rem for hopper_native::LeU64
+impl core::ops::arith::Rem<i16> for hopper_native::LeI16
+impl core::ops::arith::Rem<i32> for hopper_native::LeI32
+impl core::ops::arith::Rem<i64> for hopper_native::LeI64
+impl core::ops::arith::Rem<u128> for hopper_native::LeU128
+impl core::ops::arith::Rem<u16> for hopper_native::LeU16
+impl core::ops::arith::Rem<u32> for hopper_native::LeU32
+impl core::ops::arith::Rem<u64> for hopper_native::LeU64
+impl core::ops::arith::RemAssign for hopper_native::LeI16
+impl core::ops::arith::RemAssign for hopper_native::LeI32
+impl core::ops::arith::RemAssign for hopper_native::LeI64
+impl core::ops::arith::RemAssign for hopper_native::LeU128
+impl core::ops::arith::RemAssign for hopper_native::LeU16
+impl core::ops::arith::RemAssign for hopper_native::LeU32
+impl core::ops::arith::RemAssign for hopper_native::LeU64
+impl core::ops::arith::RemAssign<i16> for hopper_native::LeI16
+impl core::ops::arith::RemAssign<i32> for hopper_native::LeI32
+impl core::ops::arith::RemAssign<i64> for hopper_native::LeI64
+impl core::ops::arith::RemAssign<u128> for hopper_native::LeU128
+impl core::ops::arith::RemAssign<u16> for hopper_native::LeU16
+impl core::ops::arith::RemAssign<u32> for hopper_native::LeU32
+impl core::ops::arith::RemAssign<u64> for hopper_native::LeU64
+impl core::ops::arith::Sub for hopper_native::LeI16
+impl core::ops::arith::Sub for hopper_native::LeI32
+impl core::ops::arith::Sub for hopper_native::LeI64
+impl core::ops::arith::Sub for hopper_native::LeU128
+impl core::ops::arith::Sub for hopper_native::LeU16
+impl core::ops::arith::Sub for hopper_native::LeU32
+impl core::ops::arith::Sub for hopper_native::LeU64
+impl core::ops::arith::Sub<i16> for hopper_native::LeI16
+impl core::ops::arith::Sub<i32> for hopper_native::LeI32
+impl core::ops::arith::Sub<i64> for hopper_native::LeI64
+impl core::ops::arith::Sub<u128> for hopper_native::LeU128
+impl core::ops::arith::Sub<u16> for hopper_native::LeU16
+impl core::ops::arith::Sub<u32> for hopper_native::LeU32
+impl core::ops::arith::Sub<u64> for hopper_native::LeU64
+impl core::ops::arith::SubAssign for hopper_native::LeI16
+impl core::ops::arith::SubAssign for hopper_native::LeI32
+impl core::ops::arith::SubAssign for hopper_native::LeI64
+impl core::ops::arith::SubAssign for hopper_native::LeU128
+impl core::ops::arith::SubAssign for hopper_native::LeU16
+impl core::ops::arith::SubAssign for hopper_native::LeU32
+impl core::ops::arith::SubAssign for hopper_native::LeU64
+impl core::ops::arith::SubAssign<i16> for hopper_native::LeI16
+impl core::ops::arith::SubAssign<i32> for hopper_native::LeI32
+impl core::ops::arith::SubAssign<i64> for hopper_native::LeI64
+impl core::ops::arith::SubAssign<u128> for hopper_native::LeU128
+impl core::ops::arith::SubAssign<u16> for hopper_native::LeU16
+impl core::ops::arith::SubAssign<u32> for hopper_native::LeU32
+impl core::ops::arith::SubAssign<u64> for hopper_native::LeU64
+impl core::ops::deref::Deref for hopper_native::Seed<'_>
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::Address [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::BalanceSnapshot [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::BumpAllocator [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::CuBudget [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::DataFingerprint [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::HeapMark [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LamportSnapshot [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeBool [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeI16 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeI32 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeI64 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeU128 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeU16 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeU32 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::LeU64 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::ProgramError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::ReturnData [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::RuntimeAccount [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::expert::ProcessedInstruction [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::raw_input::DirectMappingError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::raw_input::FrameError [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::raw_input::FrameInfo [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::raw_input::RawInstructionFrame [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sha256::ConstSha256 [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sysvar::Clock [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sysvar::EpochRewards [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sysvar::EpochSchedule [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sysvar::Rent [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sysvar::SlotHash [auto]
+impl core::panic::unwind_safe::RefUnwindSafe for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::Address [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::BalanceSnapshot [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::BumpAllocator [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::CuBudget [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::DataFingerprint [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::HeapMark [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LamportSnapshot [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeBool [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeI16 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeI32 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeI64 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeU128 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeU16 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeU32 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::LeU64 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::ProgramError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::ReturnData [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::RuntimeAccount [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::expert::ProcessedInstruction [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::expert::ProcessedInstructionAccount [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::raw_input::DirectMappingError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::raw_input::FrameError [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::raw_input::FrameInfo [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::raw_input::RawAccountIndex [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::raw_input::RawInstructionFrame [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sha256::ConstSha256 [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::slot_hashes::SlotHashLookup [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::slot_hashes::SlotHashStatus [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sysvar::Clock [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sysvar::EpochRewards [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sysvar::EpochSchedule [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sysvar::Rent [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sysvar::SlotHash [auto]
+impl core::panic::unwind_safe::UnwindSafe for hopper_native::sysvar::StakeHistoryEntry [auto]
+impl hopper_native::Pod for ()
+impl hopper_native::Pod for hopper_native::LeBool
+impl hopper_native::Pod for hopper_native::LeI16
+impl hopper_native::Pod for hopper_native::LeI32
+impl hopper_native::Pod for hopper_native::LeI64
+impl hopper_native::Pod for hopper_native::LeU128
+impl hopper_native::Pod for hopper_native::LeU16
+impl hopper_native::Pod for hopper_native::LeU32
+impl hopper_native::Pod for hopper_native::LeU64
+impl hopper_native::Pod for i8
+impl hopper_native::Pod for u8
+impl hopper_native::ValuePod for i128
+impl hopper_native::ValuePod for i16
+impl hopper_native::ValuePod for i32
+impl hopper_native::ValuePod for i64
+impl hopper_native::ValuePod for i8
+impl hopper_native::ValuePod for u128
+impl hopper_native::ValuePod for u16
+impl hopper_native::ValuePod for u32
+impl hopper_native::ValuePod for u64
+impl hopper_native::ValuePod for u8
+impl hopper_native::Zeroable for ()
+impl hopper_native::Zeroable for hopper_native::LeBool
+impl hopper_native::Zeroable for hopper_native::LeI16
+impl hopper_native::Zeroable for hopper_native::LeI32
+impl hopper_native::Zeroable for hopper_native::LeI64
+impl hopper_native::Zeroable for hopper_native::LeU128
+impl hopper_native::Zeroable for hopper_native::LeU16
+impl hopper_native::Zeroable for hopper_native::LeU32
+impl hopper_native::Zeroable for hopper_native::LeU64
+impl hopper_native::Zeroable for i128
+impl hopper_native::Zeroable for i16
+impl hopper_native::Zeroable for i32
+impl hopper_native::Zeroable for i64
+impl hopper_native::Zeroable for i8
+impl hopper_native::Zeroable for u128
+impl hopper_native::Zeroable for u16
+impl hopper_native::Zeroable for u32
+impl hopper_native::Zeroable for u64
+impl hopper_native::Zeroable for u8
+impl hopper_native::arith::LeanMul for i128
+impl hopper_native::arith::LeanMul for i16
+impl hopper_native::arith::LeanMul for i32
+impl hopper_native::arith::LeanMul for i64
+impl hopper_native::arith::LeanMul for i8
+impl hopper_native::arith::LeanMul for isize
+impl hopper_native::arith::LeanMul for u128
+impl hopper_native::arith::LeanMul for u16
+impl hopper_native::arith::LeanMul for u32
+impl hopper_native::arith::LeanMul for u64
+impl hopper_native::arith::LeanMul for u8
+impl hopper_native::arith::LeanMul for usize
+impl<'a, 'b, 'c, 'd> core::clone::Clone for hopper_native::InstructionView<'a, 'b, 'c, 'd> where 'a: 'b
+impl<'a, 'b, 'c, 'd> core::fmt::Debug for hopper_native::InstructionView<'a, 'b, 'c, 'd> where 'a: 'b
+impl<'a, 'b, 'c, 'd> core::marker::Freeze for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, 'c, 'd> core::marker::Send for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, 'c, 'd> core::marker::Sync for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, 'c, 'd> core::marker::Unpin for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, 'c, 'd> core::marker::UnsafeUnpin for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, 'c, 'd> core::panic::unwind_safe::RefUnwindSafe for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, 'c, 'd> core::panic::unwind_safe::UnwindSafe for hopper_native::InstructionView<'a, 'b, 'c, 'd> [auto]
+impl<'a, 'b, const N: usize> core::convert::From<&'b [hopper_native::Seed<'a>; N]> for hopper_native::Signer<'a, 'b>
+impl<'a, 'b> !core::marker::Send for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Send for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> !core::marker::Sync for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::clone::Clone for hopper_native::Signer<'a, 'b>
+impl<'a, 'b> core::convert::From<&'b [hopper_native::Seed<'a>]> for hopper_native::Signer<'a, 'b>
+impl<'a, 'b> core::fmt::Debug for hopper_native::Signer<'a, 'b>
+impl<'a, 'b> core::marker::Freeze for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Freeze for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::Unpin for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::marker::UnsafeUnpin for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::Signer<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::AllocateWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::Assign<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::AssignWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::AuthorizeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::CreateAccount<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::CreateAccountAllowPrefund<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::CreateAccountWithSeed<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::InitializeNonceAccount<'a, 'b> [auto]
+impl<'a, 'b> core::panic::unwind_safe::UnwindSafe for hopper_native::system::TransferWithSeed<'a, 'b> [auto]
+impl<'a, 'info> !core::marker::Send for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, 'info> !core::marker::Sync for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, 'info> core::marker::Freeze for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, 'info> core::marker::Unpin for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, 'info> core::marker::UnsafeUnpin for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, 'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, 'info> core::panic::unwind_safe::UnwindSafe for hopper_native::batch::ResizeWithPayer<'a, 'info> [auto]
+impl<'a, T> !core::marker::Send for hopper_native::Ref<'a, T> [auto]
+impl<'a, T> !core::marker::Send for hopper_native::RefMut<'a, T> [auto]
+impl<'a, T> !core::marker::Sync for hopper_native::Ref<'a, T> [auto]
+impl<'a, T> !core::marker::Sync for hopper_native::RefMut<'a, T> [auto]
+impl<'a, T> !core::panic::unwind_safe::UnwindSafe for hopper_native::RefMut<'a, T> [auto]
+impl<'a, T> core::marker::Freeze for hopper_native::Ref<'a, T> where T: ?core::marker::Sized [auto]
+impl<'a, T> core::marker::Freeze for hopper_native::RefMut<'a, T> where T: ?core::marker::Sized [auto]
+impl<'a, T> core::marker::Unpin for hopper_native::Ref<'a, T> where T: ?core::marker::Sized [auto]
+impl<'a, T> core::marker::Unpin for hopper_native::RefMut<'a, T> where T: ?core::marker::Sized [auto]
+impl<'a, T> core::marker::UnsafeUnpin for hopper_native::Ref<'a, T> where T: ?core::marker::Sized [auto]
+impl<'a, T> core::marker::UnsafeUnpin for hopper_native::RefMut<'a, T> where T: ?core::marker::Sized [auto]
+impl<'a, T> core::panic::unwind_safe::RefUnwindSafe for hopper_native::Ref<'a, T> where T: core::panic::unwind_safe::RefUnwindSafe + ?core::marker::Sized [auto]
+impl<'a, T> core::panic::unwind_safe::RefUnwindSafe for hopper_native::RefMut<'a, T> where T: core::panic::unwind_safe::RefUnwindSafe + ?core::marker::Sized [auto]
+impl<'a, T> core::panic::unwind_safe::UnwindSafe for hopper_native::Ref<'a, T> where T: core::panic::unwind_safe::RefUnwindSafe + ?core::marker::Sized [auto]
+impl<'a, const N: usize> core::convert::From<&'a [u8; N]> for hopper_native::Seed<'a>
+impl<'a> !core::marker::Send for hopper_native::CpiAccount<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::Seed<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::system::Allocate<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::system::Transfer<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::token::Approve<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::token::Burn<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::token::MintTo<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::token::Revoke<'a> [auto]
+impl<'a> !core::marker::Send for hopper_native::token::Transfer<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::CpiAccount<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::Seed<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::system::Allocate<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::system::Transfer<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::token::Approve<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::token::Burn<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::token::MintTo<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::token::Revoke<'a> [auto]
+impl<'a> !core::marker::Sync for hopper_native::token::Transfer<'a> [auto]
+impl<'a> !core::panic::unwind_safe::UnwindSafe for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::clone::Clone for hopper_native::CpiAccount<'a>
+impl<'a> core::clone::Clone for hopper_native::InstructionAccount<'a>
+impl<'a> core::clone::Clone for hopper_native::Seed<'a>
+impl<'a> core::clone::Clone for hopper_native::system::NonceState<'a>
+impl<'a> core::convert::From<&'a [u8]> for hopper_native::Seed<'a>
+impl<'a> core::convert::From<&'a hopper_native::AccountView<'a>> for hopper_native::CpiAccount<'a>
+impl<'a> core::convert::From<&'a hopper_native::AccountView<'a>> for hopper_native::InstructionAccount<'a>
+impl<'a> core::fmt::Debug for hopper_native::CpiAccount<'a>
+impl<'a> core::fmt::Debug for hopper_native::InstructionAccount<'a>
+impl<'a> core::fmt::Debug for hopper_native::Seed<'a>
+impl<'a> core::fmt::Debug for hopper_native::expert::ProcessedInstructionView<'a>
+impl<'a> core::fmt::Debug for hopper_native::system::NonceState<'a>
+impl<'a> core::marker::Copy for hopper_native::CpiAccount<'a>
+impl<'a> core::marker::Copy for hopper_native::system::NonceState<'a>
+impl<'a> core::marker::Freeze for hopper_native::CpiAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::Seed<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::system::Allocate<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::system::Transfer<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::token::Approve<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::token::Burn<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::token::MintTo<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::token::Revoke<'a> [auto]
+impl<'a> core::marker::Freeze for hopper_native::token::Transfer<'a> [auto]
+impl<'a> core::marker::Send for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::marker::Send for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::marker::Send for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::marker::Send for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::marker::Sync for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::marker::Sync for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::marker::Sync for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::marker::Sync for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::CpiAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::Seed<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::system::Allocate<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::system::Transfer<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::token::Approve<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::token::Burn<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::token::MintTo<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::token::Revoke<'a> [auto]
+impl<'a> core::marker::Unpin for hopper_native::token::Transfer<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::CpiAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::Seed<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::system::Allocate<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::system::Transfer<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::token::Approve<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::token::Burn<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::token::MintTo<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::token::Revoke<'a> [auto]
+impl<'a> core::marker::UnsafeUnpin for hopper_native::token::Transfer<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::CpiAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::Seed<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::log::StackWriter<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::Allocate<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::Transfer<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::token::Approve<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::token::Burn<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::token::MintTo<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::token::Revoke<'a> [auto]
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for hopper_native::token::Transfer<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::CpiAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::InstructionAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::Seed<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::account_view::RemainingAccounts<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::expert::ProcessedInstructionView<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::system::AdvanceNonceAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::system::Allocate<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::system::NonceState<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::system::Transfer<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::system::UpgradeNonceAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::system::WithdrawNonceAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::token::Approve<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::token::Burn<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::token::CloseAccount<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::token::MintTo<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::token::Revoke<'a> [auto]
+impl<'a> core::panic::unwind_safe::UnwindSafe for hopper_native::token::Transfer<'a> [auto]
+impl<'info> !core::marker::Freeze for hopper_native::LazyContext<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::AccountView<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::ExecutableView<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::LazyContext<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::MutableView<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::OwnedView<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::SignerView<'info> [auto]
+impl<'info> !core::marker::Send for hopper_native::WritableView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::AccountView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::ExecutableView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::LazyContext<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::MutableView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::OwnedView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::SignerView<'info> [auto]
+impl<'info> !core::marker::Sync for hopper_native::WritableView<'info> [auto]
+impl<'info> !core::panic::unwind_safe::RefUnwindSafe for hopper_native::LazyContext<'info> [auto]
+impl<'info> core::clone::Clone for hopper_native::AccountView<'info>
+impl<'info> core::clone::Clone for hopper_native::ExecutableView<'info>
+impl<'info> core::clone::Clone for hopper_native::MutableView<'info>
+impl<'info> core::clone::Clone for hopper_native::OwnedView<'info>
+impl<'info> core::clone::Clone for hopper_native::ReadonlyView<'info>
+impl<'info> core::clone::Clone for hopper_native::SignerView<'info>
+impl<'info> core::clone::Clone for hopper_native::WritableView<'info>
+impl<'info> core::cmp::Eq for hopper_native::AccountView<'info>
+impl<'info> core::cmp::Eq for hopper_native::ExecutableView<'info>
+impl<'info> core::cmp::Eq for hopper_native::MutableView<'info>
+impl<'info> core::cmp::Eq for hopper_native::OwnedView<'info>
+impl<'info> core::cmp::Eq for hopper_native::ReadonlyView<'info>
+impl<'info> core::cmp::Eq for hopper_native::SignerView<'info>
+impl<'info> core::cmp::Eq for hopper_native::WritableView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::AccountView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::ExecutableView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::MutableView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::OwnedView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::ReadonlyView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::SignerView<'info>
+impl<'info> core::cmp::PartialEq for hopper_native::WritableView<'info>
+impl<'info> core::fmt::Debug for hopper_native::AccountView<'info>
+impl<'info> core::marker::Freeze for hopper_native::AccountView<'info> [auto]
+impl<'info> core::marker::Freeze for hopper_native::ExecutableView<'info> [auto]
+impl<'info> core::marker::Freeze for hopper_native::MutableView<'info> [auto]
+impl<'info> core::marker::Freeze for hopper_native::OwnedView<'info> [auto]
+impl<'info> core::marker::Freeze for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> core::marker::Freeze for hopper_native::SignerView<'info> [auto]
+impl<'info> core::marker::Freeze for hopper_native::WritableView<'info> [auto]
+impl<'info> core::marker::StructuralPartialEq for hopper_native::AccountView<'info>
+impl<'info> core::marker::StructuralPartialEq for hopper_native::ExecutableView<'info>
+impl<'info> core::marker::StructuralPartialEq for hopper_native::MutableView<'info>
+impl<'info> core::marker::StructuralPartialEq for hopper_native::OwnedView<'info>
+impl<'info> core::marker::StructuralPartialEq for hopper_native::ReadonlyView<'info>
+impl<'info> core::marker::StructuralPartialEq for hopper_native::SignerView<'info>
+impl<'info> core::marker::StructuralPartialEq for hopper_native::WritableView<'info>
+impl<'info> core::marker::Unpin for hopper_native::AccountView<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::ExecutableView<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::LazyContext<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::MutableView<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::OwnedView<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::SignerView<'info> [auto]
+impl<'info> core::marker::Unpin for hopper_native::WritableView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::AccountView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::ExecutableView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::LazyContext<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::MutableView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::OwnedView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::SignerView<'info> [auto]
+impl<'info> core::marker::UnsafeUnpin for hopper_native::WritableView<'info> [auto]
+impl<'info> core::ops::deref::Deref for hopper_native::ExecutableView<'info>
+impl<'info> core::ops::deref::Deref for hopper_native::MutableView<'info>
+impl<'info> core::ops::deref::Deref for hopper_native::OwnedView<'info>
+impl<'info> core::ops::deref::Deref for hopper_native::ReadonlyView<'info>
+impl<'info> core::ops::deref::Deref for hopper_native::SignerView<'info>
+impl<'info> core::ops::deref::Deref for hopper_native::WritableView<'info>
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::AccountView<'info> [auto]
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::ExecutableView<'info> [auto]
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::MutableView<'info> [auto]
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::OwnedView<'info> [auto]
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::SignerView<'info> [auto]
+impl<'info> core::panic::unwind_safe::RefUnwindSafe for hopper_native::WritableView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::AccountView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::ExecutableView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::LazyContext<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::MutableView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::OwnedView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::ReadonlyView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::SignerView<'info> [auto]
+impl<'info> core::panic::unwind_safe::UnwindSafe for hopper_native::WritableView<'info> [auto]
+impl<T: ?core::marker::Sized + core::fmt::Debug> core::fmt::Debug for hopper_native::Ref<'_, T>
+impl<T: ?core::marker::Sized + core::fmt::Debug> core::fmt::Debug for hopper_native::RefMut<'_, T>
+impl<T: ?core::marker::Sized> core::ops::deref::Deref for hopper_native::Ref<'_, T>
+impl<T: ?core::marker::Sized> core::ops::deref::Deref for hopper_native::RefMut<'_, T>
+impl<T: ?core::marker::Sized> core::ops::deref::DerefMut for hopper_native::RefMut<'_, T>
+impl<T: ?core::marker::Sized> core::ops::drop::Drop for hopper_native::Ref<'_, T>
+impl<T: ?core::marker::Sized> core::ops::drop::Drop for hopper_native::RefMut<'_, T>
+impl<T: hopper_native::Pod, const N: usize> hopper_native::Pod for [T; N]
+impl<T: hopper_native::ValuePod, const N: usize> hopper_native::ValuePod for [T; N]
+impl<T: hopper_native::Zeroable, const N: usize> hopper_native::Zeroable for [T; N]
+macro hopper_native::address! macro_rules! address { ( $literal:expr ) => { ... }; }
+macro hopper_native::cu_measure! macro_rules! cu_measure { ( $label:expr, $body:expr ) => { ... }; }
+macro hopper_native::cu_trace! macro_rules! cu_trace { ( $label:expr ) => { ... }; }
+macro hopper_native::default_allocator! macro_rules! default_allocator { () => { ... }; (heap = $len:expr) => { ... }; }
+macro hopper_native::define_syscall! macro_rules! define_syscall { (@reloc $(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?) -> $ret:ty) => { ... }; (@reloc $(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?) -> $ret:ty; link_name = $sym:literal) => { ... }; (@static $(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?) -> $ret:ty; hash = $sym:expr) => { ... }; (#[link_name = $sym:literal] $(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?) -> $ret:ty) => { ... }; (#[link_name = $sym:literal] $(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?)) => { ... }; ($(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?) -> $ret:ty) => { ... }; ($(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?)) => { ... }; }
+macro hopper_native::fast_entrypoint! macro_rules! fast_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
+macro hopper_native::hopper_fast_entrypoint! macro_rules! hopper_fast_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
+macro hopper_native::hopper_lazy_entrypoint! macro_rules! hopper_lazy_entrypoint { ( $process:expr ) => { ... }; }
+macro hopper_native::hopper_program_entrypoint! macro_rules! hopper_program_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
+macro hopper_native::lazy_entrypoint! macro_rules! lazy_entrypoint { ( $process:expr ) => { ... }; }
+macro hopper_native::msg! macro_rules! msg { ( $literal:expr ) => { ... }; ( $fmt:expr, $($arg:tt)* ) => { ... }; }
+macro hopper_native::no_allocator! macro_rules! no_allocator { () => { ... }; }
+macro hopper_native::nostd_panic_handler! macro_rules! nostd_panic_handler { () => { ... }; }
+macro hopper_native::program_entrypoint! macro_rules! program_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
+macro hopper_native::seeds! macro_rules! seeds { ( $($seed:expr),* $(,)? ) => { ... }; }
+pub const fn hopper_native::AccountView::account_ptr(&self) -> *const hopper_native::RuntimeAccount
+pub const fn hopper_native::Address::as_array(&self) -> &[u8; 32]
+pub const fn hopper_native::Address::new_from_array(bytes: [u8; 32]) -> Self
+pub const fn hopper_native::Address::to_bytes(&self) -> [u8; 32]
+pub const fn hopper_native::BumpAllocator::new(len: usize) -> Self
+pub const fn hopper_native::InstructionAccount::new(address: &'a hopper_native::Address, is_writable: bool, is_signer: bool) -> Self
+pub const fn hopper_native::InstructionAccount::readonly(address: &'a hopper_native::Address) -> Self
+pub const fn hopper_native::InstructionAccount::readonly_signer(address: &'a hopper_native::Address) -> Self
+pub const fn hopper_native::InstructionAccount::writable(address: &'a hopper_native::Address) -> Self
+pub const fn hopper_native::InstructionAccount::writable_signer(address: &'a hopper_native::Address) -> Self
+pub const fn hopper_native::LeBool::get(self) -> bool
+pub const fn hopper_native::LeBool::is_canonical(self) -> bool
+pub const fn hopper_native::LeBool::new(v: bool) -> Self
+pub const fn hopper_native::LeBool::raw(self) -> u8
+pub const fn hopper_native::LeI16::abs(self) -> Self
+pub const fn hopper_native::LeI16::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI16::checked_div(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI16::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI16::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI16::from_le_bytes(bytes: [u8; 2]) -> Self
+pub const fn hopper_native::LeI16::get(self) -> i16
+pub const fn hopper_native::LeI16::is_negative(self) -> bool
+pub const fn hopper_native::LeI16::is_zero(self) -> bool
+pub const fn hopper_native::LeI16::new(v: i16) -> Self
+pub const fn hopper_native::LeI16::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeI16::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeI16::to_le_bytes(self) -> [u8; 2]
+pub const fn hopper_native::LeI32::abs(self) -> Self
+pub const fn hopper_native::LeI32::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI32::checked_div(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI32::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI32::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI32::from_le_bytes(bytes: [u8; 4]) -> Self
+pub const fn hopper_native::LeI32::get(self) -> i32
+pub const fn hopper_native::LeI32::is_negative(self) -> bool
+pub const fn hopper_native::LeI32::is_zero(self) -> bool
+pub const fn hopper_native::LeI32::new(v: i32) -> Self
+pub const fn hopper_native::LeI32::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeI32::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeI32::to_le_bytes(self) -> [u8; 4]
+pub const fn hopper_native::LeI64::abs(self) -> Self
+pub const fn hopper_native::LeI64::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI64::checked_div(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI64::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI64::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeI64::from_le_bytes(bytes: [u8; 8]) -> Self
+pub const fn hopper_native::LeI64::get(self) -> i64
+pub const fn hopper_native::LeI64::is_negative(self) -> bool
+pub const fn hopper_native::LeI64::is_zero(self) -> bool
+pub const fn hopper_native::LeI64::new(v: i64) -> Self
+pub const fn hopper_native::LeI64::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeI64::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeI64::to_le_bytes(self) -> [u8; 8]
+pub const fn hopper_native::LeU128::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU128::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU128::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU128::get(self) -> u128
+pub const fn hopper_native::LeU128::is_zero(self) -> bool
+pub const fn hopper_native::LeU128::new(v: u128) -> Self
+pub const fn hopper_native::LeU128::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU128::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU128::to_le_bytes(self) -> [u8; 16]
+pub const fn hopper_native::LeU16::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU16::checked_div(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU16::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU16::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU16::from_le_bytes(bytes: [u8; 2]) -> Self
+pub const fn hopper_native::LeU16::get(self) -> u16
+pub const fn hopper_native::LeU16::is_zero(self) -> bool
+pub const fn hopper_native::LeU16::new(v: u16) -> Self
+pub const fn hopper_native::LeU16::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU16::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU16::to_le_bytes(self) -> [u8; 2]
+pub const fn hopper_native::LeU16::wrapping_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU16::wrapping_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU32::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU32::checked_div(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU32::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU32::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU32::from_le_bytes(bytes: [u8; 4]) -> Self
+pub const fn hopper_native::LeU32::get(self) -> u32
+pub const fn hopper_native::LeU32::is_zero(self) -> bool
+pub const fn hopper_native::LeU32::new(v: u32) -> Self
+pub const fn hopper_native::LeU32::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU32::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU32::to_le_bytes(self) -> [u8; 4]
+pub const fn hopper_native::LeU32::wrapping_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU32::wrapping_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU64::checked_add(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU64::checked_div(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU64::checked_mul(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU64::checked_sub(self, rhs: Self) -> core::option::Option<Self>
+pub const fn hopper_native::LeU64::from_le_bytes(bytes: [u8; 8]) -> Self
+pub const fn hopper_native::LeU64::get(self) -> u64
+pub const fn hopper_native::LeU64::is_zero(self) -> bool
+pub const fn hopper_native::LeU64::new(v: u64) -> Self
+pub const fn hopper_native::LeU64::saturating_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU64::saturating_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU64::to_le_bytes(self) -> [u8; 8]
+pub const fn hopper_native::LeU64::wrapping_add(self, rhs: Self) -> Self
+pub const fn hopper_native::LeU64::wrapping_sub(self, rhs: Self) -> Self
+pub const fn hopper_native::address::decode_base58_32(input: &str) -> [u8; 32]
+pub const fn hopper_native::arith::checked_mul_u64(a: u64, b: u64) -> core::option::Option<u64>
+pub const fn hopper_native::arith::saturating_mul_u64(a: u64, b: u64) -> u64
+pub const fn hopper_native::curve25519::is_on_curve(bytes: &[u8; 32]) -> bool
+pub const fn hopper_native::pda::find_program_address_const(seeds: &[&[u8]], program_id: &hopper_native::Address) -> (hopper_native::Address, u8)
+pub const fn hopper_native::pda::program_address_const(seeds: &[&[u8]], bump: u8, program_id: &hopper_native::Address) -> hopper_native::Address
+pub const fn hopper_native::raw_input::RawAccountIndex::is_duplicate(&self) -> bool
+pub const fn hopper_native::sha256::ConstSha256::finalize(self) -> [u8; 32]
+pub const fn hopper_native::sha256::ConstSha256::new() -> Self
+pub const fn hopper_native::sha256::ConstSha256::update(self, input: &[u8]) -> Self
+pub const fn hopper_native::sha256::sha256(data: &[u8]) -> [u8; 32]
+pub const fn hopper_native::sha256::sha256_concat(left: &[u8], right: &[u8]) -> [u8; 32]
+pub const fn hopper_native::sha256::sha256_prefix8(left: &[u8], right: &[u8]) -> [u8; 8]
+pub const fn hopper_native::slot_hashes::SlotHashLookup::hash(&self) -> core::option::Option<[u8; 32]>
+pub const fn hopper_native::sysvar::rent_exempt_minimum(data_len: usize) -> u64
+pub const fn hopper_native::sysvar::saturating_mul_u64(a: u64, b: u64) -> u64
+pub const hopper_native::AccountView::SYSTEM_PROGRAM_ID: hopper_native::Address
+pub const hopper_native::HEAP_LENGTH: usize = 32_768usize
+pub const hopper_native::HEAP_RUNTIME_RESERVED: usize = 20_480usize
+pub const hopper_native::HEAP_START_ADDRESS: usize = 12_884_901_888usize
+pub const hopper_native::LeBool::FALSE: Self
+pub const hopper_native::LeBool::TRUE: Self
+pub const hopper_native::LeI16::MAX: Self
+pub const hopper_native::LeI16::MIN: Self
+pub const hopper_native::LeI16::ZERO: Self
+pub const hopper_native::LeI32::MAX: Self
+pub const hopper_native::LeI32::MIN: Self
+pub const hopper_native::LeI32::ZERO: Self
+pub const hopper_native::LeI64::MAX: Self
+pub const hopper_native::LeI64::MIN: Self
+pub const hopper_native::LeI64::ZERO: Self
+pub const hopper_native::LeU128::MAX: Self
+pub const hopper_native::LeU128::ZERO: Self
+pub const hopper_native::LeU16::MAX: Self
+pub const hopper_native::LeU16::ZERO: Self
+pub const hopper_native::LeU32::MAX: Self
+pub const hopper_native::LeU32::ZERO: Self
+pub const hopper_native::LeU64::MAX: Self
+pub const hopper_native::LeU64::ZERO: Self
+pub const hopper_native::MAX_HEAP_LENGTH: usize = 262_144usize
+pub const hopper_native::MAX_PERMITTED_DATA_INCREASE: usize = 10_240usize
+pub const hopper_native::MAX_TX_ACCOUNTS: usize = 254usize
+pub const hopper_native::NOT_BORROWED: u8 = 255u8
+pub const hopper_native::RENT_CACHE_BYTES: usize = 32usize
+pub const hopper_native::RENT_CACHE_HEAP_OFFSET: usize = 20_448usize
+pub const hopper_native::RuntimeAccount::SIZE: usize
+pub const hopper_native::SUCCESS: u64 = 0u64
+pub const hopper_native::address::ADDRESS_BYTES: usize = 32usize
+pub const hopper_native::address::MAX_SEEDS: usize = 16usize
+pub const hopper_native::address::MAX_SEED_LEN: usize = 32usize
+pub const hopper_native::address::PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress"
+pub const hopper_native::budget::CU_TRACE_ENABLED: bool = false
+pub const hopper_native::budget::ERR_INSUFFICIENT_CU: u32 = 57_344u32
+pub const hopper_native::cpi::MAX_CPI_ACCOUNTS: usize = 255usize
+pub const hopper_native::cpi::MAX_RETURN_DATA: usize = 1_024usize
+pub const hopper_native::cpi::MAX_STATIC_CPI_ACCOUNTS: usize = 64usize
+pub const hopper_native::entrypoint::HEAP_LENGTH: usize = 32_768usize
+pub const hopper_native::entrypoint::HEAP_RUNTIME_RESERVED: usize = 20_480usize
+pub const hopper_native::entrypoint::HEAP_START_ADDRESS: usize = 12_884_901_888usize
+pub const hopper_native::entrypoint::MAX_HEAP_LENGTH: usize = 262_144usize
+pub const hopper_native::entrypoint::PANIC_REPORTS_LOCATION: bool = false
+pub const hopper_native::entrypoint::PANIC_REPORTS_MESSAGE: bool = false
+pub const hopper_native::entrypoint::RENT_CACHE_BYTES: usize = 32usize
+pub const hopper_native::entrypoint::RENT_CACHE_HEAP_OFFSET: usize = 20_448usize
+pub const hopper_native::expert::ED25519_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::expert::SECP256K1_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::expert::SECP256R1_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::hash::MAX_HASH_SEGMENTS: usize = 20_000usize
+pub const hopper_native::introspect::ED25519_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::introspect::SECP256K1_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::introspect::SECP256R1_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::raw_input::MAX_SAFE_ACCOUNT_SLOTS: usize = 256usize
+pub const hopper_native::raw_input::SIMD_0449_TABLE_ENABLED: bool = false
+pub const hopper_native::return_data::MAX_RETURN_DATA: usize = 1_024usize
+pub const hopper_native::slot_hashes::ENTRY_LEN: usize = 40usize
+pub const hopper_native::slot_hashes::MAX_ENTRIES: usize = 512usize
+pub const hopper_native::slot_hashes::WINDOW: usize = 16usize
+pub const hopper_native::system::MAX_SEED_LEN: usize = 32usize
+pub const hopper_native::system::NONCE_ACCOUNT_LEN: usize = 80usize
+pub const hopper_native::system::NONCE_STATE_INITIALIZED: u32 = 1u32
+pub const hopper_native::system::NONCE_VERSION_CURRENT: u32 = 1u32
+pub const hopper_native::system::RECENT_BLOCKHASHES_ID: hopper_native::Address = _
+pub const hopper_native::system::RENT_SYSVAR_ID: hopper_native::Address = _
+pub const hopper_native::system::SYSTEM_PROGRAM_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::ACCOUNT_STORAGE_OVERHEAD: u64 = 128u64
+pub const hopper_native::sysvar::CLOCK_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::EPOCH_REWARDS_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::EPOCH_SCHEDULE_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::EPOCH_SCHEDULE_IMAGE_LEN: usize = 33usize
+pub const hopper_native::sysvar::EXEMPTION_THRESHOLD_YEARS: u64 = 2u64
+pub const hopper_native::sysvar::INSTRUCTIONS_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::LAMPORTS_PER_BYTE_YEAR: u64 = 3_480u64
+pub const hopper_native::sysvar::LAST_RESTART_SLOT_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::RENT_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::RENT_IMAGE_LEN: usize = 17usize
+pub const hopper_native::sysvar::SLOT_HASHES_ID: hopper_native::Address = _
+pub const hopper_native::sysvar::STAKE_HISTORY_ID: hopper_native::Address = _
+pub const hopper_native::token::TOKEN_PROGRAM_ID: hopper_native::Address = _
+pub const unsafe fn hopper_native::AccountView::new_unchecked(raw: *mut hopper_native::RuntimeAccount) -> Self
+pub enum hopper_native::ProgramError
+pub enum hopper_native::error::ProgramError
+pub enum hopper_native::raw_input::DirectMappingError
+pub enum hopper_native::raw_input::FrameError
+pub enum hopper_native::slot_hashes::SlotHashStatus
+pub fn hopper_native::AccountView::address(&self) -> &hopper_native::Address
+pub fn hopper_native::AccountView::check_address(&self, expected: &hopper_native::Address) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_borrow(&self) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_borrow_mut(&self) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_data_len(&self, min_len: usize) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_disc(&self, expected: u8) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_executable(&self) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_has_data(&self) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_owned_by(&self, program: &hopper_native::Address) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_resize(&self, new_len: usize) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_signer(&self) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::check_writable(&self) -> core::result::Result<&Self, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::close(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::data_len(&self) -> usize
+pub fn hopper_native::AccountView::disc(&self) -> u8
+pub fn hopper_native::AccountView::executable(&self) -> bool
+pub fn hopper_native::AccountView::expect_flags(&self, required: u8) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::flags(&self) -> u8
+pub fn hopper_native::AccountView::header_word(&self) -> u32
+pub fn hopper_native::AccountView::is_borrowed(&self) -> bool
+pub fn hopper_native::AccountView::is_borrowed_mut(&self) -> bool
+pub fn hopper_native::AccountView::is_data_empty(&self) -> bool
+pub fn hopper_native::AccountView::is_signer(&self) -> bool
+pub fn hopper_native::AccountView::is_signer_writable(&self, need_signer: bool, need_writable: bool) -> bool
+pub fn hopper_native::AccountView::is_writable(&self) -> bool
+pub fn hopper_native::AccountView::lamports(&self) -> u64
+pub fn hopper_native::AccountView::layout_id(&self) -> core::option::Option<[u8; 8]>
+pub fn hopper_native::AccountView::original_data_len(&self) -> usize
+pub fn hopper_native::AccountView::owned_by(&self, program: &hopper_native::Address) -> bool
+pub fn hopper_native::AccountView::read_owner(&self) -> hopper_native::Address
+pub fn hopper_native::AccountView::require_disc(&self, expected: u8) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::require_owned_by(&self, program: &hopper_native::Address) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::require_payer(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::require_signer(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::require_writable(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::AccountView::resize(&self, new_len: usize) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::AccountView::resize_delta(&self) -> i32
+pub fn hopper_native::AccountView::resize_raw(&self, new_len: usize) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::AccountView::segment_mut<T: hopper_native::Pod>(&self, offset: u32, size: u32) -> core::result::Result<hopper_native::RefMut<'_, T>, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::segment_ref<T: hopper_native::Pod>(&self, offset: u32, size: u32) -> core::result::Result<hopper_native::Ref<'_, T>, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::set_lamports(&self, lamports: u64)
+pub fn hopper_native::AccountView::try_borrow(&self) -> core::result::Result<hopper_native::Ref<'_, [u8]>, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::try_borrow_mut(&self) -> core::result::Result<hopper_native::RefMut<'_, [u8]>, hopper_native::ProgramError>
+pub fn hopper_native::AccountView::version(&self) -> u8
+pub fn hopper_native::BalanceSnapshot::before(&self) -> u64
+pub fn hopper_native::BalanceSnapshot::capture(account: &hopper_native::AccountView<'_>) -> Self
+pub fn hopper_native::BalanceSnapshot::net_change(&self, account: &hopper_native::AccountView<'_>) -> i128
+pub fn hopper_native::BalanceSnapshot::verify_decreased_by_at_most(&self, account: &hopper_native::AccountView<'_>, max_decrease: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::BalanceSnapshot::verify_increased_by(&self, account: &hopper_native::AccountView<'_>, min_increase: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::BalanceSnapshot::verify_unchanged(&self, account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::BumpAllocator::mark(&self) -> hopper_native::HeapMark
+pub fn hopper_native::BumpAllocator::remaining(&self) -> usize
+pub fn hopper_native::BumpAllocator::used(&self) -> usize
+pub fn hopper_native::CuBudget::checkpoint()
+pub fn hopper_native::CuBudget::log_delta(&self, label: &str)
+pub fn hopper_native::CuBudget::remaining() -> u64
+pub fn hopper_native::CuBudget::require_remaining(&self, min_remaining: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::CuBudget::snapshot() -> Self
+pub fn hopper_native::CuBudget::used(&self) -> u64
+pub fn hopper_native::DataFingerprint::capture(account: &hopper_native::AccountView<'_>, len: usize) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::DataFingerprint::hash(&self) -> u64
+pub fn hopper_native::DataFingerprint::verify_unchanged(&self, account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::ExecutableView::as_view(&self) -> &hopper_native::AccountView<'info>
+pub fn hopper_native::ExecutableView::into_view(self) -> hopper_native::AccountView<'info>
+pub fn hopper_native::ExecutableView::validate(view: hopper_native::AccountView<'info>) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::LamportSnapshot::capture(source: &hopper_native::AccountView<'_>, destination: &hopper_native::AccountView<'_>) -> Self
+pub fn hopper_native::LamportSnapshot::destination_before(&self) -> u64
+pub fn hopper_native::LamportSnapshot::source_before(&self) -> u64
+pub fn hopper_native::LamportSnapshot::verify_deduction(&self, source: &hopper_native::AccountView<'_>, amount: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::LamportSnapshot::verify_transfer(&self, source: &hopper_native::AccountView<'_>, destination: &hopper_native::AccountView<'_>, amount: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::LamportSnapshot::verify_unchanged(&self, source: &hopper_native::AccountView<'_>, destination: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::LazyContext::drain_remaining(&mut self) -> core::result::Result<&[hopper_native::AccountView<'info>], hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::get(&self, index: usize) -> core::option::Option<&hopper_native::AccountView<'info>>
+pub fn hopper_native::LazyContext::instruction_data(&self) -> &[u8]
+pub fn hopper_native::LazyContext::next_account(&mut self) -> core::result::Result<hopper_native::AccountView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_owned_by(&mut self, program: &hopper_native::Address) -> core::result::Result<hopper_native::AccountView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_payer(&mut self) -> core::result::Result<hopper_native::AccountView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_signer(&mut self) -> core::result::Result<hopper_native::AccountView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_validated_executable(&mut self) -> core::result::Result<hopper_native::ExecutableView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_validated_mutable(&mut self) -> core::result::Result<hopper_native::MutableView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_validated_owned(&mut self, owner: &hopper_native::Address) -> core::result::Result<hopper_native::OwnedView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_validated_signer(&mut self) -> core::result::Result<hopper_native::SignerView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_validated_writable(&mut self) -> core::result::Result<hopper_native::WritableView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::next_writable(&mut self) -> core::result::Result<hopper_native::AccountView<'info>, hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::parsed_count(&self) -> usize
+pub fn hopper_native::LazyContext::program_id(&self) -> &hopper_native::Address
+pub fn hopper_native::LazyContext::remaining(&self) -> usize
+pub fn hopper_native::LazyContext::skip(&mut self, n: usize) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::LazyContext::total_accounts(&self) -> usize
+pub fn hopper_native::MutableView::as_signer(&self) -> hopper_native::SignerView<'info>
+pub fn hopper_native::MutableView::as_view(&self) -> &hopper_native::AccountView<'info>
+pub fn hopper_native::MutableView::as_writable(&self) -> hopper_native::WritableView<'info>
+pub fn hopper_native::MutableView::into_view(self) -> hopper_native::AccountView<'info>
+pub fn hopper_native::MutableView::validate(view: hopper_native::AccountView<'info>) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::OwnedView::as_view(&self) -> &hopper_native::AccountView<'info>
+pub fn hopper_native::OwnedView::into_view(self) -> hopper_native::AccountView<'info>
+pub fn hopper_native::OwnedView::validate(view: hopper_native::AccountView<'info>, expected_owner: &hopper_native::Address) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::ReadonlyView::as_view(&self) -> &hopper_native::AccountView<'info>
+pub fn hopper_native::ReadonlyView::into_view(self) -> hopper_native::AccountView<'info>
+pub fn hopper_native::ReadonlyView::validate(view: hopper_native::AccountView<'info>) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::Ref::filter_map<U: ?core::marker::Sized>(orig: Self, f: impl core::ops::function::FnOnce(&T) -> core::option::Option<&U>) -> core::result::Result<hopper_native::Ref<'a, U>, Self>
+pub fn hopper_native::Ref::into_raw_parts(self) -> (&'a T, *mut u8)
+pub fn hopper_native::Ref::map<U: ?core::marker::Sized>(orig: Self, f: impl core::ops::function::FnOnce(&T) -> &U) -> hopper_native::Ref<'a, U>
+pub fn hopper_native::Ref::try_map<U: ?core::marker::Sized, E>(orig: Self, f: impl core::ops::function::FnOnce(&T) -> core::result::Result<&U, E>) -> core::result::Result<hopper_native::Ref<'a, U>, (Self, E)>
+pub fn hopper_native::RefMut::filter_map<U: ?core::marker::Sized>(orig: Self, f: impl core::ops::function::FnOnce(&mut T) -> core::option::Option<&mut U>) -> core::result::Result<hopper_native::RefMut<'a, U>, Self>
+pub fn hopper_native::RefMut::into_raw_parts(self) -> (&'a mut T, *mut u8)
+pub fn hopper_native::RefMut::map<U: ?core::marker::Sized>(orig: Self, f: impl core::ops::function::FnOnce(&mut T) -> &mut U) -> hopper_native::RefMut<'a, U>
+pub fn hopper_native::RefMut::try_map<U: ?core::marker::Sized, E>(orig: Self, f: impl core::ops::function::FnOnce(&mut T) -> core::result::Result<&mut U, E>) -> core::result::Result<hopper_native::RefMut<'a, U>, (Self, E)>
+pub fn hopper_native::ReturnData::as_type<T: Projectable>(&self) -> core::result::Result<&T, hopper_native::ProgramError>
+pub fn hopper_native::ReturnData::as_type_from<T: Projectable>(&self, expected_program: &hopper_native::Address) -> core::result::Result<&T, hopper_native::ProgramError>
+pub fn hopper_native::ReturnData::as_u32(&self) -> core::result::Result<u32, hopper_native::ProgramError>
+pub fn hopper_native::ReturnData::as_u64(&self) -> core::result::Result<u64, hopper_native::ProgramError>
+pub fn hopper_native::ReturnData::data(&self) -> &[u8]
+pub fn hopper_native::ReturnData::is_empty(&self) -> bool
+pub fn hopper_native::ReturnData::len(&self) -> usize
+pub fn hopper_native::ReturnData::program_id(&self) -> &hopper_native::Address
+pub fn hopper_native::SignerView::as_view(&self) -> &hopper_native::AccountView<'info>
+pub fn hopper_native::SignerView::into_view(self) -> hopper_native::AccountView<'info>
+pub fn hopper_native::SignerView::validate(view: hopper_native::AccountView<'info>) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::WritableView::as_view(&self) -> &hopper_native::AccountView<'info>
+pub fn hopper_native::WritableView::into_view(self) -> hopper_native::AccountView<'info>
+pub fn hopper_native::WritableView::validate(view: hopper_native::AccountView<'info>) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::account_view::RemainingAccounts::new(accounts: &'a [hopper_native::AccountView<'a>]) -> Self
+pub fn hopper_native::account_view::RemainingAccounts::next(&mut self) -> core::result::Result<&'a hopper_native::AccountView<'a>, hopper_native::ProgramError>
+pub fn hopper_native::account_view::RemainingAccounts::next_owned_by(&mut self, program: &hopper_native::Address) -> core::result::Result<&'a hopper_native::AccountView<'a>, hopper_native::ProgramError>
+pub fn hopper_native::account_view::RemainingAccounts::next_signer(&mut self) -> core::result::Result<&'a hopper_native::AccountView<'a>, hopper_native::ProgramError>
+pub fn hopper_native::account_view::RemainingAccounts::next_writable(&mut self) -> core::result::Result<&'a hopper_native::AccountView<'a>, hopper_native::ProgramError>
+pub fn hopper_native::account_view::RemainingAccounts::remaining(&self) -> usize
+pub fn hopper_native::address::address_eq(a: &hopper_native::Address, b: &hopper_native::Address) -> bool
+pub fn hopper_native::batch::ResizeWithPayer::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::ResizeWithPayer::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::ResizeWithPayer::invoke_signed_with_rent(&self, rent: &hopper_native::sysvar::Rent, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::close_and_transfer(source: &hopper_native::AccountView<'_>, destination: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::realloc_checked(account: &hopper_native::AccountView<'_>, new_len: usize, payer: core::option::Option<&hopper_native::AccountView<'_>>) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::realloc_checked_with(rent: &hopper_native::sysvar::Rent, account: &hopper_native::AccountView<'_>, new_len: usize, payer: core::option::Option<&hopper_native::AccountView<'_>>) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::require_account_type(account: &hopper_native::AccountView<'_>, expected_disc: u8, expected_owner: &hopper_native::Address) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::require_address(account: &hopper_native::AccountView<'_>, expected: &hopper_native::Address) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::require_rent_exempt(account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::require_rent_exempt_with(rent: &hopper_native::sysvar::Rent, account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::require_same_address(a: &hopper_native::AccountView<'_>, b: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::transfer_lamports(from: &hopper_native::AccountView<'_>, to: &hopper_native::AccountView<'_>, amount: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::batch::zero_data(account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::cpi::invoke<const ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>; ACCOUNTS]) -> hopper_native::ProgramResult
+pub fn hopper_native::cpi::invoke_signed<const ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>; ACCOUNTS], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::cpi::invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::cpi::invoke_with_bounds<const MAX_ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::cpi::set_return_data(data: &[u8])
+pub fn hopper_native::entrypoint::err_to_u64(e: hopper_native::ProgramError) -> u64
+pub fn hopper_native::expert::close_and_transfer(source: &hopper_native::AccountView<'_>, destination: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::field_eq(account: &hopper_native::AccountView<'_>, offset: usize, expected: &[u8]) -> core::result::Result<bool, hopper_native::ProgramError>
+pub fn hopper_native::expert::get_processed_instruction(index: u64) -> core::option::Option<hopper_native::expert::ProcessedInstruction>
+pub fn hopper_native::expert::get_processed_instruction_into<'a>(index: u64, data: &'a mut [u8], accounts: &'a mut [hopper_native::expert::ProcessedInstructionAccount]) -> core::result::Result<core::option::Option<hopper_native::expert::ProcessedInstructionView<'a>>, hopper_native::ProgramError>
+pub fn hopper_native::expert::get_stack_height() -> u64
+pub fn hopper_native::expert::is_cpi() -> bool
+pub fn hopper_native::expert::is_top_level() -> bool
+pub fn hopper_native::expert::read_address<'a>(account: &'a hopper_native::AccountView<'a>, offset: usize) -> core::result::Result<hopper_native::Ref<'a, hopper_native::Address>, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_bool(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<bool, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_bytes<'a>(account: &'a hopper_native::AccountView<'a>, offset: usize, len: usize) -> core::result::Result<hopper_native::Ref<'a, [u8]>, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_field<'a, T: Projectable>(account: &'a hopper_native::AccountView<'a>, offset: usize) -> core::result::Result<hopper_native::Ref<'a, T>, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_field_pod<'a, T: hopper_native::Pod>(account: &'a hopper_native::AccountView<'a>, offset: usize) -> core::result::Result<hopper_native::Ref<'a, T>, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_le_u16(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u16, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_le_u32(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u32, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_le_u64(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u64, hopper_native::ProgramError>
+pub fn hopper_native::expert::read_u8(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u8, hopper_native::ProgramError>
+pub fn hopper_native::expert::realloc_checked(account: &hopper_native::AccountView<'_>, new_len: usize, payer: core::option::Option<&hopper_native::AccountView<'_>>) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::realloc_checked_with(rent: &hopper_native::sysvar::Rent, account: &hopper_native::AccountView<'_>, new_len: usize, payer: core::option::Option<&hopper_native::AccountView<'_>>) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::require_account_type(account: &hopper_native::AccountView<'_>, expected_disc: u8, expected_owner: &hopper_native::Address) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::require_address(account: &hopper_native::AccountView<'_>, expected: &hopper_native::Address) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::require_cpi() -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::expert::require_ed25519_instruction(sibling_index: u64) -> core::result::Result<hopper_native::expert::ProcessedInstruction, hopper_native::ProgramError>
+pub fn hopper_native::expert::require_rent_exempt(account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::require_rent_exempt_with(rent: &hopper_native::sysvar::Rent, account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::require_same_address(a: &hopper_native::AccountView<'_>, b: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::require_secp256k1_instruction(sibling_index: u64) -> core::result::Result<hopper_native::expert::ProcessedInstruction, hopper_native::ProgramError>
+pub fn hopper_native::expert::require_secp256r1_instruction(sibling_index: u64) -> core::result::Result<hopper_native::expert::ProcessedInstruction, hopper_native::ProgramError>
+pub fn hopper_native::expert::require_top_level() -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::expert::transfer_lamports(from: &hopper_native::AccountView<'_>, to: &hopper_native::AccountView<'_>, amount: u64) -> hopper_native::ProgramResult
+pub fn hopper_native::expert::zero_data(account: &hopper_native::AccountView<'_>) -> hopper_native::ProgramResult
+pub fn hopper_native::find_bump_for_address(seeds: &[&[u8]], program_id: &hopper_native::Address, expected: &hopper_native::Address) -> core::result::Result<u8, hopper_native::ProgramError>
+pub fn hopper_native::hash::blake3(inputs: &[&[u8]]) -> core::result::Result<hopper_native::hash::Blake3Hash, hopper_native::ProgramError>
+pub fn hopper_native::hash::blake3_single(input: &[u8]) -> core::result::Result<hopper_native::hash::Blake3Hash, hopper_native::ProgramError>
+pub fn hopper_native::hash::keccak256(inputs: &[&[u8]]) -> core::result::Result<hopper_native::hash::Keccak256Hash, hopper_native::ProgramError>
+pub fn hopper_native::hash::keccak256_single(input: &[u8]) -> core::result::Result<hopper_native::hash::Keccak256Hash, hopper_native::ProgramError>
+pub fn hopper_native::hash::sha256(inputs: &[&[u8]]) -> core::result::Result<hopper_native::hash::Sha256Hash, hopper_native::ProgramError>
+pub fn hopper_native::hash::sha256_single(input: &[u8]) -> core::result::Result<hopper_native::hash::Sha256Hash, hopper_native::ProgramError>
+pub fn hopper_native::heap::mark() -> hopper_native::HeapMark
+pub fn hopper_native::heap::used() -> usize
+pub fn hopper_native::introspect::get_processed_instruction(index: u64) -> core::option::Option<hopper_native::expert::ProcessedInstruction>
+pub fn hopper_native::introspect::get_processed_instruction_into<'a>(index: u64, data: &'a mut [u8], accounts: &'a mut [hopper_native::expert::ProcessedInstructionAccount]) -> core::result::Result<core::option::Option<hopper_native::expert::ProcessedInstructionView<'a>>, hopper_native::ProgramError>
+pub fn hopper_native::introspect::get_stack_height() -> u64
+pub fn hopper_native::introspect::is_cpi() -> bool
+pub fn hopper_native::introspect::is_top_level() -> bool
+pub fn hopper_native::introspect::require_cpi() -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::introspect::require_ed25519_instruction(sibling_index: u64) -> core::result::Result<hopper_native::expert::ProcessedInstruction, hopper_native::ProgramError>
+pub fn hopper_native::introspect::require_secp256k1_instruction(sibling_index: u64) -> core::result::Result<hopper_native::expert::ProcessedInstruction, hopper_native::ProgramError>
+pub fn hopper_native::introspect::require_secp256r1_instruction(sibling_index: u64) -> core::result::Result<hopper_native::expert::ProcessedInstruction, hopper_native::ProgramError>
+pub fn hopper_native::introspect::require_top_level() -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::lens::field_eq(account: &hopper_native::AccountView<'_>, offset: usize, expected: &[u8]) -> core::result::Result<bool, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_address<'a>(account: &'a hopper_native::AccountView<'a>, offset: usize) -> core::result::Result<hopper_native::Ref<'a, hopper_native::Address>, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_bool(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<bool, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_bytes<'a>(account: &'a hopper_native::AccountView<'a>, offset: usize, len: usize) -> core::result::Result<hopper_native::Ref<'a, [u8]>, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_field<'a, T: Projectable>(account: &'a hopper_native::AccountView<'a>, offset: usize) -> core::result::Result<hopper_native::Ref<'a, T>, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_field_pod<'a, T: hopper_native::Pod>(account: &'a hopper_native::AccountView<'a>, offset: usize) -> core::result::Result<hopper_native::Ref<'a, T>, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_le_u16(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u16, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_le_u32(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u32, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_le_u64(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u64, hopper_native::ProgramError>
+pub fn hopper_native::lens::read_u8(account: &hopper_native::AccountView<'_>, offset: usize) -> core::result::Result<u8, hopper_native::ProgramError>
+pub fn hopper_native::log::StackWriter::as_str(&self) -> &str
+pub fn hopper_native::log::StackWriter::new(buf: &'a mut [u8]) -> Self
+pub fn hopper_native::log::StackWriter::pos(&self) -> usize
+pub fn hopper_native::log::StackWriter::truncated(&self) -> bool
+pub fn hopper_native::log::log(message: &str)
+pub fn hopper_native::log::log_64(a: u64, b: u64, c: u64, d: u64, e: u64)
+pub fn hopper_native::log::log_compute_units()
+pub fn hopper_native::log::log_data(segments: &[&[u8]])
+pub fn hopper_native::mem::bytes_eq(a: &[u8], b: &[u8]) -> bool
+pub fn hopper_native::mem::copy_bytes(dst: &mut [u8], src: &[u8]) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::mem::zero_account_data(account: &hopper_native::AccountView<'_>) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::mem::zero_fill(buf: &mut [u8])
+pub fn hopper_native::pda::based_try_find_program_address(seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<(hopper_native::Address, u8), hopper_native::ProgramError>
+pub fn hopper_native::pda::create_program_address(seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<hopper_native::Address, hopper_native::ProgramError>
+pub fn hopper_native::pda::find_bump_for_address(seeds: &[&[u8]], program_id: &hopper_native::Address, expected: &hopper_native::Address) -> core::result::Result<u8, hopper_native::ProgramError>
+pub fn hopper_native::pda::find_program_address(seeds: &[&[u8]], program_id: &hopper_native::Address) -> (hopper_native::Address, u8)
+pub fn hopper_native::pda::read_bump_from_account(account: &hopper_native::AccountView<'_>, bump_offset: usize) -> core::result::Result<u8, hopper_native::ProgramError>
+pub fn hopper_native::pda::verify_pda(account: &hopper_native::AccountView<'_>, seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::pda::verify_pda_from_stored_bump(account: &hopper_native::AccountView<'_>, seeds: &[&[u8]], bump_offset: usize, program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::pda::verify_pda_strict(expected: &hopper_native::Address, seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::pda::verify_pda_with_bump(account: &hopper_native::AccountView<'_>, seeds: &[&[u8]], bump: u8, program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::pda::verify_program_address(seeds: &[&[u8]], program_id: &hopper_native::Address, expected: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::pod::read_unaligned_value<T: hopper_native::ValuePod>(bytes: &[u8], offset: usize) -> core::result::Result<T, hopper_native::ProgramError>
+pub fn hopper_native::raw::bytes_eq(a: &[u8], b: &[u8]) -> bool
+pub fn hopper_native::raw::copy_bytes(dst: &mut [u8], src: &[u8]) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::raw::zero_account_data(account: &hopper_native::AccountView<'_>) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::raw::zero_fill(buf: &mut [u8])
+pub fn hopper_native::raw_input::parse_instruction_frame_checked(buf: &[u8]) -> core::result::Result<hopper_native::raw_input::FrameInfo, hopper_native::raw_input::FrameError>
+pub fn hopper_native::read_bump_from_account(account: &hopper_native::AccountView<'_>, bump_offset: usize) -> core::result::Result<u8, hopper_native::ProgramError>
+pub fn hopper_native::read_unaligned_value<T: hopper_native::ValuePod>(bytes: &[u8], offset: usize) -> core::result::Result<T, hopper_native::ProgramError>
+pub fn hopper_native::return_data::get_return_data() -> core::option::Option<hopper_native::ReturnData>
+pub fn hopper_native::return_data::invoke_and_read<T: Projectable, const ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>; ACCOUNTS], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> core::result::Result<hopper_native::ReturnData, hopper_native::ProgramError>
+pub fn hopper_native::safe::invoke<const ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>; ACCOUNTS]) -> hopper_native::ProgramResult
+pub fn hopper_native::safe::invoke_signed<const ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>; ACCOUNTS], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::safe::invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::safe::invoke_with_bounds<const MAX_ACCOUNTS: usize>(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, account_views: &[&hopper_native::AccountView<'_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::safe::verify_pda(account: &hopper_native::AccountView<'_>, seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::safe::verify_pda_strict(expected: &hopper_native::Address, seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::safe::verify_pda_with_bump(account: &hopper_native::AccountView<'_>, seeds: &[&[u8]], bump: u8, program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::slot_hashes::slot_hash(slot: u64) -> core::result::Result<core::option::Option<[u8; 32]>, hopper_native::ProgramError>
+pub fn hopper_native::slot_hashes::slot_hash_lookup(slot: u64) -> core::result::Result<hopper_native::slot_hashes::SlotHashLookup, hopper_native::ProgramError>
+pub fn hopper_native::slot_hashes::slot_hash_lookup_with<R>(target: u64, read: R) -> core::result::Result<hopper_native::slot_hashes::SlotHashLookup, hopper_native::ProgramError> where R: core::ops::function::FnMut(u64, &mut [u8]) -> core::result::Result<bool, hopper_native::ProgramError>
+pub fn hopper_native::system::AdvanceNonceAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AdvanceNonceAccount::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::Allocate::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::Allocate::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AllocateWithSeed::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AllocateWithSeed::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::Assign::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::Assign::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AssignWithSeed::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AssignWithSeed::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AuthorizeNonceAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::AuthorizeNonceAccount::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::CreateAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::CreateAccount::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::CreateAccountAllowPrefund::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::CreateAccountAllowPrefund::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::CreateAccountWithSeed::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::CreateAccountWithSeed::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::InitializeNonceAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::InitializeNonceAccount::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::NonceState::authority(&self) -> &'a hopper_native::Address
+pub fn hopper_native::system::NonceState::durable_nonce(&self) -> &'a [u8; 32]
+pub fn hopper_native::system::NonceState::from_account_data(data: &'a [u8]) -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::system::NonceState::lamports_per_signature(&self) -> u64
+pub fn hopper_native::system::Transfer::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::Transfer::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::TransferWithSeed::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::TransferWithSeed::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::system::UpgradeNonceAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::WithdrawNonceAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::system::WithdrawNonceAccount::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::sysvar::Clock::get() -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::EpochSchedule::get_epoch(&self, slot: u64) -> u64
+pub fn hopper_native::sysvar::EpochSchedule::get_first_slot_in_epoch(&self, epoch: u64) -> u64
+pub fn hopper_native::sysvar::Rent::get() -> core::result::Result<Self, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::Rent::minimum_balance(&self, data_len: usize) -> u64
+pub fn hopper_native::sysvar::decode_epoch_schedule(image: &[u8; 33]) -> hopper_native::sysvar::EpochSchedule
+pub fn hopper_native::sysvar::get_clock() -> core::result::Result<hopper_native::sysvar::Clock, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_epoch_rewards() -> core::result::Result<hopper_native::sysvar::EpochRewards, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_epoch_schedule() -> core::result::Result<hopper_native::sysvar::EpochSchedule, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_epoch_stake(vote: &hopper_native::Address) -> u64
+pub fn hopper_native::sysvar::get_last_restart_slot() -> core::result::Result<u64, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_rent() -> core::result::Result<hopper_native::sysvar::Rent, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_sysvar_into(sysvar_id: &hopper_native::Address, offset: u64, dst: &mut [u8]) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_sysvar_prefix_at(sysvar_id: &hopper_native::Address, offset: u64, dst: &mut [u8]) -> core::result::Result<bool, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::get_total_epoch_stake() -> u64
+pub fn hopper_native::sysvar::scale_by_exemption_threshold(integer_part: u64, threshold_bits: u64) -> u64
+pub fn hopper_native::sysvar::slot_hashes_latest() -> core::result::Result<core::option::Option<hopper_native::sysvar::SlotHash>, hopper_native::ProgramError>
+pub fn hopper_native::sysvar::stake_history_latest() -> core::result::Result<core::option::Option<hopper_native::sysvar::StakeHistoryEntry>, hopper_native::ProgramError>
+pub fn hopper_native::token::Approve::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Approve::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Burn::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Burn::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::token::CloseAccount::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::token::CloseAccount::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::token::MintTo::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::token::MintTo::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Revoke::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Revoke::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Transfer::invoke(&self) -> hopper_native::ProgramResult
+pub fn hopper_native::token::Transfer::invoke_signed(&self, signers: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub fn hopper_native::verify_pda_from_stored_bump(account: &hopper_native::AccountView<'_>, seeds: &[&[u8]], bump_offset: usize, program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub fn hopper_native::verify_pda_strict(expected: &hopper_native::Address, seeds: &[&[u8]], program_id: &hopper_native::Address) -> core::result::Result<(), hopper_native::ProgramError>
+pub hopper_native::BumpAllocator::len: usize
+pub hopper_native::BumpAllocator::start: usize
+pub hopper_native::InstructionAccount::address: &'a hopper_native::Address
+pub hopper_native::InstructionAccount::is_signer: bool
+pub hopper_native::InstructionAccount::is_writable: bool
+pub hopper_native::InstructionView::accounts: &'b [hopper_native::InstructionAccount<'a>]
+pub hopper_native::InstructionView::data: &'d [u8]
+pub hopper_native::InstructionView::program_id: &'c hopper_native::Address
+pub hopper_native::RuntimeAccount::address: hopper_native::Address
+pub hopper_native::RuntimeAccount::borrow_state: u8
+pub hopper_native::RuntimeAccount::data_len: u64
+pub hopper_native::RuntimeAccount::executable: u8
+pub hopper_native::RuntimeAccount::is_signer: u8
+pub hopper_native::RuntimeAccount::is_writable: u8
+pub hopper_native::RuntimeAccount::lamports: u64
+pub hopper_native::RuntimeAccount::owner: hopper_native::Address
+pub hopper_native::RuntimeAccount::resize_delta: u32
+pub hopper_native::batch::ResizeWithPayer::account: &'a hopper_native::AccountView<'info>
+pub hopper_native::batch::ResizeWithPayer::new_len: usize
+pub hopper_native::batch::ResizeWithPayer::payer: &'a hopper_native::AccountView<'info>
+pub hopper_native::batch::ResizeWithPayer::program_id: &'a hopper_native::Address
+pub hopper_native::batch::ResizeWithPayer::system_program: &'a hopper_native::AccountView<'info>
+pub hopper_native::expert::ProcessedInstruction::accounts_len: usize
+pub hopper_native::expert::ProcessedInstruction::data: [u8; 1232]
+pub hopper_native::expert::ProcessedInstruction::data_len: usize
+pub hopper_native::expert::ProcessedInstruction::program_id: hopper_native::Address
+pub hopper_native::expert::ProcessedInstructionAccount::address: hopper_native::Address
+pub hopper_native::expert::ProcessedInstructionAccount::is_signer: bool
+pub hopper_native::expert::ProcessedInstructionAccount::is_writable: bool
+pub hopper_native::expert::ProcessedInstructionView::accounts: &'a [hopper_native::expert::ProcessedInstructionAccount]
+pub hopper_native::expert::ProcessedInstructionView::data: &'a [u8]
+pub hopper_native::expert::ProcessedInstructionView::program_id: hopper_native::Address
+pub hopper_native::raw_input::FrameInfo::account_count: usize
+pub hopper_native::raw_input::FrameInfo::instruction_data_range: core::ops::range::Range<usize>
+pub hopper_native::raw_input::FrameInfo::program_id_offset: usize
+pub hopper_native::raw_input::FrameInfo::slot_offsets: [usize; 256]
+pub hopper_native::raw_input::RawAccountIndex::duplicate_of: core::option::Option<usize>
+pub hopper_native::raw_input::RawAccountIndex::original_index: usize
+pub hopper_native::raw_input::RawInstructionFrame::account_count: usize
+pub hopper_native::raw_input::RawInstructionFrame::accounts_start: *mut u8
+pub hopper_native::raw_input::RawInstructionFrame::instruction_data: &'static [u8]
+pub hopper_native::raw_input::RawInstructionFrame::program_id: hopper_native::Address
+pub hopper_native::slot_hashes::SlotHashLookup::reads: u8
+pub hopper_native::slot_hashes::SlotHashLookup::status: hopper_native::slot_hashes::SlotHashStatus
+pub hopper_native::system::AdvanceNonceAccount::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AdvanceNonceAccount::nonce: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AdvanceNonceAccount::recent_blockhashes: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::Allocate::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::Allocate::space: u64
+pub hopper_native::system::AllocateWithSeed::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AllocateWithSeed::base: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AllocateWithSeed::owner: &'b hopper_native::Address
+pub hopper_native::system::AllocateWithSeed::seed: &'b [u8]
+pub hopper_native::system::AllocateWithSeed::space: u64
+pub hopper_native::system::Assign::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::Assign::owner: &'b hopper_native::Address
+pub hopper_native::system::AssignWithSeed::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AssignWithSeed::base: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AssignWithSeed::owner: &'b hopper_native::Address
+pub hopper_native::system::AssignWithSeed::seed: &'b [u8]
+pub hopper_native::system::AuthorizeNonceAccount::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::AuthorizeNonceAccount::new_authority: &'b hopper_native::Address
+pub hopper_native::system::AuthorizeNonceAccount::nonce: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::CreateAccount::from: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::CreateAccount::lamports: u64
+pub hopper_native::system::CreateAccount::owner: &'b hopper_native::Address
+pub hopper_native::system::CreateAccount::space: u64
+pub hopper_native::system::CreateAccount::to: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::CreateAccountAllowPrefund::funding: core::option::Option<(&'a hopper_native::AccountView<'a>, u64)>
+pub hopper_native::system::CreateAccountAllowPrefund::owner: &'b hopper_native::Address
+pub hopper_native::system::CreateAccountAllowPrefund::space: u64
+pub hopper_native::system::CreateAccountAllowPrefund::to: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::CreateAccountWithSeed::base: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::CreateAccountWithSeed::from: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::CreateAccountWithSeed::lamports: u64
+pub hopper_native::system::CreateAccountWithSeed::owner: &'b hopper_native::Address
+pub hopper_native::system::CreateAccountWithSeed::seed: &'b [u8]
+pub hopper_native::system::CreateAccountWithSeed::space: u64
+pub hopper_native::system::CreateAccountWithSeed::to: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::InitializeNonceAccount::authority: &'b hopper_native::Address
+pub hopper_native::system::InitializeNonceAccount::nonce: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::InitializeNonceAccount::recent_blockhashes: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::InitializeNonceAccount::rent: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::Transfer::from: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::Transfer::lamports: u64
+pub hopper_native::system::Transfer::to: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::TransferWithSeed::base: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::TransferWithSeed::from: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::TransferWithSeed::from_owner: &'b hopper_native::Address
+pub hopper_native::system::TransferWithSeed::from_seed: &'b [u8]
+pub hopper_native::system::TransferWithSeed::lamports: u64
+pub hopper_native::system::TransferWithSeed::to: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::UpgradeNonceAccount::nonce: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::WithdrawNonceAccount::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::WithdrawNonceAccount::lamports: u64
+pub hopper_native::system::WithdrawNonceAccount::nonce: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::WithdrawNonceAccount::recent_blockhashes: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::WithdrawNonceAccount::rent: &'a hopper_native::AccountView<'a>
+pub hopper_native::system::WithdrawNonceAccount::to: &'a hopper_native::AccountView<'a>
+pub hopper_native::sysvar::Clock::epoch: u64
+pub hopper_native::sysvar::Clock::epoch_start_timestamp: i64
+pub hopper_native::sysvar::Clock::leader_schedule_epoch: u64
+pub hopper_native::sysvar::Clock::slot: u64
+pub hopper_native::sysvar::Clock::unix_timestamp: i64
+pub hopper_native::sysvar::EpochRewards::active: bool
+pub hopper_native::sysvar::EpochRewards::distributed_rewards: u64
+pub hopper_native::sysvar::EpochRewards::distribution_starting_block_height: u64
+pub hopper_native::sysvar::EpochRewards::num_partitions: u64
+pub hopper_native::sysvar::EpochRewards::parent_blockhash: [u8; 32]
+pub hopper_native::sysvar::EpochRewards::total_points: u128
+pub hopper_native::sysvar::EpochRewards::total_rewards: u64
+pub hopper_native::sysvar::EpochSchedule::first_normal_epoch: u64
+pub hopper_native::sysvar::EpochSchedule::first_normal_slot: u64
+pub hopper_native::sysvar::EpochSchedule::leader_schedule_slot_offset: u64
+pub hopper_native::sysvar::EpochSchedule::slots_per_epoch: u64
+pub hopper_native::sysvar::EpochSchedule::warmup: bool
+pub hopper_native::sysvar::Rent::burn_percent: u8
+pub hopper_native::sysvar::Rent::exemption_threshold: f64
+pub hopper_native::sysvar::Rent::lamports_per_byte_year: u64
+pub hopper_native::sysvar::SlotHash::hash: [u8; 32]
+pub hopper_native::sysvar::SlotHash::slot: u64
+pub hopper_native::sysvar::StakeHistoryEntry::activating: u64
+pub hopper_native::sysvar::StakeHistoryEntry::deactivating: u64
+pub hopper_native::sysvar::StakeHistoryEntry::effective: u64
+pub hopper_native::sysvar::StakeHistoryEntry::epoch: u64
+pub hopper_native::token::Approve::amount: u64
+pub hopper_native::token::Approve::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Approve::delegate: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Approve::source: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Burn::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Burn::amount: u64
+pub hopper_native::token::Burn::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Burn::mint: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::CloseAccount::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::CloseAccount::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::CloseAccount::destination: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::MintTo::account: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::MintTo::amount: u64
+pub hopper_native::token::MintTo::mint: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::MintTo::mint_authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Revoke::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Revoke::source: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Transfer::amount: u64
+pub hopper_native::token::Transfer::authority: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Transfer::from: &'a hopper_native::AccountView<'a>
+pub hopper_native::token::Transfer::to: &'a hopper_native::AccountView<'a>
+pub mod hopper_native::account_view
+pub mod hopper_native::arith
+pub mod hopper_native::batch
+pub mod hopper_native::borrow
+pub mod hopper_native::budget
+pub mod hopper_native::capability
+pub mod hopper_native::cpi
+pub mod hopper_native::curve25519
+pub mod hopper_native::entrypoint
+pub mod hopper_native::error
+pub mod hopper_native::expert
+pub mod hopper_native::hash
+pub mod hopper_native::heap
+pub mod hopper_native::instruction
+pub mod hopper_native::introspect
+pub mod hopper_native::lazy
+pub mod hopper_native::lens
+pub mod hopper_native::log
+pub mod hopper_native::mem
+pub mod hopper_native::pda
+pub mod hopper_native::pod
+pub mod hopper_native::raw
+pub mod hopper_native::raw_account
+pub mod hopper_native::raw_input
+pub mod hopper_native::return_data
+pub mod hopper_native::safe
+pub mod hopper_native::sha256
+pub mod hopper_native::slot_hashes
+pub mod hopper_native::syscalls
+pub mod hopper_native::system
+pub mod hopper_native::system::instructions
+pub mod hopper_native::sysvar
+pub mod hopper_native::token
+pub mod hopper_native::token::instructions
+pub mod hopper_native::verify
+pub mod hopper_native::wire
+pub struct hopper_native::AccountView<'info> { .. }
+pub struct hopper_native::Address(_)
+pub struct hopper_native::BalanceSnapshot { .. }
+pub struct hopper_native::BumpAllocator {}
+pub struct hopper_native::CpiAccount<'a> { .. }
+pub struct hopper_native::CuBudget { .. }
+pub struct hopper_native::DataFingerprint { .. }
+pub struct hopper_native::ExecutableView<'info> { .. }
+pub struct hopper_native::HeapMark(_)
+pub struct hopper_native::InstructionAccount<'a> {}
+pub struct hopper_native::InstructionView<'a, 'b, 'c, 'd> where 'a: 'b {}
+pub struct hopper_native::LamportSnapshot { .. }
+pub struct hopper_native::LazyContext<'info> { .. }
+pub struct hopper_native::LeBool(_)
+pub struct hopper_native::LeI16(_)
+pub struct hopper_native::LeI32(_)
+pub struct hopper_native::LeI64(_)
+pub struct hopper_native::LeU128(_)
+pub struct hopper_native::LeU16(_)
+pub struct hopper_native::LeU32(_)
+pub struct hopper_native::LeU64(_)
+pub struct hopper_native::MutableView<'info> { .. }
+pub struct hopper_native::OwnedView<'info> { .. }
+pub struct hopper_native::ReadonlyView<'info> { .. }
+pub struct hopper_native::Ref<'a, T: ?core::marker::Sized> { .. }
+pub struct hopper_native::RefMut<'a, T: ?core::marker::Sized> { .. }
+pub struct hopper_native::ReturnData { .. }
+pub struct hopper_native::RuntimeAccount {}
+pub struct hopper_native::Seed<'a> { .. }
+pub struct hopper_native::Signer<'a, 'b> { .. }
+pub struct hopper_native::SignerView<'info> { .. }
+pub struct hopper_native::WritableView<'info> { .. }
+pub struct hopper_native::account_view::AccountView<'info> { .. }
+pub struct hopper_native::account_view::RemainingAccounts<'a> { .. }
+pub struct hopper_native::address::Address(_)
+pub struct hopper_native::batch::ResizeWithPayer<'a, 'info> {}
+pub struct hopper_native::borrow::Ref<'a, T: ?core::marker::Sized> { .. }
+pub struct hopper_native::borrow::RefMut<'a, T: ?core::marker::Sized> { .. }
+pub struct hopper_native::budget::CuBudget { .. }
+pub struct hopper_native::capability::ExecutableView<'info> { .. }
+pub struct hopper_native::capability::MutableView<'info> { .. }
+pub struct hopper_native::capability::OwnedView<'info> { .. }
+pub struct hopper_native::capability::ReadonlyView<'info> { .. }
+pub struct hopper_native::capability::SignerView<'info> { .. }
+pub struct hopper_native::capability::WritableView<'info> { .. }
+pub struct hopper_native::entrypoint::BumpAllocator {}
+pub struct hopper_native::entrypoint::HeapMark(_)
+pub struct hopper_native::expert::BalanceSnapshot { .. }
+pub struct hopper_native::expert::DataFingerprint { .. }
+pub struct hopper_native::expert::ExecutableView<'info> { .. }
+pub struct hopper_native::expert::LamportSnapshot { .. }
+pub struct hopper_native::expert::LazyContext<'info> { .. }
+pub struct hopper_native::expert::MutableView<'info> { .. }
+pub struct hopper_native::expert::OwnedView<'info> { .. }
+pub struct hopper_native::expert::ProcessedInstruction {}
+pub struct hopper_native::expert::ProcessedInstructionAccount {}
+pub struct hopper_native::expert::ProcessedInstructionView<'a> {}
+pub struct hopper_native::expert::ReadonlyView<'info> { .. }
+pub struct hopper_native::expert::ResizeWithPayer<'a, 'info> {}
+pub struct hopper_native::expert::SignerView<'info> { .. }
+pub struct hopper_native::expert::WritableView<'info> { .. }
+pub struct hopper_native::heap::HeapMark(_)
+pub struct hopper_native::instruction::CpiAccount<'a> { .. }
+pub struct hopper_native::instruction::InstructionAccount<'a> {}
+pub struct hopper_native::instruction::InstructionView<'a, 'b, 'c, 'd> where 'a: 'b {}
+pub struct hopper_native::instruction::Seed<'a> { .. }
+pub struct hopper_native::instruction::Signer<'a, 'b> { .. }
+pub struct hopper_native::introspect::ProcessedInstruction {}
+pub struct hopper_native::introspect::ProcessedInstructionAccount {}
+pub struct hopper_native::introspect::ProcessedInstructionView<'a> {}
+pub struct hopper_native::lazy::LazyContext<'info> { .. }
+pub struct hopper_native::log::StackWriter<'a> { .. }
+pub struct hopper_native::raw_account::RuntimeAccount {}
+pub struct hopper_native::raw_input::FrameInfo {}
+pub struct hopper_native::raw_input::RawAccountIndex {}
+pub struct hopper_native::raw_input::RawInstructionFrame {}
+pub struct hopper_native::return_data::ReturnData { .. }
+pub struct hopper_native::safe::AccountView<'info> { .. }
+pub struct hopper_native::sha256::ConstSha256 { .. }
+pub struct hopper_native::slot_hashes::SlotHashLookup {}
+pub struct hopper_native::system::AdvanceNonceAccount<'a> {}
+pub struct hopper_native::system::Allocate<'a> {}
+pub struct hopper_native::system::AllocateWithSeed<'a, 'b> {}
+pub struct hopper_native::system::Assign<'a, 'b> {}
+pub struct hopper_native::system::AssignWithSeed<'a, 'b> {}
+pub struct hopper_native::system::AuthorizeNonceAccount<'a, 'b> {}
+pub struct hopper_native::system::CreateAccount<'a, 'b> {}
+pub struct hopper_native::system::CreateAccountAllowPrefund<'a, 'b> {}
+pub struct hopper_native::system::CreateAccountWithSeed<'a, 'b> {}
+pub struct hopper_native::system::InitializeNonceAccount<'a, 'b> {}
+pub struct hopper_native::system::NonceState<'a> { .. }
+pub struct hopper_native::system::Transfer<'a> {}
+pub struct hopper_native::system::TransferWithSeed<'a, 'b> {}
+pub struct hopper_native::system::UpgradeNonceAccount<'a> {}
+pub struct hopper_native::system::WithdrawNonceAccount<'a> {}
+pub struct hopper_native::system::instructions::AdvanceNonceAccount<'a> {}
+pub struct hopper_native::system::instructions::Allocate<'a> {}
+pub struct hopper_native::system::instructions::AllocateWithSeed<'a, 'b> {}
+pub struct hopper_native::system::instructions::Assign<'a, 'b> {}
+pub struct hopper_native::system::instructions::AssignWithSeed<'a, 'b> {}
+pub struct hopper_native::system::instructions::AuthorizeNonceAccount<'a, 'b> {}
+pub struct hopper_native::system::instructions::CreateAccount<'a, 'b> {}
+pub struct hopper_native::system::instructions::CreateAccountAllowPrefund<'a, 'b> {}
+pub struct hopper_native::system::instructions::CreateAccountWithSeed<'a, 'b> {}
+pub struct hopper_native::system::instructions::InitializeNonceAccount<'a, 'b> {}
+pub struct hopper_native::system::instructions::Transfer<'a> {}
+pub struct hopper_native::system::instructions::TransferWithSeed<'a, 'b> {}
+pub struct hopper_native::system::instructions::UpgradeNonceAccount<'a> {}
+pub struct hopper_native::system::instructions::WithdrawNonceAccount<'a> {}
+pub struct hopper_native::sysvar::Clock {}
+pub struct hopper_native::sysvar::EpochRewards {}
+pub struct hopper_native::sysvar::EpochSchedule {}
+pub struct hopper_native::sysvar::Rent {}
+pub struct hopper_native::sysvar::SlotHash {}
+pub struct hopper_native::sysvar::StakeHistoryEntry {}
+pub struct hopper_native::token::Approve<'a> {}
+pub struct hopper_native::token::Burn<'a> {}
+pub struct hopper_native::token::CloseAccount<'a> {}
+pub struct hopper_native::token::MintTo<'a> {}
+pub struct hopper_native::token::Revoke<'a> {}
+pub struct hopper_native::token::Transfer<'a> {}
+pub struct hopper_native::token::instructions::Approve<'a> {}
+pub struct hopper_native::token::instructions::Burn<'a> {}
+pub struct hopper_native::token::instructions::CloseAccount<'a> {}
+pub struct hopper_native::token::instructions::MintTo<'a> {}
+pub struct hopper_native::token::instructions::Revoke<'a> {}
+pub struct hopper_native::token::instructions::Transfer<'a> {}
+pub struct hopper_native::verify::BalanceSnapshot { .. }
+pub struct hopper_native::verify::DataFingerprint { .. }
+pub struct hopper_native::verify::LamportSnapshot { .. }
+pub struct hopper_native::wire::LeBool(_)
+pub struct hopper_native::wire::LeI16(_)
+pub struct hopper_native::wire::LeI32(_)
+pub struct hopper_native::wire::LeI64(_)
+pub struct hopper_native::wire::LeU128(_)
+pub struct hopper_native::wire::LeU16(_)
+pub struct hopper_native::wire::LeU32(_)
+pub struct hopper_native::wire::LeU64(_)
+pub trait hopper_native::arith::LeanMul: core::marker::Sized + core::marker::Copy
+pub type hopper_native::ProgramResult = core::result::Result<(), hopper_native::ProgramError>
+pub type hopper_native::hash::Blake3Hash = [u8; 32]
+pub type hopper_native::hash::Keccak256Hash = [u8; 32]
+pub type hopper_native::hash::Sha256Hash = [u8; 32]
+pub unsafe fn hopper_native::AccountView::assign(&self, new_owner: &hopper_native::Address)
+pub unsafe fn hopper_native::AccountView::borrow_unchecked(&self) -> &[u8]
+pub unsafe fn hopper_native::AccountView::borrow_unchecked_mut(&self) -> &mut [u8]
+pub unsafe fn hopper_native::AccountView::close_unchecked(&self)
+pub unsafe fn hopper_native::AccountView::owner(&self) -> &hopper_native::Address
+pub unsafe fn hopper_native::AccountView::raw_mut<T: hopper_native::Pod>(&self) -> core::result::Result<hopper_native::RefMut<'_, T>, hopper_native::ProgramError>
+pub unsafe fn hopper_native::AccountView::raw_ref<T: hopper_native::Pod>(&self) -> core::result::Result<hopper_native::Ref<'_, T>, hopper_native::ProgramError>
+pub unsafe fn hopper_native::AccountView::resize_unchecked(&self, new_len: usize)
+pub unsafe fn hopper_native::AccountView::segment_mut_unchecked<T: hopper_native::Pod>(&self, offset: u32) -> core::result::Result<hopper_native::RefMut<'_, T>, hopper_native::ProgramError>
+pub unsafe fn hopper_native::AccountView::segment_ref_unchecked<T: hopper_native::Pod>(&self, offset: u32) -> core::result::Result<hopper_native::Ref<'_, T>, hopper_native::ProgramError>
+pub unsafe fn hopper_native::BumpAllocator::release_to(&self, mark: hopper_native::HeapMark)
+pub unsafe fn hopper_native::Ref::from_raw_parts(value: &'a T, state: *mut u8) -> Self
+pub unsafe fn hopper_native::RefMut::from_raw_parts(value: &'a mut T, state: *mut u8) -> Self
+pub unsafe fn hopper_native::cpi::invoke_signed_unchecked(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, accounts: &[hopper_native::CpiAccount<'_>], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub unsafe fn hopper_native::cpi::invoke_unchecked(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, accounts: &[hopper_native::CpiAccount<'_>]) -> hopper_native::ProgramResult
+pub unsafe fn hopper_native::entrypoint::process_entrypoint<const MAX: usize>(input: *mut u8, process_instruction: for<'info> fn(&'info hopper_native::Address, &'info [hopper_native::AccountView<'info>], &'info [u8]) -> hopper_native::ProgramResult) -> u64
+pub unsafe fn hopper_native::expert::lazy_deserialize<'info>(input: *mut u8) -> hopper_native::LazyContext<'info>
+pub unsafe fn hopper_native::heap::release_to(mark: hopper_native::HeapMark)
+pub unsafe fn hopper_native::lazy::lazy_deserialize<'info>(input: *mut u8) -> hopper_native::LazyContext<'info>
+pub unsafe fn hopper_native::mem::memcmp(a: *const u8, b: *const u8, n: usize) -> core::cmp::Ordering
+pub unsafe fn hopper_native::mem::memcpy(dst: *mut u8, src: *const u8, n: usize)
+pub unsafe fn hopper_native::mem::memmove(dst: *mut u8, src: *const u8, n: usize)
+pub unsafe fn hopper_native::mem::memset(dst: *mut u8, byte: u8, n: usize)
+pub unsafe fn hopper_native::raw::invoke_signed_unchecked(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, accounts: &[hopper_native::CpiAccount<'_>], signers_seeds: &[hopper_native::Signer<'_, '_>]) -> hopper_native::ProgramResult
+pub unsafe fn hopper_native::raw::invoke_unchecked(instruction: &hopper_native::InstructionView<'_, '_, '_, '_>, accounts: &[hopper_native::CpiAccount<'_>]) -> hopper_native::ProgramResult
+pub unsafe fn hopper_native::raw::memcmp(a: *const u8, b: *const u8, n: usize) -> core::cmp::Ordering
+pub unsafe fn hopper_native::raw::memcpy(dst: *mut u8, src: *const u8, n: usize)
+pub unsafe fn hopper_native::raw::memmove(dst: *mut u8, src: *const u8, n: usize)
+pub unsafe fn hopper_native::raw::memset(dst: *mut u8, byte: u8, n: usize)
+pub unsafe fn hopper_native::raw_input::deserialize_accounts<'info, const MAX: usize>(input: *mut u8, accounts: &mut [core::mem::maybe_uninit::MaybeUninit<hopper_native::AccountView<'info>>; MAX]) -> (&'info hopper_native::Address, usize, &'info [u8])
+pub unsafe fn hopper_native::raw_input::deserialize_accounts_0449<'info>(input: *mut u8, instruction_data: &'info [u8]) -> &'info [hopper_native::AccountView<'info>]
+pub unsafe fn hopper_native::raw_input::deserialize_accounts_0449_checked<'info, const MAX: usize>(input: *mut u8, input_len: usize, accounts: &mut [core::mem::maybe_uninit::MaybeUninit<hopper_native::AccountView<'info>>; MAX], instruction_data: &'info [u8]) -> core::result::Result<(hopper_native::Address, usize, &'info [u8]), hopper_native::raw_input::DirectMappingError>
+pub unsafe fn hopper_native::raw_input::deserialize_accounts_0449_into<'info, const MAX: usize>(input: *mut u8, accounts: &mut [core::mem::maybe_uninit::MaybeUninit<hopper_native::AccountView<'info>>; MAX], instruction_data: &'info [u8], program_id: &'info hopper_native::Address) -> (&'info hopper_native::Address, usize, &'info [u8])
+pub unsafe fn hopper_native::raw_input::deserialize_accounts_fast<'info, const MAX: usize>(input: *mut u8, accounts: &mut [core::mem::maybe_uninit::MaybeUninit<hopper_native::AccountView<'info>>; MAX], instruction_data: &'info [u8], program_id: &'info hopper_native::Address) -> (&'info hopper_native::Address, usize, &'info [u8])
+pub unsafe fn hopper_native::raw_input::deserialize_leading_accounts<'info, const MAX: usize>(input: *mut u8, accounts: &mut [core::mem::maybe_uninit::MaybeUninit<hopper_native::AccountView<'info>>; MAX], limit: usize) -> usize
+pub unsafe fn hopper_native::raw_input::loader_account_count(input: *const u8) -> usize
+pub unsafe fn hopper_native::raw_input::scan_instruction_frame(input: *mut u8) -> hopper_native::raw_input::RawInstructionFrame
+pub unsafe trait hopper_native::Pod: hopper_native::Zeroable
+pub unsafe trait hopper_native::ValuePod: core::marker::Copy + core::marker::Sized
+pub unsafe trait hopper_native::Zeroable: core::marker::Copy + core::marker::Sized
+pub unsafe trait hopper_native::pod::Pod: hopper_native::Zeroable
+pub unsafe trait hopper_native::pod::ValuePod: core::marker::Copy + core::marker::Sized
+pub unsafe trait hopper_native::pod::Zeroable: core::marker::Copy + core::marker::Sized
+pub use hopper_native::Projectable = project::Projectable

@@ -31,7 +31,9 @@ hopper_segment!: Define typed segment regions within an account.
 
 hopper_virtual!: Map state across multiple accounts.
 
-hopper_interface!: Cross-program account reading by fingerprint.
+hopper_interface!: Cross-program account reading by fingerprint. The layout's
+name is part of the fingerprint: `pub struct VaultView as Vault` names the local
+type `VaultView` and fingerprints it as the `Vault` layout it reads.
 
 hopper_accounts!: Declare typed account context structs.
 
