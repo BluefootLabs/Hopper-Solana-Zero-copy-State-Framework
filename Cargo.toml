@@ -58,6 +58,7 @@ members = [
     "examples/hopper-tail-lab",
     "examples/hopper-runtime-lab",
     "examples/hopper-confidential-lab",
+    "examples/hopper-confidential-lab/runner",
     "examples/hopper-stablecoin-memo-pay",
     "examples/hopper-styx-ferry",
     "examples/hopper-bounded-multisig",

@@ -59,10 +59,12 @@ has a before and after for each change.
   with five (the withheld fee decrypts under the withdraw authority's
   key), the four credit toggles, and empty with a zero-ciphertext proof.
   Replayed proofs and a registry for another owner are refused. Devnet's
-  `program@v11.1.0` passes the same tests. Public clusters cannot run the
-  flow today because the proof program is disabled on all three; Mollusk's
-  bundled Token-2022 (v7.0.0) cannot either, as its ciphertext operations
-  are compiled out.
+  `program@v11.1.0` passes the same tests. The ZK ElGamal proof program
+  verifies proofs on mainnet-beta, testnet, and devnet (checked by
+  simulation on 2026-09-29), so the flow is not confined to a local SVM:
+  `examples/hopper-confidential-lab/runner` runs it on a public cluster
+  with proofs made off chain. Mollusk's bundled Token-2022 (v7.0.0) cannot
+  run it; its ciphertext operations are compiled out.
 - **SlotHashes by slot.** `sysvar::slot_hash(slot)` and
   `slot_hash_lookup(slot)` find a slot's hash with partial reads of the
   20 KB sysvar: one read of 16 entries for a recent slot, then a window

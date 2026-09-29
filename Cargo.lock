@@ -2308,6 +2308,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-confidential-lab-runner"
+version = "0.4.0"
+dependencies = [
+ "bytemuck",
+ "hopper-confidential-lab",
+ "serde_json",
+ "sha2 0.10.9",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-compute-budget-interface",
+ "solana-instruction",
+ "solana-keypair",
+ "solana-pubkey 4.2.1",
+ "solana-signer",
+ "solana-system-interface 3.2.0",
+ "solana-transaction",
+ "solana-zk-elgamal-proof-interface",
+ "solana-zk-sdk 7.0.1",
+ "spl-elgamal-registry-interface",
+ "spl-token-2022-interface",
+ "spl-token-confidential-transfer-proof-extraction",
+ "spl-token-confidential-transfer-proof-generation",
+]
+
+[[package]]
 name = "hopper-counter"
 version = "0.4.0"
 dependencies = [

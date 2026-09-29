@@ -290,10 +290,13 @@ Two things the lab found that are easy to trip on:
   operations are compiled out: it answers `Deposit` with
   `InvalidInstructionData`. Test confidential flows against a current dump.
 
-No public cluster can run this flow today. The ZK ElGamal proof program is
-disabled on mainnet-beta, testnet, and devnet, and Token-2022 only moves a
-confidential balance against a proof that program verified. The builders
-are ready for the day it is enabled.
+The ZK ElGamal proof program verifies proofs on mainnet-beta, testnet, and
+devnet (checked by simulation on 2026-09-29), so the same flow runs on a
+public cluster. `examples/hopper-confidential-lab/runner` does it: every
+step as a real transaction through the lab program, proofs made off chain,
+verified into context-state accounts, by instruction offset, and, for the
+u256 range proof that does not fit in a transaction, from an SPL Record
+account.
 
 ## Extension constraints
 

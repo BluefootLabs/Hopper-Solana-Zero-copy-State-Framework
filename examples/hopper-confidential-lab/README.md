@@ -63,6 +63,23 @@ fee capped at 5,000; 100,000 transferred with five proofs; Bob credited
 99,000 and 1,000 withheld in his account, decrypted with the withdraw
 authority's key.
 
-Public clusters cannot run this flow today: the proof program is disabled
-on mainnet-beta, testnet, and devnet. The Token-2022 that Mollusk bundles
-(v7.0.0) cannot either; its ciphertext operations are compiled out.
+The Token-2022 that Mollusk bundles (v7.0.0) cannot run this flow; its
+ciphertext operations are compiled out, which is why the tests pin the
+mainnet build.
+
+## On a public cluster
+
+The ZK ElGamal proof program verifies proofs on mainnet-beta, testnet, and
+devnet, so `runner/` runs the same flow for real: every step a transaction
+through this program, the proofs made off chain and verified by the
+cluster, the accounts read back and decrypted after each step. A range
+proof too large for a transaction (u256, for the fee transfer) is written
+to an SPL Record account and verified from there. At the end the
+context-state and record accounts are closed and their rent returned.
+
+```text
+cargo run --release -p hopper-confidential-lab-runner -- \
+  --program <deployed lab> --elf ../../target/deploy/hopper_confidential_lab.so \
+  --payer <keypair> --rpc https://api.devnet.solana.com \
+  --out ../../target/hopper/confidential-flow-devnet
+```

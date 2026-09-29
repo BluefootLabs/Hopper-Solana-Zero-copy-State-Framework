@@ -11,8 +11,8 @@
 //! Token-2022 is v7.0.0, whose ciphertext operations are compiled out: it
 //! answers `Deposit` with `InvalidInstructionData`.
 //!
-//! Public clusters cannot run this today: the proof program is disabled on
-//! mainnet, testnet, and devnet. Mollusk runs it with every feature active.
+//! `runner/` runs the same flow on a public cluster, whose proof program
+//! verifies the same proofs.
 //!
 //! Build first, from `examples/hopper-confidential-lab`: `cargo build-sbf`.
 //! A test whose artifact is missing prints `SKIPPED` and passes.
