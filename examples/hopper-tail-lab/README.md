@@ -47,6 +47,17 @@ py -3.12 scripts/test-tail-lab-devnet.py \
   --elf target/deploy/hopper_tail_lab.so --out target/hopper/tail-lab-devnet
 ```
 
+## Devnet, 2026-09-28
+
+Deployed fresh as `2dihUAuNMBu23gnsRAx7qtwRgXtKSptEDWGotc3NjFoD` from a clean
+worktree at `2ec0930`: 15 finalized transactions, every account equal to the
+runner's model byte for byte
+(`audit/devnet-evidence-2026-09-28/tail-lab-round10/`). The three in-place
+`add_reviewer` calls cost 628, 645, and 662 CU, `rewrite_note` 1,016 CU when
+it shrinks and 1,331 at its longest. A tag outside the rule was refused with
+`Custom(6702)` on a write (374 CU, account unchanged) and at creation (no
+account left behind).
+
 ## Compute units
 
 `tests/cu.rs` runs `add_reviewer` and `rewrite_note` under Mollusk against

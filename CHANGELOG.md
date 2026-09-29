@@ -51,7 +51,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   any program that implements the interface from `invoke_on_program`. The
   Borsh payload is encoded on the stack (512 bytes at most; a longer
   instruction is refused before the CPI), and the discriminators are tested
-  against the SHA-256 of the interface's hash inputs.
+  against the SHA-256 of the interface's hash inputs. On devnet
+  (`4MWp9iQM…`, 2026-09-28, 49 transactions) the deployed Token-2022
+  accepted both interfaces: the metadata entry equalled the expected bytes
+  after every step, `Emit` returned the stored entry, and the group counted
+  its member.
 - **Confidential-transfer instructions**
   (`hopper_runtime::token_confidential_ix`,
   `hopper_token_2022::confidential_instructions`): the fifteen
@@ -109,7 +113,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **A devnet runner for the tail lab**
   (`scripts/test-tail-lab-devnet.py`): every account the program writes is
   compared byte for byte with a model of the tail, and every refusal is
-  asserted with the account unchanged.
+  asserted with the account unchanged. On devnet (`2dihUAuN…`, 2026-09-28,
+  15 transactions) the in-place `add_reviewer` cost 628 CU, the figure
+  Mollusk measured, and a tag outside the layout's rule was refused with
+  `Custom(6702)` on a write and at creation.
 - **Unit enums in layouts and arguments.** `#[hopper::unit_enum]`
   implements `hopper_runtime::UnitEnum` for a fieldless enum (forcing
   `#[repr(u8)]` and generating the byte mapping from the variants), and

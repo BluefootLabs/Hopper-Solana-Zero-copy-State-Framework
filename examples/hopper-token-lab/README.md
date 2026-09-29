@@ -41,10 +41,24 @@ py -3.12 scripts/test-token-lab-devnet.py \
   --elf target/deploy/hopper_token_lab.so --out target/hopper/token-lab-devnet
 ```
 
-Build with `cargo build-sbf` from this directory. The program is 53,968
+Build with `cargo build-sbf` from this directory. The program is 78,136
 bytes as sBPF v0 with the default release profile.
 
-## Devnet, 2026-09-28
+## Devnet, 2026-09-28, round ten: metadata and groups
+
+Deployed fresh as `4MWp9iQM1qxLrz9sYj4jdf9BU4waEo58MEPs7R4j7m28` from a clean
+worktree at `2ec0930`; 49 finalized transactions, every state check exact
+(`audit/devnet-evidence-2026-09-28/token-lab-round10/`). The deployed
+Token-2022 accepts the token-metadata and token-group interfaces. The mint
+that carries its own metadata cost 17,783 CU to create and initialize, was
+362 bytes, and held exactly the rent for that size. Setting a key cost
+12,144 CU. Renaming the token, removing the key twice, giving up the
+authority, and emitting cost 32,837 CU for the five CPIs. After every step
+the `TokenMetadata` entry equalled the expected Borsh bytes and `Emit`
+returned the stored entry. The group cost 15,425 CU and its member 16,630,
+and the group counted one member afterwards.
+
+## Devnet, 2026-09-28, round eight
 
 Deployed fresh as `417akw6B2CcuTZFpePrZaSR5oyX3riBPtHmdePkjrAYJ` from a
 clean worktree at `244b72c`; 42 finalized transactions, every state check
