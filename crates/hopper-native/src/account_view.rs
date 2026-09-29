@@ -91,21 +91,30 @@ impl<'info> AccountView<'info> {
     /// Whether this account is writable in the transaction.
     #[inline(always)]
     pub fn is_writable(&self) -> bool {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).is_writable != 0 }
     }
 
     /// Whether this account contains an executable program.
     #[inline(always)]
     pub fn executable(&self) -> bool {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).executable != 0 }
     }
 
     /// Current data length in bytes.
     #[inline(always)]
     pub fn data_len(&self) -> usize {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).data_len as usize }
     }
 
@@ -145,7 +154,10 @@ impl<'info> AccountView<'info> {
     /// Current lamport balance.
     #[inline(always)]
     pub fn lamports(&self) -> u64 {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).lamports }
     }
 
@@ -158,7 +170,9 @@ impl<'info> AccountView<'info> {
     /// Set the lamport balance.
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`. One
+        // header field is stored through the raw pointer; no reference to the
+        // header exists to be invalidated, and a program runs on one thread.
         unsafe {
             (*self.raw).lamports = lamports;
         }
@@ -181,7 +195,10 @@ impl<'info> AccountView<'info> {
     /// transfer is authorized by the current owner program.
     #[inline(always)]
     pub unsafe fn assign(&self, new_owner: &Address) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`. One
+        // header field is stored through the raw pointer; no reference to the
+        // header exists to be invalidated, and a program runs on one thread.
+        // Whether the transfer is permitted is the caller's contract.
         unsafe {
             (*self.raw).owner = new_owner.clone();
         }
@@ -192,21 +209,30 @@ impl<'info> AccountView<'info> {
     /// Whether the account data is currently borrowed (shared or exclusive).
     #[inline(always)]
     pub fn is_borrowed(&self) -> bool {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).borrow_state != NOT_BORROWED }
     }
 
     /// Whether the account data is exclusively (mutably) borrowed.
     #[inline(always)]
     pub fn is_borrowed_mut(&self) -> bool {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).borrow_state == 0 }
     }
 
     /// Check that the account can be shared-borrowed.
     #[inline(always)]
     pub fn check_borrow(&self) -> Result<(), ProgramError> {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         let state = unsafe { (*self.raw).borrow_state };
         if state == 0 {
             // Exclusively borrowed -- cannot share.
@@ -219,7 +245,10 @@ impl<'info> AccountView<'info> {
     /// Check that the account can be exclusively borrowed.
     #[inline(always)]
     pub fn check_borrow_mut(&self) -> Result<(), ProgramError> {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         let state = unsafe { (*self.raw).borrow_state };
         if state != NOT_BORROWED {
             // Already borrowed (shared or exclusive).
@@ -268,7 +297,9 @@ impl<'info> AccountView<'info> {
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
         let data_ptr = self.data_ptr_unchecked();
         let len = self.data_len();
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `data_ptr` is the start of this account's data region and
+        // `len` its current length, both taken from the live header. The
+        // caller guarantees no exclusive borrow is live.
         unsafe { core::slice::from_raw_parts(data_ptr, len) }
     }
 
@@ -371,8 +402,11 @@ impl<'info> AccountView<'info> {
         }
 
         self.check_borrow()?;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: Takes the address of the borrow-state byte inside the live
+        // header and reads it. The pointer is used by this function and by
+        // the guard that releases the borrow, nowhere else.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        // SAFETY: `state_ptr` is the borrow-state byte of the live header.
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
         if new_state == 0 || new_state == NOT_BORROWED {
@@ -380,13 +414,20 @@ impl<'info> AccountView<'info> {
             // wrap into the NOT_BORROWED sentinel.
             return Err(ProgramError::AccountBorrowFailed);
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: Stores the shared count computed above in this account's
+        // borrow-state byte; the count was checked not to wrap into a
+        // sentinel.
         unsafe {
             *state_ptr = new_state;
         }
 
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The bounds check above proved `offset + size <= data_len`,
+        // so the pointer stays inside this account's data region. For the
+        // reference: in bounds (checked above); `T: Pod` has alignment 1 and
+        // accepts every bit pattern; the borrow recorded above keeps a
+        // conflicting borrow from coexisting with the reference.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
+        // SAFETY: `ptr` is in bounds and the shared borrow was recorded above; `T: Pod`.
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
     }
 
@@ -405,8 +446,11 @@ impl<'info> AccountView<'info> {
         &self,
         offset: u32,
     ) -> Result<Ref<'_, T>, ProgramError> {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The caller guarantees `offset + size_of::<T>() <= data_len`
+        // and that no exclusive borrow of the range is live. `T: Pod` has
+        // alignment 1 and accepts every bit pattern.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
+        // SAFETY: Bounds and aliasing are the caller's contract; `T: Pod`.
         Ok(Ref::new_external(unsafe { &*ptr }))
     }
 
@@ -432,14 +476,22 @@ impl<'info> AccountView<'info> {
         }
 
         self.check_borrow_mut()?;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `check_borrow_mut` above proved no borrow is live. The
+        // borrow-state byte of the live header is set to 0 (exclusive); the
+        // pointer to it is kept only by the guard that restores it.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        // SAFETY: `state_ptr` is the borrow-state byte of the live header.
         unsafe {
             *state_ptr = 0;
         }
 
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The bounds check above proved `offset + size <= data_len`,
+        // so the pointer stays inside this account's data region. For the
+        // reference: in bounds (checked above); `T: Pod` has alignment 1 and
+        // accepts every bit pattern; the borrow recorded above keeps a
+        // conflicting borrow from coexisting with the reference.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
+        // SAFETY: `ptr` is in bounds and the exclusive borrow was recorded above; `T: Pod`.
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
     }
 
@@ -459,8 +511,11 @@ impl<'info> AccountView<'info> {
         &self,
         offset: u32,
     ) -> Result<RefMut<'_, T>, ProgramError> {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The caller guarantees the account is writable, `offset +
+        // size_of::<T>() <= data_len`, and that no other borrow of the range
+        // is live. `T: Pod` has alignment 1 and accepts every bit pattern.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
+        // SAFETY: Bounds, writability, and aliasing are the caller's contract; `T: Pod`.
         Ok(RefMut::new_external(unsafe { &mut *ptr }))
     }
 
@@ -572,7 +627,11 @@ impl<'info> AccountView<'info> {
     /// (see [`resize`](Self::resize) for why that matters).
     #[inline(always)]
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`. One
+        // header field is stored through the raw pointer; no reference to the
+        // header exists to be invalidated, and a program runs on one thread.
+        // The length's bound and the absence of live borrows are the caller's
+        // contract.
         unsafe {
             (*self.raw).data_len = new_len as u64;
         }
@@ -635,7 +694,10 @@ impl<'info> AccountView<'info> {
     /// The caller must ensure no active borrows exist.
     #[inline(always)]
     pub unsafe fn close_unchecked(&self) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`. One
+        // header field is stored through the raw pointer; no reference to the
+        // header exists to be invalidated, and a program runs on one thread.
+        // The absence of live borrows is the caller's contract.
         unsafe {
             (*self.raw).lamports = 0;
             (*self.raw).data_len = 0;
@@ -644,6 +706,20 @@ impl<'info> AccountView<'info> {
     }
 
     // ── Raw pointers ─────────────────────────────────────────────────
+
+    /// The first four header bytes as one word: `borrow_state` in bits
+    /// 0..8, `is_signer` in 8..16, `is_writable` in 16..24, `executable`
+    /// in 24..32. One load answers "not borrowed, signer, writable" in a
+    /// single mask and compare.
+    #[inline(always)]
+    pub fn header_word(&self) -> u32 {
+        // SAFETY: `raw` points at a valid `RuntimeAccount`, a `repr(C)`
+        // struct whose first four fields are `u8`s at offsets 0 to 3, so
+        // the four bytes read are initialized and inside the header. The
+        // read is unaligned by construction and copies the bytes out; no
+        // reference to them is formed.
+        u32::from_le(unsafe { core::ptr::read_unaligned(self.raw as *const u32) })
+    }
 
     /// Raw pointer to the `RuntimeAccount` header.
     #[inline(always)]
@@ -710,39 +786,69 @@ impl<'info> AccountView<'info> {
 
     /// Read the Hopper account discriminator (first byte of data).
     ///
-    /// Returns 0 if the account has no data.
+    /// Returns 0 if the account has no data, or while its data is
+    /// exclusively borrowed: the holder of that borrow may be writing the
+    /// byte, so it is not read underneath them. Zero is never a valid
+    /// discriminator, so every check against an expected value fails
+    /// closed.
     #[inline(always)]
     pub fn disc(&self) -> u8 {
-        if self.data_len() == 0 {
+        if self.data_len() == 0 || self.is_borrowed_mut() {
             return 0;
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: the data region holds at least one byte and no exclusive
+        // borrow is live (both checked above). The byte is copied out.
+        unsafe { *self.data_ptr_unchecked() }
+    }
+
+    /// The discriminator, read without consulting the borrow state.
+    ///
+    /// # Safety
+    ///
+    /// The account must hold at least one byte of data, and the caller
+    /// must be the holder of any exclusive borrow that is live.
+    #[inline(always)]
+    pub(crate) unsafe fn disc_unchecked(&self) -> u8 {
+        // SAFETY: the caller guarantees one readable byte and that no one
+        // else holds an exclusive borrow of it.
         unsafe { *self.data_ptr_unchecked() }
     }
 
     /// Read the Hopper account version (second byte of data).
     ///
-    /// Returns 0 if the account has fewer than 2 bytes.
+    /// Returns 0 if the account has fewer than 2 bytes, or while its data
+    /// is exclusively borrowed (see [`disc`](Self::disc)).
     #[inline(always)]
     pub fn version(&self) -> u8 {
-        if self.data_len() < 2 {
+        if self.data_len() < 2 || self.is_borrowed_mut() {
             return 0;
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: the data region holds at least two bytes and no
+        // exclusive borrow is live (both checked above). The byte is
+        // copied out.
         unsafe { *self.data_ptr_unchecked().add(1) }
     }
 
     /// Read the 8-byte layout_id from the Hopper account header
     /// (bytes 4..12 of account data, per the canonical header format).
     ///
-    /// Returns `None` if the account has fewer than 12 bytes.
+    /// Returns `None` if the account has fewer than 12 bytes, or while its
+    /// data is exclusively borrowed.
+    ///
+    /// The eight bytes are returned by value. A reference into the data
+    /// region would have to be tracked as a borrow to stay valid across a
+    /// later `try_borrow_mut`; a copy needs no tracking.
     #[inline(always)]
-    pub fn layout_id(&self) -> Option<&[u8; 8]> {
-        if self.data_len() < 12 {
+    pub fn layout_id(&self) -> Option<[u8; 8]> {
+        if self.data_len() < 12 || self.is_borrowed_mut() {
             return None;
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { Some(&*(self.data_ptr_unchecked().add(4) as *const [u8; 8])) }
+        // SAFETY: bytes 4..12 lie inside the data region and no exclusive
+        // borrow is live (both checked above). The bytes are copied out,
+        // unaligned; no reference into the account is formed.
+        Some(unsafe {
+            core::ptr::read_unaligned(self.data_ptr_unchecked().add(4) as *const [u8; 8])
+        })
     }
 
     /// Verify that this account has the given discriminator.
@@ -856,7 +962,10 @@ impl<'info> AccountView<'info> {
     /// Costs 32 bytes of stack space but eliminates aliasing hazards.
     #[inline(always)]
     pub fn read_owner(&self) -> Address {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `raw` points at a live `RuntimeAccount` for `'info`: the
+        // contract of `new_unchecked`, which the entrypoint parsers
+        // establish. The field is copied out; no reference to the header is
+        // formed.
         unsafe { (*self.raw).owner.clone() }
     }
 

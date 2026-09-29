@@ -228,29 +228,28 @@ impl DataFingerprint {
     ///
     /// Uses FNV-1a (fast, no dependencies, good collision resistance for
     /// short inputs). Not suitable for cryptographic purposes.
+    ///
+    /// The bytes are read under a shared borrow, so the capture fails
+    /// with `AccountBorrowFailed` while the data is exclusively borrowed.
     #[inline]
-    pub fn capture(account: &AccountView<'_>, len: usize) -> Self {
-        let data_len = account.data_len().min(len);
-        let data_ptr = account.data_ptr_unchecked();
+    pub fn capture(account: &AccountView<'_>, len: usize) -> Result<Self, ProgramError> {
+        let data = account.try_borrow()?;
+        let data_len = data.len().min(len);
 
         // FNV-1a hash.
         let mut hash: u64 = 0xcbf29ce484222325;
-        let mut i = 0;
-        while i < data_len {
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let byte = unsafe { *data_ptr.add(i) };
-            hash ^= byte as u64;
+        for byte in &data[..data_len] {
+            hash ^= *byte as u64;
             hash = hash.wrapping_mul(0x100000001b3);
-            i += 1;
         }
 
-        Self { hash, data_len }
+        Ok(Self { hash, data_len })
     }
 
     /// Verify the data has not changed since the snapshot.
     #[inline]
     pub fn verify_unchanged(&self, account: &AccountView<'_>) -> ProgramResult {
-        let current = Self::capture(account, self.data_len);
+        let current = Self::capture(account, self.data_len)?;
         if current.hash != self.hash || current.data_len != self.data_len {
             return Err(ProgramError::InvalidAccountData);
         }

@@ -287,6 +287,10 @@ macro_rules! wire_int {
         unsafe impl crate::account::Zeroable for $name {}
         unsafe impl crate::account::Pod for $name {}
 
+        // SAFETY: the type is `#[repr(transparent)]` over a byte array:
+        // fixed size, alignment 1, no padding, no pointers, and every
+        // bit pattern is a valid value. That is the seal's contract.
+        //
         // Stamp the framework-owned marker so the
         // blanket `ZeroCopy` impl picks this primitive up. A user
         // bypassing the wire_int! path with their own bare

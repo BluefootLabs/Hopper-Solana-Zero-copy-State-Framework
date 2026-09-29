@@ -701,7 +701,9 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         // cannot outlive the underlying borrow guard.
         // `Ref<T>` derefs to `T`; the `&T` annotation drives the coercion.
         let layout_ref: &T = &self.inner;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `OFFSET + size_of::<F>() <= size_of::<T>()` was checked
+        // above, so the field lies inside the layout the guard covers; `F:
+        // ZeroCopy` has alignment 1 and accepts every bit pattern.
         unsafe {
             let base = layout_ref as *const T as *const u8;
             let field_ptr = base.add(OFFSET) as *const F;

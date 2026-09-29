@@ -74,6 +74,10 @@ pub mod __sealed {
     /// contract makes every downstream [`super::ZeroCopy`] cast unsound.
     pub unsafe trait HopperZeroCopySealed {}
 
+    // SAFETY: `u8`, `i8`, `[u8; N]`, and `()` have alignment 1, no
+    // padding, no pointers, and accept every bit pattern: the seal's
+    // contract, stated on the trait above.
+    //
     // Framework-provided primitives. Every Rust-level `Pod` integer
     // and `[u8; N]` is Hopper-owned by virtue of being in the
     // substrate, so stamp the seal here. Users reading/writing these
@@ -112,6 +116,10 @@ pub mod __sealed {
 /// is implemented only through the framework-owned sealed path.
 pub unsafe trait ZeroCopy: Pod + 'static + __sealed::HopperZeroCopySealed {}
 
+// SAFETY: `ZeroCopy` has the contract of `Pod`, which the bound
+// supplies; the seal bound restricts who can reach the impl and adds no
+// obligation of its own.
+//
 // Blanket: any `Pod + 'static` type that also carries the seal gets
 // `ZeroCopy`. Every framework-defined surface carries the seal; the
 // blanket plus the seal together mean the trait is free for

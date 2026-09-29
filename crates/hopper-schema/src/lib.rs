@@ -435,6 +435,96 @@ pub struct FieldDescriptor {
     pub intent: FieldIntent,
 }
 
+/// A value rule declared with `#[check(..)]` on a layout field.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FieldRule {
+    /// The field the rule guards.
+    pub field: &'static str,
+    /// The rule as written; `value` names the field's value.
+    pub rule: &'static str,
+    /// The smallest value the rule admits, when its comparisons with
+    /// integer literals decide one.
+    pub min: Option<i128>,
+    /// The largest value the rule admits, when its comparisons with
+    /// integer literals decide one.
+    pub max: Option<i128>,
+    /// Whether `min` and `max` are the whole rule: every condition in it
+    /// compares `value` with an integer literal. A rule that also reads
+    /// another field, a constant, or calls a function is not exact, and
+    /// its bounds are only the part of it that can be ordered.
+    pub exact: bool,
+}
+
+/// The `#[check]` rules of one layout, as `hopper::program_manifest!`
+/// collects them for the exported manifest.
+#[derive(Clone, Copy, Debug)]
+pub struct LayoutRules {
+    /// Layout name (matches `LayoutManifest::name`).
+    pub layout: &'static str,
+    /// The layout's `FIELD_RULES`.
+    pub rules: &'static [FieldRule],
+}
+
+/// How a field's rule differs between two releases of a layout.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuleChange {
+    /// The same rule text, or two exact rules with the same bounds.
+    Unchanged,
+    /// Every value the new rule admits the old rule admitted: both rules
+    /// are exact and the new bounds lie inside the old ones.
+    Tightened,
+    /// The new rule admits a value the old bounds refused: stored state
+    /// the old program could not produce becomes acceptable.
+    Widened,
+    /// The text differs and the two rules cannot be ordered: at least one
+    /// of them has a condition beyond its literal bounds.
+    Rewritten,
+}
+
+impl FieldRule {
+    /// Compare this rule (the old release) with `new` (the new release).
+    pub const fn change_to(&self, new: &FieldRule) -> RuleChange {
+        if const_str_eq(self.rule, new.rule) {
+            return RuleChange::Unchanged;
+        }
+        // A missing bound is unbounded on that side.
+        let lower_widened = match (self.min, new.min) {
+            (Some(old), Some(new)) => new < old,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        let upper_widened = match (self.max, new.max) {
+            (Some(old), Some(new)) => new > old,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        if lower_widened || upper_widened {
+            return RuleChange::Widened;
+        }
+        // Bounds that did not widen order the rules only when the bounds
+        // are all there is to both of them.
+        if !(self.exact && new.exact) {
+            return RuleChange::Rewritten;
+        }
+        let lower_tightened = match (self.min, new.min) {
+            (Some(old), Some(new)) => new > old,
+            (None, Some(_)) => true,
+            _ => false,
+        };
+        let upper_tightened = match (self.max, new.max) {
+            (Some(old), Some(new)) => new < old,
+            (None, Some(_)) => true,
+            _ => false,
+        };
+        if lower_tightened || upper_tightened {
+            RuleChange::Tightened
+        } else {
+            // Two exact rules with the same bounds admit the same values.
+            RuleChange::Unchanged
+        }
+    }
+}
+
 /// A layout manifest describing an account type.
 #[derive(Clone, Copy, Debug)]
 pub struct LayoutManifest {

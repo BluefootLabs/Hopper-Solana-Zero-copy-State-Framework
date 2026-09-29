@@ -190,7 +190,9 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let off = self.slot_offset(index) + SLOT_OVERHEAD;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `index < capacity` was checked above and `capacity` was
+        // computed from the buffer length, so the slot lies inside `data`.
+        // `T: Pod` accepts every bit pattern and is read by value, unaligned.
         Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(off) as *const T) })
     }
 
@@ -206,7 +208,9 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         }
         let off = self.slot_offset(index);
         let val_off = off + SLOT_OVERHEAD;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `index < capacity` was checked above and `capacity` was
+        // computed from the buffer length, so the slot lies inside `data`.
+        // `T: Pod` accepts every bit pattern and is read by value, unaligned.
         let value =
             unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(val_off) as *const T) };
         // Clear occupied flag

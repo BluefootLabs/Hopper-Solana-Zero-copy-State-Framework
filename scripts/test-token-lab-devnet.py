@@ -6,8 +6,10 @@ One lane per token program: create a mint, two immutable-owner accounts (sized
 by GetAccountDataSize), mint supply, a batched there-and-back transfer, the
 UI-amount round trip, an excess-lamport withdrawal, and a multisig. SPL Token
 also gets the wrapped-SOL unwrap; Token-2022 also gets the extended mint
-(every fixed-size extension the plan supports), pause/resume, and a scaled-UI
-multiplier update. Cases the live program refuses are recorded, not hidden.
+(every fixed-size extension the plan supports), pause/resume, a scaled-UI
+multiplier update, a mint that carries its own metadata (initialize, set and
+replace a key, rename, remove, give up the authority, emit), and a token group
+with a member. Cases the live program refuses are recorded, not hidden.
 
 Keypairs stay under ignored target/. Only the explicit public devnet endpoint
 is used. This spends devnet SOL on rent and fees.
@@ -54,6 +56,15 @@ TAG_INIT_MULTISIG = 7
 TAG_WRAP_AND_UNWRAP = 8
 TAG_PAUSE_RESUME = 9
 TAG_UPDATE_MULTIPLIER = 10
+TAG_CREATE_METADATA_MINT = 11
+TAG_SET_METADATA_KEY = 12
+TAG_FINALIZE_METADATA = 13
+TAG_CREATE_GROUP = 14
+TAG_CREATE_GROUP_MEMBER = 15
+EXT_METADATA_POINTER, EXT_METADATA = 18, 19
+EXT_GROUP_POINTER, EXT_GROUP = 20, 21
+EXT_GROUP_MEMBER_POINTER, EXT_GROUP_MEMBER = 22, 23
+GROUP_MAX_SIZE = 3
 
 
 def main() -> None:
@@ -280,6 +291,129 @@ def main() -> None:
         record["extensions"] = expected
         return mint
 
+    def tlv_values(data, start=166):
+        values = {}
+        at = start
+        while at + 4 <= len(data):
+            kind, length = struct.unpack_from("<HH", data, at)
+            if kind == 0:
+                break
+            values[kind] = data[at + 4:at + 4 + length]
+            at += 4 + length
+        return values
+
+    def bounded(text):
+        raw = text.encode("utf-8")
+        return struct.pack("<H", len(raw)) + raw
+
+    def borsh(text):
+        raw = text.encode("utf-8")
+        return struct.pack("<I", len(raw)) + raw
+
+    def metadata_bytes(authority, mint, name, symbol, uri, extra):
+        out = (pubkey_bytes(authority) if authority else bytes(32)) + pubkey_bytes(mint)
+        out += borsh(name) + borsh(symbol) + borsh(uri) + struct.pack("<I", len(extra))
+        for key, value in extra:
+            out += borsh(key) + borsh(value)
+        return out
+
+    def emitted(tx):
+        returned = tx["meta"]["returnData"]
+        assert returned["programId"] == TOKEN_2022, returned
+        return base64.b64decode(returned["data"][0])
+
+    def metadata_lane():
+        mint, key = new_key("metadata-mint")
+        name, symbol, uri = "Hopper Lab", "HOP", "https://hopperzero.dev/lab.json"
+        tx, record = send("create-metadata-mint", args.program,
+                          ["payer:sw", mint + ":sw", SYSTEM, TOKEN_2022],
+                          bytes([TAG_CREATE_METADATA_MINT]) + bounded(name) + bounded(symbol)
+                          + bounded(uri), [key])
+        data = account(mint, tx["slot"])
+        b = data["bytes"]
+        values = tlv_values(b)
+        assert data["owner"] == TOKEN_2022 and sorted(values) == [EXT_METADATA_POINTER, EXT_METADATA]
+        assert values[EXT_METADATA_POINTER] == pubkey_bytes(payer) + pubkey_bytes(mint)
+        assert values[EXT_METADATA] == metadata_bytes(payer, mint, name, symbol, uri, [])
+        assert data["lamports"] == rent(len(b)), "the mint is funded for exactly its size"
+        record["mintBytes"] = len(b)
+
+        update = ["payer:sw", mint + ":w", SYSTEM, TOKEN_2022]
+        tx, record = send("set-metadata-key", args.program, update,
+                          bytes([TAG_SET_METADATA_KEY]) + bounded("tier") + bounded("gold"))
+        data = account(mint, tx["slot"])
+        expected = metadata_bytes(payer, mint, name, symbol, uri, [("tier", "gold")])
+        assert tlv_values(data["bytes"])[EXT_METADATA] == expected
+        assert emitted(tx) == expected, "Emit returns the stored metadata"
+        assert data["lamports"] == rent(len(data["bytes"]))
+        record["emittedBytes"] = len(expected)
+
+        # The same key again, with a multi-byte value: replaced in place.
+        tx, _ = send("replace-metadata-key", args.program, update,
+                     bytes([TAG_SET_METADATA_KEY]) + bounded("tier") + bounded("café €"))
+        data = account(mint, tx["slot"])
+        expected = metadata_bytes(payer, mint, name, symbol, uri, [("tier", "café €")])
+        assert tlv_values(data["bytes"])[EXT_METADATA] == expected
+        assert emitted(tx) == expected
+        assert data["lamports"] >= rent(len(data["bytes"]))
+
+        # Rename, remove the key (then again, idempotently), drop the authority.
+        renamed = "Hopper Lab, final"
+        tx, _ = send("finalize-metadata", args.program, update,
+                     bytes([TAG_FINALIZE_METADATA]) + bounded(renamed) + bounded("tier"))
+        data = account(mint, tx["slot"])
+        expected = metadata_bytes(None, mint, renamed, symbol, uri, [])
+        assert tlv_values(data["bytes"])[EXT_METADATA] == expected
+        assert emitted(tx) == expected
+        assert data["lamports"] >= rent(len(data["bytes"]))
+
+        # No update authority is left: the next update is refused.
+        before = data["bytes"]
+        tx, record = send("set-metadata-key-without-authority", args.program, update,
+                          bytes([TAG_SET_METADATA_KEY]) + bounded("tier") + bounded("x"),
+                          allow_failure=True)
+        assert tx["meta"]["err"] is not None, "an update without an authority must be refused"
+        assert account(mint, tx["slot"])["bytes"] == before
+        record["accountUnchanged"] = True
+        findings["metadata"] = "accepted"
+        return mint
+
+    def group_lane():
+        group, key = new_key("group-mint")
+        tx, record = send("create-group", args.program,
+                          ["payer:sw", group + ":sw", SYSTEM, TOKEN_2022],
+                          bytes([TAG_CREATE_GROUP]) + struct.pack("<Q", GROUP_MAX_SIZE), [key],
+                          allow_failure=True)
+        if tx["meta"]["err"] is not None:
+            findings["token-group"] = f"refused: {tx['meta']['err']}"
+            return None, None
+        data = account(group, tx["slot"])
+        values = tlv_values(data["bytes"])
+        assert sorted(values) == [EXT_GROUP_POINTER, EXT_GROUP], sorted(values)
+        assert values[EXT_GROUP_POINTER] == pubkey_bytes(payer) + pubkey_bytes(group)
+        assert values[EXT_GROUP] == (pubkey_bytes(payer) + pubkey_bytes(group)
+                                     + struct.pack("<QQ", 0, GROUP_MAX_SIZE))
+        assert data["lamports"] == rent(len(data["bytes"]))
+        findings["token-group"] = "accepted"
+
+        member, key = new_key("group-member-mint")
+        tx, record = send("create-group-member", args.program,
+                          ["payer:sw", member + ":sw", group + ":w", SYSTEM, TOKEN_2022],
+                          bytes([TAG_CREATE_GROUP_MEMBER]), [key], allow_failure=True)
+        if tx["meta"]["err"] is not None:
+            findings["token-group-member"] = f"refused: {tx['meta']['err']}"
+            return group, None
+        data = account(member, tx["slot"])
+        values = tlv_values(data["bytes"])
+        assert sorted(values) == [EXT_GROUP_MEMBER_POINTER, EXT_GROUP_MEMBER], sorted(values)
+        assert values[EXT_GROUP_MEMBER] == (pubkey_bytes(member) + pubkey_bytes(group)
+                                            + struct.pack("<Q", 1))
+        assert data["lamports"] == rent(len(data["bytes"]))
+        grown = tlv_values(account(group, tx["slot"])["bytes"])[EXT_GROUP]
+        assert struct.unpack_from("<Q", grown, 64)[0] == 1, "the group counts its member"
+        findings["token-group-member"] = "accepted"
+        return group, member
+
     deployment("before")
     accounts = {}
     for lane, token in [("legacy", LEGACY), ("token-2022", TOKEN_2022)]:
@@ -327,6 +461,9 @@ def main() -> None:
              bytes([TAG_UPDATE_MULTIPLIER]) + struct.pack("<d", 3.0))
         ui_round_trip("ui-amount-extended-x3", TOKEN_2022, mint, UI_AMOUNT, "3.703701")
     accounts["extended"] = {"mint": mint, "a": ext_a}
+    accounts["metadata"] = {"mint": metadata_lane()}
+    group, member = group_lane()
+    accounts["group"] = {"group": group, "member": member}
     deployment("after")
     assert run(["git", "rev-parse", "HEAD"]).strip() == source
     assert not run(["git", "status", "--porcelain"]).strip(), "source changed during capture"

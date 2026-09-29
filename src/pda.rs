@@ -47,3 +47,8 @@ pub use hopper_runtime::pda::{
 /// with `#[account(address = ...)]`, a 32-byte compare and no hash on chain.
 /// `hopper::const_pda!` spells the seed list inline.
 pub use hopper_runtime::pda::const_program_address;
+
+/// The address the System Program's `*WithSeed` instructions derive from a
+/// base, a seed, and an owner, and the check of an account against it. One
+/// `sol_sha256` on chain; computed with the const SHA-256 on the host.
+pub use hopper_runtime::pda::{create_with_seed, verify_address_with_seed, MAX_SEED_LEN};

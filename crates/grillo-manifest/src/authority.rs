@@ -21,7 +21,10 @@
 //! - per-account context constraints: PDA seeds, `has_one` relations,
 //!   expected owner and address (including CPI program bindings), account
 //!   kind, optionality, lifecycle (init, realloc, close), and policy
-//!   references.
+//!   references;
+//! - the value rules on layout fields (`fieldRules`): what a stored value
+//!   must satisfy for the account to bind. A removed rule or a looser bound
+//!   admits state the old release refused.
 //!
 //! Every difference is classified as [`AuthorityImpact::Widened`],
 //! [`AuthorityImpact::Narrowed`], [`AuthorityImpact::Review`] (changed in a
@@ -355,6 +358,29 @@ struct Doc {
     instructions: Vec<DocInstruction>,
     #[serde(default)]
     contexts: Vec<DocContext>,
+    #[serde(rename = "fieldRules", default)]
+    field_rules: Vec<DocLayoutRules>,
+}
+
+#[derive(Deserialize)]
+struct DocLayoutRules {
+    layout: String,
+    #[serde(default)]
+    rules: Vec<DocRule>,
+}
+
+#[derive(Deserialize)]
+struct DocRule {
+    field: String,
+    rule: String,
+    /// Inclusive bounds as decimal strings (they are `i128` at the source).
+    #[serde(default)]
+    min: Option<String>,
+    #[serde(default)]
+    max: Option<String>,
+    /// Whether the bounds are the whole rule.
+    #[serde(default)]
+    exact: bool,
 }
 
 #[derive(Deserialize)]
@@ -530,6 +556,8 @@ fn diff_program(old: &Doc, new: &Doc, findings: &mut Vec<AuthorityFinding>) {
             }
         }
     }
+    diff_field_rules(old, new, findings);
+
     for (key, old_ix) in &old_by_key {
         if !new_by_key.contains_key(key) {
             findings.push(AuthorityFinding {
@@ -539,6 +567,169 @@ fn diff_program(old: &Doc, new: &Doc, findings: &mut Vec<AuthorityFinding>) {
                 code: "instruction_removed".to_string(),
                 detail: format!("discriminator {} no longer dispatches", fmt_bytes(key)),
             });
+        }
+    }
+}
+
+/// Everything the rules of one field say, taken together: a value must
+/// satisfy every rule, so the bounds intersect.
+struct FieldRuleSet {
+    texts: Vec<String>,
+    min: Option<i128>,
+    max: Option<i128>,
+    exact: bool,
+}
+
+impl FieldRuleSet {
+    fn describe(&self) -> String {
+        format!("`{}`", self.texts.join("` and `"))
+    }
+}
+
+fn field_rule_sets(doc: &Doc) -> BTreeMap<(String, String), FieldRuleSet> {
+    let mut sets: BTreeMap<(String, String), FieldRuleSet> = BTreeMap::new();
+    for layout in &doc.field_rules {
+        for rule in &layout.rules {
+            let set = sets
+                .entry((layout.layout.clone(), rule.field.clone()))
+                .or_insert(FieldRuleSet {
+                    texts: Vec::new(),
+                    min: None,
+                    max: None,
+                    exact: true,
+                });
+            set.texts.push(rule.rule.clone());
+            // A bound that does not parse is no bound, and the rule is
+            // then not decided by its bounds.
+            let parse = |text: &Option<String>, exact: &mut bool| match text {
+                Some(text) => match text.parse::<i128>() {
+                    Ok(value) => Some(value),
+                    Err(_) => {
+                        *exact = false;
+                        None
+                    }
+                },
+                None => None,
+            };
+            if let Some(min) = parse(&rule.min, &mut set.exact) {
+                set.min = Some(set.min.map_or(min, |current| current.max(min)));
+            }
+            if let Some(max) = parse(&rule.max, &mut set.exact) {
+                set.max = Some(set.max.map_or(max, |current| current.min(max)));
+            }
+            set.exact &= rule.exact;
+        }
+    }
+    for set in sets.values_mut() {
+        set.texts.sort();
+        set.texts.dedup();
+    }
+    sets
+}
+
+/// Compare the value rules of every layout field. The finding's
+/// `instruction` is `layout <name>` and its `account` is the field: a
+/// rule guards the account wherever it binds, not one instruction.
+fn diff_field_rules(old: &Doc, new: &Doc, findings: &mut Vec<AuthorityFinding>) {
+    let old_sets = field_rule_sets(old);
+    let new_sets = field_rule_sets(new);
+    let mut push = |impact, key: &(String, String), code: &str, detail: String| {
+        findings.push(AuthorityFinding {
+            impact,
+            instruction: format!("layout {}", key.0),
+            account: Some(key.1.clone()),
+            code: code.to_string(),
+            detail,
+        });
+    };
+
+    for (key, old_set) in &old_sets {
+        let Some(new_set) = new_sets.get(key) else {
+            // A renamed or removed field takes its rule with it; whether
+            // the layout still has the field is the layout diff's job.
+            push(
+                AuthorityImpact::Widened,
+                key,
+                "field_rule_removed",
+                format!(
+                    "{} is no longer checked; stored values it refused now bind",
+                    old_set.describe()
+                ),
+            );
+            continue;
+        };
+        if old_set.texts == new_set.texts {
+            continue;
+        }
+        let lower_widened = match (old_set.min, new_set.min) {
+            (Some(old), Some(new)) => new < old,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        let upper_widened = match (old_set.max, new_set.max) {
+            (Some(old), Some(new)) => new > old,
+            (Some(_), None) => true,
+            _ => false,
+        };
+        let bounds = |set: &FieldRuleSet| {
+            let side =
+                |bound: Option<i128>| bound.map_or("unbounded".to_string(), |b| b.to_string());
+            format!("[{}, {}]", side(set.min), side(set.max))
+        };
+        let change = format!(
+            "{} -> {}; bounds {} -> {}",
+            old_set.describe(),
+            new_set.describe(),
+            bounds(old_set),
+            bounds(new_set)
+        );
+        if lower_widened || upper_widened {
+            push(AuthorityImpact::Widened, key, "field_rule_widened", change);
+        } else if old_set.exact && new_set.exact {
+            if old_set.min == new_set.min && old_set.max == new_set.max {
+                push(AuthorityImpact::Info, key, "field_rule_respelled", change);
+            } else {
+                push(
+                    AuthorityImpact::Narrowed,
+                    key,
+                    "field_rule_tightened",
+                    format!(
+                        "{change}; an account whose stored value the new rule refuses \
+                         no longer binds"
+                    ),
+                );
+            }
+        } else if old_set
+            .texts
+            .iter()
+            .all(|text| new_set.texts.contains(text))
+        {
+            // Every old condition is still there; the new ones only add.
+            push(
+                AuthorityImpact::Narrowed,
+                key,
+                "field_rule_tightened",
+                format!(
+                    "{change}; an account whose stored value the new rule refuses \
+                     no longer binds"
+                ),
+            );
+        } else {
+            push(AuthorityImpact::Review, key, "field_rule_rewritten", change);
+        }
+    }
+    for (key, new_set) in &new_sets {
+        if !old_sets.contains_key(key) {
+            push(
+                AuthorityImpact::Narrowed,
+                key,
+                "field_rule_added",
+                format!(
+                    "{} is now checked; an account whose stored value it refuses \
+                     no longer binds",
+                    new_set.describe()
+                ),
+            );
         }
     }
 }

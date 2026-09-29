@@ -35,6 +35,8 @@ unsafe impl<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> crate::accou
     for MapEntry<K, V>
 {
 }
+// SAFETY: as above. Both fields are `Pod`, so they have alignment 1 and
+// no padding between or after them, and every bit pattern is valid.
 unsafe impl<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> Pod for MapEntry<K, V> {}
 
 impl<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> FixedLayout for MapEntry<K, V> {

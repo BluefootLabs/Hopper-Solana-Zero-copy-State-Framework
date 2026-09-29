@@ -132,7 +132,7 @@ Instructions (4):
 
 Policies (2):
   TREASURY_WRITE      Authority + Snapshot + Conservation + Invariants
-  AUTHORITY_CHANGE     Authority + CPI Guard + PostMutation + Invariants
+  AUTHORITY_CHANGE     Authority + CpiGuard + PostMutationCheck + InvariantCheck
 
 Compatibility:
   Vault v1 -> v2: append-safe, backward-readable

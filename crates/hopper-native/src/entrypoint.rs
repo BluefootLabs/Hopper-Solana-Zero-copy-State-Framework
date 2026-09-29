@@ -48,12 +48,16 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     let mut accounts = [UNINIT; 254]; // MAX_TX_ACCOUNTS
 
     let (program_id, count, instruction_data) =
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `input` is the loader's input buffer (this function's
+        // contract) and `accounts` has room for the 254 accounts the parser
+        // may write.
         unsafe { crate::raw_input::deserialize_accounts::<254>(input, &mut accounts) };
 
     // Respect MAX: only pass up to MAX accounts to the callback.
     let effective_count = count.min(MAX);
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: The parser initialized the first `count` slots and
+    // `effective_count <= count`; `MaybeUninit<AccountView>` has the layout
+    // of `AccountView`.
     let account_slice = unsafe {
         core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'_>, effective_count)
     };
@@ -99,14 +103,17 @@ macro_rules! hopper_program_entrypoint {
                 core::mem::MaybeUninit::<$crate::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `input` is the loader's input buffer (the entrypoint's
+            // contract) and `accounts` has `$maximum` slots, the bound the
+            // parser is given.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::raw_input::deserialize_accounts::<$maximum>(input, &mut accounts)
             };
 
             match $process_instruction(
                 program_id,
-                // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                // SAFETY: The parser initialized the first `count` slots;
+                // `MaybeUninit<AccountView>` has the layout of `AccountView`.
                 unsafe {
                     core::slice::from_raw_parts(
                         accounts.as_ptr() as *const $crate::AccountView<'_>,
@@ -320,7 +327,8 @@ macro_rules! hopper_lazy_entrypoint {
         /// Called by the Solana runtime; `input` is a valid BPF input buffer.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `input` is the loader's input buffer (the entrypoint's
+            // contract), which is what `lazy_deserialize` requires.
             let mut ctx = unsafe { $crate::lazy::lazy_deserialize(input) };
             match $process(&mut ctx) {
                 Ok(()) => $crate::SUCCESS,
@@ -447,10 +455,12 @@ unsafe impl core::alloc::GlobalAlloc for BumpAllocator {
         pos as *mut u8
     }
 
+    // SAFETY: `GlobalAlloc::dealloc` is `unsafe` by the trait's signature.
+    // This body reads and writes nothing, so it holds for any pointer and
+    // layout: a bump allocator reclaims its memory when the instruction
+    // ends.
     #[inline]
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
-        // Bump allocator: memory is reclaimed when the instruction ends.
-    }
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {}
 }
 
 /// Install the default bump allocator over the SVM heap region.

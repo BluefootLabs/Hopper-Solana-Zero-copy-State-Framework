@@ -137,11 +137,15 @@ impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
         let header = unsafe { core::ptr::read_unaligned(raw as *const u32) };
         Self {
             address: unsafe { &(*raw).address as *const Address },
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `raw` is the view's live header. The field's address is
+            // taken for the CPI account record; the reference formed to take
+            // it is not kept.
             lamports: unsafe { &(*raw).lamports as *const u64 },
             data_len: view.data_len() as u64,
             data: view.data_ptr_unchecked(),
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `raw` is the view's live header. The field's address is
+            // taken for the CPI account record; the reference formed to take
+            // it is not kept.
             owner: unsafe { &(*raw).owner as *const Address },
             rent_epoch: 0,
             is_signer: header & 0x0000_FF00 != 0,
@@ -282,7 +286,8 @@ impl core::ops::Deref for Seed<'_> {
 
     #[inline(always)]
     fn deref(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `seed` and `len` were taken from one `&'a [u8]` in the
+        // constructor, and the `PhantomData` ties `self` to that borrow.
         unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
     }
 }

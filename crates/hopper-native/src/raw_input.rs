@@ -29,7 +29,8 @@ const BPF_ALIGN_OF_U128: usize = 8;
 #[cold]
 pub(crate) fn malformed_duplicate_marker(marker: u8, slot: usize) -> ! {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: `MSG` is a static byte string; the pointer and the length
+    // describe it.
     unsafe {
         // Keep the message short and on-chain-cheap. The loader log
         // attaches the program id automatically.
@@ -409,7 +410,10 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 
     let mut slot = 0usize;
     while slot < count {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `offset` is at a record boundary inside the loader's input
+        // buffer: it starts after the 8-byte count and advances by the
+        // loader's own stride for each of the `count` accounts the loader
+        // serialized.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
             // SAFETY: `offset` is on a Solana account record boundary produced
@@ -440,7 +444,9 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
             if duplicate_of >= slot {
                 malformed_duplicate_marker(marker, slot);
             }
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `duplicate_of < slot` was checked above (the trap never
+            // returns), and every slot below `slot` was initialized by an
+            // earlier iteration.
             let raw = unsafe {
                 accounts
                     .get_unchecked(duplicate_of)
@@ -823,16 +829,25 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
 
     let mut slot = 0usize;
     while slot < num_accounts {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `scan` walks the loader's input buffer record by record,
+        // using the loader's own stride, for the `num_accounts` records the
+        // loader serialized; the instruction data, its length word, and the
+        // program id follow the last record in that buffer.
         let marker = unsafe { *scan };
         if marker == u8::MAX {
             let raw = scan as *const RuntimeAccount;
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `scan` walks the loader's input buffer record by
+            // record, using the loader's own stride, for the `num_accounts`
+            // records the loader serialized; the instruction data, its length
+            // word, and the program id follow the last record in that buffer.
             let data_len = unsafe { (*raw).data_len as usize };
             let mut step = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
             step += unsafe { scan.add(step).align_offset(BPF_ALIGN_OF_U128) };
             step += 8;
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `scan` walks the loader's input buffer record by
+            // record, using the loader's own stride, for the `num_accounts`
+            // records the loader serialized; the instruction data, its length
+            // word, and the program id follow the last record in that buffer.
             scan = unsafe { scan.add(step) };
         } else {
             let duplicate_of = marker as usize;
@@ -853,11 +868,17 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
     let data_len = unsafe { core::ptr::read_unaligned(scan as *const u64) as usize };
     scan = unsafe { scan.add(8) };
     let instruction_data = unsafe { core::slice::from_raw_parts(scan as *const u8, data_len) };
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: `scan` walks the loader's input buffer record by record, using
+    // the loader's own stride, for the `num_accounts` records the loader
+    // serialized; the instruction data, its length word, and the program id
+    // follow the last record in that buffer.
     scan = unsafe { scan.add(data_len) };
 
     let program_id_ptr = scan as *const [u8; 32];
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: `scan` walks the loader's input buffer record by record, using
+    // the loader's own stride, for the `num_accounts` records the loader
+    // serialized; the instruction data, its length word, and the program id
+    // follow the last record in that buffer.
     let program_id = Address::new_from_array(unsafe { *program_id_ptr });
 
     RawInstructionFrame {

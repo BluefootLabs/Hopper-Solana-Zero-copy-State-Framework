@@ -230,7 +230,8 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
     /// the CPI.
     #[inline]
     pub fn data(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: Every mutator writes a byte before it advances `data_len`,
+        // so the first `data_len` bytes of the buffer are initialized.
         unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const u8, self.data_len) }
     }
 

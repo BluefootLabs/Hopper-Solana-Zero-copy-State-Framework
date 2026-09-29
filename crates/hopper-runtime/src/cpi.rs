@@ -99,7 +99,9 @@ pub unsafe fn invoke_signed_unchecked(
             data_len: instruction.data.len() as u64,
         };
 
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `c_instruction` and the three slices are live for the
+        // synchronous call and have the C layouts the syscall reads; aliasing
+        // and privilege are this function's contract.
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
                 &c_instruction as *const _ as *const u8,
@@ -937,7 +939,9 @@ fn invoke_signed_bounded<const MAX_ACCOUNTS: usize>(
         core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count)
     };
 
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: Every account was checked above against the instruction's metas
+    // (address, privilege, borrow state), which is the contract of the
+    // unchecked call.
     unsafe { invoke_signed_unchecked(instruction, accounts, signers_seeds) }
 }
 

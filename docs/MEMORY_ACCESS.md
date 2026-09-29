@@ -13,7 +13,7 @@ load it through tiered validation, and access fields through typed overlays.
 
 ```rust
 let vault = Vault::load(account, program_id)?;
-let data = account.try_borrow_mut_data()?;
+let mut data = account.try_borrow_mut()?;
 let v = overlay_mut::<Vault>(&mut data[HEADER_LEN..])?;
 v.balance.set(v.balance.get() + amount);
 ```

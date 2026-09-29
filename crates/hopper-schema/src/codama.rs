@@ -527,66 +527,135 @@ pub const MANIFEST_EXPORT_END: &str = "<<<hopper-manifest-json-end>>>";
 
 impl<'a> fmt::Display for ManifestJson<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let p = self.0;
-        writeln!(f, "{{")?;
-        write!(f, "  \"name\": ")?;
-        write_json_str(f, p.name)?;
-        writeln!(f, ",")?;
-        write!(f, "  \"version\": ")?;
-        write_json_str(f, p.version)?;
-        writeln!(f, ",")?;
-        write!(f, "  \"description\": ")?;
-        write_json_str(f, p.description)?;
-        writeln!(f, ",")?;
-
-        // Layouts
-        write!(f, "  \"layouts\": ")?;
-        write_layout_array(f, p.layouts)?;
-        writeln!(f, ",")?;
-
-        // Instructions
-        write!(f, "  \"instructions\": ")?;
-        write_instruction_array(f, p.instructions)?;
-        writeln!(f, ",")?;
-
-        // Events
-        write!(f, "  \"events\": ")?;
-        write_event_array(f, p.events)?;
-        writeln!(f, ",")?;
-
-        // Policies
-        write!(f, "  \"policies\": ")?;
-        write_policy_array(f, p.policies)?;
-        writeln!(f, ",")?;
-
-        // Operational layout metadata and typed context contracts are part of
-        // the rich manifest. Omitting them made a source-emitted manifest lose
-        // PDA, lifecycle, owner, address, parametric-write, and lamport rules
-        // when the CLI loaded it again.
-        write!(f, "  \"layoutMetadata\": ")?;
-        write_layout_metadata_array(f, p.layout_metadata)?;
-        writeln!(f, ",")?;
-        write!(f, "  \"contexts\": ")?;
-        write_context_array(f, p.contexts)?;
-        writeln!(f, ",")?;
-
-        // Compatibility rules
-        write!(f, "  \"compatRules\": ")?;
-        write_compat_pair_array(f, p.compatibility_pairs)?;
-        writeln!(f, ",")?;
-
-        // Receipt wire schema
-        write!(f, "  \"receiptSchema\": ")?;
-        write_receipt_schema(f)?;
-        writeln!(f, ",")?;
-
-        // Tooling hints
-        write!(f, "  \"toolingHints\": ")?;
-        write_str_array(f, p.tooling_hints, 1)?;
-        writeln!(f)?;
-
-        write!(f, "}}")
+        write_manifest(f, self.0, &[])
     }
+}
+
+/// [`ManifestJson`] plus the layouts' `#[check]` rules, written as the
+/// `fieldRules` key. `hopper::program_manifest!` prints this one. The key
+/// is left out when no layout declares a rule, so a program without rules
+/// exports the same bytes as before.
+pub struct ManifestJsonWithRules<'a>(pub &'a ProgramManifest, pub &'a [crate::LayoutRules]);
+
+impl<'a> fmt::Display for ManifestJsonWithRules<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write_manifest(f, self.0, self.1)
+    }
+}
+
+fn write_field_rules(f: &mut fmt::Formatter<'_>, layouts: &[crate::LayoutRules]) -> fmt::Result {
+    writeln!(f, "[")?;
+    let mut first_layout = true;
+    for layout in layouts.iter().filter(|l| !l.rules.is_empty()) {
+        if !first_layout {
+            writeln!(f, ",")?;
+        }
+        first_layout = false;
+        write_indent(f, 2)?;
+        write!(f, "{{ \"layout\": ")?;
+        write_json_str(f, layout.layout)?;
+        writeln!(f, ", \"rules\": [")?;
+        for (i, rule) in layout.rules.iter().enumerate() {
+            write_indent(f, 3)?;
+            write!(f, "{{ \"field\": ")?;
+            write_json_str(f, rule.field)?;
+            write!(f, ", \"rule\": ")?;
+            write_json_str(f, rule.rule)?;
+            // Bounds are decimal strings: an `i128` does not fit a JSON
+            // number every reader can hold.
+            match rule.min {
+                Some(min) => write!(f, ", \"min\": \"{min}\"")?,
+                None => write!(f, ", \"min\": null")?,
+            }
+            match rule.max {
+                Some(max) => write!(f, ", \"max\": \"{max}\"")?,
+                None => write!(f, ", \"max\": null")?,
+            }
+            write!(f, ", \"exact\": {} }}", rule.exact)?;
+            if i + 1 < layout.rules.len() {
+                writeln!(f, ",")?;
+            } else {
+                writeln!(f)?;
+            }
+        }
+        write_indent(f, 2)?;
+        write!(f, "] }}")?;
+    }
+    writeln!(f)?;
+    write_indent(f, 1)?;
+    write!(f, "]")
+}
+
+fn write_manifest(
+    f: &mut fmt::Formatter<'_>,
+    p: &ProgramManifest,
+    field_rules: &[crate::LayoutRules],
+) -> fmt::Result {
+    writeln!(f, "{{")?;
+    write!(f, "  \"name\": ")?;
+    write_json_str(f, p.name)?;
+    writeln!(f, ",")?;
+    write!(f, "  \"version\": ")?;
+    write_json_str(f, p.version)?;
+    writeln!(f, ",")?;
+    write!(f, "  \"description\": ")?;
+    write_json_str(f, p.description)?;
+    writeln!(f, ",")?;
+
+    // Layouts
+    write!(f, "  \"layouts\": ")?;
+    write_layout_array(f, p.layouts)?;
+    writeln!(f, ",")?;
+
+    // Instructions
+    write!(f, "  \"instructions\": ")?;
+    write_instruction_array(f, p.instructions)?;
+    writeln!(f, ",")?;
+
+    // Events
+    write!(f, "  \"events\": ")?;
+    write_event_array(f, p.events)?;
+    writeln!(f, ",")?;
+
+    // Policies
+    write!(f, "  \"policies\": ")?;
+    write_policy_array(f, p.policies)?;
+    writeln!(f, ",")?;
+
+    // Operational layout metadata and typed context contracts are part of
+    // the rich manifest. Omitting them made a source-emitted manifest lose
+    // PDA, lifecycle, owner, address, parametric-write, and lamport rules
+    // when the CLI loaded it again.
+    write!(f, "  \"layoutMetadata\": ")?;
+    write_layout_metadata_array(f, p.layout_metadata)?;
+    writeln!(f, ",")?;
+    write!(f, "  \"contexts\": ")?;
+    write_context_array(f, p.contexts)?;
+    writeln!(f, ",")?;
+
+    // Compatibility rules
+    write!(f, "  \"compatRules\": ")?;
+    write_compat_pair_array(f, p.compatibility_pairs)?;
+    writeln!(f, ",")?;
+
+    // Receipt wire schema
+    write!(f, "  \"receiptSchema\": ")?;
+    write_receipt_schema(f)?;
+    writeln!(f, ",")?;
+
+    // Value rules on layout fields, when any layout declares one.
+    if field_rules.iter().any(|l| !l.rules.is_empty()) {
+        write!(f, "  \"fieldRules\": ")?;
+        write_field_rules(f, field_rules)?;
+        writeln!(f, ",")?;
+    }
+
+    // Tooling hints
+    write!(f, "  \"toolingHints\": ")?;
+    write_str_array(f, p.tooling_hints, 1)?;
+    writeln!(f)?;
+
+    write!(f, "}}")
 }
 
 fn write_layout_array(f: &mut fmt::Formatter<'_>, layouts: &[LayoutManifest]) -> fmt::Result {

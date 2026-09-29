@@ -282,12 +282,18 @@ impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
         // account struct. The address and owner fields have the same binary
         // layout as hopper_runtime::Address (#[repr(transparent)] over [u8; 32]).
         Self {
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `raw` is the view's live header. `addr_of!` takes the
+            // field's address without forming a reference, and the native and
+            // runtime `Address` are both `#[repr(transparent)]` over `[u8;
+            // 32]`.
             address: unsafe { core::ptr::addr_of!((*raw).address) as *const Address },
             lamports: unsafe { core::ptr::addr_of!((*raw).lamports) },
             data_len: view.data_len() as u64,
             data: view.data_ptr_unchecked(),
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `raw` is the view's live header. `addr_of!` takes the
+            // field's address without forming a reference, and the native and
+            // runtime `Address` are both `#[repr(transparent)]` over `[u8;
+            // 32]`.
             owner: unsafe { core::ptr::addr_of!((*raw).owner) as *const Address },
             rent_epoch: 0,
             is_signer: view.is_signer(),
@@ -336,7 +342,8 @@ impl core::ops::Deref for Seed<'_> {
 
     #[inline(always)]
     fn deref(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `seed` and `len` were taken from one `&'a [u8]` in the
+        // constructor, and the `PhantomData` ties `self` to that borrow.
         unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
     }
 }

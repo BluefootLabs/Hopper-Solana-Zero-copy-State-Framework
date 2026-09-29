@@ -102,6 +102,46 @@ pub trait NoStoredBump {
 
 impl<T> NoStoredBump for &BumpProbe<T> {}
 
+/// A layout with value rules: `#[check(..)]` on a field of a
+/// `#[hopper::state]` struct implements this.
+pub trait FieldRules {
+    /// Check every rule against this value and return the first failure.
+    fn check_rules(&self) -> ProgramResult;
+
+    /// Load the layout from `account` and check its rules.
+    fn check_account(account: &crate::account::AccountView<'_>) -> ProgramResult;
+}
+
+/// Selector for [`FieldRules`] in generated code:
+/// `(&RulesProbe::<T>(..)).check_account_rules(view)` resolves to the
+/// checking impl when `T: FieldRules` and to the no-op otherwise, with no
+/// trait bound on `T`, so a layout without rules pays nothing.
+#[doc(hidden)]
+pub struct RulesProbe<T>(pub core::marker::PhantomData<T>);
+
+#[doc(hidden)]
+pub trait CheckFieldRules {
+    /// Load the layout from `account` and check its rules.
+    fn check_account_rules(&self, account: &crate::account::AccountView<'_>) -> ProgramResult;
+}
+
+impl<T: FieldRules> CheckFieldRules for RulesProbe<T> {
+    #[inline(always)]
+    fn check_account_rules(&self, account: &crate::account::AccountView<'_>) -> ProgramResult {
+        T::check_account(account)
+    }
+}
+
+#[doc(hidden)]
+pub trait NoFieldRules {
+    #[inline(always)]
+    fn check_account_rules(&self, _account: &crate::account::AccountView<'_>) -> ProgramResult {
+        Ok(())
+    }
+}
+
+impl<T> NoFieldRules for &RulesProbe<T> {}
+
 // ══════════════════════════════════════════════════════════════════════
 //  HopperHeader -- the 16-byte on-chain header used by headered Hopper
 //  accounts. Compact accounts use `[disc][body]` without this header.
@@ -159,7 +199,9 @@ impl HopperHeader {
         if data.len() < Self::SIZE {
             return None;
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `data.len() >= Self::SIZE` was checked above;
+        // `HopperHeader` is `repr(C, packed)`, so it has alignment 1 and no
+        // padding, and every bit pattern is valid.
         Some(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 }

@@ -18,6 +18,7 @@ mod __hopper_sbf {
 
 pub const NOTE_BODY_MAX: usize = 160;
 pub const BLOB_BYTES_MAX: usize = 96;
+pub const BLOB_TAG_MAX: u8 = 15;
 
 #[hopper::account(discriminator = 21, version = 1)]
 pub struct TailNote<'a> {
@@ -40,6 +41,9 @@ pub struct TailBlob<'a> {
     #[role(version)]
     pub revision: WireU64,
 
+    /// A rule on the fixed body: binding an existing blob checks the
+    /// stored tag, and `try_set_tag` refuses a new one out of range.
+    #[check(value <= BLOB_TAG_MAX, error = TagOutOfRange)]
     pub tag: u8,
     pub payload: TailBytes<'a>,
 }
@@ -47,7 +51,8 @@ pub struct TailBlob<'a> {
 hopper::hopper_error! {
     base = 6700;
     EmptyBody,
-    EmptyPayload
+    EmptyPayload,
+    TagOutOfRange
 }
 
 #[derive(Accounts)]
@@ -193,6 +198,7 @@ impl<'info> InitializeBlob<'info> {
         {
             let mut blob = self.blob.get_mut_after_init()?;
             blob.set_inner(*self.authority.key(), 0, tag)?;
+            blob.check_rules()?;
         }
 
         TailBlob::tail_write(
@@ -212,7 +218,7 @@ impl<'info> UpdateBlob<'info> {
         {
             let mut blob = self.blob.get_mut()?;
             blob.revision.checked_add_assign(1)?;
-            blob.tag = tag;
+            blob.try_set_tag(tag)?;
         }
 
         TailBlob::tail_write(
@@ -277,6 +283,7 @@ pub fn initialize_blob_data(
     init_header::<TailBlob>(data)?;
     let blob = TailBlob::overlay_mut(&mut data[HopperHeader::SIZE..TailBlob::TAIL_PREFIX_OFFSET])?;
     *blob = TailBlob::new(authority, 0.into(), tag);
+    blob.check_rules()?;
     TailBlob::tail_write(
         data,
         &TailBlobTail {
@@ -292,7 +299,7 @@ pub fn write_blob_data(data: &mut [u8], tag: u8, payload: &[u8]) -> ProgramResul
     }
     let fixed = TailBlob::overlay_mut(&mut data[HopperHeader::SIZE..TailBlob::TAIL_PREFIX_OFFSET])?;
     fixed.revision.checked_add_assign(1)?;
-    fixed.tag = tag;
+    fixed.try_set_tag(tag)?;
     TailBlob::tail_write(
         data,
         &TailBlobTail {
@@ -372,6 +379,11 @@ mod tests {
         );
 
         write_blob_data(&mut data, 9, &[9, 8, 7]).unwrap();
+        assert_eq!(TailBlob::payload(&data).unwrap().as_bytes(), &[9, 8, 7]);
+        assert_eq!(
+            write_blob_data(&mut data, BLOB_TAG_MAX + 1, &[1]),
+            Err(TagOutOfRange.into())
+        );
         assert_eq!(TailBlob::payload(&data).unwrap().as_bytes(), &[9, 8, 7]);
         assert_eq!(
             TailBlob::overlay(&data[HopperHeader::SIZE..TailBlob::TAIL_PREFIX_OFFSET])

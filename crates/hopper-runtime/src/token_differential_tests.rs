@@ -1265,3 +1265,720 @@ fn token_program_owning_selects_the_program_and_refuses_others() {
     assert_eq!(TokenProgram::from_address(&addr(1)), None);
     assert_eq!(TokenProgram::Legacy.address(), &TOKEN_PROGRAM_ID);
 }
+
+// ---------------------------------------------------------------------
+// Token metadata, token group, confidential transfer
+
+mod interfaces {
+    use super::*;
+    use crate::token_confidential_ix as ct;
+    use crate::token_metadata_ix as md;
+    use core::num::NonZeroI8;
+    use solana_nullable::MaybeNull;
+    use spl_token_2022_interface::extension::confidential_transfer::instruction as ct_ix;
+    use spl_token_confidential_transfer_proof_extraction::instruction::ProofLocation as SplProof;
+    use spl_token_metadata_interface::state::Field;
+    use std::string::ToString;
+
+    fn maybe(address: Option<Pubkey>) -> MaybeNull<Pubkey> {
+        MaybeNull::try_from(address).unwrap()
+    }
+
+    #[test]
+    fn metadata_builders_match_the_canonical_constructors() {
+        let f = Fixture::new();
+        let program = token_2022_id();
+        let update_authority = leak_account([11; 32], true);
+
+        same(
+            capture(
+                &md::InitializeTokenMetadata {
+                    metadata: f.mint,
+                    update_authority,
+                    mint: f.mint,
+                    mint_authority: f.authority,
+                    name: "Hopper",
+                    symbol: "HOP",
+                    uri: "https://hopperzero.dev/token.json",
+                },
+                &[],
+            ),
+            spl_token_metadata_interface::instruction::initialize(
+                &program,
+                &pk(f.mint),
+                &pk(update_authority),
+                &pk(f.mint),
+                &pk(f.authority),
+                "Hopper".to_string(),
+                "HOP".to_string(),
+                "https://hopperzero.dev/token.json".to_string(),
+            ),
+            "metadata initialize",
+        );
+
+        for (field, canonical) in [
+            (md::MetadataField::Name, Field::Name),
+            (md::MetadataField::Symbol, Field::Symbol),
+            (md::MetadataField::Uri, Field::Uri),
+            (
+                md::MetadataField::Key("tier"),
+                Field::Key("tier".to_string()),
+            ),
+            (md::MetadataField::Key(""), Field::Key("".to_string())),
+        ] {
+            same(
+                capture(
+                    &md::UpdateMetadataField {
+                        metadata: f.mint,
+                        update_authority,
+                        field,
+                        value: "gold",
+                    },
+                    &[],
+                ),
+                spl_token_metadata_interface::instruction::update_field(
+                    &program,
+                    &pk(f.mint),
+                    &pk(update_authority),
+                    canonical,
+                    "gold".to_string(),
+                ),
+                "metadata update_field",
+            );
+        }
+
+        for idempotent in [false, true] {
+            same(
+                capture(
+                    &md::RemoveMetadataKey {
+                        metadata: f.mint,
+                        update_authority,
+                        idempotent,
+                        key: "tier",
+                    },
+                    &[],
+                ),
+                spl_token_metadata_interface::instruction::remove_key(
+                    &program,
+                    &pk(f.mint),
+                    &pk(update_authority),
+                    "tier".to_string(),
+                    idempotent,
+                ),
+                "metadata remove_key",
+            );
+        }
+
+        let next = addr(12);
+        for new_authority in [None, Some(&next)] {
+            same(
+                capture(
+                    &md::UpdateMetadataAuthority {
+                        metadata: f.mint,
+                        current_authority: update_authority,
+                        new_authority,
+                    },
+                    &[],
+                ),
+                spl_token_metadata_interface::instruction::update_authority(
+                    &program,
+                    &pk(f.mint),
+                    &pk(update_authority),
+                    maybe(new_authority.map(|_| pubkey(12))),
+                ),
+                "metadata update_authority",
+            );
+        }
+
+        for (start, end) in [
+            (None, None),
+            (Some(4), None),
+            (None, Some(9)),
+            (Some(1), Some(2)),
+        ] {
+            same(
+                capture(
+                    &md::EmitTokenMetadata {
+                        metadata: f.mint,
+                        start,
+                        end,
+                    },
+                    &[],
+                ),
+                spl_token_metadata_interface::instruction::emit(&program, &pk(f.mint), start, end),
+                "metadata emit",
+            );
+        }
+    }
+
+    #[test]
+    fn group_builders_match_the_canonical_constructors() {
+        let f = Fixture::new();
+        let program = token_2022_id();
+        let group_authority = leak_account([13; 32], true);
+        let member_mint = leak_account([14; 32], false);
+        let next = addr(12);
+
+        for update_authority in [None, Some(&next)] {
+            same(
+                capture(
+                    &md::InitializeTokenGroup {
+                        group: f.mint,
+                        mint: f.mint,
+                        mint_authority: f.authority,
+                        update_authority,
+                        max_size: 1_000,
+                    },
+                    &[],
+                ),
+                spl_token_group_interface::instruction::initialize_group(
+                    &program,
+                    &pk(f.mint),
+                    &pk(f.mint),
+                    &pk(f.authority),
+                    update_authority.map(|_| pubkey(12)),
+                    1_000,
+                ),
+                "group initialize",
+            );
+            same(
+                capture(
+                    &md::UpdateTokenGroupAuthority {
+                        group: f.mint,
+                        current_authority: group_authority,
+                        new_authority: update_authority,
+                    },
+                    &[],
+                ),
+                spl_token_group_interface::instruction::update_group_authority(
+                    &program,
+                    &pk(f.mint),
+                    &pk(group_authority),
+                    update_authority.map(|_| pubkey(12)),
+                ),
+                "group update_authority",
+            );
+        }
+
+        same(
+            capture(
+                &md::UpdateTokenGroupMaxSize {
+                    group: f.mint,
+                    update_authority: group_authority,
+                    max_size: u64::MAX,
+                },
+                &[],
+            ),
+            spl_token_group_interface::instruction::update_group_max_size(
+                &program,
+                &pk(f.mint),
+                &pk(group_authority),
+                u64::MAX,
+            ),
+            "group update_max_size",
+        );
+
+        same(
+            capture(
+                &md::InitializeTokenGroupMember {
+                    member: member_mint,
+                    member_mint,
+                    member_mint_authority: f.authority,
+                    group: f.mint,
+                    group_update_authority: group_authority,
+                },
+                &[],
+            ),
+            spl_token_group_interface::instruction::initialize_member(
+                &program,
+                &pk(member_mint),
+                &pk(member_mint),
+                &pk(f.authority),
+                &pk(f.mint),
+                &pk(group_authority),
+            ),
+            "group initialize_member",
+        );
+    }
+
+    /// The signer sets every authority-carrying builder is checked with:
+    /// a direct authority and a two-member multisig.
+    fn signer_sets(f: &Fixture) -> [(Vec<&'static AccountView<'static>>, Vec<Pubkey>); 2] {
+        [
+            (Vec::new(), Vec::new()),
+            (
+                f.signers.to_vec(),
+                f.signers.iter().map(|v| pk(v)).collect(),
+            ),
+        ]
+    }
+
+    /// A proof location in both crates' terms. `offset` zero means a
+    /// context-state account at `[byte; 32]`.
+    fn proof<T: bytemuck::Pod>(
+        offset: i8,
+        byte: u8,
+        data: &'static T,
+        address: &'static Pubkey,
+    ) -> (ct::ProofLocation<'static>, SplProof<'static, T>) {
+        match NonZeroI8::new(offset) {
+            Some(offset) => (
+                ct::ProofLocation::InstructionOffset(offset),
+                SplProof::InstructionOffset(offset, data),
+            ),
+            None => (
+                ct::ProofLocation::ContextStateAccount(leak_account([byte; 32], false)),
+                SplProof::ContextStateAccount(address),
+            ),
+        }
+    }
+
+    fn zeroed<T: bytemuck::Pod>() -> &'static T {
+        Box::leak(Box::new(T::zeroed()))
+    }
+
+    fn key(byte: u8) -> &'static Pubkey {
+        Box::leak(Box::new(pubkey(byte)))
+    }
+
+    fn sysvar() -> &'static AccountView<'static> {
+        leak_account(
+            crate::__decode_base58_32("Sysvar1nstructions1111111111111111111111111"),
+            false,
+        )
+    }
+
+    #[test]
+    fn confidential_mint_and_plain_account_builders_match() {
+        let f = Fixture::new();
+        let program = token_2022_id();
+        let auditor = [21u8; ct::ELGAMAL_PUBKEY_LEN];
+        let authority = addr(9);
+        let balance_bytes = [22u8; ct::DECRYPTABLE_BALANCE_LEN];
+        let balance: spl_token_2022_interface::extension::confidential_transfer::DecryptableBalance = bytemuck::pod_read_unaligned(&balance_bytes);
+
+        for (authority, auditor_key, auto) in [
+            (None, None, false),
+            (Some(&authority), Some(&auditor), true),
+            (Some(&authority), None, false),
+        ] {
+            same(
+                capture(
+                    &ct::InitializeConfidentialTransferMint {
+                        mint: f.mint,
+                        authority,
+                        auto_approve_new_accounts: auto,
+                        auditor_elgamal_pubkey: auditor_key,
+                    },
+                    &[],
+                ),
+                ct_ix::initialize_mint(
+                    &program,
+                    &pk(f.mint),
+                    authority.map(|_| pubkey(9)),
+                    auto,
+                    auditor_key.map(|k| bytemuck::pod_read_unaligned(k)),
+                )
+                .unwrap(),
+                "confidential initialize_mint",
+            );
+        }
+
+        for (views, keys) in signer_sets(&f) {
+            let refs: Vec<&Pubkey> = keys.iter().collect();
+            for auditor_key in [None, Some(&auditor)] {
+                same(
+                    capture(
+                        &ct::UpdateConfidentialTransferMint {
+                            mint: f.mint,
+                            authority: f.authority,
+                            auto_approve_new_accounts: true,
+                            auditor_elgamal_pubkey: auditor_key,
+                        },
+                        &views,
+                    ),
+                    ct_ix::update_mint(
+                        &program,
+                        &pk(f.mint),
+                        &pk(f.authority),
+                        &refs,
+                        true,
+                        auditor_key.map(|k| bytemuck::pod_read_unaligned(k)),
+                    )
+                    .unwrap(),
+                    "confidential update_mint",
+                );
+            }
+            same(
+                capture(
+                    &ct::ApproveConfidentialAccount {
+                        account: f.account,
+                        mint: f.mint,
+                        authority: f.authority,
+                    },
+                    &views,
+                ),
+                ct_ix::approve_account(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.mint),
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "confidential approve_account",
+            );
+            same(
+                capture(
+                    &ct::ConfidentialDeposit {
+                        account: f.account,
+                        mint: f.mint,
+                        authority: f.authority,
+                        amount: 77_000,
+                        decimals: 6,
+                    },
+                    &views,
+                ),
+                ct_ix::deposit(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.mint),
+                    77_000,
+                    6,
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "confidential deposit",
+            );
+            same(
+                capture(
+                    &ct::ApplyPendingConfidentialBalance {
+                        account: f.account,
+                        authority: f.authority,
+                        expected_pending_balance_credit_counter: 3,
+                        new_decryptable_available_balance: &balance_bytes,
+                    },
+                    &views,
+                ),
+                ct_ix::apply_pending_balance(
+                    &program,
+                    &pk(f.account),
+                    3,
+                    &balance,
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "confidential apply_pending_balance",
+            );
+            same(
+                capture(
+                    &ct::EnableConfidentialCredits {
+                        account: f.account,
+                        authority: f.authority,
+                    },
+                    &views,
+                ),
+                ct_ix::enable_confidential_credits(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "enable_confidential_credits",
+            );
+            same(
+                capture(
+                    &ct::DisableConfidentialCredits {
+                        account: f.account,
+                        authority: f.authority,
+                    },
+                    &views,
+                ),
+                ct_ix::disable_confidential_credits(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "disable_confidential_credits",
+            );
+            same(
+                capture(
+                    &ct::EnableNonConfidentialCredits {
+                        account: f.account,
+                        authority: f.authority,
+                    },
+                    &views,
+                ),
+                ct_ix::enable_non_confidential_credits(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "enable_non_confidential_credits",
+            );
+            same(
+                capture(
+                    &ct::DisableNonConfidentialCredits {
+                        account: f.account,
+                        authority: f.authority,
+                    },
+                    &views,
+                ),
+                ct_ix::disable_non_confidential_credits(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.authority),
+                    &refs,
+                )
+                .unwrap(),
+                "disable_non_confidential_credits",
+            );
+        }
+
+        let registry = leak_account([23; 32], false);
+        for payer in [None, Some((f.payer, f.system))] {
+            same(
+                capture(
+                    &ct::ConfigureConfidentialAccountWithRegistry {
+                        account: f.account,
+                        mint: f.mint,
+                        elgamal_registry: registry,
+                        payer,
+                    },
+                    &[],
+                ),
+                ct_ix::configure_account_with_registry(
+                    &program,
+                    &pk(f.account),
+                    &pk(f.mint),
+                    &pk(registry),
+                    payer.map(|_| key(5)),
+                )
+                .unwrap(),
+                "configure_account_with_registry",
+            );
+        }
+    }
+
+    #[test]
+    fn proof_carrying_builders_match_for_every_mix_of_locations() {
+        let f = Fixture::new();
+        let program = token_2022_id();
+        let balance_bytes = [31u8; ct::DECRYPTABLE_BALANCE_LEN];
+        let balance: spl_token_2022_interface::extension::confidential_transfer::DecryptableBalance = bytemuck::pod_read_unaligned(&balance_bytes);
+        let lo_bytes = [32u8; ct::ELGAMAL_CIPHERTEXT_LEN];
+        let hi_bytes = [33u8; ct::ELGAMAL_CIPHERTEXT_LEN];
+        let lo = bytemuck::pod_read_unaligned(&lo_bytes);
+        let hi = bytemuck::pod_read_unaligned(&hi_bytes);
+        let sysvar = sysvar();
+
+        // Every combination of "by offset" and "by account" over five
+        // proofs; builders with fewer proofs use the low bits.
+        for mask in 0u8..32 {
+            let offset = |bit: u8, value: i8| if mask & (1 << bit) != 0 { value } else { 0 };
+            let offsets = [
+                offset(0, 1),
+                offset(1, 2),
+                offset(2, -3),
+                offset(3, 4),
+                offset(4, -128),
+            ];
+            let any_offset = |n: usize| offsets[..n].iter().any(|o| *o != 0);
+            let sysvar_for = |n: usize| if any_offset(n) { Some(sysvar) } else { None };
+
+            for (views, keys) in signer_sets(&f) {
+                let refs: Vec<&Pubkey> = keys.iter().collect();
+
+                let (p0, s0) = proof(offsets[0], 40, zeroed(), key(40));
+                same(
+                    capture(
+                        &ct::ConfigureConfidentialAccount {
+                            account: f.account,
+                            mint: f.mint,
+                            authority: f.authority,
+                            decryptable_zero_balance: &balance_bytes,
+                            maximum_pending_balance_credit_counter: 65_536,
+                            proof: p0,
+                            instructions_sysvar: sysvar_for(1),
+                        },
+                        &views,
+                    ),
+                    ct_ix::inner_configure_account(
+                        &program,
+                        &pk(f.account),
+                        &pk(f.mint),
+                        &balance,
+                        65_536,
+                        &pk(f.authority),
+                        &refs,
+                        s0,
+                    )
+                    .unwrap(),
+                    "configure_account",
+                );
+
+                let (p0, s0) = proof(offsets[0], 40, zeroed(), key(40));
+                same(
+                    capture(
+                        &ct::EmptyConfidentialAccount {
+                            account: f.account,
+                            authority: f.authority,
+                            proof: p0,
+                            instructions_sysvar: sysvar_for(1),
+                        },
+                        &views,
+                    ),
+                    ct_ix::inner_empty_account(
+                        &program,
+                        &pk(f.account),
+                        &pk(f.authority),
+                        &refs,
+                        s0,
+                    )
+                    .unwrap(),
+                    "empty_account",
+                );
+
+                let (p0, s0) = proof(offsets[0], 40, zeroed(), key(40));
+                let (p1, s1) = proof(offsets[1], 41, zeroed(), key(41));
+                same(
+                    capture(
+                        &ct::ConfidentialWithdraw {
+                            account: f.account,
+                            mint: f.mint,
+                            authority: f.authority,
+                            amount: 500,
+                            decimals: 9,
+                            new_decryptable_available_balance: &balance_bytes,
+                            equality_proof: p0,
+                            range_proof: p1,
+                            instructions_sysvar: sysvar_for(2),
+                        },
+                        &views,
+                    ),
+                    ct_ix::inner_withdraw(
+                        &program,
+                        &pk(f.account),
+                        &pk(f.mint),
+                        500,
+                        9,
+                        &balance,
+                        &pk(f.authority),
+                        &refs,
+                        s0,
+                        s1,
+                    )
+                    .unwrap(),
+                    "withdraw",
+                );
+
+                let (p0, s0) = proof(offsets[0], 40, zeroed(), key(40));
+                let (p1, s1) = proof(offsets[1], 41, zeroed(), key(41));
+                let (p2, s2) = proof(offsets[2], 42, zeroed(), key(42));
+                same(
+                    capture(
+                        &ct::ConfidentialTransfer {
+                            source: f.account,
+                            mint: f.mint,
+                            destination: f.destination,
+                            authority: f.authority,
+                            new_source_decryptable_available_balance: &balance_bytes,
+                            transfer_amount_auditor_ciphertext_lo: &lo_bytes,
+                            transfer_amount_auditor_ciphertext_hi: &hi_bytes,
+                            equality_proof: p0,
+                            ciphertext_validity_proof: p1,
+                            range_proof: p2,
+                            instructions_sysvar: sysvar_for(3),
+                        },
+                        &views,
+                    ),
+                    ct_ix::inner_transfer(
+                        &program,
+                        &pk(f.account),
+                        &pk(f.mint),
+                        &pk(f.destination),
+                        &balance,
+                        &lo,
+                        &hi,
+                        &pk(f.authority),
+                        &refs,
+                        s0,
+                        s1,
+                        s2,
+                    )
+                    .unwrap(),
+                    "transfer",
+                );
+
+                let (p0, s0) = proof(offsets[0], 40, zeroed(), key(40));
+                let (p1, s1) = proof(offsets[1], 41, zeroed(), key(41));
+                let (p2, s2) = proof(offsets[2], 42, zeroed(), key(42));
+                let (p3, s3) = proof(offsets[3], 43, zeroed(), key(43));
+                let (p4, s4) = proof(offsets[4], 44, zeroed(), key(44));
+                same(
+                    capture(
+                        &ct::ConfidentialTransferWithFee {
+                            source: f.account,
+                            mint: f.mint,
+                            destination: f.destination,
+                            authority: f.authority,
+                            new_source_decryptable_available_balance: &balance_bytes,
+                            transfer_amount_auditor_ciphertext_lo: &lo_bytes,
+                            transfer_amount_auditor_ciphertext_hi: &hi_bytes,
+                            equality_proof: p0,
+                            transfer_amount_ciphertext_validity_proof: p1,
+                            fee_sigma_proof: p2,
+                            fee_ciphertext_validity_proof: p3,
+                            range_proof: p4,
+                            instructions_sysvar: sysvar_for(5),
+                        },
+                        &views,
+                    ),
+                    ct_ix::inner_transfer_with_fee(
+                        &program,
+                        &pk(f.account),
+                        &pk(f.mint),
+                        &pk(f.destination),
+                        &balance,
+                        &lo,
+                        &hi,
+                        &pk(f.authority),
+                        &refs,
+                        s0,
+                        s1,
+                        s2,
+                        s3,
+                        s4,
+                    )
+                    .unwrap(),
+                    "transfer_with_fee",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_proof_by_offset_without_the_sysvar_account_is_refused() {
+        let f = Fixture::new();
+        let mut sink = Capture::default();
+        let result = ct::EmptyConfidentialAccount {
+            account: f.account,
+            authority: f.authority,
+            proof: ct::ProofLocation::InstructionOffset(NonZeroI8::new(1).unwrap()),
+            instructions_sysvar: None,
+        }
+        .emit(&[], &mut sink);
+        assert_eq!(
+            result,
+            Err(crate::error::ProgramError::NotEnoughAccountKeys)
+        );
+        assert!(sink.data.is_empty());
+    }
+}

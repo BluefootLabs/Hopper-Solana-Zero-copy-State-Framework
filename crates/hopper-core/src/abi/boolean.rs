@@ -81,7 +81,8 @@ unsafe impl crate::abi::WireType for WireBool {
 // SAFETY: #[repr(transparent)] over [u8; 1], all bit patterns valid.
 unsafe impl crate::account::Zeroable for WireBool {}
 unsafe impl crate::account::Pod for WireBool {}
-// This framework-owned wire primitive is part of the sealed zero-copy set.
+// SAFETY: the type meets the seal's contract, as its `Pod` impl states:
+// alignment 1, no padding, no pointers, every bit pattern valid.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for WireBool {}
 
 // FixedLayout::SIZE defaults to size_of::<Self>(); the const asserts pin it to 1.

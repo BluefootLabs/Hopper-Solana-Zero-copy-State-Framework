@@ -76,7 +76,7 @@ pub fn version(view: &BackendAccountView<'_>) -> u8 {
 }
 
 #[inline(always)]
-pub fn layout_id<'a>(view: &'a BackendAccountView<'a>) -> Option<&'a [u8; 8]> {
+pub fn layout_id(view: &BackendAccountView<'_>) -> Option<[u8; 8]> {
     view.layout_id()
 }
 

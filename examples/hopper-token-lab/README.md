@@ -18,6 +18,11 @@ target from it, so the same program serves SPL Token and Token-2022.
 | 8 | `wrap_and_unwrap(lamports, unwrap)` | a native (wrapped SOL) account through `InitializeAccount3`, then `UnwrapLamports` |
 | 9 | `pause_resume` | `Pause` and `Resume` on a pausable Token-2022 mint |
 | 10 | `update_multiplier(f64 bits)` | `UpdateScaledUiAmountMultiplier` |
+| 11 | `create_metadata_mint(name, symbol, uri)` | `MintPlan` with a metadata pointer that names the mint, the rent top-up for the metadata, `InitializeTokenMetadata` |
+| 12 | `set_metadata_key(key, value)` | `UpdateMetadataField` on an additional key, then `EmitTokenMetadata` (Token-2022's serialized metadata is the return data) |
+| 13 | `finalize_metadata(name, key)` | `UpdateMetadataField` on the name, `RemoveMetadataKey` strict and idempotent, `UpdateMetadataAuthority` to none, `EmitTokenMetadata` |
+| 14 | `create_group(max_size)` | `MintPlan` with a group pointer that names the mint, `InitializeTokenGroup` |
+| 15 | `create_group_member` | `MintPlan` with a group member pointer, `InitializeTokenGroupMember` |
 
 The devnet runner is `scripts/test-token-lab-devnet.py`. It builds nothing:
 it takes a deployed program id and the ELF it must match, verifies the

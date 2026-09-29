@@ -129,9 +129,15 @@ pub fn read_le_u64(account: &AccountView<'_>, offset: usize) -> Result<u64, Prog
     if offset.checked_add(8).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // A by-value read still reads the bytes: refuse it while someone
+    // holds them exclusively.
+    account.check_borrow()?;
+    // SAFETY: `offset + 8 <= data_len` was checked above and no exclusive
+    // borrow is live (`check_borrow`), so the eight bytes are readable. They
+    // are copied out; no reference into the account is formed.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 8];
+    // SAFETY: `ptr` is readable for 8 bytes (above); `bytes` is a local of that size.
     unsafe {
         core::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 8);
     }
@@ -145,9 +151,15 @@ pub fn read_le_u32(account: &AccountView<'_>, offset: usize) -> Result<u32, Prog
     if offset.checked_add(4).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // A by-value read still reads the bytes: refuse it while someone
+    // holds them exclusively.
+    account.check_borrow()?;
+    // SAFETY: `offset + 4 <= data_len` was checked above and no exclusive
+    // borrow is live (`check_borrow`), so the four bytes are readable. They
+    // are copied out; no reference into the account is formed.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 4];
+    // SAFETY: `ptr` is readable for 4 bytes (above); `bytes` is a local of that size.
     unsafe {
         core::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 4);
     }
@@ -161,9 +173,15 @@ pub fn read_le_u16(account: &AccountView<'_>, offset: usize) -> Result<u16, Prog
     if offset.checked_add(2).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // A by-value read still reads the bytes: refuse it while someone
+    // holds them exclusively.
+    account.check_borrow()?;
+    // SAFETY: `offset + 2 <= data_len` was checked above and no exclusive
+    // borrow is live (`check_borrow`), so the two bytes are readable. They
+    // are copied out; no reference into the account is formed.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 2];
+    // SAFETY: `ptr` is readable for 2 bytes (above); `bytes` is a local of that size.
     unsafe {
         core::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 2);
     }
@@ -176,7 +194,9 @@ pub fn read_u8(account: &AccountView<'_>, offset: usize) -> Result<u8, ProgramEr
     if offset >= account.data_len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    account.check_borrow()?;
+    // SAFETY: `offset < data_len` was checked above and no exclusive borrow
+    // is live (`check_borrow`). The byte is copied out.
     Ok(unsafe { *account.data_ptr_unchecked().add(offset) })
 }
 

@@ -218,7 +218,7 @@ discs for them, do not budget from this page:
   `hopper_emit_cpi!`). The measured anchor points from this run: one
   log-class syscall bills 100 CU base (the empty bracket measures 101 CU),
   and a 32-byte `sol_log_data` event measures 240 CU net (disc 9).
-- **CPI tiers** (`invoke`, `invoke_signed`, `HopperDynCpi`). Measured
+- **CPI tiers** (`invoke`, `invoke_signed`, `DynCpi`). Measured
   end-to-end context: the router parity lab (`BENCHMARKS.md`) prices full
   router hops, each including one CPI to a mock AMM, at ~1.5k CU per hop.
 
@@ -251,7 +251,7 @@ are kept only so old quotes stay traceable. The per-primitive April figures
 next to their measured replacements in `BENCHMARKS.md`.
 
 Retired account-access estimates: `try_borrow` ~2, `pod_from_bytes` ~3,
-`Account::load` ~5, `load_mut` ~7, `field_segment_ref` ~4.
+`Account::load` ~5, `load_mut` ~7, `<field>_segment_ref` ~4.
 
 Retired token/mint constraint estimates: `token::mint`/`token::authority`
 ~8, `token::token_program` ~4, `mint::authority`/`mint::freeze_authority`

@@ -50,9 +50,9 @@ pub const MEMO_PROGRAM_ID: Address =
 
 /// Maximum signer accounts a single memo invocation may cite.
 ///
-/// Matches Pinocchio's `MAX_STATIC_CPI_ACCOUNTS` ceiling. The Memo
-/// program itself accepts an unbounded list, but heap-free CPI on
-/// SBF requires a static cap.
+/// The Memo program itself accepts an unbounded list, but a heap-free
+/// CPI builds its account arrays on the stack, and sixteen entries is
+/// what fits next to the instruction metas inside one 4 KiB SBF frame.
 pub const MAX_MEMO_SIGNERS: usize = 16;
 
 /// Legacy SPL Memo v1 helpers.
@@ -135,32 +135,11 @@ impl Memo<'_, '_, '_> {
             accounts: accounts_slice,
         };
 
-        macro_rules! invoke_with_signers {
-            ($n:literal, [$($idx:literal),*]) => {{
-                let account_views: [&AccountView<'_>; $n] = [$(self.signers[$idx]),*];
-                hopper_runtime::cpi::invoke_signed::<$n>(&instruction, &account_views, signers_seeds)
-            }};
-        }
-
-        match n {
-            0 => invoke_with_signers!(0, []),
-            1 => invoke_with_signers!(1, [0]),
-            2 => invoke_with_signers!(2, [0, 1]),
-            3 => invoke_with_signers!(3, [0, 1, 2]),
-            4 => invoke_with_signers!(4, [0, 1, 2, 3]),
-            5 => invoke_with_signers!(5, [0, 1, 2, 3, 4]),
-            6 => invoke_with_signers!(6, [0, 1, 2, 3, 4, 5]),
-            7 => invoke_with_signers!(7, [0, 1, 2, 3, 4, 5, 6]),
-            8 => invoke_with_signers!(8, [0, 1, 2, 3, 4, 5, 6, 7]),
-            9 => invoke_with_signers!(9, [0, 1, 2, 3, 4, 5, 6, 7, 8]),
-            10 => invoke_with_signers!(10, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            11 => invoke_with_signers!(11, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
-            12 => invoke_with_signers!(12, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-            13 => invoke_with_signers!(13, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]),
-            14 => invoke_with_signers!(14, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]),
-            15 => invoke_with_signers!(15, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]),
-            16 => invoke_with_signers!(16, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
-            _ => Err(ProgramError::InvalidArgument),
-        }
+        // One bounded CPI body for every signer count.
+        hopper_runtime::cpi::invoke_signed_with_bounds::<MAX_MEMO_SIGNERS>(
+            &instruction,
+            self.signers,
+            signers_seeds,
+        )
     }
 }

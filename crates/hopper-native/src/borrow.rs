@@ -237,7 +237,9 @@ impl<'a, T: ?Sized> RefMut<'a, T> {
     #[inline(always)]
     pub fn into_raw_parts(self) -> (&'a mut T, *mut u8) {
         let manual = core::mem::ManuallyDrop::new(self);
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `manual` is never dropped, so the `&mut T` moved out by
+        // `read` is the only copy that is ever used; the borrow state it
+        // guards is handed to the caller with it.
         let value = unsafe { core::ptr::read(&manual.value) };
         let state = manual.state;
         (value, state)

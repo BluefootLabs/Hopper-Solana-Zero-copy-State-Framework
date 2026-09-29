@@ -36,7 +36,8 @@ const _: () = assert!(core::mem::align_of::<SegmentDescriptor>() == 1);
 // SAFETY: All fields are [u8; N], all bit patterns valid.
 unsafe impl super::Zeroable for SegmentDescriptor {}
 unsafe impl Pod for SegmentDescriptor {}
-// This framework-owned wire primitive is part of the sealed zero-copy set.
+// SAFETY: the type meets the seal's contract, as its `Pod` impl states:
+// alignment 1, no padding, no pointers, every bit pattern valid.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for SegmentDescriptor {}
 
 // FixedLayout::SIZE defaults to size_of::<Self>() and the const asserts above
@@ -348,7 +349,10 @@ impl<'a, T: Pod + FixedLayout> SegmentSliceMut<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = index * T::SIZE;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The index was checked against the element count, and the
+        // constructor checked the count against the buffer's capacity, so the
+        // element lies inside `data`. `T: Pod` accepts every bit pattern and
+        // is read by value, unaligned.
         Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) })
     }
 

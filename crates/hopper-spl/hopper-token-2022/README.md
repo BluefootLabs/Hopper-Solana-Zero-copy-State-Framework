@@ -27,6 +27,21 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   authority families (initializers, updates, and toggles), each with
   direct, PDA-signed, and multisig entry points. Their bytes and metas are
   checked against the canonical `spl-token-2022-interface` constructors.
+- **Metadata and group instructions** - `metadata_instructions` (in the
+  tree after 0.4.0) carries the token-metadata interface
+  (`InitializeTokenMetadata`, `UpdateMetadataField`, `RemoveMetadataKey`,
+  `UpdateMetadataAuthority`, `EmitTokenMetadata`) and the token-group
+  interface (`InitializeTokenGroup`, `UpdateTokenGroupMaxSize`,
+  `UpdateTokenGroupAuthority`, `InitializeTokenGroupMember`). `invoke()`
+  targets Token-2022; `invoke_on_program` targets any program that
+  implements the interface. The payload is encoded on the stack, 512 bytes
+  at most.
+- **Confidential-transfer instructions** - `confidential_instructions` (in
+  the tree after 0.4.0) carries the fifteen sub-instructions of instruction
+  27. Ciphertexts, keys, and proofs are made off chain and carried as
+  bytes; a `ProofLocation` names where each proof is, and the builder
+  orders the sysvar, context-state, authority, and multisig accounts the
+  way the processor reads them.
 - **Extension screening** - fail-closed `check_safe_token_2022_mint`,
   `check_no_transfer_fee`, `check_no_permanent_delegate`,
   `check_no_confidential_transfer`, `check_no_transfer_hook`,

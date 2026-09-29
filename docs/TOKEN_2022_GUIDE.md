@@ -161,6 +161,96 @@ Resume { mint, authority }.invoke()?;
 CPI; SPL Token (p-token) accepts it, and the token-lab devnet runner records
 whether the deployed Token-2022 does.
 
+## Metadata and groups on the mint
+
+Token-2022 implements the token-metadata and token-group interfaces, so a
+mint can be its own metadata account and its own group. The builders live
+in `hopper::token_2022::metadata_instructions`. They send to Token-2022
+from `invoke()` and to any other program that implements the interface
+from `invoke_on_program`.
+
+```rust
+use hopper::token_2022::metadata_instructions::{
+    InitializeTokenMetadata, MetadataField, UpdateMetadataField,
+};
+
+// The mint was created with a metadata pointer that names itself.
+InitializeTokenMetadata {
+    metadata: mint,
+    update_authority: authority,
+    mint,
+    mint_authority: authority,
+    name: "Hopper",
+    symbol: "HOP",
+    uri: "https://example.com/hop.json",
+}
+.invoke()?;
+
+UpdateMetadataField {
+    metadata: mint,
+    update_authority: authority,
+    field: MetadataField::Key("tier"),
+    value: "gold",
+}
+.invoke()?;
+```
+
+Two things to know before you ship this:
+
+- Token-2022 grows the mint to hold the metadata and does not pay for it.
+  Transfer the rent for the new size to the mint first, or the instruction
+  fails. The token lab's `fund_growth` is a few lines and does exactly
+  that.
+- The instruction is encoded on the stack and capped at 512 bytes. A
+  longer name, symbol, URI, or value is refused with `InvalidArgument`
+  before the CPI, never truncated.
+
+`RemoveMetadataKey`, `UpdateMetadataAuthority`, and `EmitTokenMetadata`
+(the serialized metadata comes back as return data) cover the rest of the
+metadata interface. `InitializeTokenGroup`, `UpdateTokenGroupMaxSize`,
+`UpdateTokenGroupAuthority`, and `InitializeTokenGroupMember` cover groups.
+
+## Confidential transfers
+
+`hopper::token_2022::confidential_instructions` has a builder for each of
+the fifteen confidential-transfer instructions. Hopper does not encrypt,
+decrypt, or prove anything on chain: the ciphertexts, the ElGamal keys, and
+the proofs are made off chain with the account's keys, and your program
+carries them to Token-2022 as bytes.
+
+Each proof an instruction needs is a `ProofLocation`: another instruction
+in the same transaction (an offset from the Token-2022 instruction, read
+through the Instructions sysvar) or a context-state account that the ZK
+ElGamal proof program verified earlier.
+
+```rust
+use hopper::token_2022::confidential_instructions::{ConfidentialWithdraw, ProofLocation};
+
+ConfidentialWithdraw {
+    account,
+    mint,
+    authority,
+    amount,
+    decimals,
+    new_decryptable_available_balance: &new_balance,
+    equality_proof: ProofLocation::ContextStateAccount(equality_context),
+    range_proof: ProofLocation::ContextStateAccount(range_context),
+    instructions_sysvar: None,
+}
+.invoke()?;
+```
+
+The account order is the part people get wrong by hand, so the builder
+owns it: the instruction's accounts, the Instructions sysvar once if any
+proof is by offset, the context-state accounts in proof order, the
+authority, then the multisig signers. A proof by offset with no sysvar
+account is refused with `NotEnoughAccountKeys` before the CPI. Every
+builder is compared with the `spl-token-2022-interface` constructor for
+all 32 combinations of proof locations, with a single authority and with
+a multisig. The confidential builders are checked against the canonical
+constructors; they have not been run against a live confidential mint,
+which needs proofs generated off chain.
+
 ## Extension constraints
 
 Mint-side constraints include close authority, permanent delegate, transfer

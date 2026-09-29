@@ -300,7 +300,9 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
         core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, metas_len)
     };
 
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: Every account was checked above against the instruction's metas
+    // (address, signer and writable privilege, borrow state), which is the
+    // contract of the unchecked calls.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts)
@@ -380,7 +382,9 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, metas_len)
     };
 
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: Every account was checked above against the instruction's metas
+    // (address, signer and writable privilege, borrow state), which is the
+    // contract of the unchecked calls.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts)
@@ -396,7 +400,8 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 #[inline(always)]
 pub fn set_return_data(data: &[u8]) {
     #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: The pointer and the length come from one live slice, which
+    // outlives the synchronous syscall.
     unsafe {
         crate::syscalls::sol_set_return_data(data.as_ptr(), data.len() as u64);
     }

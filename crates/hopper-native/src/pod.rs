@@ -84,6 +84,11 @@ pub unsafe trait ValuePod: Copy + Sized {}
 
 // ── Primitive implementations ───────────────────────────────────────
 //
+// SAFETY: integers, arrays of them, and `()` have no padding, hold no
+// pointers, and accept every bit pattern, all-zero included. `Pod` is
+// implemented for the alignment-1 types only (`u8`, `i8`, arrays of `Pod`,
+// `()`), so a reference overlaid on account bytes is never misaligned.
+//
 // `Zeroable` / `ValuePod`: every native integer is a valid by-value POD.
 // `Pod`: only alignment-1 types (so `&T` overlays are never misaligned).
 unsafe impl Zeroable for u8 {}
@@ -103,6 +108,11 @@ unsafe impl<T: Pod, const N: usize> Pod for [T; N] {}
 unsafe impl Zeroable for () {}
 unsafe impl Pod for () {}
 
+// SAFETY: `ValuePod` values are only ever copied out of bytes by value
+// (`read_unaligned`), never referenced in place, so alignment does not
+// matter. Every bit pattern of a fixed-width integer is a valid value, the
+// integers have no padding and hold no pointers, and an array of such
+// values inherits all three properties.
 unsafe impl ValuePod for u8 {}
 unsafe impl ValuePod for u16 {}
 unsafe impl ValuePod for u32 {}

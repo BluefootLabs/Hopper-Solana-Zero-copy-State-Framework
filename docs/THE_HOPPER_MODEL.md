@@ -40,7 +40,7 @@ This generates:
 - A `#[repr(C)]` struct with alignment-1 wire types (no padding, no platform variance)
 - A deterministic 8-byte `LAYOUT_ID` (SHA-256 fingerprint of type + fields)
 - Canonical whole-layout accessors: `load()` / `load_mut()`
-- Specialized validation helpers such as `load_foreign()` and `load_versioned()`
+- Specialized validation helpers such as `load_foreign()` and `load_compatible()`
 - Low-level `overlay()` / `overlay_mut()` helpers for explicit slice-driven access
 - `SIZE`, `LEN`, `DISC`, `VERSION` constants
 - `BUMP_OFFSET` for PDA verification
@@ -111,20 +111,19 @@ the guarantee changes:
 |--------|--------------|----------|
 | `load()` / `load_mut()` | default full Hopper validation | Own program accounts |
 | `load_foreign()` / `load_foreign_multi()` | foreign ownership and ABI proof | Cross-program reads |
-| `load_compatible()` / `load_versioned()` | version compatibility instead of exact identity | Migration windows |
+| `load_compatible()` | version compatibility instead of exact identity | Migration windows |
 | `load_unchecked()` | caller owns validation | Benchmarks, init-time writes |
 | `load_unverified()` | best-effort tooling read | Indexers, tooling |
 
 `load()` is the default. `load_foreign()` enables cross-program reads without
-crate dependencies via `hopper_interface!`. `load_compatible()` and
-`load_versioned()` are for migration rollouts where a single instruction must
-accept more than one layout version. Trust profiles (`strict`, `compatible`,
+crate dependencies via `hopper_interface!`. `load_compatible()` is for
+migration rollouts where a single instruction must accept more than one
+layout version. Trust profiles (`strict`, `compatible`,
 `read_only`, `observational`) remain additional configuration over the same
 underlying loading story.
 
-At the raw runtime layer, the equivalent Hopper-first helpers are
-`account.load_versioned::<T>()`, `account.load_foreign::<T>()`, and
-`account.layout_info()`.
+At the raw runtime layer, the equivalent helpers are
+`account.load_cross_program::<T>()` and `account.layout_info()`.
 
 ## Validation and Checks
 

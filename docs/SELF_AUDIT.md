@@ -1,0 +1,222 @@
+# Self-audit: what Hopper checks about your program
+
+Most Solana bugs that lose money are boring. A signer check that was
+dropped in a refactor. An account that became writable. A bound that went
+from 10 to 100 because someone needed it for a test. None of those change
+how the program looks from the outside, and none of them fail a build.
+
+Hopper's position is that the framework already knows the answers. The
+macros see every account, constraint, seed, byte range, and rule you
+declare. So Hopper writes them down, compares them between releases, and
+fails the build or the release when something got looser.
+
+This page is the map. Every item names the command or attribute, when it
+runs, and what it does not cover.
+
+## At compile time
+
+These fail `cargo build`. No tool to install, no step to remember.
+
+| Check | What it refuses |
+|---|---|
+| Layout field types | A `bool`, `u64`, `char`, reference, or enum in a zero-copy layout. The error names the wire type to use (`WireBool`, `WireU64`, `EnumByte<E>`, `OptionByte<T>`). |
+| Seed lists | A literal seed longer than 32 bytes, or a `seeds = [..]` list with no room left for the bump. Both fail every derivation at run time. |
+| Value rules | A `#[check(..)]` rule no value can satisfy, such as `value >= 10 && value < 10`. |
+| Error codes | A user error code inside the ranges Hopper reserves for its own refusals (`0xB000..=0xEFFF`). |
+| Creation constraints | `init` without `payer` or `space`, `seeds` without `bump`, `realloc` without a payer or a zero policy, `bump = stored` on an account that is being created. |
+| Event size | A CPI event larger than the emit buffer. |
+| Stack frames | `hopper build` fails when the SBF builder reports a frame over 4,096 bytes. `cargo build-sbf` prints that line and exits 0. |
+
+## At bind, on chain
+
+These run inside your program before the handler does.
+
+- **One account in two mutable roles.** Passing the same account as `from`
+  and `to` is refused with `ERR_ALIASED_MUTABLE_ACCOUNTS` unless the
+  context declares the alias with `dup`.
+- **Surplus accounts.** The count-exact entrypoint refuses a transaction
+  that passes more accounts than the instruction declares.
+- **Stored values.** A layout with `#[check(..)]` rules has its stored
+  values checked for every existing account the context binds. A layout
+  without rules costs nothing.
+- **Write boundaries.** Under `strict_writes`, a mutable borrow outside the
+  declared byte ranges is refused before the borrow is returned.
+
+## The manifest
+
+`hopper::program_manifest!` builds one static from the same constants the
+runtime enforces, so the published description cannot drift from the code:
+
+```text
+hopper compile --emit manifest --package my-program
+```
+
+The manifest carries every instruction with its discriminator, accounts,
+signer and writable flags, PDA seeds, `has_one` relations, expected owners
+and addresses, lifecycle (init, realloc, close), write ranges, lamport
+permissions, layouts with field offsets and fingerprints, and the
+`fieldRules` table: each `#[check]` rule as written plus the integer bounds
+it decides.
+
+`hopper explain program`, `explain context`, and `explain instruction`
+read it back in plain language.
+
+## The upgrade gate
+
+This is the one to put in CI.
+
+```text
+grillo authority-diff released.manifest.json candidate.manifest.json
+```
+
+It compares what two releases declare and classifies every difference:
+
+| Finding | Meaning | Exit code |
+|---|---|---:|
+| `WIDENED` | The new release permits something the old one refused | 2 |
+| `REVIEW` | A change that cannot be ordered, such as different PDA seeds | 3 |
+| `NARROWED` | The new release is stricter | 0 |
+| `INFO` | No authority change, for example a rename | 0 |
+
+What counts as a widening: a dropped signer, a new writable account, a
+write range that reaches another field, a removed PDA or `has_one`
+binding, a new lamport permission, a new instruction, and a value rule
+that was removed or loosened (`field_rule_removed`, `field_rule_widened`).
+
+A loosened bound is worth a second look. If `tier <= 10` becomes
+`tier <= 100`, account state your old program could never produce is now
+accepted by the new one. A tightened rule is reported too, as `NARROWED`,
+with a note: accounts whose stored value breaks the new rule stop binding.
+That is an availability question you want answered before you deploy.
+
+An intended widening is approved by checking in the reviewed report:
+
+```text
+grillo authority-diff old.json new.json --out reviewed.json
+grillo authority-diff old.json new.json --approve reviewed.json
+```
+
+The approval names both manifest digests, so it cannot be replayed onto a
+different pair of releases. `hopper verify --release` with
+`--authority-baseline` runs the same gate and binds each manifest to its
+ELF.
+
+## After execution
+
+`grillo verify` takes a manifest and an evidence bundle (pre and post
+snapshots plus the touch map the program emitted) and recomputes
+
+```text
+changed ⊆ acquired ⊆ authorized
+```
+
+Bytes that changed must have been acquired through a tracked write, and
+bytes that were acquired must be inside the declared ranges. Exit codes:
+`0` pass, `2` violation, `3` inconclusive, `1` malformed input.
+
+`hopper tx explain <signature>` decodes a transaction's touch map into
+field names.
+
+## Layout changes
+
+```text
+hopper compat old-layout.json new-layout.json
+hopper diff   old-layout.json new-layout.json
+hopper plan   old-layout.json new-layout.json
+```
+
+`compat` gives the verdict (identical, wire compatible, append safe,
+migration required, incompatible), `diff` lists each field, and `plan`
+lists the migration steps with byte counts.
+
+## Source lints
+
+```text
+hopper lint                  # account relationship graph and diagnostics
+hopper lint zc               # zero-copy footguns in typed contexts
+hopper lint --deny-escapes   # raw and unchecked escapes as errors
+```
+
+## Auditing Hopper itself
+
+A zero-copy framework is `unsafe` code with a nice API on top. If you are
+going to trust it with funds, someone has to read that `unsafe` code, and
+the first week of any audit goes to finding it and working out what each
+piece claims. Hopper does that week for you and keeps the result current.
+
+```text
+python scripts/audit-map.py            # write the map
+python scripts/audit-map.py --verify   # fail if the committed map is stale
+python scripts/audit-map.py --show <id>
+```
+
+[audit/UNSAFE_MAP.md](../audit/UNSAFE_MAP.md) lists every `unsafe` block,
+function, impl, and trait in the framework outside test code: 857 sites
+across eleven crates at the time of writing. For each one
+`audit/unsafe-map.json` records:
+
+- the file, the line, and the enclosing function;
+- the justification written next to it, and what kind it is: written for
+  that site, shared with a neighbour, or the boilerplate sentence that
+  says someone looked without saying why the code is sound;
+- the tests, proofs, and fuzz targets that call the enclosing function by
+  name;
+- a SHA-256 of the site's code.
+
+The map is blunt about weak spots. It counts the sites that carry only a
+boilerplate sentence or no reasoning at all, and the gate keeps that count
+visible. The first run found 167 boilerplate sites and 44 with no argument.
+Every one was read and rewritten, and the count is zero today. Reading
+them turned up real defects, which are listed in the changelog: safe
+readers that looked at account bytes underneath a live exclusive borrow,
+and a header accessor that handed out an untracked reference.
+
+The map also ranks the sixty sites to read first: public, and not called
+by name from any test. That list is where a reviewer's time should go.
+
+Sites are named `path::function#n`, not by line number, so an edit
+somewhere else in the file does not rename them.
+
+### The review ledger
+
+An audit is a snapshot. The code keeps moving. The ledger ties each
+sign-off to the exact code that was read:
+
+```text
+python scripts/audit-map.py --sign <id> --reviewer <name> --note <text>
+python scripts/audit-map.py --check
+```
+
+`--sign` records the reviewer, the date, and the hash of the site.
+`--check` lists every signed site whose code has changed since, every
+signed site that no longer exists, and how many sites nobody has signed.
+It exits 2 when a signed site changed. A release cannot quietly carry a
+sign-off for code that was edited after the reviewer read it.
+
+## The framework checks itself the same way
+
+- `scripts/check-unsafe-safety-comments.py` fails when an `unsafe` block
+  has no `SAFETY` comment next to it.
+- `scripts/check-doc-citations.py` fails when the unsafe inventory cites a
+  test, file, or proof harness that does not exist.
+  [UNSAFE_INVARIANTS.md](UNSAFE_INVARIANTS.md) lists every `unsafe` entry
+  point with its contract and the test that exercises it.
+- Every token builder is compared byte for byte and account for account
+  with the canonical `spl-token-2022-interface` constructors.
+- The comparison bench fails when a Hopper row's compute units or binary
+  size grew against the results committed at HEAD.
+- `hopper audit-check` verifies the hashes of the audit evidence, the age
+  of each quality-gate attestation, and the list of open blockers.
+- Kani proofs cover the loader-input parser, and five fuzz targets cover
+  the parsers and overlays (`fuzz/fuzz_targets`).
+
+## What none of this proves
+
+The gate compares declarations. It does not read bytecode and it does not
+prove a handler does what its manifest says. `grillo verify` checks the
+evidence it is given and does not authenticate where that evidence came
+from. Raw and unchecked access paths are outside the tracked write model,
+which is why the lint can turn them into errors.
+
+Hopper has not had an independent security audit. These checks shrink
+what a reviewer has to read. They do not replace the reviewer.

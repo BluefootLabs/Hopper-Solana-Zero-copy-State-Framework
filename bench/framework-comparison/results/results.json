@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-28 13:42 UTC",
+  "generated": "2026-09-29 04:17 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -15,10 +15,10 @@
     "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
     "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
   },
-  "source_commit": "d72e58bdcd122321bdfafe31a0b8bb2963c190af",
+  "source_commit": "e0de4f19671aacf4d7714651730ea0b82779af91",
   "source_tree_clean": false,
   "build_mode": "rebuilt",
-  "lockfile_sha256": "a996f80c9953ebc733bb7fb1d6ce530ecfc3fcf13e7a86b2e552235feefb503e",
+  "lockfile_sha256": "1666b525ddf61b386b56323752d14fc08e7c75a7e4d6c0b26e1f8893a3c66760",
   "hello": [
     {
       "label": "Hopper (substrate)",
@@ -55,14 +55,6 @@
       "hello": 137,
       "source": "measured here",
       "arch": "v3"
-    },
-    {
-      "label": "Pinocchio (pina reference, rebuilt here)",
-      "bytes": 3160,
-      "so": "hello_pinocchio.so",
-      "elf_sha256": "5d05e239a62e579ea8aa72f2f9658c7d3ac7e60e9321998ca4418f26fd790ed6",
-      "hello": 111,
-      "source": "measured here (cross-check)"
     },
     {
       "label": "Pina",
@@ -133,16 +125,6 @@
       "account_size": 25,
       "source": "measured here",
       "arch": "v3"
-    },
-    {
-      "label": "Pinocchio (pina reference, rebuilt here)",
-      "bytes": 6512,
-      "so": "counter_pinocchio.so",
-      "elf_sha256": "040d6acf1a933535d5bf7a96cb089d70d8b8f817ff86ba6c8825058c582745f6",
-      "initialize": 1490,
-      "increment": 1721,
-      "account_size": 10,
-      "source": "measured here (cross-check)"
     },
     {
       "label": "Pina",

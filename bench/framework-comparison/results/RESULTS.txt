@@ -1,6 +1,6 @@
 # Framework comparison: Hopper rows against pina's fixtures
 
-Generated 2026-09-28 13:42 UTC by `scripts/bench-framework-comparison.py`.
+Generated 2026-09-29 04:17 UTC by `scripts/bench-framework-comparison.py`.
 
 Same fixtures, same verifier contract, same release recipe as pina's
 `benchmarks/framework-comparison` (pinned at pina commit
@@ -12,7 +12,7 @@ Rows marked `measured here` were built and run on this machine:
 - `cargo-build-sbf 4.1.0 platform-tools v1.54`
 - `rustc 1.96.0 (ac68faa20 2026-05-25)`
 - Mollusk 0.15.1
-- Source `d72e58bdcd122321bdfafe31a0b8bb2963c190af`; clean tree: `False`
+- Source `e0de4f19671aacf4d7714651730ea0b82779af91`; clean tree: `False`
 - Artifact build mode: `rebuilt`; ELF and lockfile SHA-256 hashes in `results.json`
 
 Rows marked `pina published` are copied from pina's
@@ -31,7 +31,6 @@ delta to keep in mind when reading the Hopper rows.
 | Hopper (macro) | measured here | 1,768 | 137 | -44% |
 | Hopper (substrate, sBPFv3) | measured here | 960 | 116 | -70% |
 | Hopper (macro, sBPFv3) | measured here | 1,072 | 137 | -66% |
-| Pinocchio (pina reference, rebuilt here) | measured here (cross-check) | 3,160 | 111 | +0% |
 | Pina | pina published | 4,680 | 145 | +48% |
 | Pinocchio (hand-written) | pina published | 3,160 | 111 | +0% |
 | Quasar | pina published | 2,520 | 115 | -20% |
@@ -45,7 +44,6 @@ delta to keep in mind when reading the Hopper rows.
 | Hopper (macro) | measured here | 8,352 | 1,517 | 348 | 25 | +28% |
 | Hopper (substrate, sBPFv3) | measured here | 5,736 | 1,595 | 1,742 | 10 | -12% |
 | Hopper (macro, sBPFv3) | measured here | 7,352 | 1,517 | 348 | 25 | +13% |
-| Pinocchio (pina reference, rebuilt here) | measured here (cross-check) | 6,512 | 1,490 | 1,721 | 10 | +0% |
 | Pina | pina published | 13,024 | 3,301 | 1,753 |  | +100% |
 | Pinocchio (hand-written) | pina published | 6,512 | 1,490 | 1,721 |  | +0% |
 | Quasar | pina published | 7,808 | 3,488 | 330 |  | +20% |

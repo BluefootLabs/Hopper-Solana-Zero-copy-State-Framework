@@ -146,7 +146,8 @@ impl<'info> AccountView<'info> {
     /// to a new owner. The caller must ensure no concurrent mutation.
     #[inline(always)]
     pub unsafe fn owner(&self) -> &Address {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe { native_boundary::account_owner(self.backend()) }
     }
 
@@ -361,7 +362,10 @@ impl<'info> AccountView<'info> {
                     return Err(e);
                 }
             };
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: The segment's range was checked against the data length
+            // above, so the pointer is in bounds; `project` is handed a
+            // pointer derived from the guard it consumes. `T: Pod` has
+            // alignment 1 and accepts every bit pattern.
             let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
             unsafe { data.project(ptr) }
         };
@@ -444,12 +448,16 @@ impl<'info> AccountView<'info> {
                     return Err(e);
                 }
             };
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: The segment's range was checked against the data length
+            // above, so the pointer is in bounds; it is derived from the
+            // guard's own mutable reborrow and `project` consumes that guard.
+            // `T: Pod` has alignment 1 and accepts every bit pattern.
             let ptr = unsafe { data.as_bytes_mut_ptr().add(abs_offset as usize) as *mut T };
             unsafe { data.project(ptr) }
         };
 
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `borrow` was registered in `borrows` above and has not been
+        // released, which is what `SegmentLease::new` requires.
         let lease = unsafe { crate::SegmentLease::new(borrows, borrow) };
         Ok(crate::SegRefMut::new(inner, lease))
     }
@@ -699,7 +707,8 @@ impl<'info> AccountView<'info> {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `check_typed_projection` proved that a `T` at this offset
+        // ends inside the borrowed bytes, so the pointer stays in bounds.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
@@ -751,7 +760,8 @@ impl<'info> AccountView<'info> {
             data.len() as u32,
             crate::segment_borrow::AccessKind::Write,
         );
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `check_typed_projection` proved that a `T` at this offset
+        // ends inside the borrowed bytes, so the pointer stays in bounds.
         let ptr = unsafe { data.as_bytes_mut_ptr().add(T::TYPE_OFFSET) as *mut T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
@@ -790,7 +800,8 @@ impl<'info> AccountView<'info> {
         let data = self.try_borrow()?;
         check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         T::validate_compact(&data)?;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `check_typed_projection` proved that a `T` at this offset
+        // ends inside the borrowed bytes, so the pointer stays in bounds.
         let ptr =
             unsafe { data.as_bytes_ptr().add(crate::compact::COMPACT_BODY_OFFSET) as *const T };
         // SAFETY: length and disc validated above; `ptr` points into the borrowed body.
@@ -810,7 +821,8 @@ impl<'info> AccountView<'info> {
             data.len() as u32,
             crate::segment_borrow::AccessKind::Write,
         );
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `check_typed_projection` proved that a `T` at this offset
+        // ends inside the borrowed bytes, so the pointer stays in bounds.
         let ptr = unsafe {
             data.as_bytes_mut_ptr()
                 .add(crate::compact::COMPACT_BODY_OFFSET) as *mut T
@@ -983,7 +995,9 @@ impl<'info> AccountView<'info> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let ptr = data.as_ptr() as *const T;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `size_of::<T>() <= data.len()` was checked above; `T: Pod`
+        // has alignment 1 and accepts every bit pattern; `project` consumes
+        // the guard the pointer was derived from.
         Ok(unsafe { data.project(ptr) })
     }
 
@@ -1007,7 +1021,9 @@ impl<'info> AccountView<'info> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let ptr = data.as_bytes_mut_ptr() as *mut T;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `size_of::<T>() <= data.len()` was checked above; `T: Pod`
+        // has alignment 1 and accepts every bit pattern; `project` consumes
+        // the guard the pointer was derived from.
         Ok(unsafe { data.project(ptr) })
     }
 
@@ -1039,7 +1055,8 @@ impl<'info> AccountView<'info> {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `check_typed_projection` proved that a `T` at this offset
+        // ends inside the borrowed bytes, so the pointer stays in bounds.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Wire identity and size validated above.
         Ok(unsafe { data.project(ptr) })
@@ -1380,9 +1397,11 @@ impl<'info> AccountView<'info> {
         native_boundary::version(self.backend())
     }
 
-    /// Read the 8-byte layout_id from the Hopper account header (bytes 4..12).
+    /// Read the 8-byte layout_id from the Hopper account header (bytes 4..12),
+    /// by value. `None` when the account is shorter than 12 bytes or its
+    /// data is exclusively borrowed.
     #[inline(always)]
-    pub fn layout_id(&self) -> Option<&[u8; 8]> {
+    pub fn layout_id(&self) -> Option<[u8; 8]> {
         native_boundary::layout_id(self.backend())
     }
 
@@ -1494,7 +1513,8 @@ impl<'info> AccountView<'info> {
     /// transfer is authorized.
     #[inline(always)]
     pub unsafe fn assign(&self, new_owner: &Address) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe {
             native_boundary::assign(self.backend(), new_owner);
         }
@@ -1598,6 +1618,14 @@ impl<'info> AccountView<'info> {
         self.backend().data_ptr_unchecked()
     }
 
+    /// The first four header bytes as one word: `borrow_state` in bits
+    /// 0..8, `is_signer` in 8..16, `is_writable` in 16..24, `executable`
+    /// in 24..32.
+    #[inline(always)]
+    pub fn header_word(&self) -> u32 {
+        self.backend().header_word()
+    }
+
     /// Raw pointer to the RuntimeAccount header.
     #[inline(always)]
     pub(crate) fn account_ptr(&self) -> *const hopper_native::RuntimeAccount {
@@ -1627,7 +1655,8 @@ impl<'info> AccountView<'info> {
     /// The caller must ensure no mutable borrow is active.
     #[inline(always)]
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe { self.backend().borrow_unchecked() }
     }
 
@@ -1656,7 +1685,8 @@ impl<'info> AccountView<'info> {
     /// The caller must guarantee the new length is within the permitted increase.
     #[inline(always)]
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe {
             self.backend().resize_unchecked(new_len);
         }
@@ -1669,7 +1699,8 @@ impl<'info> AccountView<'info> {
     /// The caller must ensure no active borrows exist.
     #[inline(always)]
     pub unsafe fn close_unchecked(&self) {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe {
             self.backend().close_unchecked();
         }

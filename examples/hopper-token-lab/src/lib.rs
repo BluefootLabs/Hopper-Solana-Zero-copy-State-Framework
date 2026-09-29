@@ -17,6 +17,10 @@ use hopper::token::{
     TransferChecked, UiAmountToAmount, UnwrapLamports, WithdrawExcessLamports, MAX_UI_AMOUNT_LEN,
 };
 use hopper::token_2022::extension_instructions::{Pause, Resume, UpdateScaledUiAmountMultiplier};
+use hopper::token_2022::metadata_instructions::{
+    EmitTokenMetadata, InitializeTokenGroup, InitializeTokenGroupMember, InitializeTokenMetadata,
+    MetadataField, RemoveMetadataKey, UpdateMetadataAuthority, UpdateMetadataField,
+};
 use hopper::token_2022::MintExtension;
 
 /// Token-2022 TLV type of the immutable-owner extension.
@@ -134,6 +138,62 @@ pub struct MintAuthority<'info> {
     pub mint: UncheckedAccount<'info>,
     pub authority: Signer<'info>,
     pub token_program: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct MetadataUpdate<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub mint: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct CreateGroupMember<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub member_mint: Signer<'info>,
+    #[account(mut)]
+    pub group: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: UncheckedAccount<'info>,
+}
+
+/// The bytes a `TokenMetadata` entry adds to a mint: the TLV header, the
+/// update authority, the mint, three length-prefixed strings, and the
+/// length of the (empty) list of additional fields.
+const fn metadata_entry_len(name: usize, symbol: usize, uri: usize) -> usize {
+    4 + 32 + 32 + (4 + name) + (4 + symbol) + (4 + uri) + 4
+}
+
+/// The bytes a `TokenGroup` entry adds: TLV header, update authority,
+/// mint, size, max size.
+const GROUP_ENTRY_LEN: usize = 4 + 32 + 32 + 8 + 8;
+/// The bytes a `TokenGroupMember` entry adds: TLV header, mint, group,
+/// member number.
+const GROUP_MEMBER_ENTRY_LEN: usize = 4 + 32 + 32 + 8;
+
+/// Token-2022 grows the mint to hold variable-length state and does not
+/// fund it: top the mint up to the rent of its size plus `growth` first.
+fn fund_growth(payer: &AccountView<'_>, mint: &AccountView<'_>, growth: usize) -> ProgramResult {
+    let target = mint
+        .data_len()
+        .checked_add(growth)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let needed = hopper::hopper_runtime::rent::minimum_balance_live(target)?;
+    let missing = needed.saturating_sub(mint.lamports());
+    if missing == 0 {
+        return Ok(());
+    }
+    hopper::system::Transfer {
+        from: payer,
+        to: mint,
+        lamports: missing,
+    }
+    .invoke()
 }
 
 /// Bits of the `create_extended_mint` mask, one per fixed-size extension.
@@ -439,6 +499,188 @@ mod token_lab {
             authority: a.authority.as_account(),
             multiplier: f64::from_bits(multiplier_bits),
             effective_timestamp: 0,
+        }
+        .invoke()
+    }
+
+    /// A Token-2022 mint that is its own metadata account: the metadata
+    /// pointer names the mint, the mint is funded for the metadata it is
+    /// about to hold, and `Initialize` writes name, symbol and URI.
+    #[instruction(11)]
+    pub fn create_metadata_mint(
+        ctx: Ctx<CreateMint>,
+        name: HopperString<32>,
+        symbol: HopperString<10>,
+        uri: HopperString<96>,
+    ) -> ProgramResult {
+        let a = &ctx.accounts;
+        let program = token_program(a.token_program.as_account())?;
+        hopper::hopper_require!(program == TokenProgram::Token2022, NotExecutable);
+        let payer = a.payer.key();
+        let mint = a.mint.as_account();
+        let config = MintConfig {
+            decimals: DECIMALS,
+            mint_authority: payer,
+            freeze_authority: Some(payer),
+        };
+        let extensions = [MintExtension::MetadataPointer {
+            authority: Some(payer),
+            metadata_address: Some(a.mint.key()),
+        }];
+        MintPlan::new(program, config, &extensions)?.create(a.payer.as_account(), mint, &[])?;
+        let (name, symbol, uri) = (name.as_str()?, symbol.as_str()?, uri.as_str()?);
+        fund_growth(
+            a.payer.as_account(),
+            mint,
+            metadata_entry_len(name.len(), symbol.len(), uri.len()),
+        )?;
+        InitializeTokenMetadata {
+            metadata: mint,
+            update_authority: a.payer.as_account(),
+            mint,
+            mint_authority: a.payer.as_account(),
+            name,
+            symbol,
+            uri,
+        }
+        .invoke()
+    }
+
+    /// Set an additional metadata key, then `Emit` the metadata: the
+    /// transaction's return data is Token-2022's serialized metadata.
+    #[instruction(12)]
+    pub fn set_metadata_key(
+        ctx: Ctx<MetadataUpdate>,
+        key: HopperString<32>,
+        value: HopperString<64>,
+    ) -> ProgramResult {
+        let a = &ctx.accounts;
+        token_program(a.token_program.as_account())?;
+        let mint = a.mint.as_account();
+        let (key, value) = (key.as_str()?, value.as_str()?);
+        // A new key adds both strings; an existing key only ever needs
+        // less than that.
+        fund_growth(a.payer.as_account(), mint, 4 + key.len() + 4 + value.len())?;
+        UpdateMetadataField {
+            metadata: mint,
+            update_authority: a.payer.as_account(),
+            field: MetadataField::Key(key),
+            value,
+        }
+        .invoke()?;
+        EmitTokenMetadata {
+            metadata: mint,
+            start: None,
+            end: None,
+        }
+        .invoke()
+    }
+
+    /// Rename the token, remove an additional key, and give up the update
+    /// authority; a second removal of the same key must be refused
+    /// unless it is idempotent.
+    #[instruction(13)]
+    pub fn finalize_metadata(
+        ctx: Ctx<MetadataUpdate>,
+        name: HopperString<32>,
+        key: HopperString<32>,
+    ) -> ProgramResult {
+        let a = &ctx.accounts;
+        token_program(a.token_program.as_account())?;
+        let mint = a.mint.as_account();
+        let authority = a.payer.as_account();
+        let (name, key) = (name.as_str()?, key.as_str()?);
+        fund_growth(a.payer.as_account(), mint, name.len())?;
+        UpdateMetadataField {
+            metadata: mint,
+            update_authority: authority,
+            field: MetadataField::Name,
+            value: name,
+        }
+        .invoke()?;
+        RemoveMetadataKey {
+            metadata: mint,
+            update_authority: authority,
+            idempotent: false,
+            key,
+        }
+        .invoke()?;
+        RemoveMetadataKey {
+            metadata: mint,
+            update_authority: authority,
+            idempotent: true,
+            key,
+        }
+        .invoke()?;
+        UpdateMetadataAuthority {
+            metadata: mint,
+            current_authority: authority,
+            new_authority: None,
+        }
+        .invoke()?;
+        EmitTokenMetadata {
+            metadata: mint,
+            start: None,
+            end: None,
+        }
+        .invoke()
+    }
+
+    /// A Token-2022 mint that is its own group of at most `max_size`
+    /// members.
+    #[instruction(14)]
+    pub fn create_group(ctx: Ctx<CreateMint>, max_size: u64) -> ProgramResult {
+        let a = &ctx.accounts;
+        let program = token_program(a.token_program.as_account())?;
+        hopper::hopper_require!(program == TokenProgram::Token2022, NotExecutable);
+        let payer = a.payer.key();
+        let mint = a.mint.as_account();
+        let config = MintConfig {
+            decimals: 0,
+            mint_authority: payer,
+            freeze_authority: None,
+        };
+        let extensions = [MintExtension::GroupPointer {
+            authority: Some(payer),
+            group_address: Some(a.mint.key()),
+        }];
+        MintPlan::new(program, config, &extensions)?.create(a.payer.as_account(), mint, &[])?;
+        fund_growth(a.payer.as_account(), mint, GROUP_ENTRY_LEN)?;
+        InitializeTokenGroup {
+            group: mint,
+            mint,
+            mint_authority: a.payer.as_account(),
+            update_authority: Some(payer),
+            max_size,
+        }
+        .invoke()
+    }
+
+    /// A Token-2022 mint that is a member of `group`.
+    #[instruction(15)]
+    pub fn create_group_member(ctx: Ctx<CreateGroupMember>) -> ProgramResult {
+        let a = &ctx.accounts;
+        let program = token_program(a.token_program.as_account())?;
+        hopper::hopper_require!(program == TokenProgram::Token2022, NotExecutable);
+        let payer = a.payer.key();
+        let mint = a.member_mint.as_account();
+        let config = MintConfig {
+            decimals: 0,
+            mint_authority: payer,
+            freeze_authority: None,
+        };
+        let extensions = [MintExtension::GroupMemberPointer {
+            authority: Some(payer),
+            member_address: Some(a.member_mint.key()),
+        }];
+        MintPlan::new(program, config, &extensions)?.create(a.payer.as_account(), mint, &[])?;
+        fund_growth(a.payer.as_account(), mint, GROUP_MEMBER_ENTRY_LEN)?;
+        InitializeTokenGroupMember {
+            member: mint,
+            member_mint: mint,
+            member_mint_authority: a.payer.as_account(),
+            group: a.group.as_account(),
+            group_update_authority: a.payer.as_account(),
         }
         .invoke()
     }

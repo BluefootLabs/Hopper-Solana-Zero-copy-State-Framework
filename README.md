@@ -16,7 +16,7 @@ other Solana programs through checked CPI helpers.
 | SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
 | Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
 | Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
-| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI) plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
+| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI), on-mint metadata and groups, and the confidential-transfer instructions, plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
 | NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
 The escrow example supports classic SPL Token with explicit mint/account
@@ -67,8 +67,8 @@ funded example through its account creation, authorization, transfers, and tests
 
 ## One execution stack, from handlers to syscalls
 
-- **Framework:** typed accounts, constraints, dispatch, initialization, account closure,
-  migrations, bounded collections, and generated clients.
+- **Framework:** typed accounts, constraints, value rules on layout fields, dispatch,
+  initialization, account closure, migrations, bounded collections, and generated clients.
 - **Runtime:** checked account borrows, PDA helpers, CPI validation, and optional
   policies restricting tracked data and lamport writes.
 - **Native:** loader-memory parsing, duplicate-account resolution, entrypoints,
@@ -99,6 +99,28 @@ Optional write policies constrain Hopper-tracked accesses within the program.
 They do not sandbox arbitrary downstream programs, create byte-level transaction
 parallelism, or guarantee a fee discount. Solana locks writable accounts.
 
+## Built to be audited
+
+Hopper writes down what your program declares and compares it between
+releases. `grillo authority-diff old.manifest.json new.manifest.json` fails
+when an upgrade drops a signer, makes an account writable, widens a write
+range, or loosens a value rule on a stored field. The rules themselves are
+one attribute on the field:
+
+```rust
+#[check(value >= 1 && value <= 10)]
+pub tier: u8,
+```
+
+The framework holds itself to the same standard. `audit/UNSAFE_MAP.md`
+lists every `unsafe` site in Hopper with the justification written next to
+it, the tests that call it, and a hash of its code. It also says which
+sites are thinly justified, so a reviewer knows where to start. A review
+ledger ties each sign-off to the code that was read and flags anything
+edited since. Hopper has not had an independent security audit; the
+[self-audit guide](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SELF_AUDIT.md)
+covers what these checks prove and what they do not.
+
 ## Tested programs and inspectable results
 
 The funded escrow completed **33 finalized devnet transactions** on September 26,
@@ -128,6 +150,7 @@ crates; `grillo-*` and `hopper-topology` keep their own 0.1.0 versions.
 - [On-chain write policies](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/ONCHAIN_BYTE_POLICIES.md)
 - [Capabilities and integration boundaries](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/PROGRAM_CAPABILITIES.md)
 - [Safety and unsafe invariants](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/UNSAFE_INVARIANTS.md)
+- [Self-audit](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/SELF_AUDIT.md) and the [unsafe map](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/audit/UNSAFE_MAP.md)
 
 Framework code is licensed under MIT OR Apache-2.0 unless a component states
 otherwise. See [security reporting](SECURITY.md) before disclosing a vulnerability.

@@ -24,6 +24,29 @@ This program exists to prove the public story in one place:
 | `3` | `init_blob` | Create a binary blob backed by `TailBytes<'a>`. |
 | `4` | `write_blob` | Replace binary bytes while incrementing revision. |
 
+`TailBlob.tag` carries a value rule, `#[check(value <= BLOB_TAG_MAX, error =
+TagOutOfRange)]`. `write_blob` sets it through `try_set_tag`, `init_blob`
+calls `check_rules()` after filling the body, and binding an existing blob
+checks the stored tag before the handler runs.
+
+## Devnet runner
+
+`scripts/test-tail-lab-devnet.py` takes a deployed program id and the ELF
+it must match, keeps a model of each account's tail, and compares the
+account with the model byte for byte after every instruction: the reviewer
+list filled in place to its bound, a fifth reviewer refused, the label and
+body rewritten shorter, to their longest, and with multi-byte text, an
+empty body refused, a rewrite signed by someone else refused, a blob
+written to its longest payload, and a tag outside the rule refused on a
+write and at creation. Every refusal is asserted with the account
+unchanged.
+
+```text
+py -3.12 scripts/test-tail-lab-devnet.py \
+  --program <deployed id> --payer <keypair> --hopper target/release/hopper.exe \
+  --elf target/deploy/hopper_tail_lab.so --out target/hopper/tail-lab-devnet
+```
+
 ## Compute units
 
 `tests/cu.rs` runs `add_reviewer` and `rewrite_note` under Mollusk against

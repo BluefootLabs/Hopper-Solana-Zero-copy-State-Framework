@@ -71,7 +71,10 @@ impl Address {
 /// with no additional invariants. This enables zero-cost reference casts.
 pub unsafe trait TransparentAddress: Sized {}
 
-// Hopper's own Address is trivially transparent.
+// SAFETY: `Address` is `#[repr(transparent)]` over `[u8; 32]` and adds no
+// invariant: every 32-byte value is an address.
 unsafe impl TransparentAddress for Address {}
 
+// SAFETY: the native `Address` is the same `#[repr(transparent)]` wrapper
+// over `[u8; 32]`, with no invariant on its bytes.
 unsafe impl TransparentAddress for hopper_native::address::Address {}

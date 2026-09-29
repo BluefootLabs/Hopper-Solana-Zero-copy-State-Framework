@@ -125,6 +125,65 @@ than 0 or 1 is an error). Both work in `#[hopper::args]` too, where
 `InvalidInstructionData` before the handler runs. A field type that has no
 zero-copy form is a compile error that names the wire type to use instead.
 
+## Value Rules And Native Accessors
+
+Zero-copy means the bytes in the account are the state. Nothing decodes
+them, so nothing gets a chance to say "a tier of 200 is not a tier". Put
+the rule on the field and Hopper checks it for you.
+
+```rust
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 7, version = 1, accessors)]
+pub struct Pool {
+    pub authority: Address,
+    #[check(value >= 1 && value <= 10)]
+    pub tier: u8,
+    #[check(value <= 1_000, error = PoolError::FeeTooHigh)]
+    pub fee_bps: WireU16,
+    #[check(value <= self.cap.get())]
+    pub deposited: WireU64,
+    pub cap: WireU64,
+}
+```
+
+`value` is the field's native value (`u16` for a `WireU16`), and the rule
+may read other fields through `self`. Without `error = ..` a failed rule is
+`InvalidAccountData`. What you get:
+
+- `pool.check_rules()` runs every rule in field order and returns the first
+  failure. Call it after you fill a new account.
+- `pool.try_set_tier(11)` checks the new value first and leaves the field
+  alone when the rule refuses it.
+- `#[derive(Accounts)]` checks the stored values of every existing account
+  it binds, before your handler runs. Accounts being created or migrated
+  are skipped, and `#[account(skip_rules)]` lets a repair instruction bind
+  state that is already broken. A layout with no rules compiles to exactly
+  what it did before.
+- `Pool::FIELD_RULES` publishes each rule as text plus the integer bounds
+  it decides (`tier`: 1 to 10). `FieldRule::change_to` compares two
+  releases and tells you whether a rule was tightened or widened. A widened
+  bound means stored values your old program could never produce are now
+  accepted, which is the kind of change you want to see in review.
+
+A rule that no value can satisfy is a compile error.
+
+`accessors` is separate and opt-in: it generates `pool.fee_bps()` and
+`pool.set_cap(20_000)` for the wire scalar fields so handlers speak native
+values. A field with a rule gets the getter and `try_set_<field>`, not an
+unchecked setter. The fields stay public; a direct write skips the rule,
+so write ruled fields through `try_set_`.
+
+Seeds get the same treatment at compile time. `seeds = [..]` refuses a
+literal seed longer than 32 bytes and a list with no room left for the
+bump, because both fail every derivation at run time:
+
+```text
+error: this seed is 33 bytes and a seed takes at most 32; every derivation
+       with it fails with `MaxSeedLengthExceeded`. Shorten the literal, or
+       hash it and pass the 32-byte digest.
+```
+
 ## Token And CPI Work
 
 Everyday program modules are available without entering systems mode:

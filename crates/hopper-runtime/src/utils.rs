@@ -37,33 +37,49 @@ pub mod hint {
     /// `llvm.expect.i1` via `core::hint::likely` when available,
     /// and to an identity otherwise.
     #[inline(always)]
-    pub fn likely(cond: bool) -> bool {
-        // `core::hint::likely` is nightly-gated as of stable 1.82.
-        // Keep the API stable by wrapping an identity so users never
-        // reach the intrinsic directly; the function is still
-        // correctly inlined.
-        cond
+    pub const fn likely(cond: bool) -> bool {
+        // `core::hint::likely` is not stable. A call to a `#[cold]`
+        // function on the other arm tells the optimizer the same thing:
+        // the arm that reaches it is the unlikely one.
+        if cond {
+            true
+        } else {
+            cold_path();
+            false
+        }
     }
 
     /// Hint the branch condition is probably `false`. Mirror of
     /// [`likely`].
     #[inline(always)]
-    pub fn unlikely(cond: bool) -> bool {
-        cond
+    pub const fn unlikely(cond: bool) -> bool {
+        if cond {
+            cold_path();
+            true
+        } else {
+            false
+        }
     }
+
+    /// Marks the path that calls it as rarely taken. Empty, so it costs
+    /// no instruction; the optimizer lays the other path out as the
+    /// fall-through.
+    #[cold]
+    #[inline(always)]
+    pub const fn cold_path() {}
 
     #[cfg(test)]
     mod tests {
         use super::*;
 
         #[test]
-        fn likely_is_identity_on_host() {
+        fn likely_returns_its_condition() {
             assert!(likely(true));
             assert!(!likely(false));
         }
 
         #[test]
-        fn unlikely_is_identity_on_host() {
+        fn unlikely_returns_its_condition() {
             assert!(unlikely(true));
             assert!(!unlikely(false));
         }

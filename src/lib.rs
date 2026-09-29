@@ -1015,6 +1015,16 @@ macro_rules! program_manifest {
                 contexts: $program_mod::__HOPPER_CONTEXT_DESCRIPTORS,
             };
 
+        /// The `#[check]` rules of every listed layout, exported under
+        /// the manifest's `fieldRules` key so an upgrade review sees a
+        /// loosened bound the way it sees a dropped signer.
+        pub static PROGRAM_FIELD_RULES: &[$crate::hopper_schema::LayoutRules] = &[
+            $($( $crate::hopper_schema::LayoutRules {
+                layout: <$layout>::LAYOUT_MANIFEST.name,
+                rules: <$layout>::FIELD_RULES,
+            } ),*)?
+        ];
+
         /// Manifest printer behind `hopper compile --emit manifest --package`.
         ///
         /// The CLI runs `cargo test --lib -- __hopper_print_manifest
@@ -1033,7 +1043,10 @@ macro_rules! program_manifest {
                 std::print!(
                     "\n{}\n{}\n{}\n",
                     $crate::hopper_schema::codama::MANIFEST_EXPORT_BEGIN,
-                    $crate::hopper_schema::codama::ManifestJson(&super::PROGRAM_MANIFEST),
+                    $crate::hopper_schema::codama::ManifestJsonWithRules(
+                        &super::PROGRAM_MANIFEST,
+                        super::PROGRAM_FIELD_RULES,
+                    ),
                     $crate::hopper_schema::codama::MANIFEST_EXPORT_END,
                 );
             }

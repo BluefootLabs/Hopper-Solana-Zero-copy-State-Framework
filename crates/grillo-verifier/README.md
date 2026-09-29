@@ -132,7 +132,8 @@ grillo authority-diff v1/hopper.manifest.json v2/hopper.manifest.json --approve 
 It prints every instruction that gains authority between two releases: a
 dropped signer, a new writable account, byte ranges that now reach another
 layout field, a removed PDA or `has_one` binding, a new CPI program, a new
-lamport permission. Exit codes: `0` not widened, `2` widened, `3` needs review
+lamport permission, and (in the tree after 0.1.0) a value rule on a layout
+field that was removed or loosened. Exit codes: `0` not widened, `2` widened, `3` needs review
 (for example a PDA seed swap), `1` malformed input. `--approve` takes a reviewed
 report and passes only when it lists every widening for exactly this manifest
 pair; both manifest digests are part of the check. `--json` prints the report

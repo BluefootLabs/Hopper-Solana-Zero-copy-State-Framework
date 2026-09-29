@@ -55,8 +55,8 @@ rejected before pointer arithmetic. The API exposes `len`, `is_empty`,
 the exact on-wire `u32` is useful.
 
 For a compact account with a fixed head and slab tail, use
-`CompactTail::tail_slab`, `tail_slab_mut`, `init_tail_slab`, and
-`account_size_for_slab` rather than hand-computing offsets.
+`CompactTail::tail_slab`, `tail_slab_init`, and `space_for_tail_slab`
+rather than hand-computing offsets.
 
 ## Safe grow and shrink during migration
 

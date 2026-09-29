@@ -145,7 +145,8 @@ impl CuBudget {
     #[inline(always)]
     pub fn checkpoint() {
         #[cfg(target_os = "solana")]
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The syscall takes no pointer and has no memory
+        // precondition.
         unsafe {
             crate::syscalls::sol_log_compute_units_();
         }

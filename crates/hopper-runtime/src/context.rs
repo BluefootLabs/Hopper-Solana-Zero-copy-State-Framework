@@ -877,7 +877,8 @@ impl<'a> Context<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe { view.raw_ref::<T>() }
     }
 
@@ -898,7 +899,8 @@ impl<'a> Context<'a> {
         // Whole-account write claim: an installed write policy gates the
         // raw path exactly like `load_mut` (coarse, never under-claims).
         self.check_write_policy(index, 0, view.data_len() as u32)?;
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe { view.raw_mut::<T>() }
     }
 
@@ -919,7 +921,8 @@ impl<'a> Context<'a> {
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: This function's `# Safety` contract is the callee's,
+        // forwarded unchanged.
         unsafe { self.raw_mut::<T>(index) }
     }
 

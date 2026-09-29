@@ -41,7 +41,8 @@ pub struct Address(pub(crate) [u8; 32]);
 // - No padding, no drop glue, no interior pointers.
 unsafe impl crate::pod::Zeroable for Address {}
 unsafe impl crate::pod::Pod for Address {}
-// This framework-owned wire primitive is part of the sealed zero-copy set.
+// SAFETY: the type meets the seal's contract, as its `Pod` impl states:
+// alignment 1, no padding, no pointers, every bit pattern valid.
 unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for Address {}
 
 impl Address {

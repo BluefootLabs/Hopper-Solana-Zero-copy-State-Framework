@@ -127,12 +127,22 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             )*
         };
 
+        // SAFETY: the const block above proves every field is `Pod`, and
+        // the size and alignment assertions prove the struct is
+        // `repr(C)` with alignment 1 and no padding. All-zero bytes are
+        // therefore a valid value of every field and of the struct.
         unsafe impl #impl_generics ::hopper::__runtime::Zeroable
             for #name #ty_generics #where_clause {}
 
-        // Hopper runtime Pod marker + FixedLayout.
+        // SAFETY: the same proofs. Every bit pattern is valid for each
+        // field, there is no padding to leave uninitialized, and a
+        // `Pod` field holds no pointer or reference.
         unsafe impl #impl_generics ::hopper::__runtime::Pod for #name #ty_generics #where_clause {}
 
+        // SAFETY: the seal repeats the `Pod` contract (fixed size, alignment 1,
+        // no padding, no pointers, every bit pattern valid), which the
+        // field proofs this macro emits establish for the type.
+        //
         // Audit final-API Step 5 seal. `#[hopper::pod]` types stamp
         // themselves with the framework-defined marker so the
         // `ZeroCopy` blanket picks them up. Bare `unsafe impl Pod`

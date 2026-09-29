@@ -2492,11 +2492,16 @@ dependencies = [
 name = "hopper-runtime"
 version = "0.4.5"
 dependencies = [
+ "bytemuck",
  "hopper-native",
  "proptest",
  "solana-instruction",
+ "solana-nullable",
  "solana-pubkey 4.2.1",
  "spl-token-2022-interface",
+ "spl-token-confidential-transfer-proof-extraction",
+ "spl-token-group-interface",
+ "spl-token-metadata-interface",
 ]
 
 [[package]]

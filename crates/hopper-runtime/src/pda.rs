@@ -4,6 +4,55 @@ use crate::address::Address;
 use crate::error::ProgramError;
 use crate::AccountView;
 
+/// The longest seed of an address (`MAX_SEED_LEN`).
+pub const MAX_SEED_LEN: usize = 32;
+
+/// The suffix an owner may not end with in [`create_with_seed`]: the
+/// marker every program-derived address is hashed with. An owner ending
+/// in it would let a seeded address collide with a program's PDA.
+const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
+
+/// The address the System Program's `*WithSeed` instructions derive from
+/// `base`, `seed`, and `owner`: `sha256(base, seed, owner)`, the same
+/// value as `Pubkey::create_with_seed`. One `sol_sha256` on chain.
+///
+/// Refuses a seed longer than 32 bytes (`MaxSeedLengthExceeded`) and an
+/// owner that ends with the PDA marker (`IllegalOwner`), as the runtime
+/// does. The System Program reads the seed as UTF-8 text.
+#[inline]
+pub fn create_with_seed(
+    base: &Address,
+    seed: &[u8],
+    owner: &Address,
+) -> Result<Address, ProgramError> {
+    if seed.len() > MAX_SEED_LEN {
+        return Err(ProgramError::MaxSeedLengthExceeded);
+    }
+    let owner_bytes = owner.as_array();
+    if owner_bytes[32 - PDA_MARKER.len()..] == PDA_MARKER[..] {
+        return Err(ProgramError::IllegalOwner);
+    }
+    let digest = hopper_native::hash::sha256(&[base.as_array(), seed, owner_bytes])
+        .map_err(|_| ProgramError::InvalidArgument)?;
+    Ok(Address::new_from_array(digest))
+}
+
+/// Check that `expected` is the address [`create_with_seed`] derives
+/// from `base`, `seed`, and `owner`; `InvalidSeeds` when it is not.
+#[inline]
+pub fn verify_address_with_seed(
+    expected: &Address,
+    base: &Address,
+    seed: &[u8],
+    owner: &Address,
+) -> Result<(), ProgramError> {
+    if create_with_seed(base, seed, owner)? == *expected {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
 /// Create a program-derived address from seeds and a program ID.
 ///
 /// Returns `Err(InvalidSeeds)` if the derived address falls on the
@@ -288,7 +337,8 @@ pub fn find_and_verify_pda(
     {
         let expected_addr = account.as_backend().address();
         let backend_expected =
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: The native and runtime `Address` are both
+            // `#[repr(transparent)]` over `[u8; 32]`.
             unsafe { &*(expected_addr as *const hopper_native::address::Address) };
         verify_pda_sha256_loop(backend_expected, seeds, program_id)
     }
@@ -316,7 +366,8 @@ pub fn verify_pda_strict(
     #[cfg(target_os = "solana")]
     {
         let backend_expected =
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: The native and runtime `Address` are both
+            // `#[repr(transparent)]` over `[u8; 32]`.
             unsafe { &*(expected as *const Address as *const hopper_native::address::Address) };
         verify_pda_sha256_loop(backend_expected, seeds, program_id).map(|_| ())
     }
@@ -455,5 +506,57 @@ mod tests {
             const_program_address(&PROGRAM, &[b"counter", PAYER.as_array()], 251),
             PDA_A
         );
+    }
+}
+
+#[cfg(test)]
+mod seeded_address_tests {
+    use super::*;
+    use solana_pubkey::Pubkey;
+
+    #[test]
+    fn create_with_seed_matches_the_canonical_derivation() {
+        let base = Address::new_from_array([3; 32]);
+        let owner = Address::new_from_array([9; 32]);
+        for seed in ["", "vault", "0123456789abcdef0123456789abcdef", "caf\u{e9}"] {
+            let canonical = Pubkey::create_with_seed(
+                &Pubkey::new_from_array([3; 32]),
+                seed,
+                &Pubkey::new_from_array([9; 32]),
+            )
+            .unwrap();
+            let derived = create_with_seed(&base, seed.as_bytes(), &owner).unwrap();
+            assert_eq!(derived.as_array(), &canonical.to_bytes(), "seed {seed:?}");
+            assert_eq!(
+                verify_address_with_seed(&derived, &base, seed.as_bytes(), &owner),
+                Ok(())
+            );
+            assert_eq!(
+                verify_address_with_seed(&base, &base, seed.as_bytes(), &owner),
+                Err(ProgramError::InvalidSeeds)
+            );
+        }
+    }
+
+    #[test]
+    fn create_with_seed_refuses_what_the_runtime_refuses() {
+        let base = Address::new_from_array([3; 32]);
+        let owner = Address::new_from_array([9; 32]);
+        assert_eq!(
+            create_with_seed(&base, &[b'x'; 33], &owner),
+            Err(ProgramError::MaxSeedLengthExceeded)
+        );
+        let mut marked = [9u8; 32];
+        marked[11..].copy_from_slice(b"ProgramDerivedAddress");
+        assert_eq!(
+            create_with_seed(&base, b"vault", &Address::new_from_array(marked)),
+            Err(ProgramError::IllegalOwner)
+        );
+        assert!(Pubkey::create_with_seed(
+            &Pubkey::new_from_array([3; 32]),
+            "vault",
+            &Pubkey::new_from_array(marked),
+        )
+        .is_err());
     }
 }

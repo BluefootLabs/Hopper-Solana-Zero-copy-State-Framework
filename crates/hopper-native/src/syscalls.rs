@@ -131,6 +131,10 @@ macro_rules! define_syscall {
     // ── Static-mode emitter (SIMD-0178 / sBPF v3) ────────────────────
     (@static $(#[$attr:meta])* $vis:vis fn $name:ident($($arg:ident: $typ:ty),* $(,)?) -> $ret:ty; hash = $sym:expr) => {
         $(#[$attr])*
+        // SAFETY: `unsafe` because this is a raw syscall: the caller
+        // upholds the contract of the named syscall for every pointer
+        // and length argument, exactly as for the `extern "C"`
+        // declaration this arm replaces.
         #[inline]
         $vis unsafe fn $name($($arg: $typ),*) -> $ret {
             // Forcing the hash through an enum discriminant guarantees it is

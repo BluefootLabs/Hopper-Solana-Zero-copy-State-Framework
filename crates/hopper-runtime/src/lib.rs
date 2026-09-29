@@ -75,8 +75,10 @@ pub mod token_2022_ext;
 pub mod token_2022_ix;
 pub mod token_admin;
 pub mod token_batch;
+pub mod token_confidential_ix;
 #[cfg(test)]
 mod token_differential_tests;
+pub mod token_metadata_ix;
 pub mod token_mint;
 pub mod write_policy;
 
@@ -487,12 +489,18 @@ macro_rules! hopper_unsafe_region {
         // the expanded tree the same way as the macro name.
         const _HOPPER_UNSAFE_REGION_LABEL: &str = $label;
         #[allow(unused_unsafe)]
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { $body }
+        // SAFETY: This macro marks a region the caller has labelled and
+        // reviewed; the justification for `$body` is written at the call
+        // site.
+        unsafe {
+            $body
+        }
     }};
 }
 
-/// Backend-neutral logging macro.
+/// Backend-neutral logging macro. A formatted message is built in a
+/// 256-byte stack buffer; a longer one is cut at the last whole
+/// character that fits.
 #[macro_export]
 macro_rules! msg {
     ( $literal:expr ) => {{
@@ -505,11 +513,7 @@ macro_rules! msg {
             let mut buf = [0u8; 256];
             let mut wrapper = $crate::log::StackWriter::new(&mut buf);
             let _ = write!(wrapper, $fmt, $($arg)*);
-            let len = wrapper.pos();
-            $crate::log::log(
-                // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-                unsafe { core::str::from_utf8_unchecked(&buf[..len]) }
-            );
+            $crate::log::log(wrapper.as_str());
         }
         #[cfg(not(target_os = "solana"))]
         {
@@ -667,7 +671,9 @@ macro_rules! hopper_entrypoint {
                 core::mem::MaybeUninit::<$crate::__hopper_native::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `input` is the loader's input buffer (the entrypoint's
+            // contract) and `accounts` has `$maximum` slots, the bound the
+            // parser is given.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::__hopper_native::raw_input::deserialize_accounts::<$maximum>(
                     input,
@@ -675,11 +681,14 @@ macro_rules! hopper_entrypoint {
                 )
             };
 
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: The native and runtime `Address` are both
+            // `#[repr(transparent)]` over `[u8; 32]`.
             let hopper_program_id = unsafe {
                 &*(program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: The parser initialized the first `count` slots, and the
+            // runtime `AccountView` is `#[repr(transparent)]` over the native
+            // one (its size and alignment are asserted where it is defined).
             let hopper_accounts = unsafe {
                 core::slice::from_raw_parts(
                     accounts.as_ptr() as *const $crate::AccountView<'_>,

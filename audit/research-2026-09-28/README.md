@@ -79,7 +79,38 @@ Pina's counter (evaluated on Hopper's fixtures and not adopted: every
 artifact faulted in the verifier, see
 [SBPF_LINKER_EVALUATION.md](SBPF_LINKER_EVALUATION.md)); the `init` helper
 writing the bump byte (built: `hopper_init!` stores it under the header's
-borrow) and per-field value validation (open).
+borrow) and per-field value validation (built: `#[check(..)]`, with the
+rules published in `FIELD_RULES`, which Pina's do not reach its IDL).
+
+**pinocchio and Quasar, second pass (2026-09-28).** pinocchio main at
+`adbd48d` (and the crates it re-exports) and Quasar at `b0de7db4` were read
+against Hopper module by module. System, associated-token, and memo: Hopper
+has a builder for each of pinocchio's fourteen, three, and one, with the
+same discriminators and account order. What the pass changed in the tree:
+
+| Finding | Hopper before | Now |
+|---|---|---|
+| `msg!` cut a long message at a byte count and built the `&str` unchecked; `sol_log_` refuses invalid UTF-8 and fails the transaction | unsound for a message over 256 bytes with a multi-byte character at the cut | cut at the last whole character, nothing appended after a cut, no `unsafe` in the macro |
+| `hint::likely` / `unlikely` | identity functions | a `#[cold]` empty call on the unexpected arm, as pinocchio and Quasar do |
+| `create_with_seed` derivation | builders only, no derivation | `pda::create_with_seed`, `pda::verify_address_with_seed`, checked against `Pubkey::create_with_seed` |
+| `hopper-memo` | seventeen CPI bodies, and a doc comment crediting pinocchio for the cap | one bounded CPI body; the cap is stated as what fits a 4 KiB frame |
+
+Left open, ranked: an allocator that can use a requested heap frame (the
+current one is fixed at 32 KiB); a panic handler that reports the location
+behind a feature; optional `base` on `CreateAccountWithSeed`; `target_arch =
+"bpf"` gates for the upstream target; SlotHashes lookup by slot through
+partial sysvar reads; a typed Instructions-sysvar view with signer and
+writable flags; an `r2`-backed lazy context; a per-instruction heap policy;
+a compile-time canonical PDA finder; host-side PDA derivation;
+discriminator-polymorphic accounts and fixed account groups.
+
+Behaviours in the reference code that Hopper does not copy: pinocchio main
+reads the SIMD-0449 pointer table unconditionally (the gate is pending on
+mainnet); its Rent ignores the exemption threshold; its `log_cu_usage`
+links a syscall no cluster has activated; Quasar's `get_cpi_return` calls
+`assume_init` on a partly written buffer, and its `verify_program_address`
+accepts seventeen seeds where the runtime takes sixteen (Hopper now refuses
+a seed list that long at compile time).
 
 **Quasar.** Reviewed at `b0de7db4` for the comparison rows only; its
 account model (no borrow tracking, unchecked CPI by default) is the design
@@ -107,6 +138,10 @@ also be omitted, which Anchor does not allow).
 - 2026-09-28, the layout batch: `#[hopper::unit_enum]` with `EnumByte<E>`,
   `OptionByte<T>` as a layout field, and diagnostics on `Pod` that name the
   wire type to use.
+- 2026-09-28, the rules batch: `#[check(..)]` value rules and `FIELD_RULES`,
+  opt-in native accessors, compile-time seed checks, the token-metadata,
+  token-group, and confidential-transfer builders, the tail lab devnet
+  runner, and the four fixes from the second pinocchio and Quasar pass.
 
 Devnet evidence for each batch is listed in
 [docs/DEVNET_RELEASE_EVIDENCE.md](../../docs/DEVNET_RELEASE_EVIDENCE.md).

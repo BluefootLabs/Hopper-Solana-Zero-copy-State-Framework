@@ -125,6 +125,12 @@ jobs:
           path: target/hopper/fuzz/cicada-semantic-report.json
       - name: Check unsafe safety comments
         run: python3 scripts/check-unsafe-safety-comments.py
+      - name: Check the unsafe map is current
+        run: python3 scripts/audit-map.py --verify
+      - name: Check reviewed unsafe sites have not changed
+        run: python3 scripts/audit-map.py --check
+      - name: Check the unsafe inventory cites tests that exist
+        run: python3 scripts/check-doc-citations.py
 
   publication-train:
     name: 29-crate publication train

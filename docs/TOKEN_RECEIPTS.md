@@ -8,7 +8,7 @@ It needs no indexer or off-chain attestation.
 
 ## Set the receipt policy before transferring
 
-Use `hopper-solana` 0.4.1 with `hopper-runtime` 0.4.3. After validating the
+Use `hopper-solana` 0.4.1 with `hopper-runtime` 0.4.3 or later. After validating the
 instruction's caller, configured mint, destination, and extension policy:
 
 ```rust,ignore

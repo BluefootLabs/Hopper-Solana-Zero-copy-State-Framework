@@ -220,7 +220,9 @@ impl<'a> Frame<'a> {
         // guard and yields a `Ref<T>` whose lifetime is tied to the
         // account borrow; the `SegmentLease` we build immediately after
         // releases the registry entry on drop.
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The pointer is in bounds (checked above) and `project` is
+        // handed a pointer derived from the guard it consumes, so the typed
+        // guard covers exactly the borrow that was taken.
         let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
         let inner: Ref<'f, T> = unsafe { data.project(ptr) };
         // SAFETY: `borrow` was just registered in `self.segment_borrows`;
@@ -312,7 +314,9 @@ impl<'a> Frame<'a> {
         // was derived from the guard's own mutable reborrow.
         let inner: RefMut<'f, T> = unsafe { data.project(ptr) };
         let lease: SegmentLease<'f> =
-            // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `borrow` was returned by this registry's
+            // `register_leased_write` above and has not been released, which
+            // is what `SegmentLease::new` requires.
             unsafe { SegmentLease::new(&mut self.segment_borrows, borrow) };
         Ok(SegRefMut::new(inner, lease))
     }

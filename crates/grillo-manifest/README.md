@@ -53,6 +53,14 @@ a type check replaced by an unchecked kind, an account that became optional,
 or a new `init`, `realloc`, or `close` lifecycle. Changes that have no order,
 such as different PDA seeds or a different expected CPI program, are `Review`.
 
+In the tree after 0.1.0 the diff also reads the manifest's `fieldRules`: the
+value rules a program declares on its layout fields. A removed rule
+(`field_rule_removed`) or a looser bound (`field_rule_widened`) is a widening,
+because stored state the old release refused now binds. A tighter or added
+rule is `Narrowed` and says that accounts whose stored value breaks it stop
+binding. A rule with a condition beyond its literal bounds that was rewritten
+is `Review`.
+
 The report records a SHA-256 over the canonical JSON of both manifests.
 `AuthorityReport::check_approval` accepts a previously reviewed report only
 for that exact manifest pair, so an approval cannot be replayed onto a later

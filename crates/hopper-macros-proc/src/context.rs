@@ -317,6 +317,8 @@ struct AccountAttr {
     ///   (`#[hopper::state(schema_epoch = N)]`). `validate()` widens to
     ///   accept any healable (lagging, never leading) epoch.
     epoch_migrate: bool,
+    /// `skip_rules`: do not check the layout's `#[check]` rules here.
+    skip_rules: bool,
 
     /// `executable`. Anchor-parity keyword. Requires the account's
     /// `executable` flag to be true - i.e. it must be a deployed BPF
@@ -2349,6 +2351,33 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 "accounts[{}] ({}) .{} must equal accounts[{}] ({}) key",
                 idx, field_name, target_name, target_idx, target_name
             ));
+        }
+
+        // -- Stage 5.6: the layout's `#[check]` rules ---------------------
+        // An existing account's stored values must satisfy the rules its
+        // layout declares. The probe resolves to a no-op for a layout
+        // without rules, so only a ruled layout pays for the load. A
+        // field being created or migrated holds no settled values yet.
+        if !(cf.attr.init
+            || cf.attr.init_if_needed
+            || cf.attr.zero
+            || cf.attr.epoch_migrate
+            || cf.attr.skip_rules)
+        {
+            if let Some(field_ty) = layout_type_for_field(cf) {
+                field_checks.push(quote! {
+                    {
+                        #[allow(unused_imports)]
+                        use ::hopper::__runtime::layout::{
+                            CheckFieldRules as _, NoFieldRules as _,
+                        };
+                        (&::hopper::__runtime::layout::RulesProbe::<#field_ty>(
+                            ::core::marker::PhantomData,
+                        ))
+                            .check_account_rules(ctx.account(#slot)?)?;
+                    }
+                });
+            }
         }
 
         // -- Stage 6: arbitrary `constraint = expr` -----------------------
@@ -6815,6 +6844,12 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     result.zero = true;
                     Ok(())
                 }
+                "skip_rules" => {
+                    // The layout's `#[check]` rules are not checked for
+                    // this field (a repair instruction, for example).
+                    result.skip_rules = true;
+                    Ok(())
+                }
                 "epoch_migrate" => {
                     result.epoch_migrate = true;
                     Ok(())
@@ -7124,6 +7159,91 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
 /// that are syntactically valid but semantically incoherent (e.g. `init`
 /// without `payer`). Each violation here corresponds to one entry in
 /// the trybuild suite.
+/// The runtime's limit on one seed (`MAX_SEED_LEN`).
+const MAX_SEED_LEN: usize = 32;
+/// The runtime's limit on the seeds of one address, the bump included
+/// (`MAX_SEEDS`).
+const MAX_SEEDS: usize = 16;
+
+/// The byte length of a seed expression when the expression alone decides
+/// it: a byte-string or string literal, a byte literal array, a repeat
+/// with a literal count, and any of those behind `&`, parentheses,
+/// `.as_bytes()`, `.as_ref()`, `.as_slice()`, or a full-range index.
+/// Anything else (a field, a call, a constant) is `None`: its length is
+/// known only to the compiler or the runtime.
+fn literal_seed_len(expr: &Expr) -> Option<usize> {
+    match expr {
+        Expr::Lit(lit) => match &lit.lit {
+            syn::Lit::ByteStr(bytes) => Some(bytes.value().len()),
+            syn::Lit::Str(text) => Some(text.value().len()),
+            _ => None,
+        },
+        Expr::Reference(reference) => literal_seed_len(&reference.expr),
+        Expr::Paren(paren) => literal_seed_len(&paren.expr),
+        Expr::Group(group) => literal_seed_len(&group.expr),
+        Expr::Array(array) => Some(array.elems.len()),
+        Expr::Repeat(repeat) => match repeat.len.as_ref() {
+            Expr::Lit(lit) => match &lit.lit {
+                syn::Lit::Int(count) => count.base10_parse::<usize>().ok(),
+                _ => None,
+            },
+            _ => None,
+        },
+        Expr::MethodCall(call)
+            if call.args.is_empty()
+                && (call.method == "as_bytes"
+                    || call.method == "as_ref"
+                    || call.method == "as_slice") =>
+        {
+            literal_seed_len(&call.receiver)
+        }
+        Expr::Index(index) => match index.index.as_ref() {
+            Expr::Range(range) if range.start.is_none() && range.end.is_none() => {
+                literal_seed_len(&index.expr)
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Refuse a seed list the runtime can never accept: a seed longer than 32
+/// bytes, or more seeds than fit next to the bump. Both fail every
+/// derivation with `MaxSeedLengthExceeded`, so the program would build,
+/// deploy, and refuse every call; the error belongs at the seed.
+fn check_seed_list(field_name: &Ident, seeds: &[Expr]) -> Result<()> {
+    if seeds.len() + 1 > MAX_SEEDS {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`{}` declares {} seeds; with the bump that is {} and an address takes at most \
+                 {}. Hash the extra parts into one 32-byte seed \
+                 (`hopper::hash::sha256`) and pass the digest.",
+                field_name,
+                seeds.len(),
+                seeds.len() + 1,
+                MAX_SEEDS
+            ),
+        ));
+    }
+    for seed in seeds {
+        if let Some(len) = literal_seed_len(seed) {
+            if len > MAX_SEED_LEN {
+                return Err(syn::Error::new_spanned(
+                    seed,
+                    format!(
+                        "this seed is {} bytes and a seed takes at most {}; every derivation \
+                         with it fails with `MaxSeedLengthExceeded`. Shorten the literal, or \
+                         hash it and pass the 32-byte digest.",
+                        len, MAX_SEED_LEN
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
     if attr.init && attr.init_if_needed {
         return Err(syn::Error::new_spanned(
@@ -7204,6 +7324,9 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
             field_name,
             "#[account(seeds = ...)] requires `bump` (or `bump = <stored_byte>`)",
         ));
+    }
+    if let Some(seeds) = &attr.seeds {
+        check_seed_list(field_name, seeds)?;
     }
     // `seeds::program = X` only makes sense when `seeds = [...]` is
     // declared. otherwise there's no PDA derivation to redirect.
@@ -9487,6 +9610,68 @@ mod instruction_arg_tests {
         assert!(
             !plain.contains("bump="),
             "an unseeded init has no bump to store: {plain}"
+        );
+    }
+
+    fn seeded(seeds: TokenStream) -> Result<TokenStream> {
+        expand_for_derive(quote! {
+            #[derive(Accounts)]
+            pub struct Seeded<'info> {
+                pub authority: Signer<'info>,
+                #[account(seeds = [#seeds], bump)]
+                pub config: Account<'info, Config>,
+            }
+        })
+    }
+
+    /// A seed whose literal length the runtime can never accept is a
+    /// compile error at the seed, in every literal spelling.
+    #[test]
+    fn a_literal_seed_longer_than_32_bytes_is_refused() {
+        for seeds in [
+            quote!(b"0123456789abcdef0123456789abcdef0"),
+            quote!("0123456789abcdef0123456789abcdef0".as_bytes()),
+            quote!(&b"0123456789abcdef0123456789abcdef0"[..]),
+            quote!(b"ok", &[0u8; 33]),
+            quote!((b"0123456789abcdef0123456789abcdef0").as_ref()),
+        ] {
+            let error = seeded(seeds.clone()).expect_err("must refuse").to_string();
+            assert!(
+                error.contains("33 bytes") && error.contains("at most 32"),
+                "{seeds}: {error}"
+            );
+        }
+    }
+
+    /// Exactly 32 bytes, and any seed whose length the expression does
+    /// not decide, pass.
+    #[test]
+    fn seeds_within_the_limits_pass() {
+        for seeds in [
+            quote!(b"0123456789abcdef0123456789abcdef"),
+            quote!(b"config", authority.address().as_array()),
+            quote!(&[1u8, 2, 3], SOME_CONST, &[0u8; LEN]),
+            quote!(
+                b"a", b"b", b"c", b"d", b"e", b"f", b"g", b"h", b"i", b"j", b"k", b"l", b"m", b"n",
+                b"o"
+            ),
+        ] {
+            seeded(seeds.clone()).unwrap_or_else(|e| panic!("{seeds}: {e}"));
+        }
+    }
+
+    /// Sixteen seeds leave no room for the bump.
+    #[test]
+    fn more_seeds_than_fit_next_to_the_bump_are_refused() {
+        let error = seeded(quote!(
+            b"a", b"b", b"c", b"d", b"e", b"f", b"g", b"h", b"i", b"j", b"k", b"l", b"m", b"n",
+            b"o", b"p"
+        ))
+        .expect_err("must refuse")
+        .to_string();
+        assert!(
+            error.contains("16 seeds") && error.contains("at most 16"),
+            "{error}"
         );
     }
 

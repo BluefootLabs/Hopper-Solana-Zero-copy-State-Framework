@@ -46,6 +46,10 @@ struct StateOptions {
     /// `CompactTail` helpers. Emits a [`CompactDynamicLayout`] impl (relaxed
     /// length validation) instead of [`CompactLayout`].
     dynamic: bool,
+    /// Emit native getters and setters (`fn total(&self) -> u64`,
+    /// `fn set_total(&mut self, u64)`) for the wire scalar fields. Opt-in
+    /// because the methods take the fields' names.
+    accessors: bool,
 }
 
 impl Default for StateOptions {
@@ -59,6 +63,7 @@ impl Default for StateOptions {
             raw_tail: false,
             compact: false,
             dynamic: false,
+            accessors: false,
         }
     }
 }
@@ -91,6 +96,9 @@ struct FieldMeta {
     /// stored at init. Drives the `CANONICAL_BUMP_ABS_OFFSET` const that
     /// `#[account(seeds = [...], bump = stored)]` verifies against.
     bump: bool,
+    /// `#[check(rule)]` / `#[check(rule, error = E)]`: value rules on
+    /// this field, in declaration order.
+    checks: Vec<FieldCheck>,
 }
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
@@ -301,6 +309,19 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         running_offset = quote! {
             #current_offset + core::mem::size_of::<#field_ty>() as u32
         };
+    }
+
+    {
+        let (inherent, module) = field_rule_items(
+            &name,
+            &vis,
+            fields,
+            &field_metas,
+            options.accessors,
+            RuleLoad::Headered,
+        )?;
+        inherent_items.push(inherent);
+        module_items.push(module);
     }
 
     // `#[bump]` marker: emit the account-absolute offset of the canonical
@@ -784,6 +805,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             )*
         };
 
+        // SAFETY: the struct is `#[repr(C)]` (checked at expansion), every
+        // field is proven `Pod` by the assertions emitted above, and the
+        // size assertion rules out padding. All-zero bytes and every
+        // other bit pattern are therefore valid, at alignment 1, with no
+        // pointer inside. The seal below repeats that contract.
         unsafe impl ::hopper::__runtime::Zeroable for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
         // Audit final-API Step 5 seal. `#[hopper::state]` stamps
@@ -1032,6 +1058,18 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         running_offset = quote! {
             #current_offset + core::mem::size_of::<#field_ty>() as u32
         };
+    }
+
+    {
+        let load = if options.dynamic_tail.is_some() || options.raw_tail || options.dynamic {
+            RuleLoad::CompactDynamic
+        } else {
+            RuleLoad::Compact
+        };
+        let (inherent, module) =
+            field_rule_items(&name, &vis, fields, &field_metas, options.accessors, load)?;
+        inherent_items.push(inherent);
+        module_items.push(module);
     }
 
     // `#[bump]` marker on a compact layout: the account-absolute offset
@@ -1525,6 +1563,10 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
             )*
         };
 
+        // SAFETY: as on the headered path. The struct is `#[repr(C)]`,
+        // every field is proven `Pod`, and the size assertion rules out
+        // padding, so every bit pattern is valid at alignment 1 with no
+        // pointer inside. The seal below repeats that contract.
         unsafe impl ::hopper::__runtime::Zeroable for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
         // Audit final-API Step 5 seal, same as the headered path: compact
@@ -1651,6 +1693,20 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
             meta.bump = true;
             continue;
         }
+        if attr.path().is_ident("check") {
+            let check: FieldCheck = attr.parse_args().map_err(|error| {
+                syn::Error::new(
+                    error.span(),
+                    format!(
+                        "{error}. #[check(..)] takes a boolean expression over `value`, \
+                         e.g. #[check(value >= 1 && value <= 10)] or \
+                         #[check(value != 0, error = MyError::Zero)]"
+                    ),
+                )
+            })?;
+            meta.checks.push(check);
+            continue;
+        }
         if attr.path().is_ident("invariant") {
             let nv = attr.meta.require_name_value().map_err(|_| {
                 syn::Error::new_spanned(
@@ -1681,7 +1737,10 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
 /// attribute names are not registered with the compiler.
 fn strip_hopper_field_attrs(field: &mut Field) {
     field.attrs.retain(|a| {
-        !a.path().is_ident("role") && !a.path().is_ident("invariant") && !a.path().is_ident("bump")
+        !a.path().is_ident("role")
+            && !a.path().is_ident("invariant")
+            && !a.path().is_ident("bump")
+            && !a.path().is_ident("check")
     });
 }
 
@@ -1833,6 +1892,371 @@ fn native_wire_param_type(ty: &syn::Type) -> Option<TokenStream> {
     Some(native)
 }
 
+/// One `#[check(..)]` rule on a field.
+#[derive(Clone)]
+struct FieldCheck {
+    /// The boolean expression; `value` names the field's native value.
+    rule: syn::Expr,
+    /// `error = <expr>`: the error a failed rule returns.
+    error: Option<syn::Expr>,
+}
+
+impl syn::parse::Parse for FieldCheck {
+    fn parse(input: syn::parse::ParseStream<'_>) -> Result<Self> {
+        let rule: syn::Expr = input.parse()?;
+        let mut error = None;
+        if input.peek(syn::Token![,]) {
+            input.parse::<syn::Token![,]>()?;
+            if !input.is_empty() {
+                let key: syn::Ident = input.parse()?;
+                if key != "error" {
+                    return Err(syn::Error::new(
+                        key.span(),
+                        "expected `error = <expr>` after the rule",
+                    ));
+                }
+                input.parse::<syn::Token![=]>()?;
+                error = Some(input.parse()?);
+                if input.peek(syn::Token![,]) {
+                    input.parse::<syn::Token![,]>()?;
+                }
+            }
+        }
+        if !input.is_empty() {
+            return Err(input.error(
+                "one rule per #[check(..)]: join conditions with `&&`, or add another #[check(..)]",
+            ));
+        }
+        Ok(Self { rule, error })
+    }
+}
+
+/// An integer literal, negated or not, as `i128`.
+fn int_literal(expr: &syn::Expr) -> Option<i128> {
+    match expr {
+        syn::Expr::Lit(lit) => match &lit.lit {
+            syn::Lit::Int(value) => value.base10_parse::<i128>().ok(),
+            _ => None,
+        },
+        syn::Expr::Unary(unary) if matches!(unary.op, syn::UnOp::Neg(_)) => {
+            int_literal(&unary.expr)?.checked_neg()
+        }
+        syn::Expr::Paren(paren) => int_literal(&paren.expr),
+        syn::Expr::Group(group) => int_literal(&group.expr),
+        _ => None,
+    }
+}
+
+fn is_value_path(expr: &syn::Expr) -> bool {
+    match expr {
+        syn::Expr::Path(path) => path.qself.is_none() && path.path.is_ident("value"),
+        syn::Expr::Paren(paren) => is_value_path(&paren.expr),
+        syn::Expr::Group(group) => is_value_path(&group.expr),
+        _ => false,
+    }
+}
+
+/// The inclusive bounds a rule places on `value`, read from the
+/// comparisons with integer literals that the rule joins with `&&`. Every
+/// such comparison must hold for the rule to hold, so each is a bound on
+/// its own; anything else in the conjunction (a call, another field) can
+/// only narrow further and is left out. A rule with `||` at the top
+/// decides no bound.
+#[cfg(test)]
+fn rule_bounds(expr: &syn::Expr, min: &mut Option<i128>, max: &mut Option<i128>) {
+    let mut exact = true;
+    rule_bounds_exact(expr, min, max, &mut exact);
+}
+
+/// [`rule_bounds`], also reporting whether the bounds are the whole rule:
+/// `exact` is cleared by any condition that is not a comparison of `value`
+/// with an integer literal that a bound expresses.
+fn rule_bounds_exact(
+    expr: &syn::Expr,
+    min: &mut Option<i128>,
+    max: &mut Option<i128>,
+    exact: &mut bool,
+) {
+    match expr {
+        syn::Expr::Paren(paren) => rule_bounds_exact(&paren.expr, min, max, exact),
+        syn::Expr::Group(group) => rule_bounds_exact(&group.expr, min, max, exact),
+        syn::Expr::Binary(binary) => {
+            if matches!(binary.op, syn::BinOp::And(_)) {
+                rule_bounds_exact(&binary.left, min, max, exact);
+                rule_bounds_exact(&binary.right, min, max, exact);
+                return;
+            }
+            // Normalize to `value <op> literal`.
+            #[derive(Clone, Copy)]
+            enum Op {
+                Ge,
+                Gt,
+                Le,
+                Lt,
+                Eq,
+            }
+            let op = match binary.op {
+                syn::BinOp::Ge(_) => Op::Ge,
+                syn::BinOp::Gt(_) => Op::Gt,
+                syn::BinOp::Le(_) => Op::Le,
+                syn::BinOp::Lt(_) => Op::Lt,
+                syn::BinOp::Eq(_) => Op::Eq,
+                _ => {
+                    *exact = false;
+                    return;
+                }
+            };
+            let (op, literal) = if is_value_path(&binary.left) {
+                match int_literal(&binary.right) {
+                    Some(literal) => (op, literal),
+                    None => {
+                        *exact = false;
+                        return;
+                    }
+                }
+            } else if is_value_path(&binary.right) {
+                let flipped = match op {
+                    Op::Ge => Op::Le,
+                    Op::Gt => Op::Lt,
+                    Op::Le => Op::Ge,
+                    Op::Lt => Op::Gt,
+                    Op::Eq => Op::Eq,
+                };
+                match int_literal(&binary.left) {
+                    Some(literal) => (flipped, literal),
+                    None => {
+                        *exact = false;
+                        return;
+                    }
+                }
+            } else {
+                *exact = false;
+                return;
+            };
+            let mut raise = |bound: Option<i128>| {
+                if let Some(bound) = bound {
+                    *min = Some(min.map_or(bound, |current| current.max(bound)));
+                }
+            };
+            match op {
+                Op::Ge => raise(Some(literal)),
+                Op::Gt => raise(literal.checked_add(1)),
+                Op::Eq => raise(Some(literal)),
+                _ => {}
+            }
+            let mut lower = |bound: Option<i128>| {
+                if let Some(bound) = bound {
+                    *max = Some(max.map_or(bound, |current| current.min(bound)));
+                }
+            };
+            match op {
+                Op::Le => lower(Some(literal)),
+                Op::Lt => lower(literal.checked_sub(1)),
+                Op::Eq => lower(Some(literal)),
+                _ => {}
+            }
+        }
+        _ => *exact = false,
+    }
+}
+
+fn option_i128_tokens(value: Option<i128>) -> TokenStream {
+    match value {
+        Some(value) => {
+            let literal = proc_macro2::Literal::i128_suffixed(value);
+            quote! { ::core::option::Option::Some(#literal) }
+        }
+        None => quote! { ::core::option::Option::None },
+    }
+}
+
+/// How the generated `check_account` loads the layout.
+#[derive(Clone, Copy)]
+enum RuleLoad {
+    Headered,
+    Compact,
+    CompactDynamic,
+}
+
+/// The value-rule and accessor surface of a layout: `FIELD_RULES`,
+/// `check_rules`, a `try_set_<field>` per ruled field, the `FieldRules`
+/// impl the accounts derive finds through its probe, and, with the
+/// `accessors` option, native getters and setters for the wire scalars.
+fn field_rule_items(
+    name: &syn::Ident,
+    vis: &syn::Visibility,
+    fields: &syn::punctuated::Punctuated<Field, syn::Token![,]>,
+    metas: &[FieldMeta],
+    accessors: bool,
+    load: RuleLoad,
+) -> Result<(TokenStream, TokenStream)> {
+    let mut descriptors = Vec::new();
+    let mut checks = Vec::new();
+    let mut methods = Vec::new();
+
+    for (field, meta) in fields.iter().zip(metas) {
+        let field_name = field.ident.as_ref().unwrap();
+        let field_ty = &field.ty;
+        let native = native_wire_param_type(field_ty);
+        let read = match &native {
+            Some(_) => quote! { self.#field_name.get() },
+            None => quote! { self.#field_name },
+        };
+        let (param_ty, stored) = match &native {
+            Some(native) => (native.clone(), quote! { <#field_ty>::new(value) }),
+            None => (quote! { #field_ty }, quote! { value }),
+        };
+
+        let mut field_checks = Vec::new();
+        for check in &meta.checks {
+            let rule = &check.rule;
+            let text = rule.to_token_stream().to_string();
+            let (mut min, mut max, mut exact) = (None, None, true);
+            rule_bounds_exact(rule, &mut min, &mut max, &mut exact);
+            if let (Some(min), Some(max)) = (min, max) {
+                if min > max {
+                    return Err(syn::Error::new_spanned(
+                        rule,
+                        format!(
+                            "no value satisfies this rule: it needs `value >= {min}` and \
+                             `value <= {max}`"
+                        ),
+                    ));
+                }
+            }
+            let field_literal = LitStr::new(&field_name.to_string(), field_name.span());
+            let min = option_i128_tokens(min);
+            let max = option_i128_tokens(max);
+            descriptors.push(quote! {
+                ::hopper::hopper_schema::FieldRule {
+                    field: #field_literal,
+                    rule: #text,
+                    min: #min,
+                    max: #max,
+                    exact: #exact,
+                }
+            });
+            let error = match &check.error {
+                Some(error) => quote! { (#error).into() },
+                None => quote! { ::hopper::__runtime::ProgramError::InvalidAccountData },
+            };
+            field_checks.push(quote! {
+                if !(#rule) {
+                    return ::core::result::Result::Err(#error);
+                }
+            });
+        }
+
+        if !field_checks.is_empty() {
+            checks.push(quote! {
+                {
+                    let value = #read;
+                    #(#field_checks)*
+                }
+            });
+            let try_set = format_ident!("try_set_{}", field_name);
+            let doc = format!(
+                "Set `{field_name}` after checking its `#[check]` rules against the new value; \
+                 a refused value leaves the field unchanged."
+            );
+            methods.push(quote! {
+                #[doc = #doc]
+                // The rule is the author's expression, kept as written.
+                #[allow(clippy::manual_range_contains, clippy::nonminimal_bool)]
+                #[inline]
+                #vis fn #try_set(&mut self, value: #param_ty) -> ::hopper::__runtime::ProgramResult {
+                    #(#field_checks)*
+                    self.#field_name = #stored;
+                    ::core::result::Result::Ok(())
+                }
+            });
+        }
+
+        if accessors {
+            if let Some(native) = &native {
+                let getter_doc = format!("`{field_name}` as its native value.");
+                methods.push(quote! {
+                    #[doc = #getter_doc]
+                    #[inline(always)]
+                    #vis const fn #field_name(&self) -> #native {
+                        self.#field_name.get()
+                    }
+                });
+                // A ruled field is written through `try_set_<field>`.
+                if meta.checks.is_empty() {
+                    let setter = format_ident!("set_{}", field_name);
+                    let setter_doc = format!("Set `{field_name}` from its native value.");
+                    methods.push(quote! {
+                        #[doc = #setter_doc]
+                        #[inline(always)]
+                        #vis fn #setter(&mut self, value: #native) {
+                            self.#field_name = <#field_ty>::new(value);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    let has_rules = !checks.is_empty();
+    let check_rules = if has_rules {
+        quote! {
+            /// Check every `#[check]` rule of this layout, in field order,
+            /// and return the first failure.
+            // The rules are the author's expressions, kept as written.
+            #[allow(clippy::manual_range_contains, clippy::nonminimal_bool)]
+            #[inline]
+            #vis fn check_rules(&self) -> ::hopper::__runtime::ProgramResult {
+                #(#checks)*
+                ::core::result::Result::Ok(())
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+    let inherent = quote! {
+        /// The `#[check]` rules of this layout, in field order: the rule as
+        /// written and the inclusive integer bounds it decides. Tooling
+        /// compares two releases' tables to tell a tightened rule from a
+        /// widened one.
+        pub const FIELD_RULES: &'static [::hopper::hopper_schema::FieldRule] = &[
+            #(#descriptors),*
+        ];
+
+        #check_rules
+
+        #(#methods)*
+    };
+
+    let module = if has_rules {
+        let loaded = match load {
+            RuleLoad::Headered => quote! { account.load::<Self>()? },
+            RuleLoad::Compact => quote! { account.load_compact::<Self>()? },
+            RuleLoad::CompactDynamic => quote! { account.load_compact_dynamic::<Self>()? },
+        };
+        quote! {
+            impl ::hopper::__runtime::layout::FieldRules for #name {
+                #[inline(always)]
+                fn check_rules(&self) -> ::hopper::__runtime::ProgramResult {
+                    #name::check_rules(self)
+                }
+
+                #[inline]
+                fn check_account(
+                    account: &::hopper::prelude::AccountView<'_>,
+                ) -> ::hopper::__runtime::ProgramResult {
+                    let layout = #loaded;
+                    #name::check_rules(&layout)
+                }
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    Ok((inherent, module))
+}
+
 fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
     if attr.is_empty() {
         return Ok(StateOptions::default());
@@ -1886,12 +2310,20 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             };
             return Ok(());
         }
+        if meta.path.is_ident("accessors") {
+            // Accept both the bare flag `accessors` and `accessors = true`.
+            options.accessors = match meta.value() {
+                Ok(value) => value.parse::<syn::LitBool>()?.value,
+                Err(_) => true,
+            };
+            return Ok(());
+        }
         if meta.path.is_ident("dynamic_tail_schema") || meta.path.is_ident("tail_schema") {
             let value: LitStr = meta.value()?.parse()?;
             options.dynamic_tail_schema = Some(value.value());
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `schema_epoch = N`, `compact`, `dynamic`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `schema_epoch = N`, `compact`, `dynamic`, `accessors`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;
@@ -2243,6 +2675,102 @@ mod field_attr_tests {
         );
         let m = parse_first_field(f);
         assert_eq!(m.role, "authority");
+    }
+
+    fn bounds(rule: syn::Expr) -> (Option<i128>, Option<i128>) {
+        let (mut min, mut max) = (None, None);
+        rule_bounds(&rule, &mut min, &mut max);
+        (min, max)
+    }
+
+    #[test]
+    fn rule_bounds_come_from_the_literal_comparisons_of_a_conjunction() {
+        assert_eq!(
+            bounds(parse_quote!(value >= 1 && value <= 10)),
+            (Some(1), Some(10))
+        );
+        assert_eq!(
+            bounds(parse_quote!(value > 1 && value < 10)),
+            (Some(2), Some(9))
+        );
+        assert_eq!(bounds(parse_quote!(3 <= value)), (Some(3), None));
+        assert_eq!(
+            bounds(parse_quote!(-7 < value && (value) <= -2)),
+            (Some(-6), Some(-2))
+        );
+        assert_eq!(bounds(parse_quote!(value == 4)), (Some(4), Some(4)));
+        // The narrowest of repeated bounds.
+        assert_eq!(
+            bounds(parse_quote!(
+                value >= 1 && value >= 5 && value <= 9 && value <= 7
+            )),
+            (Some(5), Some(7))
+        );
+        // Other conjuncts only narrow; the literal bounds stand.
+        assert_eq!(
+            bounds(parse_quote!(
+                value >= 1 && value <= self.cap.get() && value != 3
+            )),
+            (Some(1), None)
+        );
+        // A disjunction, a constant, another operand: no bound.
+        assert_eq!(
+            bounds(parse_quote!(value == 0 || value >= 10)),
+            (None, None)
+        );
+        assert_eq!(bounds(parse_quote!(value <= MAX)), (None, None));
+        assert_eq!(bounds(parse_quote!(self.other.get() <= 10)), (None, None));
+        assert_eq!(bounds(parse_quote!(value + 1 <= 10)), (None, None));
+    }
+
+    #[test]
+    fn check_attr_parses_the_rule_and_the_error() {
+        let f: syn::Field = parse_quote!(
+            #[check(value >= 1)]
+            #[check(value <= 10, error = MyError::TooBig)]
+            pub tier: u8
+        );
+        let m = parse_first_field(f);
+        assert_eq!(m.checks.len(), 2);
+        assert!(m.checks[0].error.is_none());
+        assert!(m.checks[1].error.is_some());
+    }
+
+    #[test]
+    fn a_malformed_check_names_the_accepted_forms() {
+        for field in [
+            parse_quote!(#[check] pub tier: u8),
+            parse_quote!(#[check(value >= 1, value <= 10)] pub tier: u8),
+            parse_quote!(#[check(value >= 1, err = E)] pub tier: u8),
+        ] {
+            let field: syn::Field = field;
+            let error = parse_field_meta(&field)
+                .err()
+                .expect("must refuse")
+                .to_string();
+            assert!(
+                error.contains("#[check(value >= 1 && value <= 10)]"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rule_no_value_satisfies_is_a_compile_error() {
+        let error = expand(
+            quote!(disc = 1),
+            quote! {
+                #[derive(Clone, Copy)]
+                #[repr(C)]
+                pub struct Broken {
+                    #[check(value >= 10 && value < 10)]
+                    pub tier: u8,
+                }
+            },
+        )
+        .expect_err("must refuse")
+        .to_string();
+        assert!(error.contains("no value satisfies"), "{error}");
     }
 
     #[test]

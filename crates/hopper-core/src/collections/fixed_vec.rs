@@ -160,7 +160,10 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = self.element_offset(len - 1);
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The index was checked against the element count, and the
+        // constructor checked the count against the buffer's capacity, so the
+        // element lies inside `data`. `T: Pod` accepts every bit pattern and
+        // is read by value, unaligned.
         let value =
             unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) };
         // Zero the removed slot for cleanliness.
@@ -179,7 +182,10 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let removed_offset = self.element_offset(index);
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: The index was checked against the element count, and the
+        // constructor checked the count against the buffer's capacity, so the
+        // element lies inside `data`. `T: Pod` accepts every bit pattern and
+        // is read by value, unaligned.
         let removed = unsafe {
             core::ptr::read_unaligned(self.data.as_ptr().add(removed_offset) as *const T)
         };

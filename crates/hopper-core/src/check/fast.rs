@@ -18,32 +18,14 @@
 //!
 //! ## Safety Model
 //!
-//! The `read_account_header` function relies on hopper-native's `AccountView`
-//! being `#[repr(C)]` with its first (and only non-ZST) field being a
-//! raw pointer to the start of the `RuntimeAccount` in the SVM input
-//! buffer. The `const _: () = assert!(size_of::<AccountView>() ==
-//! size_of::<*const u8>())` immediately below `use` pins that: if
-//! hopper-native changes `AccountView`'s layout, that assertion fails to
-//! compile and this fast path is flagged for review before it can read
-//! the wrong bytes.
+//! The word comes from `AccountView::header_word`, which reads the four
+//! bytes through the view's own header pointer. Nothing here depends on
+//! how `AccountView` is laid out.
 //!
 //! This optimization is **gated to `target_os = "solana"`** only. Off-chain
 //! code uses the safe fallback via `AccountView::is_signer()` etc.
 
 use hopper_runtime::{error::ProgramError, AccountView, ProgramResult};
-
-// The compile-time guard the module docs promise (it was described but
-// never actually written). `read_account_header` reinterprets an
-// `&AccountView` as `*const *const u8` and dereferences it, which is
-// only correct if `AccountView` is exactly a pointer to the
-// `RuntimeAccount`, its sole non-ZST field. If hopper-native ever grows
-// `AccountView` (adds a field, changes the repr), this assertion fails
-// to compile and flags the fast path for review *before* it can silently
-// read the wrong bytes. That matters for security: this path gates
-// signer/writable checks, and a wrong read could false-accept a
-// non-signer.
-const _: () =
-    assert!(core::mem::size_of::<AccountView<'static>>() == core::mem::size_of::<*const u8>());
 
 // -- Precomputed Header Constants ------------------------------------
 
@@ -70,35 +52,6 @@ pub const HEADER_AUTHORITY: u32 = HEADER_SIGNER_WRITABLE;
 
 // -- Fast Validation Functions ---------------------------------------
 
-/// Read the 4-byte RuntimeAccount header as a u32.
-///
-/// # Safety
-///
-/// Requires that `AccountView` is `#[repr(C)]` with its first field being a
-/// raw pointer to the RuntimeAccount data in the SVM input buffer. The first 4
-/// bytes of RuntimeAccount are `[borrow_state, is_signer, is_writable, executable]`.
-///
-/// This is a hopper-native implementation detail; changes to hopper-native's `AccountView`
-/// layout would require updating this function. The `target_os = "solana"` gate
-/// ensures this is only compiled for the SBF target where the SVM guarantees
-/// this layout.
-#[cfg(target_os = "solana")]
-#[inline(always)]
-unsafe fn read_account_header(account: &AccountView<'_>) -> u32 {
-    // SAFETY: AccountView is repr(C) with a pointer to the raw RuntimeAccount
-    // as its first field. We dereference this pointer to get the RuntimeAccount
-    // base address, then read the first 4 bytes as an unaligned u32.
-    //
-    // Preconditions (all guaranteed by the SVM for entrypoint accounts):
-    // 1. AccountView is #[repr(C)] and its first field is a data pointer.
-    // 2. The pointer is valid and points to a RuntimeAccount in the input buffer.
-    // 3. The RuntimeAccount starts with [borrow_state, is_signer, is_writable, executable].
-    let ptr = account as *const AccountView as *const u8;
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    let raw_ptr = unsafe { *(ptr as *const *const u8) };
-    unsafe { core::ptr::read_unaligned(raw_ptr as *const u32) }
-}
-
 /// Fast single-compare account validation.
 ///
 /// Reads the RuntimeAccount header as a u32 and compares against the expected
@@ -114,8 +67,7 @@ pub fn check_account_fast(account: &AccountView<'_>, expected_header: u32) -> Pr
     // Fast path: one compare for all flags
     #[cfg(target_os = "solana")]
     {
-        // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let actual = unsafe { read_account_header(account) };
+        let actual = account.header_word();
         if (actual & expected_header) == expected_header {
             return Ok(());
         }

@@ -79,6 +79,11 @@ use crate::error::ProgramError;
 pub unsafe trait Projectable: Copy + 'static {}
 
 // Built-in projectable types.
+//
+// SAFETY: integers and byte arrays are `Copy`, have no padding, hold no
+// pointers, and accept every bit pattern. Alignment is not part of this
+// contract: `project`, `project_mut`, and `project_slice` check the
+// target address against `align_of::<T>()` before forming a reference.
 unsafe impl Projectable for u8 {}
 unsafe impl Projectable for u16 {}
 unsafe impl Projectable for u32 {}
@@ -119,6 +124,10 @@ unsafe impl Projectable for [u8; 64] {}
 /// intent at call sites explicit.
 pub unsafe trait SafeProjectable: Projectable {}
 
+// SAFETY: `SafeProjectable` has the contract of `Projectable`, which the
+// bound supplies. The size condition is enforced where it matters, by the
+// const assertion in `project_safe` and `project_safe_mut`.
+//
 // Blanket impl: every Projectable that's not zero-sized qualifies.
 // Zero-sized types would project to a dangling reference, so we keep
 // them off this safe path even if someone opted them into Projectable
@@ -271,13 +280,17 @@ pub unsafe fn project_mut<'a, T: Projectable>(
 
     // Discriminator check (if requested).
     if let Some(disc) = expected_disc {
-        if account.disc() != disc {
+        // SAFETY: the caller holds the exclusive access this function
+        // requires, so nobody else is writing the byte; an empty account
+        // has no discriminator to read.
+        if data_len == 0 || unsafe { account.disc_unchecked() } != disc {
             return Err(ProgramError::InvalidAccountData);
         }
     }
 
     let data_ptr = account.data_ptr_unchecked();
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: The bounds check above proved `offset + size <= data_len`, so
+    // the pointer stays inside this account's data region.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -354,7 +367,8 @@ pub unsafe fn project_hopper_mut<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     expected_disc: u8,
 ) -> Result<&'a mut T, ProgramError> {
-    // SAFETY: This block is part of Hopper's reviewed zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: This function's `# Safety` contract is the callee's, forwarded
+    // unchanged.
     unsafe { project_mut::<T>(account, 10, Some(expected_disc)) }
 }
 

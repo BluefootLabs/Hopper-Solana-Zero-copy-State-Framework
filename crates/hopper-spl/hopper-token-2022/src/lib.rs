@@ -25,6 +25,18 @@ pub mod extension_instructions {
     pub use hopper_runtime::token_2022_ix::*;
 }
 
+/// The token-metadata and token-group interface instructions (Token-2022
+/// implements both; `invoke_on_program` reaches any other implementer).
+pub mod metadata_instructions {
+    pub use hopper_runtime::token_metadata_ix::*;
+}
+
+/// The confidential-transfer instructions. Ciphertexts, keys, and proofs
+/// are produced off chain; the builders carry them as bytes.
+pub mod confidential_instructions {
+    pub use hopper_runtime::token_confidential_ix::*;
+}
+
 /// The instruction set Token-2022 shares with SPL Token, in the checked
 /// forms: send any of these to Token-2022 with
 /// `invoke_on(TokenProgram::Token2022, multisig_signers, signers)`, or

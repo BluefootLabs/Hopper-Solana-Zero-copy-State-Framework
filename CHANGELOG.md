@@ -9,6 +9,107 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Value rules on layout fields.** `#[check(rule)]` on a field of a
+  `#[hopper::state]` struct (or the fixed body of a `#[hopper::account]`)
+  declares what the stored value must satisfy: a boolean expression over
+  `value`, the field's native value, that may read other fields through
+  `self` (`#[check(value >= 1 && value <= 10)]`,
+  `#[check(value <= self.cap.get(), error = PoolError::OverCap)]`). The
+  layout gets `check_rules()`, a `try_set_<field>` per ruled field that
+  refuses a bad value and leaves the field unchanged, and an
+  `impl hopper_runtime::layout::FieldRules`. `#[derive(Accounts)]` checks
+  the stored values of every existing account it binds, through a probe
+  that resolves to nothing for a layout without rules; fields being created
+  or migrated are left out, and `#[account(skip_rules)]` opts a repair
+  instruction out. Every rule is published in `FIELD_RULES` as
+  `hopper_schema::FieldRule`: the rule as written and the inclusive integer
+  bounds its comparisons with literals decide, so
+  `FieldRule::change_to` can tell a tightened rule from a widened one
+  between two releases (`RuleChange`). A rule no value satisfies
+  (`value >= 10 && value < 10`) is a compile error. Pina has the rules; its
+  rules do not reach its IDL.
+- **Native accessors, opt-in.** `#[hopper::state(accessors)]` generates
+  `fn total(&self) -> u64` and `fn set_total(&mut self, u64)` for every
+  wire scalar field (`WireU16` to `WireI128`, `WireBool`); the getters are
+  `const`. A field with a `#[check]` rule gets the getter and
+  `try_set_<field>` only. Opt-in because the methods take the fields'
+  names.
+- **Seed lists are checked at compile time.** `seeds = [..]` in
+  `#[derive(Accounts)]` refuses a seed whose length the expression decides
+  and that is longer than 32 bytes (byte-string and string literals, byte
+  arrays, `[0u8; N]` with a literal `N`, behind `&`, `.as_bytes()`,
+  `.as_ref()`, or `[..]`), and a list that leaves no room for the bump
+  (more than 15 seeds). Both fail every derivation at run time with
+  `MaxSeedLengthExceeded`; the error is now at the seed.
+- **Token-metadata and token-group instructions**
+  (`hopper_runtime::token_metadata_ix`,
+  `hopper_token_2022::metadata_instructions`): `InitializeTokenMetadata`,
+  `UpdateMetadataField` (name, symbol, URI, or a key), `RemoveMetadataKey`,
+  `UpdateMetadataAuthority`, `EmitTokenMetadata`, `InitializeTokenGroup`,
+  `UpdateTokenGroupMaxSize`, `UpdateTokenGroupAuthority`,
+  `InitializeTokenGroupMember`. They target Token-2022 from `invoke()` and
+  any program that implements the interface from `invoke_on_program`. The
+  Borsh payload is encoded on the stack (512 bytes at most; a longer
+  instruction is refused before the CPI), and the discriminators are tested
+  against the SHA-256 of the interface's hash inputs.
+- **Confidential-transfer instructions**
+  (`hopper_runtime::token_confidential_ix`,
+  `hopper_token_2022::confidential_instructions`): the fifteen
+  sub-instructions of Token-2022 instruction 27, from
+  `InitializeConfidentialTransferMint` to `ConfidentialTransferWithFee` and
+  `ConfigureConfidentialAccountWithRegistry`. Ciphertexts and ElGamal keys
+  are byte arrays the caller supplies; each proof is a `ProofLocation`
+  (an instruction offset or a context-state account), and the builder
+  lays the accounts out as the processor reads them: the Instructions
+  sysvar once if any proof is by offset, the context-state accounts in
+  proof order, the authority, the multisig signers. A proof by offset
+  without the sysvar account is refused before the CPI. Checked against
+  the `spl-token-2022-interface` constructors for all 32 mixes of proof
+  locations, with and without a multisig.
+- **The upgrade gate reads value rules.** `hopper::program_manifest!`
+  exports every listed layout's `#[check]` rules under the manifest's
+  `fieldRules` key (`hopper_schema::LayoutRules`,
+  `codama::ManifestJsonWithRules`; the key is left out when no layout has
+  a rule, so other programs export the same bytes as before).
+  `grillo authority-diff` compares them between two releases: a removed
+  rule (`field_rule_removed`) or a looser bound (`field_rule_widened`) is a
+  widening and fails the gate like a dropped signer; a tighter or added
+  rule is reported as narrowed with a note that accounts whose stored
+  value breaks it stop binding; a rule with a condition beyond its literal
+  bounds that was rewritten needs review. `FieldRule::exact` says whether
+  a rule's bounds are the whole rule, so two rules are ordered only when
+  that is sound.
+- **An audit map of Hopper's own `unsafe` code.** `scripts/audit-map.py`
+  writes `audit/unsafe-map.json` and `audit/UNSAFE_MAP.md`: every `unsafe`
+  block, function, impl, and trait outside test code (857 sites), each
+  with its enclosing function, the justification written next to it and
+  its class (written for the site, shared with a neighbour, or the
+  boilerplate sentence), the tests that call the enclosing function by
+  name, and a SHA-256 of its code, plus the sixty sites to read first.
+  `--verify` fails when the committed map is stale. The review ledger
+  (`--sign`, `--check`) records who read which site at which hash and
+  exits 2 when a signed site has changed since. See
+  [docs/SELF_AUDIT.md](docs/SELF_AUDIT.md).
+- **A citation gate for the unsafe inventory.**
+  `scripts/check-doc-citations.py` checks every file, test, and proof
+  harness that `docs/UNSAFE_INVARIANTS.md` cites against the source tree.
+- **Direct tests for the raw accessors.**
+  `crates/hopper-native/tests/unsafe_accessors.rs` exercises
+  `new_unchecked`, `owner`, `assign`, `borrow_unchecked(_mut)`,
+  `segment_ref_unchecked`, `segment_mut_unchecked`, `raw_ref`, `raw_mut`,
+  `resize_unchecked`, and `close_unchecked` under their stated contracts
+  and against the checked API each one bypasses;
+  `tests/mem_primitives.rs` covers `memcpy`, `memmove`, `memset`, and
+  `memcmp`.
+- **`pda::create_with_seed` and `pda::verify_address_with_seed`**, the
+  address the System Program's `*WithSeed` instructions derive
+  (`sha256(base, seed, owner)`), with the runtime's refusals: a seed over
+  32 bytes, an owner that ends with the PDA marker. One `sol_sha256` on
+  chain; checked against `Pubkey::create_with_seed`.
+- **A devnet runner for the tail lab**
+  (`scripts/test-tail-lab-devnet.py`): every account the program writes is
+  compared byte for byte with a model of the tail, and every refusal is
+  asserted with the account unchanged.
 - **Unit enums in layouts and arguments.** `#[hopper::unit_enum]`
   implements `hopper_runtime::UnitEnum` for a fieldless enum (forcing
   `#[repr(u8)]` and generating the byte mapping from the variants), and
@@ -194,6 +295,64 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- **The unsafe inventory cited tests that did not exist.** Seventeen
+  citations in `docs/UNSAFE_INVARIANTS.md` named test files and functions
+  that were never in the tree, and three rows described behaviour the code
+  does not have (`close_unchecked` moves no lamports and writes no
+  sentinel; `raw_ref` and `raw_mut` are bounds checked and borrow tracked;
+  `memcmp` returns an `Ordering`). The rows now state what the code does
+  and cite tests that exist, the missing tests are written, and the
+  citation gate keeps it that way.
+- **Safe readers looked at account bytes underneath an exclusive borrow.**
+  `AccountView::layout_id` returned a reference into the account's data
+  with no borrow tracking, so safe code could hold it across a
+  `try_borrow_mut` of the same bytes. `disc`, `version`, the by-value
+  lenses (`lens::read_u8`, `read_le_u16`, `read_le_u32`, `read_le_u64`),
+  and `DataFingerprint::capture` read the bytes without consulting the
+  borrow state. Now `layout_id` returns `Option<[u8; 8]>` by value, `disc`
+  and `version` return 0 while the data is exclusively borrowed (zero is
+  never a valid discriminator, so every comparison fails closed), the
+  lenses return `AccountBorrowFailed`, and `DataFingerprint::capture`
+  returns a `Result` and reads under a shared borrow. None of these is on
+  the typed load path, which validates the header through the borrowed
+  slice. Breaking for callers of `layout_id` and `capture`.
+- **`check_account_fast` reached through `AccountView`'s layout.** It
+  reinterpreted `&AccountView` as a pointer to a pointer to find the
+  header. It now calls `AccountView::header_word`, a documented accessor,
+  and `hopper-core/src/check/fast.rs` contains no `unsafe`.
+- **167 safety comments said nothing.** Each `unsafe` site that carried
+  the sentence "part of Hopper's reviewed zero-copy/backend boundary" now
+  states the check, contract, or layout fact that makes it sound.
+- **Unsafe impls with no safety argument.** Forty-four `unsafe impl` sites
+  (the primitive `Pod`, `Zeroable`, `ValuePod`, and `Projectable` impls,
+  the zero-copy seals, and the impls the layout macros generate) had a
+  comment with no reasoning or no comment. Each now states why the
+  contract holds. `Projectable`'s built-in impls say what was implicit:
+  alignment is checked by `project` at run time, not promised by the
+  trait.
+- **Guides named functions that do not exist.** `load_versioned`,
+  `tail_slab_mut`, `init_tail_slab`, `account_size_for_slab`,
+  `HopperDynCpi`, `try_borrow_mut_data`, and the schema flag names are
+  corrected to the real ones (`load_compatible`, `tail_slab_init`,
+  `space_for_tail_slab`, `DynCpi`, `try_borrow_mut`, `FLAG_*`), and three
+  dependency snippets that pinned 0.3.x now name 0.4.0.
+- **`msg!` could hand the log syscall invalid UTF-8.** A formatted message
+  longer than the 256-byte buffer was cut at a byte count, which can fall
+  inside a multi-byte character; the macro then built the `&str` unchecked,
+  and `sol_log_` refuses bytes that are not UTF-8 and fails the
+  transaction. `StackWriter` now cuts at the last whole character that
+  fits, accepts nothing after a cut (so a later argument cannot be appended
+  behind a dropped tail), reports `truncated()`, and owns the one unchecked
+  conversion in `as_str()`; the macros no longer contain `unsafe`. Both
+  copies (`hopper_native`, `hopper_runtime`) are fixed.
+- **`hint::likely` and `hint::unlikely` told the optimizer nothing.** They
+  were identity functions. They now route the unexpected arm through a
+  `#[cold]` empty function (`hint::cold_path`), the stable spelling of a
+  branch weight, and are `const`.
+- **`hopper-memo` compiled seventeen CPI bodies**, one per signer count.
+  It now makes one bounded call (`invoke_signed_with_bounds`). The doc
+  comment that attributed the 16-signer cap to pinocchio is corrected: the
+  cap is what fits in one 4 KiB SBF frame.
 - **`#[hopper::args]` with an `OptionByte<T>` field did not compile.** The
   generated `validate_tags` referred to a binding that only exists in
   `parse`; it now validates through `self`, and an `EnumByte<E>` field is

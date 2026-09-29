@@ -45,7 +45,7 @@ parts of an application that need and can review it.
 
 These rules follow the [Solana account model](https://solana.com/docs/core/accounts)
 and [CPI model](https://solana.com/docs/core/cpi). The funded escrow and treasury
-examples exercise the asset movements, not just application counters.
+examples move real assets. They are more than application counters.
 
 ## State is a choice, not the whole framework
 
@@ -210,7 +210,7 @@ helpers when the guarantee changes:
 |--------|--------|
 | `load()` | owner + disc + version + layout_id + exact size |
 | `load_foreign()` | expected foreign owner + layout_id + exact size |
-| `load_compatible()` / `load_versioned()` | owner + disc + compatible version + min size |
+| `load_compatible()` | owner + disc + compatible version + min size |
 | `load_unchecked()` | caller-owned validation |
 | `load_unverified()` | best-effort tooling read |
 
