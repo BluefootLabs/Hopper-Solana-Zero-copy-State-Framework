@@ -28,6 +28,22 @@ layer makes that Pinocchio leaves out. Deployed to devnet on the same day,
 the four Hopper programs were charged exactly these compute units in all
 eight transactions ([evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
 
+## Funded token escrow: September 30, 2026
+
+The escrow example at commit `847a0b0`, deployed fresh to devnet and driven by
+the same runner as the September 28 round: 33 finalized transactions, every
+touched account compared with its exact expected state, every refusal the
+same as before.
+
+| Operation | Compute units | September 28 |
+|---|---:|---:|
+| Create and fund an offer (two offers) | 6,868 / 6,213 | 7,455 / 7,127 |
+| Take, refund the surplus, and close the accounts | 7,836 | 8,707 |
+| Cancel, refund the vault, and close the accounts | 3,586 | 4,122 |
+
+The drop comes from the account walk and the builder CPI tier the System and
+token builders use now ([evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-30/escrow-round12)).
+
 ## Funded token escrow: September 26, 2026
 
 The classic SPL Token escrow finalized 33 devnet transactions: setup, funding,

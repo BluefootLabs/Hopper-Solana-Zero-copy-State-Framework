@@ -436,7 +436,11 @@ has a before and after for each change.
     against canonical SPL Token (Mollusk), make went from 7,266 to 6,868 CU,
     take from 7,614 to 6,926 (9,118 to 8,163 with a donation), and cancel
     from 4,986 to 4,568, with every refusal unchanged; the program grew from
-    40,848 to 42,264 bytes.
+    40,848 to 42,264 bytes. On devnet (round twelve, the same 33-transaction
+    runner as round eight) take cost 7,836 CU where round eight's cost 8,707,
+    cancel 3,586 where it cost 4,122, and the two makes 6,868 and 6,213 where
+    they cost 7,455 and 7,127, every account state and refusal exact
+    ([evidence](audit/devnet-evidence-2026-09-30/escrow-round12)).
   - **Rent and PDAs.** `Rent::get` and `create_program_address` write into
     uninitialized memory instead of zeroing a buffer the syscall overwrites.
     The rent threshold's two real values are tested inline; the rounding path
