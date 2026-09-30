@@ -96,11 +96,13 @@ and `no_std` panics. It requires no experimental inline assembly and terminates
 without a compute-burning spin loop. Failure rolls back the transaction; it is
 not a recoverable `ProgramError` return.
 
-Token CPI helpers reject a required signer locally when neither an outer
-signature nor PDA signer seeds are supplied. System Program builders check that
-no account in the instruction is borrowed, plus the lamport gate when a write
-policy is installed, and leave signer and writable privileges to the runtime,
-which refuses an escalation before the callee runs; `invoke_signed` keeps every
+A token builder's `invoke()` rejects a missing authority signature before
+the CPI. System and token builders check that no account in the instruction is
+borrowed, plus the lamport gate when a write policy is installed; token builders
+also refuse one account in two writable roles, since SPL Token accepts a
+self-transfer and moves nothing. Signer and writable privileges are left to the
+runtime, which refuses an escalation before the callee runs, and a multisig
+authority's signers take the fully checked path; `invoke_signed` keeps every
 local check. Nonempty seeds do not prove authority: Solana still derives and
 verifies the PDA at the CPI boundary.
 

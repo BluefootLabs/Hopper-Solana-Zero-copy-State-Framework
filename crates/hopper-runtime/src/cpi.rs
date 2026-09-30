@@ -889,6 +889,24 @@ pub(crate) fn invoke_signed_builder<const ACCOUNTS: usize>(
     unsafe { invoke_signed_unchecked(instruction, accounts.as_slice(), signers_seeds) }
 }
 
+/// [`invoke_signed_builder`] with the repeated-writable refusal of
+/// [`invoke_signed`] kept.
+///
+/// For callees that accept one account named twice where a caller almost
+/// never means it: an SPL Token transfer from an account to itself
+/// succeeds and moves nothing, so a program that credits a deposit after
+/// such a transfer would credit tokens it never received. The Token and
+/// Token-2022 builders invoke through this tier.
+#[inline(always)]
+pub(crate) fn invoke_signed_builder_distinct<const ACCOUNTS: usize>(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
+    signers_seeds: &[Signer<'_, '_>],
+) -> ProgramResult {
+    validate_no_duplicate_writable(instruction, &account_views[..])?;
+    invoke_signed_builder(instruction, account_views, signers_seeds)
+}
+
 /// The lamport-delegation sweep of [`invoke_signed_builder`], run only when
 /// a write policy is installed. Out of line so the builders' inlined body
 /// stays the ungated path.

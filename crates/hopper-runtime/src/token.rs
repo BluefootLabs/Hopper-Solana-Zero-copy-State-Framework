@@ -1,7 +1,10 @@
 //! Hopper-native SPL Token CPI builders.
 //!
-//! The API is Hopper-owned (builder pattern over `AccountView` / `Signer`) and
-//! execution flows through Hopper's checked native CPI semantics.
+//! The API is Hopper-owned (builder pattern over `AccountView` / `Signer`).
+//! A builder's CPI checks that no account in the instruction is borrowed and
+//! that no account fills two writable roles, and leaves signer and writable
+//! privileges to the runtime; a multisig authority's signers take the fully
+//! checked bounded path.
 //!
 //! Provides checked-by-default TransferChecked, MintToChecked, BurnChecked,
 //! ApproveChecked, CloseAccount, Revoke, SetAuthority, FreezeAccount,
@@ -215,6 +218,19 @@ impl<'a> TokenSink<'a> for Invoke<'_, '_, '_, '_> {
         views: [&'a AccountView<'a>; N],
         trailing: &[Trailing<'_, 'a>],
     ) -> ProgramResult {
+        // Without multisig signers every meta is built from the view beside
+        // it, so the builder tier applies: borrow checks, the lamport gate,
+        // and the repeated-writable refusal, with privileges left to the
+        // runtime. A multisig authority's trailing signers take the bounded
+        // path, which checks each of them.
+        if trailing.iter().all(|run| run.views.is_empty()) {
+            let instruction = InstructionView {
+                program_id: self.program,
+                data,
+                accounts: &accounts,
+            };
+            return crate::cpi::invoke_signed_builder_distinct(&instruction, &views, self.signers);
+        }
         invoke_token_signed(self.program, data, accounts, views, trailing, self.signers)
     }
 }

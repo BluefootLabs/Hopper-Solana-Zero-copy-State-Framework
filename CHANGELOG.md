@@ -420,16 +420,23 @@ has a before and after for each change.
   - **CPI accounts.** `CpiAccount::from` copies the three flag bytes as one
     word instead of turning each into a `bool`, a branch apiece on SBF. A
     failed invoke's return code is mapped in a cold function.
-  - **System builders invoke through a leaner tier.** They check what
-    soundness needs, that no account in the instruction is borrowed, plus the
-    lamport gate when a write policy is installed. Signer and writable
-    privileges and a repeated writable account are left to the runtime and
-    the System Program, which refuse an escalation before the callee runs and
-    handle one account named twice. A builder handed a read-only account now
-    fails in the runtime instead of with Hopper's `Immutable`.
-    `hopper::cpi::invoke_signed` keeps every check, and the token builders
-    are unchanged: a self-transfer is a silent no-op in SPL Token, so their
-    repeated-writable refusal stays.
+  - **Builders invoke through a leaner tier.** The System and token
+    builders check what soundness needs, that no account in the instruction
+    is borrowed, plus the lamport gate when a write policy is installed, and
+    leave signer and writable privileges to the runtime, which refuses an
+    escalation before the callee runs. The token builders also keep the
+    refusal of one account in two writable roles: SPL Token accepts a
+    transfer from an account to itself and moves nothing, so a program that
+    credits a deposit after one would credit tokens it never received. The
+    System Program handles one account named twice, so its builders leave
+    that to it. A builder handed a read-only account now fails in the runtime
+    instead of with Hopper's `Immutable`. A multisig authority's trailing
+    signers still take the fully checked path, and
+    `hopper::cpi::invoke_signed` keeps every check. On the escrow example
+    against canonical SPL Token (Mollusk), make went from 7,266 to 6,868 CU,
+    take from 7,614 to 6,926 (9,118 to 8,163 with a donation), and cancel
+    from 4,986 to 4,568, with every refusal unchanged; the program grew from
+    40,848 to 42,264 bytes.
   - **Rent and PDAs.** `Rent::get` and `create_program_address` write into
     uninitialized memory instead of zeroing a buffer the syscall overwrites.
     The rent threshold's two real values are tested inline; the rounding path

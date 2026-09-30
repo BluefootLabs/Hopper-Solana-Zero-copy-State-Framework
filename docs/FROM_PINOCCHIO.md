@@ -172,6 +172,10 @@ units. They are the difference in the table above.
 - **Malformed input traps.** A duplicate-account marker that does not name
   an earlier account stops the program instead of producing an aliased view.
   The loader never writes one; the check costs two instructions on entry.
+- **A token transfer from an account to itself is refused.** SPL Token
+  accepts one and moves nothing, so a program that credits a deposit after it
+  would credit tokens it never received. Hopper's token builders refuse one
+  account in two writable roles; Pinocchio's pass it through.
 - **Mutable borrows consult the write policy.** Hopper can pin an
   instruction to the fields it declares (`#[hopper::context(strict_writes)]`).
   With no policy installed that is one load and a branch per mutable borrow.

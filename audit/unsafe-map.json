@@ -12550,7 +12550,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 980,
+   "line": 998,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12567,7 +12567,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1037,
+   "line": 1055,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12584,7 +12584,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1044,
+   "line": 1062,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12601,7 +12601,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1196,
+   "line": 1214,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -12622,7 +12622,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1208,
+   "line": 1226,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -12643,7 +12643,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1215,
+   "line": 1233,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -15859,7 +15859,7 @@
   {
    "id": "crates/hopper-runtime/src/token.rs::invoke_token_signed#1",
    "file": "crates/hopper-runtime/src/token.rs",
-   "line": 667,
+   "line": 683,
    "kind": "block",
    "function": "invoke_token_signed",
    "type": null,
@@ -15878,7 +15878,7 @@
   {
    "id": "crates/hopper-runtime/src/token.rs::invoke_token_signed#2",
    "file": "crates/hopper-runtime/src/token.rs",
-   "line": 672,
+   "line": 688,
    "kind": "block",
    "function": "invoke_token_signed",
    "type": null,
