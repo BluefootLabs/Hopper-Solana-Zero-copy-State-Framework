@@ -20,6 +20,8 @@ __pycache__/
 test-ledger/
 test-output.txt
 *.log
+# Transaction logs are part of a devnet evidence bundle's hashed contents.
+!audit/devnet-evidence-*/**/*.log
 
 # Bench artefacts
 bench/results/

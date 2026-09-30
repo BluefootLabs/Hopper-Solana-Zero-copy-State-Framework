@@ -487,6 +487,14 @@ has a before and after for each change.
 
 ### Fixed
 
+- **Evidence bundles verify from a clone.** The `SHA256SUMS` of 27 evidence
+  bundles did not match what a clone received: git converted their line
+  endings, and a `*.log` ignore rule had kept 203 transaction logs out of
+  the repository. `.gitattributes` now stores the bundles byte for byte, the
+  logs are committed, and `scripts/verify-evidence.py`, a CI step, checks all
+  48 bundles (2,881 files). Fifteen early bundles listed program dumps they
+  never archived; the script names those 44 files, whose hashes remain in
+  the bundles and whose programs can be dumped again from devnet.
 - **`project_hopper` and `project_hopper_mut` read inside the header.**
   They projected at offset 10 while the Hopper header is 16 bytes, so the
   first six bytes of `T` were the layout id and reserved bytes. They read

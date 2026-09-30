@@ -1,0 +1,38 @@
+
+$ target/release/hopper.exe tx send --v1 --program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr --account payer:s --data 686f707065722074782073656e64202d2d7631206465766e657420323032362d30392d3231 --keypair target/hopper/devnet-release/payer.json --rpc https://api.devnet.solana.com --dry-run
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr
+data      : 37 bytes (0x686f707065722074782073656e64202d2d7631206465766e657420323032362d30392d3231)
+accounts  : 1 slots
+  [0] 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn s-
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : transaction v1 (SIMD-0385)
+cu limit  : 200000 (config mask)
+data limit: 4194304 bytes loaded accounts (config mask)
+wire      : 220/4096 bytes (v1)
+
+dry run: nothing sent.
+[exit 0]
+
+$ target/release/hopper.exe tx send --v1 --program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr --account payer:s --data 686f707065722074782073656e64202d2d7631206465766e657420323032362d30392d3231 --keypair target/hopper/devnet-release/payer.json --rpc https://api.devnet.solana.com
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr
+data      : 37 bytes (0x686f707065722074782073656e64202d2d7631206465766e657420323032362d30392d3231)
+accounts  : 1 slots
+  [0] 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn s-
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : transaction v1 (SIMD-0385)
+cu limit  : 200000 (config mask)
+data limit: 4194304 bytes loaded accounts (config mask)
+wire      : 220/4096 bytes (v1)
+
+signature : 2oqSeV99Ki1ATSSiQyScCZPaWvVNhFHf57ZjEW2QvNh5JheXomgABkmgp4Qwjbd6C3PVuutCKNcZ411jLpBas8Md
+confirmed : yes
+program   : Ok
+compute   : 28292 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 2oqSeV99Ki1ATSSiQyScCZPaWvVNhFHf57ZjEW2QvNh5JheXomgABkmgp4Qwjbd6C3PVuutCKNcZ411jLpBas8Md --rpc https://api.devnet.solana.com
+[exit 0]

@@ -1,0 +1,16 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 2dihUAuNMBu23gnsRAx7qtwRgXtKSptEDWGotc3NjFoD
+data      : 128 bytes (0x0103006f70737800797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979797979)
+accounts  : 2 slots
+  [0] 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn s-
+  [1] 2NZC8BD4QcXf5mXPAtcUcpxDMEHZATNtzorWkyR7f8WV -w
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+wire      : 332/1232 bytes (legacy)
+
+signature : 5VDmBA1tnYcGECj84Z6cpYbisXehbx8X8Mg7Sb1hNDidTLse4MG7EiY1WyYTx4ibDfcXrtj3Gi44zJJFb4ySNNGG
+confirmed : yes
+compute   : (transaction landed; RPC has not indexed it yet)
+
+explain it: hopper tx explain 5VDmBA1tnYcGECj84Z6cpYbisXehbx8X8Mg7Sb1hNDidTLse4MG7EiY1WyYTx4ibDfcXrtj3Gi44zJJFb4ySNNGG --rpc https://api.devnet.solana.com

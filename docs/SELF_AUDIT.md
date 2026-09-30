@@ -247,6 +247,12 @@ variants. It names 0.5.0 for every crate that exposes the runtime's types.
   size grew against the results committed at HEAD.
 - `hopper audit-check` verifies the hashes of the audit evidence, the age
   of each quality-gate attestation, and the list of open blockers.
+- `scripts/verify-evidence.py` checks every evidence bundle under `audit/`
+  against its `SHA256SUMS` in the checkout, so a devnet run's receipts,
+  transaction logs, and program dumps can be checked from a clone;
+  `.gitattributes` stores the bundles byte for byte. Fifteen early bundles
+  hashed program dumps they never archived; the script names those files,
+  whose hashes stay in their bundles, and fails on any other gap.
 - Kani proofs cover the loader-input parser, and five fuzz targets cover
   the parsers and overlays (`fuzz/fuzz_targets`).
 

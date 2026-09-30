@@ -1,0 +1,54 @@
+
+$ target/release/hopper.exe publish-manifest --manifest audit/devnet-evidence-2026-09-19/sentinel-authority-gate/sentinel-v1.manifest.json --program-id 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx --keypair target/hopper/devnet-release/payer.json --cluster devnet --dry-run
+=== hopper publish-manifest (dry run) ===
+
+Program:            7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+Metadata program:   ProgM6JCCvbYkfKqJYHePx4xxSUSqJp7rh8Lyv7nk7S
+Seed:               "hopper-manifest"  (hex 686f707065722d6d616e696665737400)
+Derivation:         canonical [program, seed]
+Metadata PDA:       595E2qx9zTBYbHMY6vuVF7sS3YKjiuD9TzgCAYAFeGqi  (bump 254)
+
+Payload:
+  Source:           Hopper manifest hopper-sentinel v0.3.0 (7 instructions, 2 layouts)
+  Raw size:         13369 bytes
+  Stored size:      1754 bytes  (encoding=Utf8, compression=Zlib, format=Json)
+
+Account header (96 bytes):
+  025e896273b88b447f313a201fcef00a087ad669cbfe530569b1db3d42d1df17ab00000000000000000000000000000000000000000000000000000000000000000101686f707065722d6d616e69666573740001020100da0600000000000000
+  disc=2 mutable=1 canonical=1 encoding=1 compression=2 format=1 data_source=0 data_len=1754
+
+Instruction plan (NOT sent):
+  metadata program: ProgM6JCCvbYkfKqJYHePx4xxSUSqJp7rh8Lyv7nk7S
+  program data PDA: 6ZfqKZCnMbmeJ6GuyB2j8PpYHc4VZSR3fLF9BTu5hZpK
+  path:     Allocate + 2 chunked Write(s) + in-place Initialize
+  tx[0]:    transfer(rent) + Allocate (disc 7, seed)
+  tx[1]:    Write (disc 0) offset 0 len 900
+  tx[2]:    Write (disc 0) offset 900 len 854
+  tx[3]:    Initialize-from-buffer (disc 1, no inline data)
+  result:   96-byte header (above) + 1754 zlib bytes at the PDA
+
+Dry run only. No transaction was created or sent.
+[exit 0]
+
+$ target/release/hopper.exe publish-manifest --manifest audit/devnet-evidence-2026-09-19/sentinel-authority-gate/sentinel-v1.manifest.json --program-id 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx --keypair target/hopper/devnet-release/payer.json --cluster devnet
+=== hopper publish-manifest ===
+rpc              : https://api.devnet.solana.com
+signer/authority : 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+metadata PDA     : 595E2qx9zTBYbHMY6vuVF7sS3YKjiuD9TzgCAYAFeGqi
+payload          : 13369 raw -> 1754 zlib bytes
+source           : Hopper manifest hopper-sentinel v0.3.0 (7 instructions, 2 layouts)
+path             : fresh buffered (2 write chunk(s))
+allocate         : 3wu9wYbmBfvKM7bHxmZn9mYfNdmVyWeVwTQchc2PCcTc52AVT2jYLJFqBHdtn2CyGD34bptaQDUDN9w5cxiNzhi9
+write [ 1/ 2]    : offset      0 len  900  4FXrQiRCtVan1YZo4YBWAJfsQibvn47gGAbvhp5yrNMgSp7DD2n1sukAMUm86aoXdBhixj6R9z5aneohpRc6hgok
+write [ 2/ 2]    : offset    900 len  854  54TJfDktECMRpTYbDsGopq4cwi3G3FMCoLLJhGBQdaHVDP3dRSegxYyvz1mYfbEMxzssnZhkm1s9NJSW1iZXodfK
+finalize         : 46hnQG3CwjfMKLpTNrQ46zg8YTrYZ1JbcgFucWVS2wFYVhA7Wkgn8mCjzus7b7Qwp55FNeW3AH1PCMH1GzKFgq2M
+status           : confirmed (manifest published)
+[exit 0]
+[read exit 0]
+=== hopper publish-manifest (read) ===
+rpc              : https://api.devnet.solana.com
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+record           : none (no account at the canonical [program, "hopper-manifest"] PDA)
+...
+239 /tmp/manifest-read.txt

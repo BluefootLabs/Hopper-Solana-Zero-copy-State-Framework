@@ -1,0 +1,854 @@
+=== hopper publish-manifest (read) ===
+rpc              : https://api.devnet.solana.com
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+metadata PDA     : 595E2qx9zTBYbHMY6vuVF7sS3YKjiuD9TzgCAYAFeGqi
+seed             : "hopper-manifest"
+canonical        : true   mutable: true
+authority        : none (canonical: the upgrade authority)
+encoding         : utf8 (1)  compression: zlib (2)  format: json (1)  data_source: direct (0)
+payload          : 1754 stored -> 13369 bytes   rent 10048240 lamports
+
+{
+  "compatRules": [],
+  "contexts": [
+    {
+      "accounts": [
+        {
+          "hasOne": [],
+          "kind": "Signer",
+          "lifecycle": "existing",
+          "name": "payer",
+          "optional": false,
+          "seeds": [],
+          "signer": true,
+          "writable": true
+        },
+        {
+          "hasOne": [],
+          "initSpace": 144,
+          "kind": "Config",
+          "layoutRef": "Config",
+          "lifecycle": "init",
+          "name": "config",
+          "optional": false,
+          "payer": "payer",
+          "seeds": [],
+          "signer": false,
+          "writable": true
+        },
+        {
+          "hasOne": [],
+          "kind": "Program",
+          "lifecycle": "existing",
+          "name": "system_program",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": false
+        }
+      ],
+      "instructions": [],
+      "mutationClasses": [],
+      "name": "InitializeConfig",
+      "parametricWriteRanges": [],
+      "policies": [],
+      "receiptsExpected": true,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "accounts": [
+        {
+          "hasOne": [],
+          "kind": "Signer",
+          "lifecycle": "existing",
+          "name": "admin",
+          "optional": false,
+          "seeds": [],
+          "signer": true,
+          "writable": false
+        },
+        {
+          "hasOne": [
+            "admin"
+          ],
+          "kind": "Config",
+          "layoutRef": "Config",
+          "lifecycle": "existing",
+          "name": "config",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "instructions": [],
+      "mutationClasses": [],
+      "name": "Pause",
+      "parametricWriteRanges": [],
+      "policies": [],
+      "receiptsExpected": true,
+      "strictWrites": true,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 114,
+          "size": 1
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "hasOne": [],
+          "kind": "Signer",
+          "lifecycle": "existing",
+          "name": "payer",
+          "optional": false,
+          "seeds": [],
+          "signer": true,
+          "writable": true
+        },
+        {
+          "hasOne": [],
+          "initSpace": 9620,
+          "kind": "Ledger",
+          "layoutRef": "Ledger",
+          "lifecycle": "init",
+          "name": "ledger",
+          "optional": false,
+          "payer": "payer",
+          "seeds": [],
+          "signer": false,
+          "writable": true
+        },
+        {
+          "hasOne": [],
+          "kind": "Program",
+          "lifecycle": "existing",
+          "name": "system_program",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": false
+        }
+      ],
+      "instructions": [],
+      "mutationClasses": [],
+      "name": "InitializeLedger",
+      "parametricWriteRanges": [],
+      "policies": [],
+      "receiptsExpected": true,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "accounts": [
+        {
+          "hasOne": [],
+          "kind": "Signer",
+          "lifecycle": "existing",
+          "name": "admin",
+          "optional": false,
+          "seeds": [],
+          "signer": true,
+          "writable": false
+        },
+        {
+          "hasOne": [
+            "admin"
+          ],
+          "kind": "Config",
+          "layoutRef": "Config",
+          "lifecycle": "existing",
+          "name": "config",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "instructions": [],
+      "mutationClasses": [],
+      "name": "BeginAdminTransfer",
+      "parametricWriteRanges": [],
+      "policies": [],
+      "receiptsExpected": true,
+      "strictWrites": true,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 48,
+          "size": 32
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "hasOne": [],
+          "kind": "Signer",
+          "lifecycle": "existing",
+          "name": "pending_admin",
+          "optional": false,
+          "seeds": [],
+          "signer": true,
+          "writable": false
+        },
+        {
+          "hasOne": [
+            "pending_admin"
+          ],
+          "kind": "Config",
+          "layoutRef": "Config",
+          "lifecycle": "existing",
+          "name": "config",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "instructions": [],
+      "mutationClasses": [],
+      "name": "AcceptAdminTransfer",
+      "parametricWriteRanges": [],
+      "policies": [],
+      "receiptsExpected": true,
+      "strictWrites": true,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 16,
+          "size": 32
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 48,
+          "size": 32
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "hasOne": [],
+          "kind": "Config",
+          "layoutRef": "Config",
+          "lifecycle": "existing",
+          "name": "config",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": true
+        },
+        {
+          "hasOne": [],
+          "kind": "UncheckedAccount",
+          "lifecycle": "existing",
+          "name": "fee_sink",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": false
+        },
+        {
+          "hasOne": [],
+          "kind": "UncheckedAccount",
+          "lifecycle": "existing",
+          "name": "treasury",
+          "optional": false,
+          "seeds": [],
+          "signer": false,
+          "writable": false
+        },
+        {
+          "hasOne": [],
+          "kind": "Signer",
+          "lifecycle": "existing",
+          "name": "admin",
+          "optional": false,
+          "seeds": [],
+          "signer": true,
+          "writable": false
+        }
+      ],
+      "instructions": [],
+      "lamportAccounts": [
+        1
+      ],
+      "mutationClasses": [],
+      "mutationComplete": true,
+      "name": "CollectFees",
+      "parametricWriteRanges": [],
+      "policies": [],
+      "receiptsExpected": true,
+      "strictWrites": true,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 0,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    }
+  ],
+  "description": "SENTINEL: a compromised privileged handler that writes outside its declared byte segment is refused by the framework, before any byte changes — proven on compiled SBF bytecode.",
+  "events": [],
+  "instructions": [
+    {
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "layoutRef": "Config",
+          "name": "config",
+          "signer": false,
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "signer": false,
+          "writable": false
+        }
+      ],
+      "args": [
+        {
+          "encoding": "fixed",
+          "name": "fee_bps",
+          "size": 2,
+          "type": "u16"
+        }
+      ],
+      "capabilities": [],
+      "discriminatorBytes": [
+        0
+      ],
+      "name": "initialize_config",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "tag": 0,
+      "writeRanges": []
+    },
+    {
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "writable": false
+        },
+        {
+          "layoutRef": "Config",
+          "name": "config",
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "args": [],
+      "capabilities": [],
+      "discriminatorBytes": [
+        1
+      ],
+      "name": "honest_pause",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "tag": 1,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 114,
+          "size": 1
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "writable": false
+        },
+        {
+          "layoutRef": "Config",
+          "name": "config",
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "args": [],
+      "capabilities": [],
+      "discriminatorBytes": [
+        3
+      ],
+      "name": "unpause",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "tag": 3,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 114,
+          "size": 1
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "name": "payer",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "layoutRef": "Ledger",
+          "name": "ledger",
+          "signer": false,
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "signer": false,
+          "writable": false
+        }
+      ],
+      "args": [],
+      "capabilities": [],
+      "discriminatorBytes": [
+        4
+      ],
+      "name": "initialize_ledger",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "tag": 4,
+      "writeRanges": []
+    },
+    {
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "writable": false
+        },
+        {
+          "layoutRef": "Config",
+          "name": "config",
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "encoding": "fixed",
+          "name": "new_admin",
+          "size": 32,
+          "type": "Address"
+        }
+      ],
+      "capabilities": [],
+      "discriminatorBytes": [
+        6
+      ],
+      "name": "begin_admin_transfer",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "tag": 6,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 48,
+          "size": 32
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "name": "pending_admin",
+          "signer": true,
+          "writable": false
+        },
+        {
+          "layoutRef": "Config",
+          "name": "config",
+          "signer": false,
+          "writable": true
+        }
+      ],
+      "args": [],
+      "capabilities": [],
+      "discriminatorBytes": [
+        7
+      ],
+      "name": "accept_admin_transfer",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "tag": 7,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 16,
+          "size": 32
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 48,
+          "size": 32
+        },
+        {
+          "account": "config",
+          "accountIndex": 1,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    },
+    {
+      "accounts": [
+        {
+          "layoutRef": "Config",
+          "name": "config",
+          "signer": false,
+          "writable": true
+        },
+        {
+          "name": "fee_sink",
+          "signer": false,
+          "writable": false
+        },
+        {
+          "name": "treasury",
+          "signer": false,
+          "writable": false
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "writable": false
+        }
+      ],
+      "args": [
+        {
+          "encoding": "fixed",
+          "name": "_amount",
+          "size": 8,
+          "type": "u64"
+        }
+      ],
+      "capabilities": [],
+      "discriminatorBytes": [
+        8
+      ],
+      "lamportAccounts": [
+        1
+      ],
+      "mutationComplete": true,
+      "name": "collect_fees",
+      "parametricWriteRanges": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "tag": 8,
+      "writeRanges": [
+        {
+          "account": "config",
+          "accountIndex": 0,
+          "offset": 115,
+          "size": 8
+        }
+      ]
+    }
+  ],
+  "layoutMetadata": [],
+  "layouts": [
+    {
+      "disc": 1,
+      "fieldCount": 7,
+      "fields": [
+        {
+          "intent": "custom",
+          "name": "admin",
+          "offset": 16,
+          "size": 32,
+          "type": "Address"
+        },
+        {
+          "intent": "custom",
+          "name": "pending_admin",
+          "offset": 48,
+          "size": 32,
+          "type": "Address"
+        },
+        {
+          "intent": "custom",
+          "name": "withdraw_authority",
+          "offset": 80,
+          "size": 32,
+          "type": "Address"
+        },
+        {
+          "intent": "custom",
+          "name": "fee_bps",
+          "offset": 112,
+          "size": 2,
+          "type": "WireU16"
+        },
+        {
+          "intent": "custom",
+          "name": "paused",
+          "offset": 114,
+          "size": 1,
+          "type": "u8"
+        },
+        {
+          "intent": "custom",
+          "name": "revision",
+          "offset": 115,
+          "size": 8,
+          "type": "WireU64"
+        },
+        {
+          "intent": "custom",
+          "name": "reserved",
+          "offset": 123,
+          "size": 21,
+          "type": "[u8;21]"
+        }
+      ],
+      "hasDynamicTail": false,
+      "layoutId": "e4f62369402dfdc9",
+      "name": "Config",
+      "semanticFingerprint": "b6cadafc943a7ff2",
+      "totalSize": 144,
+      "version": 1
+    },
+    {
+      "disc": 2,
+      "fieldCount": 2,
+      "fields": [
+        {
+          "intent": "custom",
+          "name": "count",
+          "offset": 16,
+          "size": 4,
+          "type": "WireU32"
+        },
+        {
+          "intent": "custom",
+          "name": "entries",
+          "offset": 20,
+          "size": 9600,
+          "type": "[LedgerEntry;LEDGER_CAPACITY]"
+        }
+      ],
+      "hasDynamicTail": false,
+      "layoutId": "1d387d0a863239a1",
+      "name": "Ledger",
+      "semanticFingerprint": "93c38cf42d64896b",
+      "totalSize": 9620,
+      "version": 1
+    }
+  ],
+  "name": "hopper-sentinel",
+  "policies": [],
+  "receiptSchema": {
+    "fields": [
+      {
+        "name": "layout_id",
+        "offset": 0,
+        "size": 8,
+        "type": "bytes"
+      },
+      {
+        "name": "changed_fields",
+        "offset": 8,
+        "size": 8,
+        "type": "u64"
+      },
+      {
+        "name": "changed_bytes",
+        "offset": 16,
+        "size": 4,
+        "type": "u32"
+      },
+      {
+        "name": "changed_regions",
+        "offset": 20,
+        "size": 2,
+        "type": "u16"
+      },
+      {
+        "name": "old_size",
+        "offset": 22,
+        "size": 4,
+        "type": "u32"
+      },
+      {
+        "name": "new_size",
+        "offset": 26,
+        "size": 4,
+        "type": "u32"
+      },
+      {
+        "name": "invariants_checked",
+        "offset": 30,
+        "size": 2,
+        "type": "u16"
+      },
+      {
+        "name": "flags",
+        "offset": 32,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "before_fingerprint",
+        "offset": 33,
+        "size": 8,
+        "type": "bytes"
+      },
+      {
+        "name": "after_fingerprint",
+        "offset": 41,
+        "size": 8,
+        "type": "bytes"
+      },
+      {
+        "name": "segment_changed_mask",
+        "offset": 49,
+        "size": 2,
+        "type": "u16"
+      },
+      {
+        "name": "policy_flags",
+        "offset": 51,
+        "size": 4,
+        "type": "u32"
+      },
+      {
+        "name": "journal_appends",
+        "offset": 55,
+        "size": 2,
+        "type": "u16"
+      },
+      {
+        "name": "cpi_count",
+        "offset": 57,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "phase",
+        "offset": 58,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "validation_bundle_id",
+        "offset": 59,
+        "size": 2,
+        "type": "u16"
+      },
+      {
+        "name": "compat_impact",
+        "offset": 61,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "migration_flags",
+        "offset": 62,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "failed_invariant_idx",
+        "offset": 63,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "failed_error_code",
+        "offset": 64,
+        "size": 4,
+        "type": "u32"
+      },
+      {
+        "name": "failure_stage",
+        "offset": 68,
+        "size": 1,
+        "type": "u8"
+      },
+      {
+        "name": "reserved",
+        "offset": 69,
+        "size": 3,
+        "type": "bytes"
+      }
+    ],
+    "legacySize": 64,
+    "size": 72
+  },
+  "toolingHints": [],
+  "version": "0.3.0"
+}

@@ -1,0 +1,51 @@
+
+$ target/release/hopper.exe publish-security --file examples/hopper-sentinel/security.json --program-id 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx --keypair target/hopper/devnet-release/payer.json --cluster devnet --dry-run
+=== hopper publish-security (dry run) ===
+
+Program:            7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+Metadata program:   ProgM6JCCvbYkfKqJYHePx4xxSUSqJp7rh8Lyv7nk7S
+Seed:               "security"  (hex 73656375726974790000000000000000)
+Derivation:         canonical [program, seed]
+Metadata PDA:       FCnkgbtAC4zE3h7J6aWz12LcTN5QDhRk9erbnXVkHefZ  (bump 253)
+
+Payload:
+  Source:           security.txt examples/hopper-sentinel/security.json (fields: acknowledgements, contacts, description, expiry, name, policy, preferred_languages, project_url, source_code, source_release)
+  Raw size:         767 bytes
+  Stored size:      363 bytes  (encoding=Utf8, compression=Zlib, format=Json)
+
+Account header (96 bytes):
+  025e896273b88b447f313a201fcef00a087ad669cbfe530569b1db3d42d1df17ab0000000000000000000000000000000000000000000000000000000000000000010173656375726974790000000000000000010201006b0100000000000000
+  disc=2 mutable=1 canonical=1 encoding=1 compression=2 format=1 data_source=0 data_len=363
+
+Instruction plan (NOT sent):
+  metadata program: ProgM6JCCvbYkfKqJYHePx4xxSUSqJp7rh8Lyv7nk7S
+  program data PDA: 6ZfqKZCnMbmeJ6GuyB2j8PpYHc4VZSR3fLF9BTu5hZpK
+  path:     single inline Initialize (fits one tx)
+  ix[0]:    SystemProgram::transfer  (rent pre-fund -> PDA)
+  ix[1]:    Initialize (disc 1)  data 384 bytes
+            accounts: [metadata(w) FCnkgbtAC4zE3h7J6aWz12LcTN5QDhRk9erbnXVkHefZ], [authority(s,w)],
+                      [program(r) 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx], [programData(r)], [system(r) 11111111111111111111111111111111]
+  result:   96-byte header (above) + 363 zlib bytes at the PDA
+
+Dry run only. No transaction was created or sent.
+[exit 0]
+
+$ target/release/hopper.exe publish-security --file examples/hopper-sentinel/security.json --program-id 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx --keypair target/hopper/devnet-release/payer.json --cluster devnet
+=== hopper publish-security ===
+rpc              : https://api.devnet.solana.com
+signer/authority : 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+metadata PDA     : FCnkgbtAC4zE3h7J6aWz12LcTN5QDhRk9erbnXVkHefZ
+payload          : 767 raw -> 363 zlib bytes
+source           : security.txt examples/hopper-sentinel/security.json (fields: acknowledgements, contacts, description, expiry, name, policy, preferred_languages, project_url, source_code, source_release)
+path             : fresh inline Initialize
+signature        : 5hrvXz83dFESSFn7WYy19a8qfhty6ovq8NCtpHE1xDVWHedyF8F8ccmTAecnQHCnaLvk7CS6AHD8vUevccoADfAy
+status           : confirmed (security.txt published)
+[exit 0]
+
+$ target/release/hopper.exe publish-security --read --program-id 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx --cluster devnet
+=== hopper publish-security (read) ===
+rpc              : https://api.devnet.solana.com
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+record           : none (no account at the canonical [program, "security"] PDA)
+[exit 0]

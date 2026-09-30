@@ -1,0 +1,11 @@
+-- hopper tx explain --
+signature : 2oqSeV99Ki1ATSSiQyScCZPaWvVNhFHf57ZjEW2QvNh5JheXomgABkmgp4Qwjbd6C3PVuutCKNcZ411jLpBas8Md
+slot      : 502011279
+block time: 1790011714
+status    : success
+fee       : 5000 lamports
+compute   : 28292 CU
+
+[instruction 0]
+  program: spl-memo (parsed by RPC)
+  kind   : "hopper tx send --v1 devnet 2026-09-21"

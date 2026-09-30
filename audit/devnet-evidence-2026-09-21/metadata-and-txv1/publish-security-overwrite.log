@@ -1,0 +1,21 @@
+=== hopper publish-security ===
+rpc              : https://api.devnet.solana.com
+signer/authority : 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+metadata PDA     : FCnkgbtAC4zE3h7J6aWz12LcTN5QDhRk9erbnXVkHefZ
+payload          : 767 raw -> 363 zlib bytes
+source           : security.txt examples/hopper-sentinel/security.json (fields: acknowledgements, contacts, description, expiry, name, policy, preferred_languages, project_url, source_code, source_release)
+path             : overwrite (inline SetData)
+signature        : 5rVdNAWYV9Fzk8hUGU45Fdc43H2uss9bdhgo9iypA4FGN9SRYieUBGiWcxZsERTaxenfUcCMtUe9hzvVMGL7wRKf
+status           : confirmed (metadata rewritten)
+[overwrite exit 0]
+=== hopper publish-security (read) ===
+rpc              : https://api.devnet.solana.com
+program          : 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+metadata PDA     : FCnkgbtAC4zE3h7J6aWz12LcTN5QDhRk9erbnXVkHefZ
+seed             : "security"
+canonical        : true   mutable: true
+authority        : none (canonical: the upgrade authority)
+encoding         : utf8 (1)  compression: zlib (2)  format: json (1)  data_source: direct (0)
+payload          : 363 stored -> 767 bytes   rent 2981960 lamports
+[read exit 0]

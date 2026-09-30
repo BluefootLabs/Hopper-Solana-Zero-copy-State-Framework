@@ -1,0 +1,51 @@
+create-mint-legacy: finalized, 3839 CU, ok
+immutable-a-legacy: finalized, 5880 CU, ok
+immutable-b-legacy: finalized, 5880 CU, ok
+mint-to-legacy: finalized, 1654 CU, ok
+batch-legacy: finalized, 2471 CU, ok
+ui-amount-legacy: finalized, 4150 CU, ok
+prefund-legacy: finalized, 150 CU, ok
+withdraw-excess-legacy: finalized, 1740 CU, ok
+multisig-legacy: finalized, 3314 CU, ok
+create-mint-token-2022: finalized, 4881 CU, ok
+immutable-a-token-2022: finalized, 8575 CU, ok
+immutable-b-token-2022: finalized, 8575 CU, ok
+mint-to-token-2022: finalized, 2796 CU, ok
+batch-token-2022: finalized, 5574 CU, ok
+ui-amount-token-2022: finalized, 5758 CU, ok
+prefund-token-2022: finalized, 150 CU, ok
+withdraw-excess-token-2022: finalized, 2994 CU, ok
+multisig-token-2022: finalized, 4498 CU, ok
+wrap-and-unwrap: finalized, 4640 CU, ok
+extended-mint-01: finalized, 8942 CU, ok
+extended-mint-02: finalized, 9306 CU, ok
+extended-mint-04: finalized, 9491 CU, ok
+extended-mint-08: finalized, 9437 CU, ok
+extended-mint-10: finalized, 9372 CU, ok
+extended-mint-20: finalized, 9302 CU, ok
+extended-mint-40: finalized, 9311 CU, ok
+extended-mint-80: finalized, 9372 CU, ok
+extended-mint-grow-01: finalized, 8942 CU, ok
+extended-mint-grow-03: finalized, 12126 CU, ok
+extended-mint-grow-07: finalized, 15553 CU, ok
+extended-mint-grow-0f: finalized, 440 CU, refused {'InstructionError': [0, 'InvalidArgument']}
+extended-mint-grow-17: finalized, 18912 CU, ok
+extended-mint-grow-37: finalized, 22360 CU, ok
+extended-mint-grow-77: finalized, 25766 CU, ok
+extended-mint-grow-f7: finalized, 29295 CU, ok
+extended-mint-final: finalized, 29295 CU, ok
+immutable-a-extended: finalized, 12380 CU, ok
+mint-to-extended: finalized, 4189 CU, ok
+ui-amount-extended: finalized, 10338 CU, ok
+pause-resume: finalized, 5930 CU, ok
+update-multiplier: finalized, 3278 CU, ok
+ui-amount-extended-x3: finalized, 10317 CU, ok
+create-metadata-mint: finalized, 17783 CU, ok
+set-metadata-key: finalized, 12144 CU, ok
+replace-metadata-key: finalized, 12911 CU, ok
+finalize-metadata: finalized, 32837 CU, ok
+set-metadata-key-without-authority: finalized, 5158 CU, refused {'InstructionError': [0, {'Custom': 901952961}]}
+create-group: finalized, 15425 CU, ok
+create-group-member: finalized, 16630 CU, ok
+findings: {"batch-legacy": "accepted", "batch-token-2022": "accepted", "unwrap-lamports": "accepted", "extended-mint-grow-0f": "refused: {'InstructionError': [0, 'InvalidArgument']}", "extension-10-with-07": "refused in combination", "extended-mint-mask": 247, "metadata": "accepted", "token-group": "accepted", "token-group-member": "accepted"}
+All token-lab devnet cases and exact state checks passed.

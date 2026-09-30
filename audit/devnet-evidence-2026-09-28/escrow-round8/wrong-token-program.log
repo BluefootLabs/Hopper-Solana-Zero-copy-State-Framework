@@ -1,0 +1,29 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 9vnEXTpz7TC2ugC5LEDLdJ6i8bBNEradv996hUwFSfPw
+data      : 17 bytes (0x01e803000000000000d007000000000000)
+accounts  : 12 slots
+  [0] 7nihfCCs2M8Xi2UGEVY36rfy7D46HbiXxjJtLzGEsjwh s-
+  [1] DWXwSdECMcSBNyxuiMnDLLnSmLkqgNS7RNtHrQQW3LS3 -w
+  [2] D72iDjf8nhfZxno687KGDJCRGr37Y3aKu1t9T8KGanuw -w
+  [3] B93TihfLjQEm4XTNttbtJ5J3PQwe5PFTryWtJrEEN894 --
+  [4] r5WQVBzxz3FZrsWG2RZPuZsGaZdi6tvosG623jMLSjT -w
+  [5] CS9GCSwCEgpVA14PUGLYShiSCmFjNiZ3CxrcsRKS1z4M --
+  [6] GREfqHgi1gXGhWNWA6NaT6xVY2fMXLBX1QuiVHjzf92c --
+  [7] JEGgByRdPQEcH8sEazH16B888PNmpBmUd119KkzFiuyy -w
+  [8] F9n6RnpZoGCVeTgRVmTTBD48dfi5CPooHJ5wRnm4wpjF -w
+  [9] yzkVF4nPoY6wSR41DAgyCqwWLgrJNzSYSfWeurU2MLB -w
+  [10] GCKK8yv5QsFqeUtzkf4h8dSbbAaRdiKKYtwqX6EqiE6a -w
+  [11] 11111111111111111111111111111111 --
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn, 7nihfCCs2M8Xi2UGEVY36rfy7D46HbiXxjJtLzGEsjwh
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 646/1232 bytes (legacy)
+
+signature : 3LvFKWJh7YsTZursQB9xTSqeFVUVZEdcbXNBJgYJGSKB2HbohVpjrL2voZZrFrXDAj6ou29Lpj9XyqjLedZAuXCX
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidArgument"]}
+compute   : 1276 CU
+fee       : 10000 lamports
+
+explain it: hopper tx explain 3LvFKWJh7YsTZursQB9xTSqeFVUVZEdcbXNBJgYJGSKB2HbohVpjrL2voZZrFrXDAj6ou29Lpj9XyqjLedZAuXCX --rpc https://api.devnet.solana.com
