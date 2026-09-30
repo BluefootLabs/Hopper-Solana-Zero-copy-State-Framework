@@ -266,7 +266,10 @@ fn step(
     expect_log: &str,
 ) -> Step {
     let mut ok = result.program_result.is_ok();
-    if !ok {
+    // `HOPPER_BENCH_LOGS=1` prints every program log line, which is how a
+    // run instrumented with `sol_log_compute_units` is read segment by
+    // segment.
+    if !ok || std::env::var_os("HOPPER_BENCH_LOGS").is_some() {
         for line in program_logs {
             eprintln!("{line}");
         }

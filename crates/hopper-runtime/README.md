@@ -96,9 +96,13 @@ and `no_std` panics. It requires no experimental inline assembly and terminates
 without a compute-burning spin loop. Failure rolls back the transaction; it is
 not a recoverable `ProgramError` return.
 
-Specialized System and token CPI helpers reject a required signer locally when
-neither an outer signature nor PDA signer seeds are supplied. Nonempty seeds do
-not prove authority: Solana still derives and verifies the PDA at the CPI boundary.
+Token CPI helpers reject a required signer locally when neither an outer
+signature nor PDA signer seeds are supplied. System Program builders check that
+no account in the instruction is borrowed, plus the lamport gate when a write
+policy is installed, and leave signer and writable privileges to the runtime,
+which refuses an escalation before the callee runs; `invoke_signed` keeps every
+local check. Nonempty seeds do not prove authority: Solana still derives and
+verifies the PDA at the CPI boundary.
 
 The native `invoke_and_read<T>` helper also checks the return-data producer and
 typed prefix, rejecting a nested program's unforwarded result. Applications

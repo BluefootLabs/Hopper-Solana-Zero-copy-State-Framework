@@ -124,34 +124,45 @@ pub struct CpiAccount<'a> {
     _account_view: PhantomData<&'a AccountView<'a>>,
 }
 
+// The flag bytes are copied as one word (see `From<&AccountView>` below):
+// the three `bool` fields must be adjacent, in header order, with a
+// padding byte after them for the fourth byte of the word.
+const _: () = {
+    use core::mem::{offset_of, size_of};
+    let signer = offset_of!(CpiAccount<'static>, is_signer);
+    assert!(offset_of!(CpiAccount<'static>, is_writable) == signer + 1);
+    assert!(offset_of!(CpiAccount<'static>, executable) == signer + 2);
+    assert!(signer + 4 <= size_of::<CpiAccount<'static>>());
+};
+
 impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
     #[inline(always)]
     fn from(view: &'a AccountView<'a>) -> Self {
         let raw = view.account_ptr();
-        // Single u32 read extracts [borrow_state, is_signer, is_writable, executable].
-        // On little-endian BPF: byte 1 = is_signer, byte 2 = is_writable, byte 3 = executable.
-        // SAFETY: `raw` points at the RuntimeAccount header in the Solana input
-        // buffer; its first 4 bytes pack [borrow_state, is_signer, is_writable,
-        // executable]. `read_unaligned` reads them as a u32 without assuming
-        // 4-byte pointer alignment.
-        let header = unsafe { core::ptr::read_unaligned(raw as *const u32) };
-        Self {
-            address: unsafe { &(*raw).address as *const Address },
-            // SAFETY: `raw` is the view's live header. The field's address is
-            // taken for the CPI account record; the reference formed to take
-            // it is not kept.
-            lamports: unsafe { &(*raw).lamports as *const u64 },
-            data_len: view.data_len() as u64,
-            data: view.data_ptr_unchecked(),
-            // SAFETY: `raw` is the view's live header. The field's address is
-            // taken for the CPI account record; the reference formed to take
-            // it is not kept.
-            owner: unsafe { &(*raw).owner as *const Address },
-            rent_epoch: 0,
-            is_signer: header & 0x0000_FF00 != 0,
-            is_writable: header & 0x00FF_0000 != 0,
-            executable: header & 0xFF00_0000 != 0,
-            _account_view: PhantomData,
+        let mut out = core::mem::MaybeUninit::<Self>::uninit();
+        let slot = out.as_mut_ptr();
+        // The loader writes `is_signer`, `is_writable` and `executable` as 0
+        // or 1 into header bytes 1..4, which are the byte values of `bool`,
+        // and the three fields sit together here in the same order, so one
+        // 4-byte copy moves all three (the fourth byte lands in this
+        // struct's padding). Turning each flag into a `bool` separately
+        // costs a branch per flag on SBF, which has no set-on-condition
+        // instruction.
+        // SAFETY: `raw` is the view's live header; `addr_of!` takes field
+        // addresses without forming references. Every field of `slot` is
+        // written before `assume_init`: the five pointers and two integers
+        // one by one, the three flags by the word copy, whose bytes are 0 or
+        // 1 as the loader wrote them, valid `bool`s.
+        unsafe {
+            core::ptr::addr_of_mut!((*slot).address).write(core::ptr::addr_of!((*raw).address));
+            core::ptr::addr_of_mut!((*slot).lamports).write(core::ptr::addr_of!((*raw).lamports));
+            core::ptr::addr_of_mut!((*slot).data_len).write(view.data_len() as u64);
+            core::ptr::addr_of_mut!((*slot).data).write(view.data_ptr_unchecked());
+            core::ptr::addr_of_mut!((*slot).owner).write(core::ptr::addr_of!((*raw).owner));
+            core::ptr::addr_of_mut!((*slot).rent_epoch).write(0);
+            let flags = core::ptr::read_unaligned((raw as *const u8).add(1) as *const u32);
+            (core::ptr::addr_of_mut!((*slot).is_signer) as *mut u32).write_unaligned(flags);
+            out.assume_init()
         }
     }
 }

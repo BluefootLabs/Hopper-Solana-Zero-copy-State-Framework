@@ -56,16 +56,26 @@ pub trait CompactLayout: Sized + Copy + crate::Pod {
     /// read a layout_id or epoch.
     #[inline(always)]
     fn validate_compact(data: &[u8]) -> ProgramResult {
-        if data.len() < Self::COMPACT_LEN {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
         if data.len() != Self::COMPACT_LEN {
-            return Err(ProgramError::InvalidAccountData);
+            return Err(compact_len_error(data.len(), Self::COMPACT_LEN));
         }
         if data[0] != Self::DISC {
             return Err(ProgramError::InvalidAccountData);
         }
         Ok(())
+    }
+}
+
+/// The error for a compact account of the wrong length: too small when it
+/// is short, invalid when it is long. Cold and out of line, so the accepted
+/// path tests the length once.
+#[cold]
+#[inline(never)]
+pub(crate) fn compact_len_error(len: usize, expected: usize) -> ProgramError {
+    if len < expected {
+        ProgramError::AccountDataTooSmall
+    } else {
+        ProgramError::InvalidAccountData
     }
 }
 

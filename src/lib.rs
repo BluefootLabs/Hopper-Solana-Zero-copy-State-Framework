@@ -1131,6 +1131,10 @@ pub mod __runtime {
     pub use hopper_runtime::crank::CrankMarker;
     pub use hopper_runtime::dyn_cpi::DynCpi;
 
+    // The count-exact entrypoint's per-instruction helpers return the
+    // entry code, mapping a refusal through the runtime's cold converter.
+    pub use hopper_runtime::entry_refusal;
+
     // `#[hopper::state]` and `#[hopper::pod]` emit Hopper-owned
     // zero-copy proofs through this path so user code never needs a
     // direct runtime-internals dependency.

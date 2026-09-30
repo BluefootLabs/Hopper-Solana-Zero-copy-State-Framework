@@ -4,6 +4,28 @@ Measure the complete program you intend to deploy: compute units, executable
 size, account space, successful balance changes, refusals, and rollback.
 Numbers below are dated fixtures, not guarantees for other applications.
 
+## Hello world and PDA counter: September 30, 2026
+
+pina's framework-comparison fixtures, built with its release recipe and run
+once per instruction in Mollusk. The Pinocchio column is pina's own
+hand-written fixture, rebuilt and measured by the same script,
+`scripts/bench-framework-comparison.py`.
+
+| Program | Hand-written Pinocchio | Hopper raw | Hopper framework |
+|---|---:|---:|---:|
+| Hello world | 111 CU, 3,160 B | 111 CU, 1,456 B | 127 CU, 1,824 B |
+| PDA counter, create | 1,490 CU | 1,514 CU | 1,471 CU |
+| PDA counter, update | 1,721 CU | 1,722 CU | 325 CU |
+| PDA counter, program size | 6,512 B | 6,608 B | 8,744 B |
+
+The raw counter is the same program as Pinocchio's: a 10-byte account, one
+account-creation CPI, and a full PDA derivation on every update. The framework
+counter checks the signer, the owner, the layout, and the PDA before its
+handler runs, checks the PDA with one hash from the bump stored in the
+account, and keeps a 16-byte header, so its account is 25 bytes.
+[Coming from Pinocchio](docs/FROM_PINOCCHIO.md) lists the checks the raw
+layer makes that Pinocchio leaves out.
+
 ## Funded token escrow: September 26, 2026
 
 The classic SPL Token escrow finalized 33 devnet transactions: setup, funding,

@@ -95,6 +95,11 @@ pub struct RawInstructionFrame {
 /// `data_len` contributes misalignment. Folding the trailing rent-epoch
 /// `+ 8` inside the round-up is exact since `8 ≡ 0 (mod 8)`:
 /// `((x + 8) + 7) & !7 == (((x + 7) & !7) + 8)`.
+///
+/// The walks use [`next_record`], this stride applied to a pointer; the
+/// offset form is the one the Kani stride lemma and the tests state, and
+/// `next_record_matches_the_offset_stride` pins the two together.
+#[cfg(any(test, kani))]
 #[inline(always)]
 const fn next_record_offset(offset: usize, data_len: usize) -> usize {
     (offset
@@ -106,20 +111,219 @@ const fn next_record_offset(offset: usize, data_len: usize) -> usize {
         & !(BPF_ALIGN_OF_U128 - 1)
 }
 
+/// Bytes from the start of a canonical record to the start of the next one,
+/// before rounding: the 88-byte `RuntimeAccount` header, the
+/// `MAX_PERMITTED_DATA_INCREASE` realloc reserve, the 8-byte rent epoch,
+/// and the 7 bytes of slack that turn the round-down in [`next_record`]
+/// into a round-up. The record's `data_len` is added on top.
+const CANONICAL_STRIDE: usize =
+    RuntimeAccount::SIZE + MAX_PERMITTED_DATA_INCREASE + 8 + (BPF_ALIGN_OF_U128 - 1);
+
+/// The record that follows the canonical record at `cursor`.
+///
+/// [`next_record_offset`] applied to a pointer. The loader's input region
+/// starts 8-aligned (`MM_INPUT_START`), so rounding the address and
+/// rounding the offset from the region start land on the same byte; the
+/// pointer form saves the base-plus-offset add every record access would
+/// otherwise pay. Two adds and a mask per record, the same shape as
+/// Pinocchio's walk.
+///
+/// # Safety
+///
+/// `cursor` is the start of a canonical record in a loader input buffer
+/// whose base is 8-aligned, and `data_len` is that record's data length.
+#[inline(always)]
+unsafe fn next_record(cursor: *mut u8, data_len: usize) -> *mut u8 {
+    // SAFETY: the loader serializes the whole record and then at least the
+    // 8-byte instruction-data length and the 32-byte program id, so the
+    // unrounded pointer, at most 7 bytes past the next record, stays inside
+    // the input buffer.
+    let unrounded = unsafe { cursor.add(CANONICAL_STRIDE + data_len) };
+    unrounded.map_addr(|address| address & !(BPF_ALIGN_OF_U128 - 1))
+}
+
+/// Materialize the canonical record at `cursor` into `slot` and return the
+/// start of the next record.
+///
+/// # Safety
+///
+/// `cursor` is a canonical (`0xFF`-marked) record boundary of an 8-aligned
+/// loader input buffer, the view has not escaped yet, and `slot` is
+/// writable.
+#[inline(always)]
+unsafe fn take_canonical<'info>(cursor: *mut u8, slot: *mut AccountView<'info>) -> *mut u8 {
+    let raw = cursor as *mut RuntimeAccount;
+    // SAFETY: `raw` is a canonical loader record (the caller's contract).
+    let view = unsafe { AccountView::new_unchecked(raw) };
+    // SAFETY: the view wraps the record just decoded and has not escaped,
+    // the contract of `initialize_original_data_len`.
+    unsafe { view.initialize_original_data_len() };
+    let data_len = view.data_len();
+    // SAFETY: the caller hands over a writable slot.
+    unsafe { slot.write(view) };
+    // SAFETY: `cursor` is the canonical record `data_len` describes.
+    unsafe { next_record(cursor, data_len) }
+}
+
+/// Resolve the duplicate marker at `cursor` (slot `slot`) to the earlier
+/// view it names and return the start of the next record. Traps on a
+/// marker that does not name an earlier slot.
+///
+/// Out of line and cold: the loader writes a duplicate only when an
+/// instruction names one account twice, so the canonical path stays
+/// straight and each unrolled slot pays one call site, not a copy of this
+/// body.
+///
+/// # Safety
+///
+/// `slots` holds initialized views in `0..slot`, `slots.add(slot)` is
+/// writable, and `cursor` is the duplicate record of slot `slot`.
+#[cold]
+#[inline(never)]
+unsafe fn take_duplicate<'info>(
+    cursor: *mut u8,
+    marker: u8,
+    slot: usize,
+    slots: *mut AccountView<'info>,
+) -> *mut u8 {
+    let duplicate_of = marker as usize;
+    // The marker must name a strictly earlier slot. Anything else (a
+    // forward reference, or any duplicate marker on slot 0, which has no
+    // earlier slot) is malformed loader input; trap rather than synthesize
+    // a null or aliasing view.
+    if duplicate_of >= slot {
+        malformed_duplicate_marker(marker, slot);
+    }
+    // SAFETY: `duplicate_of < slot`, so that slot was initialized earlier
+    // in this walk.
+    let raw = unsafe { (*slots.add(duplicate_of)).raw_ptr() };
+    // SAFETY: the caller hands over slot `slot` as writable, and `raw` came
+    // from a validated earlier slot of this frame.
+    unsafe { slots.add(slot).write(AccountView::new_unchecked(raw)) };
+    // A duplicate record is the marker byte and 7 bytes of padding.
+    // SAFETY: the loader serializes those 8 bytes, and more records or the
+    // instruction tail follow them.
+    unsafe { cursor.add(8) }
+}
+
+/// Materialize the record at `cursor` as slot `slot` and return the start
+/// of the next record.
+///
+/// # Safety
+///
+/// `cursor` is slot `slot`'s record boundary in an 8-aligned loader input
+/// buffer, `slot < MAX`, and slots `0..slot` are initialized.
+#[inline(always)]
+unsafe fn take_record<'info>(
+    cursor: *mut u8,
+    slot: usize,
+    slots: *mut AccountView<'info>,
+) -> *mut u8 {
+    // SAFETY: `cursor` is a record boundary, so its first byte is in bounds.
+    let marker = unsafe { *cursor };
+    if marker == NON_DUP_MARKER {
+        // SAFETY: a 0xFF marker opens a canonical record, and slot `slot`
+        // is inside the scratch array.
+        unsafe { take_canonical(cursor, slots.add(slot)) }
+    } else {
+        // SAFETY: the caller's contract, forwarded.
+        unsafe { take_duplicate(cursor, marker, slot, slots) }
+    }
+}
+
+/// The one materializing walk behind every scanning entrypoint.
+///
+/// Writes views for the leading records until `stop` of them are done or
+/// the compile-time bound runs out (`MAX`, and never past slot 253: the
+/// 254 materialization clamp the loader encoding sets, see
+/// [`deserialize_accounts`]). Returns how many views it wrote and the
+/// cursor after the last record it walked.
+///
+/// The first four slots are unrolled by hand behind compile-time guards,
+/// so a declared bound of up to four (`program_entrypoint!(process, 3)`)
+/// compiles to straight-line code: one compare per account against `stop`,
+/// constant scratch offsets, no slot counter and no back-edge. A duplicate
+/// marker, rare because the loader writes one only when an instruction
+/// names an account twice, leaves the unrolled prefix and continues in the
+/// one loop below, which also serves the slots past four that only a wider
+/// bound reaches. So the duplicate path is in the binary once, not once per
+/// unrolled slot.
+///
+/// # Safety
+///
+/// `cursor` is the first account record of an 8-aligned loader input
+/// buffer, and `stop` is at most the number of accounts the loader
+/// serialized.
+#[inline(always)]
+unsafe fn materialize<'info, const MAX: usize>(
+    mut cursor: *mut u8,
+    stop: usize,
+    accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
+) -> (usize, *mut u8) {
+    let limit = if MAX < MATERIALIZE_CLAMP {
+        MAX
+    } else {
+        MATERIALIZE_CLAMP
+    };
+    let slots = accounts.as_mut_ptr() as *mut AccountView<'info>;
+    let mut slot = 'canonical: {
+        macro_rules! unrolled_slot {
+            ($slot:literal) => {
+                // `limit` is a constant, so for a small bound the first test
+                // folds into an unconditional return after the last slot.
+                if $slot == limit || $slot == stop {
+                    return ($slot, cursor);
+                }
+                // SAFETY: `$slot < stop <= num_accounts` puts `cursor` on
+                // this slot's record boundary.
+                if unsafe { *cursor } != NON_DUP_MARKER {
+                    break 'canonical $slot;
+                }
+                // SAFETY: a 0xFF marker opens a canonical record, and
+                // `$slot < limit <= MAX` indexes the scratch array.
+                cursor = unsafe { take_canonical(cursor, slots.add($slot)) };
+            };
+        }
+        unrolled_slot!(0);
+        unrolled_slot!(1);
+        unrolled_slot!(2);
+        unrolled_slot!(3);
+        4usize
+    };
+    while slot < limit {
+        if slot == stop {
+            break;
+        }
+        // SAFETY: as in the unrolled slots: `slot < stop` puts `cursor` on
+        // a record boundary, `slot < limit <= MAX`, earlier slots are set.
+        cursor = unsafe { take_record(cursor, slot, slots) };
+        slot += 1;
+    }
+    (slot, cursor)
+}
+
+/// Views past this many slots are never materialized. Duplicate markers are
+/// one byte with 0xFF reserved for canonical records, so markers
+/// 0x00..=0xFE address slots 0..=254; materialization stops one below that
+/// encoding limit, as it always has, and slot 254 is walked skip-only.
+const MATERIALIZE_CLAMP: usize = 254;
+
+/// A canonical record's marker byte (the borrow state it starts in).
+const NON_DUP_MARKER: u8 = u8::MAX;
+
 /// Deserialize the loader input into `AccountView`s.
 ///
 /// Duplicate-account resolution happens here. A duplicate slot reuses the
 /// canonical `RuntimeAccount` pointer of the earlier slot it references, and
 /// its `original_index` remains the loader slot where it appeared.
 ///
-/// This is a single fused walk over the account region: one loop both
-/// materializes `AccountView`s (up to `MAX`) and carries the cursor to the
-/// end of the region, where the instruction data and program id live.
-/// Accounts beyond `MAX` are skip-only, advanced past without being
-/// materialized; so the instruction tail is still found. The pre-fusion
-/// shape walked the region twice (`scan_instruction_frame` to locate the
-/// tail, then a second offset-based materialize loop), costing ~30
-/// instructions per account; the fused walk is ~8.
+/// One pass over the account region: [`materialize`] writes a view for each
+/// of the first `MAX` records (never past slot 253) with a pointer cursor,
+/// and a skip-only walk carries the cursor over any records past the bound
+/// to the instruction data and program id. For a declared bound of three
+/// the walk is straight-line code, about eight instructions per account,
+/// one of them the store that records the account's original data length
+/// so every later `resize` is checked against it.
 ///
 /// # Safety
 ///
@@ -133,132 +337,51 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
     // whose first 8 bytes are the account count. `read_unaligned` reads the
     // u64 without assuming 8-byte pointer alignment.
     let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
-    // Duplicate markers are a single byte with 0xFF reserved for canonical
-    // records, so marker values 0x00..=0xFE can address 255 slots (indices
-    // 0..=254). We clamp materialization at 254, one below that encoding
-    // limit, purely to preserve the pre-fusion behavior
-    // (`scan_instruction_frame` capped `account_count` at 254); slot 254,
-    // though addressable by marker 0xFE, is handled skip-only in the tail.
-    // Then clamp to the caller's capacity MAX.
-    let addressable = if num_accounts > 254 {
-        254
-    } else {
-        num_accounts
-    };
-    let count = if addressable > MAX { MAX } else { addressable };
+    // SAFETY: the account records start right after the 8-byte count, and
+    // `num_accounts` is the loader's own count.
+    let (count, mut cursor) = unsafe { materialize::<MAX>(input.add(8), num_accounts, accounts) };
 
-    let mut offset = 8usize;
-
-    // Fused walk, hot loop: materialize AND advance in one pass.
-    let mut slot = 0usize;
-    while slot < count {
-        // SAFETY: `slot < count <= num_accounts`, so `offset` sits on a
-        // loader-produced record boundary and the marker byte is in bounds.
-        let marker = unsafe { *input.add(offset) };
-        if marker == u8::MAX {
-            // SAFETY: a 0xFF marker means a canonical `RuntimeAccount`
-            // record starts at this record boundary; the loader guarantees
-            // the full 88-byte header (plus data) follows in bounds.
-            let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
-            // SAFETY: `slot < count <= MAX`, and `raw` points at a valid
-            // canonical account record in the loader input. Capture the
-            // original length before the view can escape or be passed to CPI.
-            let view = unsafe { AccountView::new_unchecked(raw) };
-            // SAFETY: `view` wraps the canonical loader record just decoded
-            // and has not escaped yet, which is the contract of
-            // `initialize_original_data_len`.
-            unsafe { view.initialize_original_data_len() };
-            // SAFETY: `slot < count <= MAX`, the length of `accounts`.
-            unsafe {
-                *accounts.get_unchecked_mut(slot) = MaybeUninit::new(view);
-            }
-
-            // SAFETY: `raw` points to the RuntimeAccount header just decoded
-            // from the current input slot; `data_len` is 8-aligned within it
-            // because record starts are 8-aligned (see `next_record_offset`).
-            let data_len = unsafe { (*raw).data_len as usize };
-            // Pinocchio-shape stride: pure integer adds + mask. Byte-for-byte
-            // identical to the old absolute-address `align_offset` math
-            // because the loader input base is 8-aligned (MM_INPUT_START;
-            // see `next_record_offset` docs).
-            offset = next_record_offset(offset, data_len);
-        } else {
-            let duplicate_of = marker as usize;
-            // The marker must refer strictly to an earlier slot. Anything
-            // else (forward reference, or a duplicate marker on slot 0
-            // which has no prior slot to reference) is malformed loader
-            // input. we trap rather than synthesize a null or aliasing
-            // `AccountView`.
-            if duplicate_of >= slot {
-                malformed_duplicate_marker(marker, slot);
-            }
-            // SAFETY: `duplicate_of < slot < count`, so the referenced slot
-            // was initialized by an earlier iteration of this loop.
-            let raw = unsafe {
-                accounts
-                    .get_unchecked(duplicate_of)
-                    .assume_init_ref()
-                    .raw_ptr()
-            };
-            // SAFETY: `slot < count <= MAX`, and `raw` came from a validated
-            // earlier slot in this same frame.
-            unsafe {
-                *accounts.get_unchecked_mut(slot) =
-                    MaybeUninit::new(AccountView::new_unchecked(raw))
-            };
-            // Duplicate slots occupy 8 bytes: marker byte + 7 padding bytes.
-            offset += 8;
-        }
-
-        slot += 1;
-    }
-
-    // Skip-only tail: accounts beyond MAX (or beyond the 254 addressable
-    // slots) are not materialized, but the cursor must still advance past
-    // their records so the instruction data and program id can be located.
-    // Duplicate-marker well-formedness is still enforced here, exactly as
-    // the pre-fusion scan pass did for every slot.
+    // Skip-only tail: records past the bound are not materialized, but the
+    // cursor must still cross them to reach the instruction data and
+    // program id. Only the record's size matters here: a duplicate is 8
+    // bytes whatever slot its marker names, and no view is made from it, so
+    // nothing can alias. The walk has no side effect, which lets the
+    // compiler drop it (and the last materialized record's stride) from a
+    // program that never reads its instruction data.
+    let mut slot = count;
     while slot < num_accounts {
-        // SAFETY: `slot < num_accounts`, so `offset` sits on a
+        // SAFETY: `slot < num_accounts`, so `cursor` sits on a
         // loader-produced record boundary within the input buffer.
-        let marker = unsafe { *input.add(offset) };
-        if marker == u8::MAX {
-            // SAFETY: canonical record at a loader-produced record boundary;
-            // its `data_len` header field is in bounds and 8-aligned.
-            let data_len =
-                unsafe { (*(input.add(offset) as *const RuntimeAccount)).data_len } as usize;
-            offset = next_record_offset(offset, data_len);
+        let marker = unsafe { *cursor };
+        cursor = if marker == NON_DUP_MARKER {
+            // SAFETY: canonical record at a record boundary; its `data_len`
+            // header field is in bounds.
+            let data_len = unsafe { (*(cursor as *const RuntimeAccount)).data_len } as usize;
+            // SAFETY: `cursor` is the canonical record `data_len` describes.
+            unsafe { next_record(cursor, data_len) }
         } else {
-            let duplicate_of = marker as usize;
-            if duplicate_of >= slot {
-                malformed_duplicate_marker(marker, slot);
-            }
-            offset += 8;
-        }
+            // SAFETY: a duplicate record is 8 bytes, and more records or
+            // the instruction tail follow it.
+            unsafe { cursor.add(8) }
+        };
         slot += 1;
     }
 
     // Instruction tail: u64 LE length prefix, data bytes, 32-byte program id.
-    // SAFETY: the walk above advanced `offset` past all `num_accounts`
-    // records, so it now points at the 8-byte instruction-data length in the
-    // loader input buffer. `read_unaligned` avoids assuming pointer alignment
-    // (the offset is in fact 8-aligned here, but the read is free either way).
-    let ix_data_len =
-        unsafe { core::ptr::read_unaligned(input.add(offset) as *const u64) as usize };
-    offset += 8;
-    // SAFETY: the loader serializes `ix_data_len` instruction-data bytes
-    // immediately after the length prefix; the buffer lives for the whole
-    // invocation, matching the returned lifetime.
-    let instruction_data =
-        unsafe { core::slice::from_raw_parts(input.add(offset) as *const u8, ix_data_len) };
-    offset += ix_data_len;
-    // SAFETY: the 32-byte program id trails the instruction data per the
-    // loader serialization layout; `Address` is a transparent `[u8; 32]`
-    // with alignment 1, so a reference into the buffer is valid at any
-    // offset and lives as long as the input. Handing out the reference
-    // instead of a copy saves the 32-byte stack spill (eight stores and
-    // eight loads) every entrypoint used to pay.
-    let program_id: &'info Address = unsafe { &*(input.add(offset) as *const Address) };
+    // SAFETY: the walk crossed all `num_accounts` records, so `cursor` is at
+    // the 8-byte instruction-data length.
+    let ix_data_len = unsafe { core::ptr::read_unaligned(cursor as *const u64) as usize };
+    // SAFETY: the loader serializes `ix_data_len` bytes right after the
+    // length prefix, then the program id.
+    let data = unsafe { cursor.add(8) };
+    // SAFETY: those bytes live for the whole invocation, matching the
+    // returned lifetime.
+    let instruction_data = unsafe { core::slice::from_raw_parts(data as *const u8, ix_data_len) };
+    // SAFETY: the 32-byte program id trails the instruction data; `Address`
+    // is a transparent `[u8; 32]` with alignment 1, so a reference into the
+    // buffer is valid at any offset. Handing out the reference instead of a
+    // copy saves a 32-byte stack spill.
+    let program_id: &'info Address = unsafe { &*(data.add(ix_data_len) as *const Address) };
 
     (program_id, count, instruction_data)
 }
@@ -309,72 +432,26 @@ pub unsafe fn deserialize_leading_accounts<'info, const MAX: usize>(
     // SAFETY: `input` points to the head of the loader input buffer, whose
     // first 8 bytes are the account count.
     let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
-    let limit = if limit > MAX { MAX } else { limit };
-    let count = if num_accounts > limit {
+    let stop = if num_accounts > limit {
         limit
     } else {
         num_accounts
     };
-    let mut offset = 8usize;
-    let mut slot = 0usize;
-    // The loop runs to the compile-time `MAX` with an early exit at
-    // `count`, rather than to the runtime `count` directly, so that LLVM
-    // unrolls it for the small bounds typed contexts declare: the same
-    // straight-line parse the scanning entrypoint gets from a literal
-    // `max_accounts`, shared by every instruction of the program.
-    while slot < MAX {
-        if slot >= count {
-            break;
-        }
-        // SAFETY: `slot < count <= num_accounts`, so `offset` sits on a
-        // loader-produced record boundary and the marker byte is in bounds.
-        let marker = unsafe { *input.add(offset) };
-        if marker == u8::MAX {
-            // SAFETY: a 0xFF marker means a canonical `RuntimeAccount`
-            // record starts here; the loader guarantees its header and
-            // data follow in bounds.
-            let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
-            // SAFETY: `raw` is a valid canonical record and the view has
-            // not escaped yet (the `initialize_original_data_len` contract).
-            let view = unsafe { AccountView::new_unchecked(raw) };
-            // SAFETY: see above.
-            unsafe { view.initialize_original_data_len() };
-            // SAFETY: `slot < count <= MAX`.
-            unsafe {
-                *accounts.get_unchecked_mut(slot) = MaybeUninit::new(view);
-            }
-            // SAFETY: `raw` points at the record header just decoded.
-            let data_len = unsafe { (*raw).data_len as usize };
-            offset = next_record_offset(offset, data_len);
-        } else {
-            let duplicate_of = marker as usize;
-            if duplicate_of >= slot {
-                malformed_duplicate_marker(marker, slot);
-            }
-            // SAFETY: `duplicate_of < slot`, so that slot was initialized
-            // earlier in this walk.
-            let raw = unsafe {
-                accounts
-                    .get_unchecked(duplicate_of)
-                    .assume_init_ref()
-                    .raw_ptr()
-            };
-            // SAFETY: `slot < count <= MAX`, and `raw` came from a validated
-            // earlier slot in this same frame.
-            unsafe {
-                *accounts.get_unchecked_mut(slot) =
-                    MaybeUninit::new(AccountView::new_unchecked(raw))
-            };
-            offset += 8;
-        }
-        slot += 1;
-    }
+    // SAFETY: the records start after the 8-byte count, and `stop` is at
+    // most the loader's count.
+    let (count, _) = unsafe { materialize::<MAX>(input.add(8), stop, accounts) };
     count
 }
 
 /// Fast two-argument deserialize: instruction data and program id are provided
 /// directly by the caller (from the SVM's second entrypoint register), so the
-/// full account-scan pass is skipped entirely.
+/// walk stops at the last materialized account instead of crossing the rest.
+///
+/// Materializes the same views, with the same 254 clamp, as
+/// [`deserialize_accounts`]: this is the `r2` arm of one entrypoint whose
+/// null-check fallback is the scanning walk, so the two must report the
+/// same `count` for the same input, or the same binary's `accounts.len()`
+/// would depend on which arm ran.
 ///
 /// # Safety
 ///
@@ -390,84 +467,12 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     program_id: &'info Address,
 ) -> (&'info Address, usize, &'info [u8]) {
     // SAFETY: `input` points to the head of the Solana BPF input buffer, whose
-    // first 8 bytes are the account count. `read_unaligned` reads the u64 without
-    // assuming 8-byte pointer alignment, so this stays sound even if the loader
-    // ever hands us an unaligned buffer.
+    // first 8 bytes are the account count. `read_unaligned` reads the u64
+    // without assuming 8-byte pointer alignment.
     let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
-    // Same 254 materialization clamp as `deserialize_accounts`: this fast
-    // path is the r2 arm of ONE entrypoint whose null-check fallback is the
-    // scanning walk, so the two must report an identical `count` for the
-    // same input, with `MAX >= 255` an unclamped min(MAX) would surface
-    // slot 254 here while the fallback drops it, making the same binary's
-    // observable accounts.len() depend on which arm ran.
-    let addressable = if num_accounts > 254 {
-        254
-    } else {
-        num_accounts
-    };
-    let count = addressable.min(MAX);
-    let mut offset = 8usize;
-
-    let mut slot = 0usize;
-    while slot < count {
-        // SAFETY: `offset` is at a record boundary inside the loader's input
-        // buffer: it starts after the 8-byte count and advances by the
-        // loader's own stride for each of the `count` accounts the loader
-        // serialized.
-        let marker = unsafe { *input.add(offset) };
-        if marker == u8::MAX {
-            // SAFETY: `offset` is on a Solana account record boundary produced
-            // by the loader input format.
-            let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
-            // SAFETY: `raw` is the canonical loader record for this slot.
-            // Capture the original length before exposing the view to CPI.
-            let view = unsafe { AccountView::new_unchecked(raw) };
-            // SAFETY: `view` wraps the canonical loader record just decoded
-            // and has not escaped yet, which is the contract of
-            // `initialize_original_data_len`.
-            unsafe { view.initialize_original_data_len() };
-            // SAFETY: `slot < count <= MAX`, the length of `accounts`.
-            unsafe {
-                *accounts.get_unchecked_mut(slot) = MaybeUninit::new(view);
-            }
-
-            // SAFETY: `raw` points to the RuntimeAccount header just decoded
-            // from the current input slot.
-            let data_len = unsafe { (*raw).data_len as usize };
-            // Pinocchio-shape stride: pure integer adds + mask, identical to
-            // the old absolute-address `align_offset` math because the loader
-            // input base is 8-aligned (see `next_record_offset` docs).
-            offset = next_record_offset(offset, data_len);
-        } else {
-            let duplicate_of = marker as usize;
-            // Identical well-formedness check as the scanning-variant above.
-            if duplicate_of >= slot {
-                malformed_duplicate_marker(marker, slot);
-            }
-            // SAFETY: `duplicate_of < slot` was checked above (the trap never
-            // returns), and every slot below `slot` was initialized by an
-            // earlier iteration.
-            let raw = unsafe {
-                accounts
-                    .get_unchecked(duplicate_of)
-                    .assume_init_ref()
-                    .raw_ptr()
-            };
-            // SAFETY: `slot < count <= MAX`, and `raw` came from a validated
-            // earlier slot in this same frame.
-            unsafe {
-                *accounts.get_unchecked_mut(slot) =
-                    MaybeUninit::new(AccountView::new_unchecked(raw))
-            };
-            offset += 8;
-        }
-
-        slot += 1;
-    }
-
-    // Skip remaining accounts. not needed, but slot tracking isn't required
-    // since we don't need to find the instruction tail.
-
+    // SAFETY: the records start after the 8-byte count, and `num_accounts`
+    // is the loader's own count.
+    let (count, _) = unsafe { materialize::<MAX>(input.add(8), num_accounts, accounts) };
     (program_id, count, instruction_data)
 }
 
@@ -1526,6 +1531,156 @@ mod fused_walk_tests {
     }
 
     #[test]
+    fn next_record_matches_the_offset_stride() {
+        // `next_record` is the offset stride applied to an 8-aligned
+        // pointer; for every data-length residue both land on one byte.
+        let mut backing = vec![0u64; 5_000];
+        let base = backing.as_mut_ptr() as *mut u8;
+        for start in [8usize, 96, 10344, 20696] {
+            for data_len in 0usize..64 {
+                // SAFETY: `start` plus one record's whole stride stays inside
+                // the 40,000-byte backing.
+                let got = unsafe { next_record(base.add(start), data_len) };
+                assert_eq!(
+                    got as usize - base as usize,
+                    next_record_offset(start, data_len),
+                    "start={start} data_len={data_len}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn take_canonical_writes_the_view_records_the_baseline_and_strides() {
+        let mut frame = build_frame(&[fresh(13, 7), fresh(2, 1)], &[], PID);
+        let base = frame.as_mut_ptr();
+        let mut views = uninit_views::<1>();
+        let slots = views.as_mut_ptr() as *mut AccountView<'_>;
+        // SAFETY: slot 0's record starts after the 8-byte count, and `views`
+        // has one writable slot.
+        let next = unsafe { take_canonical(base.add(8), slots) };
+        // SAFETY: `take_canonical` wrote slot 0.
+        let view = unsafe { views[0].assume_init_ref() };
+        assert_eq!(view.raw_ptr() as usize, base as usize + 8);
+        assert_eq!(view.original_data_len(), 13);
+        assert_eq!(next as usize - base as usize, next_record_offset(8, 13));
+    }
+
+    #[test]
+    fn take_duplicate_aliases_an_earlier_slot_and_crosses_eight_bytes() {
+        let mut frame = build_frame(&[fresh(4, 1), Slot::Dup(0)], &[], PID);
+        let base = frame.as_mut_ptr();
+        let mut views = uninit_views::<2>();
+        let slots = views.as_mut_ptr() as *mut AccountView<'_>;
+        // SAFETY: slot 0's record starts after the count; `views` has room.
+        let duplicate = unsafe { take_canonical(base.add(8), slots) };
+        // SAFETY: slot 0 is initialized, slot 1 is writable, and `duplicate`
+        // is slot 1's record.
+        let next = unsafe { take_duplicate(duplicate, 0, 1, slots) };
+        // SAFETY: both slots were written above.
+        let (first, second) = unsafe { (views[0].assume_init_ref(), views[1].assume_init_ref()) };
+        assert_eq!(first.raw_ptr(), second.raw_ptr());
+        assert_eq!(next as usize, duplicate as usize + 8);
+    }
+
+    #[test]
+    #[should_panic(expected = "malformed duplicate marker")]
+    fn take_duplicate_traps_on_a_marker_that_is_not_earlier() {
+        let mut frame = build_frame(&[fresh(4, 1), Slot::Dup(1)], &[], PID);
+        let base = frame.as_mut_ptr();
+        let mut views = uninit_views::<2>();
+        let slots = views.as_mut_ptr() as *mut AccountView<'_>;
+        // SAFETY: slot 0's record starts after the count; `views` has room.
+        let duplicate = unsafe { take_canonical(base.add(8), slots) };
+        // SAFETY: the self-reference is the condition under test; the trap
+        // fires before any slot is read.
+        let _ = unsafe { take_duplicate(duplicate, 1, 1, slots) };
+    }
+
+    #[test]
+    fn take_record_follows_the_marker() {
+        let mut frame = build_frame(&[fresh(0, 1), Slot::Dup(0), fresh(9, 2)], &[3], PID);
+        let base = frame.as_mut_ptr();
+        let mut views = uninit_views::<3>();
+        let slots = views.as_mut_ptr() as *mut AccountView<'_>;
+        // SAFETY: the records start after the count.
+        let mut cursor = unsafe { base.add(8) };
+        for slot in 0..3 {
+            // SAFETY: `cursor` is slot `slot`'s record, `slot < 3`, and the
+            // earlier slots were written by earlier iterations.
+            cursor = unsafe { take_record(cursor, slot, slots) };
+        }
+        // SAFETY: all three slots were written.
+        let (a, b, c) = unsafe {
+            (
+                views[0].assume_init_ref(),
+                views[1].assume_init_ref(),
+                views[2].assume_init_ref(),
+            )
+        };
+        assert_eq!(a.raw_ptr(), b.raw_ptr());
+        assert_ne!(a.raw_ptr(), c.raw_ptr());
+        assert_eq!(c.original_data_len(), 9);
+        // The cursor ends on the instruction-data length word.
+        // SAFETY: the walk crossed every record, and the tail follows.
+        assert_eq!(
+            unsafe { core::ptr::read_unaligned(cursor as *const u64) },
+            1
+        );
+    }
+
+    #[test]
+    fn materialize_stops_at_the_count_and_at_the_bound() {
+        let slots = [
+            fresh(1, 1),
+            Slot::Dup(0),
+            fresh(3, 3),
+            fresh(4, 4),
+            fresh(5, 5),
+            Slot::Dup(2),
+        ];
+        let mut frame = build_frame(&slots, &[], PID);
+        let base = frame.as_mut_ptr();
+
+        // The count comes first: two of six.
+        let mut views = uninit_views::<8>();
+        // SAFETY: the records start after the count, and 2 <= 6.
+        let (count, _) = unsafe { materialize::<8>(base.add(8), 2, &mut views) };
+        assert_eq!(count, 2);
+
+        // The bound comes first: the unrolled prefix returns at three.
+        let mut views = uninit_views::<3>();
+        // SAFETY: as above; six is the loader's count.
+        let (count, cursor) = unsafe { materialize::<3>(base.add(8), 6, &mut views) };
+        assert_eq!(count, 3);
+        // SAFETY: the cursor sits on the fourth record's marker.
+        assert_eq!(unsafe { *cursor }, u8::MAX);
+
+        // All six: a duplicate in the unrolled prefix hands over to the loop,
+        // which also takes the slots past four.
+        let mut views = uninit_views::<8>();
+        // SAFETY: as above.
+        let (count, cursor) = unsafe { materialize::<8>(base.add(8), 6, &mut views) };
+        assert_eq!(count, 6);
+        // SAFETY: all six slots were written.
+        let (v0, v1, v2, v5) = unsafe {
+            (
+                views[0].assume_init_ref(),
+                views[1].assume_init_ref(),
+                views[2].assume_init_ref(),
+                views[5].assume_init_ref(),
+            )
+        };
+        assert_eq!(v0.raw_ptr(), v1.raw_ptr());
+        assert_eq!(v2.raw_ptr(), v5.raw_ptr());
+        // SAFETY: the walk crossed every record; the length word follows.
+        assert_eq!(
+            unsafe { core::ptr::read_unaligned(cursor as *const u64) },
+            0
+        );
+    }
+
+    #[test]
     fn huge_data_len_near_region_end() {
         // A single account whose data dwarfs the rest of the frame; the
         // ix tail sits immediately after its (padded) record.
@@ -1570,15 +1725,18 @@ mod fused_walk_tests {
     }
 
     #[test]
-    #[should_panic(expected = "malformed duplicate marker")]
-    fn forward_duplicate_marker_traps_in_skip_only_tail() {
-        // MAX = 1, so slot 1 is skip-only, the trap must still fire there.
+    fn forward_duplicate_marker_in_skip_only_tail_is_crossed_not_viewed() {
+        // MAX = 1, so slot 1 is skip-only. No view is made from it, so a
+        // marker naming a later slot cannot alias anything: the walk crosses
+        // its 8 bytes and still finds the instruction tail exactly.
         let slots = [fresh(1, 1), Slot::Dup(5)];
-        let mut frame = build_frame(&slots, &[], PID);
+        let mut frame = build_frame(&slots, &[7, 8], PID);
         let mut views = uninit_views::<1>();
-        // SAFETY: buffer layout is loader-shaped; the malformed marker is
-        // the condition under test and traps before any OOB access.
-        let _ = unsafe { deserialize_accounts::<1>(frame.as_mut_ptr(), &mut views) };
+        // SAFETY: buffer layout is loader-shaped.
+        let (pid, count, ix) = unsafe { deserialize_accounts::<1>(frame.as_mut_ptr(), &mut views) };
+        assert_eq!(count, 1);
+        assert_eq!(ix, &[7, 8]);
+        assert_eq!(pid.as_array(), &PID);
     }
 
     #[test]
@@ -2112,14 +2270,17 @@ mod kani_proofs {
     //     CONCRETE marker, making execution deterministic (one path),
     //     so their `should_panic` verdicts are universal for those
     //     specific marker values;
-    //   * "the fused walk traps on every malformed marker on every
-    //     path" is NOT established by any single harness here. It
-    //     follows in combination: family (b) pins the accept side to
-    //     the oracle, the oracle harness pins the reject set, the
-    //     stride lemma (a) pins the cursor, and structurally the walk's
-    //     only non-trapping branch for a non-0xFF marker is
-    //     `duplicate_of < slot`, which the harness assumptions exclude.
-    //     That final step is a source-level argument, not a CBMC check.
+    //   * "the walk traps on every malformed marker it would turn into a
+    //     view, on every path" is NOT established by any single harness
+    //     here. It follows in combination: family (b) pins the accept
+    //     side to the oracle, the oracle harness pins the reject set, the
+    //     stride lemma (a) pins the cursor, and structurally the
+    //     materializing walk's only non-trapping branch for a non-0xFF
+    //     marker is `duplicate_of < slot`, which the harness assumptions
+    //     exclude. That final step is a source-level argument, not a
+    //     CBMC check. Records past the bound are never viewed; the
+    //     skip-only tail crosses them by size alone, and the
+    //     `skip_only_tail_crosses_*` harnesses prove it stays in bounds.
     //
     // Exact allocation, the mechanism every trap harness below uses
     // (this is what makes clause (2) sharp): each backing buffer is
@@ -2238,8 +2399,7 @@ mod kani_proofs {
 
     /// Shared trap body: run `deserialize_accounts::<MAX>` on one
     /// exact-size malformed two-slot frame class. `MAX >= 2` puts the
-    /// malformed slot 1 in the materialize range; `MAX = 1` pushes it
-    /// into the skip-only tail loop.
+    /// malformed slot 1 in the materialize range, where it must trap.
     fn trap_deserialize_two_slot<const MAX: usize, const LEN: usize>(dl_min: usize, dl_max: usize) {
         let (mut backing, _end) = build_two_slot_trap_frame::<LEN>(dl_min, dl_max);
         // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
@@ -2268,22 +2428,40 @@ mod kani_proofs {
         trap_deserialize_two_slot::<4, TRAP_LEN_DL_NONZERO>(1, MAX_DL);
     }
 
-    // MAX = 1, so the malformed slot 1 is handled by the skip-only tail
-    // loop, the trap must fire there exactly as in the materialize
-    // range.
+    // MAX = 1 pushes the malformed slot 1 into the skip-only tail. No view
+    // is made there, so the walk crosses the 8-byte record whatever its
+    // marker names. Assert-based over the whole symbolic marker space and
+    // on the exact-size buffer, so a read one byte past the frame fails the
+    // proof.
 
-    #[kani::proof]
-    #[kani::unwind(10)]
-    #[kani::should_panic]
-    fn trap_fires_on_malformed_marker_in_skip_only_tail_dl0() {
-        trap_deserialize_two_slot::<1, TRAP_LEN_DL0>(0, 0);
+    /// Shared body: the skip-only tail crosses a malformed slot 1 and lands
+    /// on the instruction tail.
+    fn skip_tail_crosses_two_slot<const LEN: usize>(dl_min: usize, dl_max: usize) {
+        let (mut backing, _end) = build_two_slot_trap_frame::<LEN>(dl_min, dl_max);
+        let base = backing.0.as_ptr() as usize;
+        // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
+        // state by definition.
+        let mut views: [MaybeUninit<AccountView<'_>>; 1] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        // SAFETY: 8-aligned loader-layout buffer sized exactly to the
+        // encoded frame (`trap_frame_layout_is_exact_*`).
+        let (_, count, ix) =
+            unsafe { deserialize_accounts::<1>(backing.0.as_mut_ptr(), &mut views) };
+        assert_eq!(count, 1);
+        assert_eq!(ix.len(), 0);
+        assert_eq!(ix.as_ptr() as usize - base, LEN - 32);
     }
 
     #[kani::proof]
     #[kani::unwind(10)]
-    #[kani::should_panic]
-    fn trap_fires_on_malformed_marker_in_skip_only_tail_dl_nonzero() {
-        trap_deserialize_two_slot::<1, TRAP_LEN_DL_NONZERO>(1, MAX_DL);
+    fn skip_only_tail_crosses_malformed_marker_dl0() {
+        skip_tail_crosses_two_slot::<TRAP_LEN_DL0>(0, 0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    fn skip_only_tail_crosses_malformed_marker_dl_nonzero() {
+        skip_tail_crosses_two_slot::<TRAP_LEN_DL_NONZERO>(1, MAX_DL);
     }
 
     /// Shared trap body for `deserialize_accounts_fast` on one

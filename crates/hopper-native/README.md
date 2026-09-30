@@ -78,7 +78,9 @@ function needs a rustdoc `# Safety` section. The full inventory is at
 [`docs/UNSAFE_INVARIANTS.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/UNSAFE_INVARIANTS.md).
 
 The duplicate-account marker parser rejects forward references, self-loops,
-and invalid offsets instead of resolving them to account zero. See the
+and invalid offsets in every account it turns into a view, instead of
+resolving them to account zero. Records past the entrypoint's bound are never
+viewed; the walk crosses them by size alone. See the
 `malformed_duplicate_marker` trap in `src/raw_input.rs` and its
 `forward_duplicate_marker_is_rejected` and `self_duplicate_marker_is_rejected`
 regression tests.

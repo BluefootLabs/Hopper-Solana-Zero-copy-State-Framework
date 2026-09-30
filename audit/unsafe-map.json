@@ -3243,7 +3243,7 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand_compact#1",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 1570,
+   "line": 1582,
    "kind": "impl",
    "function": "expand_compact",
    "type": null,
@@ -3260,7 +3260,7 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand_compact#2",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 1571,
+   "line": 1583,
    "kind": "impl",
    "function": "expand_compact",
    "type": null,
@@ -3277,7 +3277,7 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand_compact#3",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 1575,
+   "line": 1587,
    "kind": "impl",
    "function": "expand_compact",
    "type": null,
@@ -3706,6 +3706,7 @@
    "justification": "`raw` is valid. The entrypoint initializes this ABI padding slot from `data_len` before making the account view available.",
    "justification_class": "specific",
    "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)",
     "crates/hopper-native/tests/loader_input_conformance.rs"
    ],
    "reached_through": null,
@@ -3725,7 +3726,7 @@
    "justification": "This must run exactly while materializing a canonical account from the loader input, before that account can be resized locally or through CPI.",
    "justification_class": "specific",
    "tests": [],
-   "reached_through": "deserialize_accounts",
+   "reached_through": "deserialize_accounts_0449",
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 7,
@@ -3742,7 +3743,7 @@
    "justification": "the caller guarantees `raw` is a canonical loader account header and initialization happens before the view escapes.",
    "justification_class": "specific",
    "tests": [],
-   "reached_through": "deserialize_accounts",
+   "reached_through": "deserialize_accounts_0449",
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -6174,75 +6175,24 @@
   {
    "id": "crates/hopper-native/src/instruction.rs::from#1",
    "file": "crates/hopper-native/src/instruction.rs",
-   "line": 137,
+   "line": 156,
    "kind": "block",
    "function": "from",
    "type": "From",
    "public": null,
-   "justification": "`raw` points at the RuntimeAccount header in the Solana input buffer; its first 4 bytes pack [borrow_state, is_signer, is_writable, executable]. `read_unaligned` reads them as a u32 without assuming 4-byte pointer alignment.",
+   "justification": "`raw` is the view's live header; `addr_of!` takes field addresses without forming references. Every field of `slot` is written before `assume_init`: the five pointers and two integers one by one, the three flags by the word copy, whose bytes are 0 or 1 as the loader wrote them, valid `bool`s.",
    "justification_class": "specific",
    "tests": [],
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "9d442606cb2e6ab8549ae1f69b5ef8605724b017f4451f2b1cdb2a953654aef4"
-  },
-  {
-   "id": "crates/hopper-native/src/instruction.rs::from#2",
-   "file": "crates/hopper-native/src/instruction.rs",
-   "line": 139,
-   "kind": "block",
-   "function": "from",
-   "type": "From",
-   "public": null,
-   "justification": "`raw` is the view's live header. The field's address is taken for the CPI account record; the reference formed to take it is not kept.",
-   "justification_class": "shared",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "cd709b397c6d9f51483aa9632d05770dffeca19e9fe67454fd0cbc8b62f4dce1"
-  },
-  {
-   "id": "crates/hopper-native/src/instruction.rs::from#3",
-   "file": "crates/hopper-native/src/instruction.rs",
-   "line": 143,
-   "kind": "block",
-   "function": "from",
-   "type": "From",
-   "public": null,
-   "justification": "`raw` is the view's live header. The field's address is taken for the CPI account record; the reference formed to take it is not kept.",
-   "justification_class": "specific",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "bd39cfc8bb6ff57c6e73f43106dfdd43628465831edc47dbfa398b5d138339f5"
-  },
-  {
-   "id": "crates/hopper-native/src/instruction.rs::from#4",
-   "file": "crates/hopper-native/src/instruction.rs",
-   "line": 149,
-   "kind": "block",
-   "function": "from",
-   "type": "From",
-   "public": null,
-   "justification": "`raw` is the view's live header. The field's address is taken for the CPI account record; the reference formed to take it is not kept.",
-   "justification_class": "specific",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "84606900e1ecc609d3b4356906c6dff3cff4594359c9917fb2c6099a0daeade4"
+   "lines_of_code": 11,
+   "sha256": "c5996c3192b56eecd8ee25f228aabf679a2e8ed2c0a6decc7decee7b2baf7d1a"
   },
   {
    "id": "crates/hopper-native/src/instruction.rs::instruction_account#1",
    "file": "crates/hopper-native/src/instruction.rs",
-   "line": 173,
+   "line": 184,
    "kind": "block",
    "function": "instruction_account",
    "type": "CpiAccount",
@@ -6259,7 +6209,7 @@
   {
    "id": "crates/hopper-native/src/instruction.rs::preflight_cpi_accounts#1",
    "file": "crates/hopper-native/src/instruction.rs",
-   "line": 210,
+   "line": 221,
    "kind": "block",
    "function": "preflight_cpi_accounts",
    "type": null,
@@ -6276,7 +6226,7 @@
   {
    "id": "crates/hopper-native/src/instruction.rs::preflight_cpi_accounts#2",
    "file": "crates/hopper-native/src/instruction.rs",
-   "line": 213,
+   "line": 224,
    "kind": "block",
    "function": "preflight_cpi_accounts",
    "type": null,
@@ -6293,7 +6243,7 @@
   {
    "id": "crates/hopper-native/src/instruction.rs::deref#1",
    "file": "crates/hopper-native/src/instruction.rs",
-   "line": 291,
+   "line": 302,
    "kind": "block",
    "function": "deref",
    "type": "Seed",
@@ -7338,7 +7288,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::create_program_address#1",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 109,
+   "line": 111,
    "kind": "block",
    "function": "create_program_address",
    "type": null,
@@ -7358,12 +7308,37 @@
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 8,
-   "sha256": "7b20405bc9b52a52fa30d499cd4a5acafa2e9d089f65b7b54f837b9765840c82"
+   "sha256": "47d5e1beff5e31cbf16fa2964d03ee10ba1fadd2f06301f4531d1fbf2fce2d9d"
+  },
+  {
+   "id": "crates/hopper-native/src/pda.rs::create_program_address#2",
+   "file": "crates/hopper-native/src/pda.rs",
+   "line": 122,
+   "kind": "block",
+   "function": "create_program_address",
+   "type": null,
+   "public": null,
+   "justification": "a zero return means the syscall wrote the whole address, and every byte pattern is a valid `Address`.",
+   "justification_class": "specific",
+   "tests": [
+    "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs",
+    "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/framework-comparison/verifier/tests/canonical_pda_sbf.rs",
+    "bench/framework-comparison/verifier/tests/pda_boundaries_sbf.rs",
+    "bench/pda-boundaries/program/src/lib.rs",
+    "crates/hopper-runtime/src/pda_host_tests.rs",
+    "tools/hopper-cli/src/cmd/publish_idl.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": true,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "6c8ddeafe018c44fb2ac16ff49dbd1853f4c2fbfce89a266e8e7dd1bae4414be"
   },
   {
    "id": "crates/hopper-native/src/pda.rs::verify_program_address#1",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 223,
+   "line": 227,
    "kind": "block",
    "function": "verify_program_address",
    "type": null,
@@ -7382,7 +7357,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::verify_program_address#2",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 229,
+   "line": 233,
    "kind": "block",
    "function": "verify_program_address",
    "type": null,
@@ -7401,7 +7376,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::verify_program_address#3",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 236,
+   "line": 240,
    "kind": "block",
    "function": "verify_program_address",
    "type": null,
@@ -7420,7 +7395,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::verify_program_address#4",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 241,
+   "line": 245,
    "kind": "block",
    "function": "verify_program_address",
    "type": null,
@@ -7439,7 +7414,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::verify_program_address#5",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 252,
+   "line": 256,
    "kind": "block",
    "function": "verify_program_address",
    "type": null,
@@ -7458,7 +7433,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#1",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 292,
+   "line": 296,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7477,7 +7452,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#2",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 298,
+   "line": 302,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7496,7 +7471,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#3",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 312,
+   "line": 316,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7515,7 +7490,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#4",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 317,
+   "line": 321,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7534,7 +7509,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#5",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 321,
+   "line": 325,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7553,7 +7528,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#6",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 333,
+   "line": 337,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7572,7 +7547,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::based_try_find_program_address#7",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 345,
+   "line": 349,
    "kind": "block",
    "function": "based_try_find_program_address",
    "type": null,
@@ -7591,7 +7566,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::find_bump_for_address#1",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 488,
+   "line": 492,
    "kind": "block",
    "function": "find_bump_for_address",
    "type": null,
@@ -7611,7 +7586,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::find_bump_for_address#2",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 494,
+   "line": 498,
    "kind": "block",
    "function": "find_bump_for_address",
    "type": null,
@@ -7631,7 +7606,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::find_bump_for_address#3",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 507,
+   "line": 511,
    "kind": "block",
    "function": "find_bump_for_address",
    "type": null,
@@ -7651,7 +7626,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::find_bump_for_address#4",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 512,
+   "line": 516,
    "kind": "block",
    "function": "find_bump_for_address",
    "type": null,
@@ -7671,7 +7646,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::find_bump_for_address#5",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 516,
+   "line": 520,
    "kind": "block",
    "function": "find_bump_for_address",
    "type": null,
@@ -7691,7 +7666,7 @@
   {
    "id": "crates/hopper-native/src/pda.rs::find_bump_for_address#6",
    "file": "crates/hopper-native/src/pda.rs",
-   "line": 530,
+   "line": 534,
    "kind": "block",
    "function": "find_bump_for_address",
    "type": null,
@@ -8733,16 +8708,377 @@
    "justification": "`MSG` is a static byte string; the pointer and the length describe it.",
    "justification_class": "specific",
    "tests": [],
-   "reached_through": "deserialize_accounts",
+   "reached_through": "scan_instruction_frame",
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 6,
    "sha256": "ca5ba19762ad28642283f55e3a0333e7219ec75301f286c6662837214a061dea"
   },
   {
+   "id": "crates/hopper-native/src/raw_input.rs::next_record#1",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 136,
+   "kind": "fn",
+   "function": "next_record",
+   "type": null,
+   "public": false,
+   "justification": "`cursor` is the start of a canonical record in a loader input buffer whose base is 8-aligned, and `data_len` is that record's data length.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 8,
+   "sha256": "7737e063bb8b3500f4ed0895dd4154809e5fee91297ac5d1bde06af457425a60"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::next_record#2",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 141,
+   "kind": "block",
+   "function": "next_record",
+   "type": null,
+   "public": null,
+   "justification": "the loader serializes the whole record and then at least the 8-byte instruction-data length and the 32-byte program id, so the unrounded pointer, at most 7 bytes past the next record, stays inside the input buffer.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "cd19a986aa200c3d4677cc7553ce3666a9057ce54b15c437fba6dd16840b3dce"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_canonical#1",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 154,
+   "kind": "fn",
+   "function": "take_canonical",
+   "type": null,
+   "public": false,
+   "justification": "`cursor` is a canonical (`0xFF`-marked) record boundary of an 8-aligned loader input buffer, the view has not escaped yet, and `slot` is writable.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 13,
+   "sha256": "f0d12e81ad61dbb78ce35905b32bb411b024b169d9f8cf54bffab5d0ded18361"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_canonical#2",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 157,
+   "kind": "block",
+   "function": "take_canonical",
+   "type": null,
+   "public": null,
+   "justification": "`raw` is a canonical loader record (the caller's contract).",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "e77f8a8c656fdff7f7fd308901e48881f96c30186b5bab0005849e3482d955fc"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_canonical#3",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 160,
+   "kind": "block",
+   "function": "take_canonical",
+   "type": null,
+   "public": null,
+   "justification": "the view wraps the record just decoded and has not escaped, the contract of `initialize_original_data_len`.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "60a481a6ce9d740b707644a643c41cd4cfa16889cb14bd9fe4c0d1650da1b1e6"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_canonical#4",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 163,
+   "kind": "block",
+   "function": "take_canonical",
+   "type": null,
+   "public": null,
+   "justification": "the caller hands over a writable slot.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "83ba6340b59eab8c9bd63f703b466dd97e7d4f9e91469de525418ab0299c692a"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_canonical#5",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 165,
+   "kind": "block",
+   "function": "take_canonical",
+   "type": null,
+   "public": null,
+   "justification": "`cursor` is the canonical record `data_len` describes.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "a7e32886d39a6ae4b4b0853f8cf72b1d615e405f52e772e8a7cc118d9ea9948b"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_duplicate#1",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 183,
+   "kind": "fn",
+   "function": "take_duplicate",
+   "type": null,
+   "public": false,
+   "justification": "`slots` holds initialized views in `0..slot`, `slots.add(slot)` is writable, and `cursor` is the duplicate record of slot `slot`.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 25,
+   "sha256": "67c3c3c0c813ed06167ec6795479e32eed4c1a79dbd64e865052f1876301bca8"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_duplicate#2",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 199,
+   "kind": "block",
+   "function": "take_duplicate",
+   "type": null,
+   "public": null,
+   "justification": "`duplicate_of < slot`, so that slot was initialized earlier in this walk.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "1501a1a4cec1329e182635ecd57e363ef90fbec657f33d4d25daf060e45327f7"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_duplicate#3",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 202,
+   "kind": "block",
+   "function": "take_duplicate",
+   "type": null,
+   "public": null,
+   "justification": "the caller hands over slot `slot` as writable, and `raw` came from a validated earlier slot of this frame.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "593614b44e30326453fe06b60ea7e67448fd9ccb460d5b28d20aa8c115f3b7f5"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_duplicate#4",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 206,
+   "kind": "block",
+   "function": "take_duplicate",
+   "type": null,
+   "public": null,
+   "justification": "the loader serializes those 8 bytes, and more records or the instruction tail follow them.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "8fd9aa5677cd4bd290bef73d7f5d7defc49bd9c1873db9ca8fea079b9fceb7d0"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_record#1",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 217,
+   "kind": "fn",
+   "function": "take_record",
+   "type": null,
+   "public": false,
+   "justification": "`cursor` is slot `slot`'s record boundary in an 8-aligned loader input buffer, `slot < MAX`, and slots `0..slot` are initialized.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 16,
+   "sha256": "6fcae56e25648245941122583df2f671cac40b02ffa6fefa5b0ef12f2cf69915"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_record#2",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 223,
+   "kind": "block",
+   "function": "take_record",
+   "type": null,
+   "public": null,
+   "justification": "`cursor` is a record boundary, so its first byte is in bounds.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "8aafe9da9290f5a9ff958116457d3b8d373d4c964bb3dcfa56da5f9c79de9be5"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_record#3",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 227,
+   "kind": "block",
+   "function": "take_record",
+   "type": null,
+   "public": null,
+   "justification": "a 0xFF marker opens a canonical record, and slot `slot` is inside the scratch array.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "efbd8da5d8339d803f940e29bcd8f8c920bea91b7d0fee3e6318594b62eaec1a"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::take_record#4",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 230,
+   "kind": "block",
+   "function": "take_record",
+   "type": null,
+   "public": null,
+   "justification": "the caller's contract, forwarded.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "7cc117b1ca80eaa493e041f7d3684645b95ae2e7ad2d964c9cf3e94870fdfc9d"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::materialize#1",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 258,
+   "kind": "fn",
+   "function": "materialize",
+   "type": null,
+   "public": false,
+   "justification": "`cursor` is the first account record of an 8-aligned loader input buffer, and `stop` is at most the number of accounts the loader serialized.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 46,
+   "sha256": "cbf2671a62a03232f1e8d3cefef63cec761d527977566c502fb3f131304be6ce"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::materialize#2",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 279,
+   "kind": "block",
+   "function": "materialize",
+   "type": null,
+   "public": null,
+   "justification": "`$slot < stop <= num_accounts` puts `cursor` on this slot's record boundary.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "8aafe9da9290f5a9ff958116457d3b8d373d4c964bb3dcfa56da5f9c79de9be5"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::materialize#3",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 284,
+   "kind": "block",
+   "function": "materialize",
+   "type": null,
+   "public": null,
+   "justification": "a 0xFF marker opens a canonical record, and `$slot < limit <= MAX` indexes the scratch array.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "058cb05a88899d9fcb4147caa73a0771be339d3fc0204b3f7131704e68659d6a"
+  },
+  {
+   "id": "crates/hopper-native/src/raw_input.rs::materialize#4",
+   "file": "crates/hopper-native/src/raw_input.rs",
+   "line": 299,
+   "kind": "block",
+   "function": "materialize",
+   "type": null,
+   "public": null,
+   "justification": "as in the unrolled slots: `slot < stop` puts `cursor` on a record boundary, `slot < limit <= MAX`, earlier slots are set.",
+   "justification_class": "specific",
+   "tests": [
+    "crates/hopper-native/src/raw_input.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "de28789817f74e31af538e93cbc0eb70cb5a706c90a41db16f16aaf8bf5483a3"
+  },
+  {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 128,
+   "line": 332,
    "kind": "fn",
    "function": "deserialize_accounts",
    "type": null,
@@ -8757,13 +9093,13 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 137,
-   "sha256": "f12bfeef086869c7075a142b297eebf04abdaa80a283b4fbb512faac49a12130"
+   "lines_of_code": 56,
+   "sha256": "3b0b8a05ffa4c8b9d2c7ee4f3cc60611c3d3fae946e09fc71e8f55e65a1319e5"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 135,
+   "line": 339,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
@@ -8784,12 +9120,12 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 157,
+   "line": 342,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`slot < count <= num_accounts`, so `offset` sits on a loader-produced record boundary and the marker byte is in bounds.",
+   "justification": "the account records start right after the 8-byte count, and `num_accounts` is the loader's own count.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8800,17 +9136,17 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "9e14efcc6c600f87a161e386524dc0dde77c7832b37801d30a96c89368a457bb"
+   "sha256": "586b26e563e3642eeedbe3ba2227fcd87166950ee1aeb04bd1e41d4af260bd83"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#4",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 162,
+   "line": 355,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "a 0xFF marker means a canonical `RuntimeAccount` record starts at this record boundary; the loader guarantees the full 88-byte header (plus data) follows in bounds.",
+   "justification": "`slot < num_accounts`, so `cursor` sits on a loader-produced record boundary within the input buffer.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8821,17 +9157,17 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "a6a9ba387f172d450266557565c1a1fdbb64c70b2ee67e5ee9a6c2270a2e08fb"
+   "sha256": "8aafe9da9290f5a9ff958116457d3b8d373d4c964bb3dcfa56da5f9c79de9be5"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#5",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 166,
+   "line": 359,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`slot < count <= MAX`, and `raw` points at a valid canonical account record in the loader input. Capture the original length before the view can escape or be passed to CPI.",
+   "justification": "canonical record at a record boundary; its `data_len` header field is in bounds.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8842,17 +9178,17 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "e77f8a8c656fdff7f7fd308901e48881f96c30186b5bab0005849e3482d955fc"
+   "sha256": "3c5b19f7a728ae84d999e580ef4dbba4315a6cfb1d63779b364048c5aeb07310"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#6",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 170,
+   "line": 361,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`view` wraps the canonical loader record just decoded and has not escaped yet, which is the contract of `initialize_original_data_len`.",
+   "justification": "`cursor` is the canonical record `data_len` describes.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8863,17 +9199,17 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "60a481a6ce9d740b707644a643c41cd4cfa16889cb14bd9fe4c0d1650da1b1e6"
+   "sha256": "a7e32886d39a6ae4b4b0853f8cf72b1d615e405f52e772e8a7cc118d9ea9948b"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#7",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 172,
+   "line": 365,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`slot < count <= MAX`, the length of `accounts`.",
+   "justification": "a duplicate record is 8 bytes, and more records or the instruction tail follow it.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8883,18 +9219,18 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 3,
-   "sha256": "6ada3593e733b16d03c38859b8d223f17456a27d26daaa7f1f427dc96c96b6ff"
+   "lines_of_code": 1,
+   "sha256": "8fd9aa5677cd4bd290bef73d7f5d7defc49bd9c1873db9ca8fea079b9fceb7d0"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#8",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 179,
+   "line": 373,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`raw` points to the RuntimeAccount header just decoded from the current input slot; `data_len` is 8-aligned within it because record starts are 8-aligned (see `next_record_offset`).",
+   "justification": "the walk crossed all `num_accounts` records, so `cursor` is at the 8-byte instruction-data length.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8905,17 +9241,17 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "d6d80dc22eca06968c3985af6a49d2f2438db9a2234d97dcc2baea6c782e0221"
+   "sha256": "df9395f3f9d08ff8f9f788256e88bd07616fe3dbd42184c3e29caac3e7942657"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#9",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 197,
+   "line": 376,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`duplicate_of < slot < count`, so the referenced slot was initialized by an earlier iteration of this loop.",
+   "justification": "the loader serializes `ix_data_len` bytes right after the length prefix, then the program id.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8925,18 +9261,18 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 6,
-   "sha256": "aef2d0b81ba86e55dcf5c4a3a0b40afb05e07c36c663c40f69d7d839a7c152fb"
+   "lines_of_code": 1,
+   "sha256": "8fd9aa5677cd4bd290bef73d7f5d7defc49bd9c1873db9ca8fea079b9fceb7d0"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#10",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 205,
+   "line": 379,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`slot < count <= MAX`, and `raw` came from a validated earlier slot in this same frame.",
+   "justification": "those bytes live for the whole invocation, matching the returned lifetime.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8946,18 +9282,18 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 4,
-   "sha256": "414053d468dab587b74c06f5bed8da22bd7e28a7d8aba49d777c3bc6db93a029"
+   "lines_of_code": 1,
+   "sha256": "76087c13f2a82e636c971003ac11a8f75133bb8490039cf906120e47c301de89"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#11",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 224,
+   "line": 384,
    "kind": "block",
    "function": "deserialize_accounts",
    "type": null,
    "public": null,
-   "justification": "`slot < num_accounts`, so `offset` sits on a loader-produced record boundary within the input buffer.",
+   "justification": "the 32-byte program id trails the instruction data; `Address` is a transparent `[u8; 32]` with alignment 1, so a reference into the buffer is valid at any offset. Handing out the reference instead of a copy saves a 32-byte stack spill.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -8968,96 +9304,12 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "9e14efcc6c600f87a161e386524dc0dde77c7832b37801d30a96c89368a457bb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#12",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 229,
-   "kind": "block",
-   "function": "deserialize_accounts",
-   "type": null,
-   "public": null,
-   "justification": "canonical record at a loader-produced record boundary; its `data_len` header field is in bounds and 8-aligned.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)",
-    "crates/hopper-native/tests/loader_input_conformance.rs"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "b9687743fdc45c9294302263c6ae4e5c007bdead9b65ef93992882b896d4e045"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#13",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 247,
-   "kind": "block",
-   "function": "deserialize_accounts",
-   "type": null,
-   "public": null,
-   "justification": "the walk above advanced `offset` past all `num_accounts` records, so it now points at the 8-byte instruction-data length in the loader input buffer. `read_unaligned` avoids assuming pointer alignment (the offset is in fact 8-aligned here, but the read is free either way).",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)",
-    "crates/hopper-native/tests/loader_input_conformance.rs"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "d4aeb1ac7b22d63f08c3fec73bb3bd7444592363530ab061735145fb8a3c5d20"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#14",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 253,
-   "kind": "block",
-   "function": "deserialize_accounts",
-   "type": null,
-   "public": null,
-   "justification": "the loader serializes `ix_data_len` instruction-data bytes immediately after the length prefix; the buffer lives for the whole invocation, matching the returned lifetime.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)",
-    "crates/hopper-native/tests/loader_input_conformance.rs"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "04d5afcae06496f8ef578f6f08495dd6f5edff79a370e7c48715314cd81a594d"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts#15",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 261,
-   "kind": "block",
-   "function": "deserialize_accounts",
-   "type": null,
-   "public": null,
-   "justification": "the 32-byte program id trails the instruction data per the loader serialization layout; `Address` is a transparent `[u8; 32]` with alignment 1, so a reference into the buffer is valid at any offset and lives as long as the input. Handing out the reference instead of a copy saves the 32-byte stack spill (eight stores and eight loads) every entrypoint used to pay.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)",
-    "crates/hopper-native/tests/loader_input_conformance.rs"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "268ca75c939fc2e7ed34f6d864b904b5163fa498522d1a7a52a174fbbb9d2db1"
+   "sha256": "c2b1fe1e2fbce4b8888d3c00621315aa67ae2acb54021f4f6a82aca1f768346e"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::loader_account_count#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 276,
+   "line": 399,
    "kind": "fn",
    "function": "loader_account_count",
    "type": null,
@@ -9076,7 +9328,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::loader_account_count#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 279,
+   "line": 402,
    "kind": "block",
    "function": "loader_account_count",
    "type": null,
@@ -9095,7 +9347,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 304,
+   "line": 427,
    "kind": "fn",
    "function": "deserialize_leading_accounts",
    "type": null,
@@ -9108,13 +9360,13 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 70,
-   "sha256": "f4db63c4172de4aec0a293d4f140f612ed8c87d049657e64fe393ea143f544e0"
+   "lines_of_code": 18,
+   "sha256": "1257fdc5f718dcc31537276cfc86f78770c1dc79b8bfae1dd969d261a0dccce2"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 311,
+   "line": 434,
    "kind": "block",
    "function": "deserialize_leading_accounts",
    "type": null,
@@ -9133,12 +9385,12 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 331,
+   "line": 442,
    "kind": "block",
    "function": "deserialize_leading_accounts",
    "type": null,
    "public": null,
-   "justification": "`slot < count <= num_accounts`, so `offset` sits on a loader-produced record boundary and the marker byte is in bounds.",
+   "justification": "the records start after the 8-byte count, and `stop` is at most the loader's count.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (test module)"
@@ -9147,145 +9399,12 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "9e14efcc6c600f87a161e386524dc0dde77c7832b37801d30a96c89368a457bb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#4",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 336,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "a 0xFF marker means a canonical `RuntimeAccount` record starts here; the loader guarantees its header and data follow in bounds.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "a6a9ba387f172d450266557565c1a1fdbb64c70b2ee67e5ee9a6c2270a2e08fb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#5",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 339,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "`raw` is a valid canonical record and the view has not escaped yet (the `initialize_original_data_len` contract).",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "e77f8a8c656fdff7f7fd308901e48881f96c30186b5bab0005849e3482d955fc"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#6",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 341,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "see above.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "60a481a6ce9d740b707644a643c41cd4cfa16889cb14bd9fe4c0d1650da1b1e6"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#7",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 343,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "`slot < count <= MAX`.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 3,
-   "sha256": "6ada3593e733b16d03c38859b8d223f17456a27d26daaa7f1f427dc96c96b6ff"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#8",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 347,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "`raw` points at the record header just decoded.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "d6d80dc22eca06968c3985af6a49d2f2438db9a2234d97dcc2baea6c782e0221"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#9",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 356,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "`duplicate_of < slot`, so that slot was initialized earlier in this walk.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 6,
-   "sha256": "aef2d0b81ba86e55dcf5c4a3a0b40afb05e07c36c663c40f69d7d839a7c152fb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_leading_accounts#10",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 364,
-   "kind": "block",
-   "function": "deserialize_leading_accounts",
-   "type": null,
-   "public": null,
-   "justification": "`slot < count <= MAX`, and `raw` came from a validated earlier slot in this same frame.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 4,
-   "sha256": "414053d468dab587b74c06f5bed8da22bd7e28a7d8aba49d777c3bc6db93a029"
+   "sha256": "428922193bb1b611782e45af3af78c5e08df0de9db50b6c9a4b1cc41c8ccd84a"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 386,
+   "line": 463,
    "kind": "fn",
    "function": "deserialize_accounts_fast",
    "type": null,
@@ -9299,18 +9418,18 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 87,
-   "sha256": "c1a4ba21c7dee58299b812f7590ff3c64d1bd75abe8d076d78cca12a9dfb8820"
+   "lines_of_code": 15,
+   "sha256": "a832786cd0eb35043076e74c8cc3e5ad28e58260e6f99242798580a11f88cdea"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 396,
+   "line": 472,
    "kind": "block",
    "function": "deserialize_accounts_fast",
    "type": null,
    "public": null,
-   "justification": "`input` points to the head of the Solana BPF input buffer, whose first 8 bytes are the account count. `read_unaligned` reads the u64 without assuming 8-byte pointer alignment, so this stays sound even if the loader ever hands us an unaligned buffer.",
+   "justification": "`input` points to the head of the Solana BPF input buffer, whose first 8 bytes are the account count. `read_unaligned` reads the u64 without assuming 8-byte pointer alignment.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -9325,12 +9444,12 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 417,
+   "line": 475,
    "kind": "block",
    "function": "deserialize_accounts_fast",
    "type": null,
    "public": null,
-   "justification": "`offset` is at a record boundary inside the loader's input buffer: it starts after the 8-byte count and advances by the loader's own stride for each of the `count` accounts the loader serialized.",
+   "justification": "the records start after the 8-byte count, and `num_accounts` is the loader's own count.",
    "justification_class": "specific",
    "tests": [
     "crates/hopper-native/src/raw_input.rs (proof module)",
@@ -9340,152 +9459,12 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 1,
-   "sha256": "9e14efcc6c600f87a161e386524dc0dde77c7832b37801d30a96c89368a457bb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#4",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 421,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`offset` is on a Solana account record boundary produced by the loader input format.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "a6a9ba387f172d450266557565c1a1fdbb64c70b2ee67e5ee9a6c2270a2e08fb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#5",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 424,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`raw` is the canonical loader record for this slot. Capture the original length before exposing the view to CPI.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "e77f8a8c656fdff7f7fd308901e48881f96c30186b5bab0005849e3482d955fc"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#6",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 428,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`view` wraps the canonical loader record just decoded and has not escaped yet, which is the contract of `initialize_original_data_len`.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "60a481a6ce9d740b707644a643c41cd4cfa16889cb14bd9fe4c0d1650da1b1e6"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#7",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 430,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`slot < count <= MAX`, the length of `accounts`.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 3,
-   "sha256": "6ada3593e733b16d03c38859b8d223f17456a27d26daaa7f1f427dc96c96b6ff"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#8",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 436,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`raw` points to the RuntimeAccount header just decoded from the current input slot.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 1,
-   "sha256": "d6d80dc22eca06968c3985af6a49d2f2438db9a2234d97dcc2baea6c782e0221"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#9",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 450,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`duplicate_of < slot` was checked above (the trap never returns), and every slot below `slot` was initialized by an earlier iteration.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 6,
-   "sha256": "aef2d0b81ba86e55dcf5c4a3a0b40afb05e07c36c663c40f69d7d839a7c152fb"
-  },
-  {
-   "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_fast#10",
-   "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 458,
-   "kind": "block",
-   "function": "deserialize_accounts_fast",
-   "type": null,
-   "public": null,
-   "justification": "`slot < count <= MAX`, and `raw` came from a validated earlier slot in this same frame.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/raw_input.rs (proof module)",
-    "crates/hopper-native/src/raw_input.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 4,
-   "sha256": "414053d468dab587b74c06f5bed8da22bd7e28a7d8aba49d777c3bc6db93a029"
+   "sha256": "586b26e563e3642eeedbe3ba2227fcd87166950ee1aeb04bd1e41d4af260bd83"
   },
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 581,
+   "line": 586,
    "kind": "fn",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9504,7 +9483,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 595,
+   "line": 600,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9523,7 +9502,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 611,
+   "line": 616,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9542,7 +9521,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#4",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 618,
+   "line": 623,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9561,7 +9540,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#5",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 648,
+   "line": 653,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9580,7 +9559,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#6",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 657,
+   "line": 662,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9599,7 +9578,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#7",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 680,
+   "line": 685,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9618,7 +9597,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#8",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 708,
+   "line": 713,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9637,7 +9616,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_checked#9",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 711,
+   "line": 716,
    "kind": "block",
    "function": "deserialize_accounts_0449_checked",
    "type": null,
@@ -9656,7 +9635,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 748,
+   "line": 753,
    "kind": "fn",
    "function": "deserialize_accounts_0449",
    "type": null,
@@ -9675,7 +9654,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 754,
+   "line": 759,
    "kind": "block",
    "function": "deserialize_accounts_0449",
    "type": null,
@@ -9694,7 +9673,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 763,
+   "line": 768,
    "kind": "block",
    "function": "deserialize_accounts_0449",
    "type": null,
@@ -9713,7 +9692,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449#4",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 768,
+   "line": 773,
    "kind": "block",
    "function": "deserialize_accounts_0449",
    "type": null,
@@ -9732,7 +9711,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_into#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 784,
+   "line": 789,
    "kind": "fn",
    "function": "deserialize_accounts_0449_into",
    "type": null,
@@ -9749,7 +9728,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_into#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 791,
+   "line": 796,
    "kind": "block",
    "function": "deserialize_accounts_0449_into",
    "type": null,
@@ -9766,7 +9745,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_into#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 800,
+   "line": 805,
    "kind": "block",
    "function": "deserialize_accounts_0449_into",
    "type": null,
@@ -9783,7 +9762,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#1",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 818,
+   "line": 823,
    "kind": "fn",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9802,7 +9781,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#2",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 824,
+   "line": 829,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9821,7 +9800,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#3",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 827,
+   "line": 832,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9840,7 +9819,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#4",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 836,
+   "line": 841,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9859,7 +9838,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#5",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 843,
+   "line": 848,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9878,7 +9857,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#6",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 845,
+   "line": 850,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9897,7 +9876,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#7",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 851,
+   "line": 856,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9916,7 +9895,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#8",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 860,
+   "line": 865,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9935,7 +9914,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#9",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 868,
+   "line": 873,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9954,7 +9933,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#10",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 869,
+   "line": 874,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9973,7 +9952,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#11",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 870,
+   "line": 875,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -9992,7 +9971,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#12",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 875,
+   "line": 880,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -10011,7 +9990,7 @@
   {
    "id": "crates/hopper-native/src/raw_input.rs::scan_instruction_frame#13",
    "file": "crates/hopper-native/src/raw_input.rs",
-   "line": 882,
+   "line": 887,
    "kind": "block",
    "function": "scan_instruction_frame",
    "type": null,
@@ -10180,12 +10159,12 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_rent#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 134,
+   "line": 135,
    "kind": "block",
    "function": "get_rent",
    "type": null,
    "public": null,
-   "justification": "the struct prefix up to and including `burn_percent` is `RENT_IMAGE_LEN` bytes of integers and one f64, every bit pattern of which is valid (`rent_image_offsets` pins the offsets); the view stays inside the struct.",
+   "justification": "`RENT_ID` is a 32-byte address and the destination is the first `RENT_IMAGE_LEN` bytes of `rent` (the offsets are pinned below); the syscall writes exactly that many bytes or none.",
    "justification_class": "specific",
    "tests": [
     "tests/sysvar_prelude.rs"
@@ -10193,13 +10172,32 @@
    "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
-   "lines_of_code": 3,
-   "sha256": "df4b8cacf2f415a7f20200d91ee1434607f2e2e8fef5a0a6406197919700d0c0"
+   "lines_of_code": 8,
+   "sha256": "c4670f7bb29499589bc5ca0727dadd7d52cab1a6990274ff342de20ebc1fe581"
+  },
+  {
+   "id": "crates/hopper-native/src/sysvar.rs::get_rent#2",
+   "file": "crates/hopper-native/src/sysvar.rs",
+   "line": 149,
+   "kind": "block",
+   "function": "get_rent",
+   "type": null,
+   "public": null,
+   "justification": "the syscall succeeded, so it wrote all three fields (the rate, the threshold, and the burn percent), every bit pattern of which is valid; only padding is left uninitialized.",
+   "justification_class": "specific",
+   "tests": [
+    "tests/sysvar_prelude.rs"
+   ],
+   "reached_through": null,
+   "on_chain_only": true,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "e14cd9ca6cf3b64f66ad6efab3cb4315b3b4670e1844e86c635fd3be51ea040f"
   },
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_sysvar_into#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 458,
+   "line": 483,
    "kind": "block",
    "function": "get_sysvar_into",
    "type": null,
@@ -10216,7 +10214,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_sysvar_prefix_at#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 497,
+   "line": 522,
    "kind": "block",
    "function": "get_sysvar_prefix_at",
    "type": null,
@@ -10233,7 +10231,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_epoch_stake#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 526,
+   "line": 551,
    "kind": "block",
    "function": "get_epoch_stake",
    "type": null,
@@ -10250,7 +10248,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_total_epoch_stake#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 542,
+   "line": 567,
    "kind": "block",
    "function": "get_total_epoch_stake",
    "type": null,
@@ -10267,7 +10265,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_last_restart_slot#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 572,
+   "line": 597,
    "kind": "block",
    "function": "get_last_restart_slot",
    "type": null,
@@ -10490,7 +10488,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::release_registered#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 46,
+   "line": 73,
    "kind": "fn",
    "function": "release_registered",
    "type": null,
@@ -10507,7 +10505,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::release_registered#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 54,
+   "line": 81,
    "kind": "block",
    "function": "release_registered",
    "type": null,
@@ -10524,7 +10522,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::AccountView<#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 94,
+   "line": 121,
    "kind": "impl",
    "function": "AccountView<",
    "type": null,
@@ -10541,7 +10539,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::AccountView<#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 96,
+   "line": 123,
    "kind": "impl",
    "function": "AccountView<",
    "type": null,
@@ -10558,7 +10556,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::owner#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 148,
+   "line": 175,
    "kind": "fn",
    "function": "owner",
    "type": "AccountView",
@@ -10575,7 +10573,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::owner#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 151,
+   "line": 178,
    "kind": "block",
    "function": "owner",
    "type": "AccountView",
@@ -10592,7 +10590,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::segment_ref#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 369,
+   "line": 396,
    "kind": "block",
    "function": "segment_ref",
    "type": "AccountView",
@@ -10618,7 +10616,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::segment_ref#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 370,
+   "line": 397,
    "kind": "block",
    "function": "segment_ref",
    "type": "AccountView",
@@ -10644,7 +10642,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::segment_ref#3",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 375,
+   "line": 402,
    "kind": "block",
    "function": "segment_ref",
    "type": "AccountView",
@@ -10670,7 +10668,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::segment_mut_ungated#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 455,
+   "line": 482,
    "kind": "block",
    "function": "segment_mut_ungated",
    "type": "AccountView",
@@ -10687,7 +10685,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::segment_mut_ungated#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 456,
+   "line": 483,
    "kind": "block",
    "function": "segment_mut_ungated",
    "type": "AccountView",
@@ -10704,7 +10702,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::segment_mut_ungated#3",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 461,
+   "line": 488,
    "kind": "block",
    "function": "segment_mut_ungated",
    "type": "AccountView",
@@ -10721,7 +10719,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 530,
+   "line": 557,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10738,7 +10736,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 541,
+   "line": 568,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10755,7 +10753,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#3",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 555,
+   "line": 582,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10772,7 +10770,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#4",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 571,
+   "line": 598,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10789,7 +10787,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#5",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 586,
+   "line": 613,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10806,7 +10804,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#6",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 591,
+   "line": 618,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10823,7 +10821,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::split_segments_mut_ungated#7",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 596,
+   "line": 623,
    "kind": "block",
    "function": "split_segments_mut_ungated",
    "type": "AccountView",
@@ -10840,7 +10838,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 712,
+   "line": 739,
    "kind": "block",
    "function": "load",
    "type": "AccountView",
@@ -10857,7 +10855,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 714,
+   "line": 741,
    "kind": "block",
    "function": "load",
    "type": "AccountView",
@@ -10874,7 +10872,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_mut#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 765,
+   "line": 792,
    "kind": "block",
    "function": "load_mut",
    "type": "AccountView",
@@ -10896,7 +10894,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_mut#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 767,
+   "line": 794,
    "kind": "block",
    "function": "load_mut",
    "type": "AccountView",
@@ -10918,7 +10916,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 806,
+   "line": 835,
    "kind": "block",
    "function": "load_compact",
    "type": "AccountView",
@@ -10937,7 +10935,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 808,
+   "line": 837,
    "kind": "block",
    "function": "load_compact",
    "type": "AccountView",
@@ -10956,7 +10954,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact_mut#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 826,
+   "line": 857,
    "kind": "block",
    "function": "load_compact_mut",
    "type": "AccountView",
@@ -10976,7 +10974,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact_mut#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 831,
+   "line": 862,
    "kind": "block",
    "function": "load_compact_mut",
    "type": "AccountView",
@@ -10994,9 +10992,66 @@
    "sha256": "a1f7fafb067e13f0e5c61106d05ac4ea49588b5da76a998fd61666528a50cc62"
   },
   {
+   "id": "crates/hopper-runtime/src/account.rs::init_compact_mut#1",
+   "file": "crates/hopper-runtime/src/account.rs",
+   "line": 933,
+   "kind": "block",
+   "function": "init_compact_mut",
+   "type": "AccountView",
+   "public": null,
+   "justification": "`check_typed_projection` proved that a `T` at this offset ends inside the borrowed bytes, so the pointer stays in bounds.",
+   "justification_class": "specific",
+   "tests": [
+    "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 4,
+   "sha256": "db523c234d9e22e6867936ade37b6d473fc1d28a4f3e24267fb92ef835e54def"
+  },
+  {
+   "id": "crates/hopper-runtime/src/account.rs::init_compact_mut#2",
+   "file": "crates/hopper-runtime/src/account.rs",
+   "line": 940,
+   "kind": "block",
+   "function": "init_compact_mut",
+   "type": "AccountView",
+   "public": null,
+   "justification": "`ptr` is in bounds (above) and `T` is `Pod`, so the all-zero bytes written here are a valid `T`. The body starts at byte 1 and `T` has alignment 1, so the write is aligned.",
+   "justification_class": "specific",
+   "tests": [
+    "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "0b8ce2b44ad023a2ca24a202a535eeeda2c67703de0e7ca1df72519546e1d8a7"
+  },
+  {
+   "id": "crates/hopper-runtime/src/account.rs::init_compact_mut#3",
+   "file": "crates/hopper-runtime/src/account.rs",
+   "line": 943,
+   "kind": "block",
+   "function": "init_compact_mut",
+   "type": "AccountView",
+   "public": null,
+   "justification": "the length and disc are set above; `ptr` points into the borrowed body.",
+   "justification_class": "specific",
+   "tests": [
+    "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "a1f7fafb067e13f0e5c61106d05ac4ea49588b5da76a998fd61666528a50cc62"
+  },
+  {
    "id": "crates/hopper-runtime/src/account.rs::load_compact_dynamic#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 906,
+   "line": 975,
    "kind": "block",
    "function": "load_compact_dynamic",
    "type": "AccountView",
@@ -11015,7 +11070,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact_dynamic#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 908,
+   "line": 977,
    "kind": "block",
    "function": "load_compact_dynamic",
    "type": "AccountView",
@@ -11034,7 +11089,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact_dynamic_mut#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 922,
+   "line": 991,
    "kind": "block",
    "function": "load_compact_dynamic_mut",
    "type": "AccountView",
@@ -11053,7 +11108,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_compact_dynamic_mut#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 927,
+   "line": 996,
    "kind": "block",
    "function": "load_compact_dynamic_mut",
    "type": "AccountView",
@@ -11072,7 +11127,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::raw_ref#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 992,
+   "line": 1061,
    "kind": "fn",
    "function": "raw_ref",
    "type": "AccountView",
@@ -11094,7 +11149,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::raw_ref#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1001,
+   "line": 1070,
    "kind": "block",
    "function": "raw_ref",
    "type": "AccountView",
@@ -11116,7 +11171,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::raw_mut#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1013,
+   "line": 1082,
    "kind": "fn",
    "function": "raw_mut",
    "type": "AccountView",
@@ -11136,7 +11191,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::raw_mut#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1027,
+   "line": 1096,
    "kind": "block",
    "function": "raw_mut",
    "type": "AccountView",
@@ -11156,7 +11211,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_cross_program#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1060,
+   "line": 1129,
    "kind": "block",
    "function": "load_cross_program",
    "type": "AccountView",
@@ -11177,7 +11232,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::load_cross_program#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1062,
+   "line": 1131,
    "kind": "block",
    "function": "load_cross_program",
    "type": "AccountView",
@@ -11198,7 +11253,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::assign#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1515,
+   "line": 1584,
    "kind": "fn",
    "function": "assign",
    "type": "AccountView",
@@ -11221,7 +11276,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::assign#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1518,
+   "line": 1587,
    "kind": "block",
    "function": "assign",
    "type": "AccountView",
@@ -11244,7 +11299,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::borrow_unchecked#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1657,
+   "line": 1726,
    "kind": "fn",
    "function": "borrow_unchecked",
    "type": "AccountView",
@@ -11263,7 +11318,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::borrow_unchecked#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1660,
+   "line": 1729,
    "kind": "block",
    "function": "borrow_unchecked",
    "type": "AccountView",
@@ -11282,7 +11337,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::borrow_unchecked_mut#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1675,
+   "line": 1744,
    "kind": "fn",
    "function": "borrow_unchecked_mut",
    "type": "AccountView",
@@ -11301,7 +11356,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::borrow_unchecked_mut#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1678,
+   "line": 1747,
    "kind": "block",
    "function": "borrow_unchecked_mut",
    "type": "AccountView",
@@ -11320,7 +11375,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::resize_unchecked#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1687,
+   "line": 1756,
    "kind": "fn",
    "function": "resize_unchecked",
    "type": "AccountView",
@@ -11339,7 +11394,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::resize_unchecked#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1690,
+   "line": 1759,
    "kind": "block",
    "function": "resize_unchecked",
    "type": "AccountView",
@@ -11358,7 +11413,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::close_unchecked#1",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1701,
+   "line": 1770,
    "kind": "fn",
    "function": "close_unchecked",
    "type": "AccountView",
@@ -11377,7 +11432,7 @@
   {
    "id": "crates/hopper-runtime/src/account.rs::close_unchecked#2",
    "file": "crates/hopper-runtime/src/account.rs",
-   "line": 1704,
+   "line": 1773,
    "kind": "block",
    "function": "close_unchecked",
    "type": "AccountView",
@@ -12303,7 +12358,7 @@
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 39,
-   "sha256": "6748adfa6b13e057a59ffd61105ca7dc57638b61811a62f5ff635d54e8cd2cd2"
+   "sha256": "13639cf58e2a246ce9415b94ef98a9c0740d89bff8773acbceead951d9792577"
   },
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_unchecked#2",
@@ -12325,7 +12380,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::emulate_host_system_create_account#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 427,
+   "line": 436,
    "kind": "block",
    "function": "emulate_host_system_create_account",
    "type": null,
@@ -12342,7 +12397,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::emulate_host_system_create_account_allow_prefund#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 480,
+   "line": 489,
    "kind": "block",
    "function": "emulate_host_system_create_account_allow_prefund",
    "type": null,
@@ -12359,7 +12414,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::emulate_host_system_create_account_allow_prefund#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 512,
+   "line": 521,
    "kind": "block",
    "function": "emulate_host_system_create_account_allow_prefund",
    "type": null,
@@ -12376,7 +12431,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::emulate_host_system_assign#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 604,
+   "line": 613,
    "kind": "block",
    "function": "emulate_host_system_assign",
    "type": null,
@@ -12393,7 +12448,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::dispatch_cpi_fixed#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 785,
+   "line": 794,
    "kind": "block",
    "function": "dispatch_cpi_fixed",
    "type": "ProgramResult",
@@ -12410,7 +12465,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::dispatch_cpi_fixed#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 802,
+   "line": 811,
    "kind": "block",
    "function": "dispatch_cpi_fixed",
    "type": "ProgramResult",
@@ -12427,7 +12482,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::dispatch_cpi_fixed#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 809,
+   "line": 818,
    "kind": "block",
    "function": "dispatch_cpi_fixed",
    "type": "ProgramResult",
@@ -12442,9 +12497,60 @@
    "sha256": "76effc18066d6b36211fe7935fb17367479469ad532259bbf4ed6ebd9ac70112"
   },
   {
+   "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_builder#1",
+   "file": "crates/hopper-runtime/src/cpi.rs",
+   "line": 875,
+   "kind": "block",
+   "function": "invoke_signed_builder",
+   "type": null,
+   "public": null,
+   "justification": "an array of `MaybeUninit<T>` is valid in any initialization state; every element is written below before it is read.",
+   "justification_class": "specific",
+   "tests": [],
+   "reached_through": "invoke_signed",
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "6aa089f51b80384e875d5c9d6800af740a6dfb469fd0a7cc37d78d3fb34e3a87"
+  },
+  {
+   "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_builder#2",
+   "file": "crates/hopper-runtime/src/cpi.rs",
+   "line": 884,
+   "kind": "block",
+   "function": "invoke_signed_builder",
+   "type": null,
+   "public": null,
+   "justification": "the loop above initialized all `ACCOUNTS` elements, and `MaybeUninit<T>` has the layout of `T`.",
+   "justification_class": "specific",
+   "tests": [],
+   "reached_through": "invoke_signed",
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "3c294927c1ec8e98bcba27754b886b9311235b3b502b86c8890097e2338b1702"
+  },
+  {
+   "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_builder#3",
+   "file": "crates/hopper-runtime/src/cpi.rs",
+   "line": 889,
+   "kind": "block",
+   "function": "invoke_signed_builder",
+   "type": null,
+   "public": null,
+   "justification": "every meta's account passed its borrow check above (writable metas exclusively borrowable, read-only metas shared-borrowable), the invariant `invoke_signed_unchecked` requires.",
+   "justification_class": "specific",
+   "tests": [],
+   "reached_through": "invoke_signed",
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "76effc18066d6b36211fe7935fb17367479469ad532259bbf4ed6ebd9ac70112"
+  },
+  {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 881,
+   "line": 980,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12461,7 +12567,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 938,
+   "line": 1037,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12478,7 +12584,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 945,
+   "line": 1044,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12495,7 +12601,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1097,
+   "line": 1196,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -12516,7 +12622,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1109,
+   "line": 1208,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -12537,7 +12643,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1116,
+   "line": 1215,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -13125,58 +13231,24 @@
   {
    "id": "crates/hopper-runtime/src/instruction.rs::from#1",
    "file": "crates/hopper-runtime/src/instruction.rs",
-   "line": 289,
+   "line": 307,
    "kind": "block",
    "function": "from",
    "type": "From",
    "public": null,
-   "justification": "`raw` is the view's live header. `addr_of!` takes the field's address without forming a reference, and the native and runtime `Address` are both `#[repr(transparent)]` over `[u8; 32]`.",
+   "justification": "`raw` is the view's live header; `addr_of!` takes field addresses without forming references, and the native and runtime `Address` are both `#[repr(transparent)]` over `[u8; 32]`. Every field of `slot` is written before `assume_init`: the five pointers and two integers one by one, the three flags by the word copy, whose bytes are 0 or 1 as the loader wrote them, valid `bool`s.",
    "justification_class": "specific",
    "tests": [],
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "325fa064fc7f39046db69d1aba79d96c400b37876ca7bb786c9f5db2e82faf50"
-  },
-  {
-   "id": "crates/hopper-runtime/src/instruction.rs::from#2",
-   "file": "crates/hopper-runtime/src/instruction.rs",
-   "line": 290,
-   "kind": "block",
-   "function": "from",
-   "type": "From",
-   "public": null,
-   "justification": "`raw` is the view's live header. `addr_of!` takes the field's address without forming a reference, and the native and runtime `Address` are both `#[repr(transparent)]` over `[u8; 32]`.",
-   "justification_class": "shared",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "e1f1efaaae00b5cbd139044bfc607040ff8b79553aa50f50d62029f89e05ee9a"
-  },
-  {
-   "id": "crates/hopper-runtime/src/instruction.rs::from#3",
-   "file": "crates/hopper-runtime/src/instruction.rs",
-   "line": 297,
-   "kind": "block",
-   "function": "from",
-   "type": "From",
-   "public": null,
-   "justification": "`raw` is the view's live header. `addr_of!` takes the field's address without forming a reference, and the native and runtime `Address` are both `#[repr(transparent)]` over `[u8; 32]`.",
-   "justification_class": "specific",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "abb1f43f829065e4865d0f3c3b20392d7b39fb6cb8cba5cccf1dfc8585748107"
+   "lines_of_code": 13,
+   "sha256": "326df787aa902878a27e7588dacd9daaab0f38bc71c9a91876e21ff3f5be3b09"
   },
   {
    "id": "crates/hopper-runtime/src/instruction.rs::deref#1",
    "file": "crates/hopper-runtime/src/instruction.rs",
-   "line": 347,
+   "line": 363,
    "kind": "block",
    "function": "deref",
    "type": "Seed",
@@ -13680,7 +13752,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#14",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 885,
+   "line": 888,
    "kind": "fn",
    "function": "entrypoint",
    "type": null,
@@ -13691,13 +13763,13 @@
    "reached_through": "expand",
    "on_chain_only": false,
    "test_attribution": "by name",
-   "lines_of_code": 62,
-   "sha256": "71c453795a86526c17ba8529b2d85e54c7103dc6f5f36cfdfdad3165c488fd79"
+   "lines_of_code": 70,
+   "sha256": "19d8b2020d651cdfe283ef103656ccc21657123feb433f07a13e12523ec0fa37"
   },
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#15",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 891,
+   "line": 894,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13714,7 +13786,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#16",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 895,
+   "line": 898,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13731,7 +13803,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#17",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 899,
+   "line": 902,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13748,7 +13820,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#18",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 913,
+   "line": 927,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13765,7 +13837,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#19",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 924,
+   "line": 938,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13782,7 +13854,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#20",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 933,
+   "line": 947,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -16358,5 +16430,5 @@
    "sha256": "4395cf1b1f3776c6bd36db962648ede420f57b9434080aaca69b836c8ce30971"
   }
  ],
- "test_code_sites": 247
+ "test_code_sites": 267
 }

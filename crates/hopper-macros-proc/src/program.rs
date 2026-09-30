@@ -382,6 +382,20 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // touched the multi-byte syntax see byte-for-byte identical
     // codegen to the pre-multi-byte Hopper.
     let all_single_byte = handlers.iter().all(|h| h.discriminator.len() == 1);
+    // Tiny profile: the count-exact entrypoint calls a per-instruction
+    // `__hopper_exact_*` helper that returns the entry's `u64` code itself,
+    // so the entry is `call; exit` with no result test and no success code
+    // held across the call. That helper is the out-of-line frame; the
+    // `Result` helper inlines into it. The scanning `process_instruction`
+    // that also names the `Result` helpers is never called from a tiny
+    // program's SBF entrypoint, so inlining them there cannot grow a frame
+    // that runs on chain.
+    let tiny = policy.is_tiny_profile();
+    let dispatch_inline = if tiny {
+        quote! { #[inline(always)] }
+    } else {
+        quote! { #[inline(never)] }
+    };
     let dispatch_helpers: Vec<(Vec<u8>, Ident, Item)> = handlers
         .iter()
         .map(|h| {
@@ -391,7 +405,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             // module (tiny profile) can name the helper directly.
             let item = syn::parse2(quote! {
                 #[doc(hidden)]
-                #[inline(never)]
+                #dispatch_inline
                 pub(crate) fn #helper(
                     ctx: &mut ::hopper::prelude::Context<'_>,
                     data: &[u8],
@@ -402,6 +416,30 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             Ok::<_, syn::Error>((h.discriminator.clone(), helper, item))
         })
         .collect::<Result<_>>()?;
+    let exact_helpers: Vec<Item> = if tiny {
+        handlers
+            .iter()
+            .map(|h| {
+                let helper = format_ident!("__hopper_dispatch_{}", h.fn_name);
+                let exact = format_ident!("__hopper_exact_{}", h.fn_name);
+                syn::parse2(quote! {
+                    #[doc(hidden)]
+                    #[inline(never)]
+                    pub(crate) fn #exact(
+                        ctx: &mut ::hopper::prelude::Context<'_>,
+                        data: &[u8],
+                    ) -> u64 {
+                        match #helper(ctx, data) {
+                            ::core::result::Result::Ok(()) => ::hopper::__runtime::__hopper_native::SUCCESS,
+                            ::core::result::Result::Err(error) => ::hopper::__runtime::entry_refusal(error),
+                        }
+                    }
+                })
+            })
+            .collect::<syn::Result<_>>()?
+    } else {
+        Vec::new()
+    };
 
     // Fn-pointer-table eligibility: every discriminator is one byte
     // AND together they form the dense range 0..=N-1. The handlers are
@@ -883,6 +921,26 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             });
         }
 
+        if event_sink_live && tiny {
+            items.push(syn::parse_quote! {
+                /// The event sink's count-exact entry helper: the entry
+                /// code, as the per-instruction `__hopper_exact_*` helpers
+                /// return it.
+                #[doc(hidden)]
+                #[inline(never)]
+                #[allow(dead_code)]
+                pub(crate) fn __hopper_exact_event_sink(
+                    ctx: &mut ::hopper::prelude::Context<'_>,
+                    data: &[u8],
+                ) -> u64 {
+                    match __hopper_dispatch_event_sink(ctx, data) {
+                        ::core::result::Result::Ok(()) => ::hopper::__runtime::__hopper_native::SUCCESS,
+                        ::core::result::Result::Err(error) => ::hopper::__runtime::entry_refusal(error),
+                    }
+                }
+            });
+        }
+
         if event_sink_live {
             items.push(syn::parse_quote! {
                 /// Reserved `[0xE0, 0x1E]` self-CPI event sink.
@@ -913,6 +971,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     }
 
     for (_, _, helper) in dispatch_helpers {
+        items.push(helper);
+    }
+    for helper in exact_helpers {
         items.push(helper);
     }
 
@@ -966,7 +1027,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             .iter()
             .map(|h| {
                 let disc = h.discriminator[0];
-                let helper = format_ident!("__hopper_dispatch_{}", h.fn_name);
+                let helper = format_ident!("__hopper_exact_{}", h.fn_name);
                 let bound = match (&h.binding, &h.remaining_accounts_max) {
                     (ContextBinding::Typed { spec }, Some(max)) => {
                         quote! { <#spec>::ACCOUNT_COUNT + (#max) }
@@ -978,8 +1039,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             })
             .collect();
         if event_sink_live {
+            // Guarded by the program's resolved `event_cpi` constant: when
+            // no bound context opted in, the arm folds away and 0xE0 takes
+            // the unknown-discriminator refusal, exactly what the collapsed
+            // sink would have returned, without a compare on every entry.
             arms.push(quote! {
-                (0xE0u8, #raw_bound, #program_mod::__hopper_dispatch_event_sink)
+                (0xE0u8 if #program_mod::__HOPPER_EVENT_CPI_ENABLED, #raw_bound, #program_mod::__hopper_exact_event_sink)
             });
         }
         Some(quote! { ::hopper::hopper_exact_entrypoint! { #(#arms),* } })
@@ -2676,15 +2741,15 @@ mod dispatch_table_tests {
             "tiny profile must use the count-exact entrypoint: {out}"
         );
         assert!(
-            out.contains("(0u8,<Deposit>::ACCOUNT_COUNT,vault::__hopper_dispatch_typed)"),
+            out.contains("(0u8,<Deposit>::ACCOUNT_COUNT,vault::__hopper_exact_typed)"),
             "typed arm carries the context bound: {out}"
         );
         assert!(
-            out.contains("(1u8,::hopper::__runtime::MAX_TX_ACCOUNTS,vault::__hopper_dispatch_raw)"),
+            out.contains("(1u8,::hopper::__runtime::MAX_TX_ACCOUNTS,vault::__hopper_exact_raw)"),
             "raw arm keeps the transaction maximum: {out}"
         );
         assert!(
-            out.contains("(2u8,<Sweep>::ACCOUNT_COUNT+(4),vault::__hopper_dispatch_extras)"),
+            out.contains("(2u8,<Sweep>::ACCOUNT_COUNT+(4),vault::__hopper_exact_extras)"),
             "declared remaining accounts widen the bound: {out}"
         );
         assert!(
@@ -2703,7 +2768,7 @@ mod dispatch_table_tests {
             },
         ));
         assert!(
-            out.contains("(0u8,7usize,vault::__hopper_dispatch_raw)"),
+            out.contains("(0u8,7usize,vault::__hopper_exact_raw)"),
             "raw arm takes max_accounts: {out}"
         );
 

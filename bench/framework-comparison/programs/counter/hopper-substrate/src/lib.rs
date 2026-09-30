@@ -100,12 +100,11 @@ fn initialize(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> Pr
     }
     .invoke_signed(&[Signer::from(&seeds)])?;
 
-    // `init_compact` stamps the discriminator and zeroes the body; the
-    // typed view then stores the bump the caller proved.
-    counter.init_compact::<Counter>()?;
-    let mut state = counter.load_compact_mut::<Counter>()?;
+    // One borrow: `init_compact_mut` stamps the discriminator, zeroes the
+    // body, and hands back the typed view, which stores the bump the caller
+    // proved.
+    let mut state = counter.init_compact_mut::<Counter>()?;
     state.bump = bump;
-    state.count = WireU64::ZERO;
 
     hopper::substrate::log::log("Counter initialized");
     Ok(())

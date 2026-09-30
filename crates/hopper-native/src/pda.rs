@@ -101,7 +101,9 @@ pub fn create_program_address(
         // every derivation; measured 2026-09-21 on the framework-comparison
         // counter at ~70 CU per call above the syscall's own charge.
         const _: () = assert!(core::mem::size_of::<&[u8]>() == 16);
-        let mut result = Address::default();
+        // Uninitialized: the syscall writes all 32 bytes on success, and
+        // zero-filling first cost four stores it then overwrote.
+        let mut result = core::mem::MaybeUninit::<Address>::uninit();
         // SAFETY: `seeds` is a live `&[&[u8]]` whose SBF layout is the
         // (pointer, length) array the syscall reads (the size is asserted
         // above); `program_id` is 32 readable bytes and `result` 32 writable
@@ -111,11 +113,13 @@ pub fn create_program_address(
                 seeds.as_ptr() as *const u8,
                 seeds.len() as u64,
                 program_id.as_array().as_ptr(),
-                result.0.as_mut_ptr(),
+                result.as_mut_ptr() as *mut u8,
             )
         };
         if rc == 0 {
-            Ok(result)
+            // SAFETY: a zero return means the syscall wrote the whole
+            // address, and every byte pattern is a valid `Address`.
+            Ok(unsafe { result.assume_init() })
         } else {
             Err(ProgramError::InvalidSeeds)
         }

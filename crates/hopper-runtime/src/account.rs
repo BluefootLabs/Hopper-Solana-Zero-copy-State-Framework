@@ -35,6 +35,33 @@ fn check_typed_projection<T>(data_len: usize, offset: usize) -> Result<usize, Pr
     Ok(end)
 }
 
+/// The length test of `init_compact` and `init_compact_mut`: the account
+/// must be exactly `T::COMPACT_LEN` bytes and hold a whole `T` after the
+/// discriminator.
+///
+/// For a layout that keeps the default `COMPACT_LEN` the two conditions are
+/// one compare, so the accepted path tests the length once; the error is
+/// worked out in a cold path with the original precedence (the projection
+/// bound, which does not trust an overridden `COMPACT_LEN`, first).
+#[inline(always)]
+fn check_compact_init_len<T: crate::CompactLayout>(len: usize) -> ProgramResult {
+    if len != T::COMPACT_LEN
+        || len < crate::compact::COMPACT_BODY_OFFSET + core::mem::size_of::<T>()
+    {
+        return Err(compact_init_len_error::<T>(len));
+    }
+    Ok(())
+}
+
+#[cold]
+#[inline(never)]
+fn compact_init_len_error<T: crate::CompactLayout>(len: usize) -> ProgramError {
+    match check_typed_projection::<T>(len, crate::compact::COMPACT_BODY_OFFSET) {
+        Err(error) => error,
+        Ok(_) => crate::compact::compact_len_error(len, T::COMPACT_LEN),
+    }
+}
+
 /// Release the first `count` registered borrows during a
 /// `split_segments_mut` rollback.
 ///
@@ -798,8 +825,10 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn load_compact<T: crate::CompactLayout>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
-        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
+        // The exact-length test first: for a layout with the default
+        // `COMPACT_LEN` it implies the projection bound, which then folds.
         T::validate_compact(&data)?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         // SAFETY: `check_typed_projection` proved that a `T` at this offset
         // ends inside the borrowed bytes, so the pointer stays in bounds.
         let ptr =
@@ -812,8 +841,10 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn load_compact_mut<T: crate::CompactLayout>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
-        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
+        // As in `load_compact`: the exact-length test makes the projection
+        // bound fold.
         T::validate_compact(&data)?;
+        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
         // Same ambient stamp as `load_mut`: typed whole-account write.
         #[cfg(feature = "touch-map")]
         crate::segment_borrow::touch_log::record_account(
@@ -863,15 +894,53 @@ impl<'info> AccountView<'info> {
     pub fn init_compact<T: crate::CompactLayout>(&self) -> ProgramResult {
         self.check_writable()?;
         let mut data = self.try_borrow_mut()?;
-        check_typed_projection::<T>(data.len(), crate::compact::COMPACT_BODY_OFFSET)?;
-        if data.len() < T::COMPACT_LEN {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        if data.len() != T::COMPACT_LEN {
-            return Err(ProgramError::InvalidAccountData);
-        }
+        check_compact_init_len::<T>(data.len())?;
         data[0] = T::DISC;
         Ok(())
+    }
+
+    /// Initialise a compact account and return its typed body, in one
+    /// borrow.
+    ///
+    /// Stamps `T::DISC` at byte 0, zeroes the body, and hands back the
+    /// mutable view to fill in. [`init_compact`](Self::init_compact)
+    /// followed by [`load_compact_mut`](Self::load_compact_mut) does the
+    /// same work with two borrows, two write-gate checks, and two length
+    /// tests. Requires the account to be writable and exactly
+    /// `T::COMPACT_LEN` bytes long.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut counter = account.init_compact_mut::<Counter>()?;
+    /// counter.bump = bump;
+    /// ```
+    #[inline(always)]
+    pub fn init_compact_mut<T: crate::CompactLayout>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+        self.check_writable()?;
+        let mut data = self.try_borrow_mut()?;
+        check_compact_init_len::<T>(data.len())?;
+        data[0] = T::DISC;
+        // Same ambient stamp as `load_compact_mut`: typed whole-account write.
+        #[cfg(feature = "touch-map")]
+        crate::segment_borrow::touch_log::record_account(
+            self.address(),
+            data.len() as u32,
+            crate::segment_borrow::AccessKind::Write,
+        );
+        // SAFETY: `check_typed_projection` proved that a `T` at this offset
+        // ends inside the borrowed bytes, so the pointer stays in bounds.
+        let ptr = unsafe {
+            data.as_bytes_mut_ptr()
+                .add(crate::compact::COMPACT_BODY_OFFSET) as *mut T
+        };
+        // SAFETY: `ptr` is in bounds (above) and `T` is `Pod`, so the
+        // all-zero bytes written here are a valid `T`. The body starts at
+        // byte 1 and `T` has alignment 1, so the write is aligned.
+        unsafe { ptr.write_bytes(0, 1) };
+        // SAFETY: the length and disc are set above; `ptr` points into the
+        // borrowed body.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Tier-1 compact **dynamic** load: validate the discriminator and the

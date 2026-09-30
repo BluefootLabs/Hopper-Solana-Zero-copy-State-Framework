@@ -857,11 +857,14 @@ macro_rules! hopper_fast_entrypoint {
 /// Reads the discriminator from the SIMD-0321 `r2` instruction-data pointer
 /// first, then materializes exactly the matched instruction's declared
 /// account bound before dispatching to the helper `#[program]` generated
-/// for it. `arms` pairs each one-byte discriminator with that bound and
-/// that helper. Accounts past the bound are neither materialized nor
-/// walked, and there is no transaction-sized pointer table: the entry cost
-/// is the declared accounts only. The `Context` (segment borrow registry,
-/// write gate, parametric args) is built exactly as on the scanning path.
+/// for it. `arms` pairs each one-byte discriminator (optionally with an
+/// `if <const>` guard, which folds the arm away when false) with that bound
+/// and that helper. Each helper returns the entry's own return code,
+/// `SUCCESS` or the mapped error, so the dispatch is the entrypoint's last
+/// call. Accounts past the bound are neither materialized nor walked, and
+/// there is no transaction-sized pointer table: the entry cost is the
+/// declared accounts only. The `Context` (segment borrow registry, write
+/// gate, parametric args) is built exactly as on the scanning path.
 ///
 /// The `r2` gate (`5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`) is active
 /// on mainnet-beta, devnet, and testnet. A runtime that leaves `r2` zero
@@ -875,7 +878,7 @@ macro_rules! hopper_fast_entrypoint {
 /// `#[remaining_accounts(max = N)]` must not run on a truncated list.
 #[macro_export]
 macro_rules! hopper_exact_entrypoint {
-    ( $( ( $disc:literal, $bound:expr, $helper:path ) ),* $(,)? ) => {
+    ( $( ( $disc:literal $( if $guard:expr )?, $bound:expr, $helper:path ) ),* $(,)? ) => {
         /// # Safety
         ///
         /// Called by the Solana runtime with the loader input in `input` and,
@@ -884,7 +887,7 @@ macro_rules! hopper_exact_entrypoint {
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
             if ix_data.is_null() {
-                return $crate::ProgramError::InvalidArgument.into();
+                return $crate::entry_refusal($crate::ProgramError::InvalidArgument);
             }
             // SAFETY: SIMD-0321 serialization contract, see above.
             let ix_len =
@@ -897,11 +900,22 @@ macro_rules! hopper_exact_entrypoint {
             // transparent `[u8; 32]` with alignment 1.
             let program_id: &'static $crate::Address =
                 unsafe { &*(ix_data.add(ix_len) as *const $crate::Address) };
+            // The discriminator is read once, into a register. The account
+            // walk stores into the input region, which the compiler cannot
+            // prove misses the instruction data, so a second read of the
+            // byte after the walk would be a second load.
+            let disc: u8 = match instruction_data.first() {
+                ::core::option::Option::Some(&disc) => disc,
+                ::core::option::Option::None => {
+                    return $crate::entry_refusal($crate::ProgramError::InvalidInstructionData)
+                }
+            };
             // The matched arm's bound first, so one walk and one `Context`
-            // serve every instruction (no per-arm copy of either).
-            let bound: usize = match instruction_data.first() {
-                $( ::core::option::Option::Some(&$disc) => $bound, )*
-                _ => return $crate::ProgramError::InvalidInstructionData.into(),
+            // serve every instruction (no per-arm copy of either). A guarded
+            // arm whose guard is a false constant folds away.
+            let bound: usize = match disc {
+                $( $disc $( if $guard )? => $bound, )*
+                _ => return $crate::entry_refusal($crate::ProgramError::InvalidInstructionData),
             };
             // Count-exact means exact. Accounts past the arm's bound are
             // never materialized, so a remaining-accounts handler handed
@@ -912,7 +926,7 @@ macro_rules! hopper_exact_entrypoint {
             // account count.
             let total = unsafe { $crate::__hopper_native::raw_input::loader_account_count(input) };
             if total > bound {
-                return $crate::ERR_TOO_MANY_ACCOUNTS.into();
+                return $crate::entry_refusal($crate::ERR_TOO_MANY_ACCOUNTS);
             }
             const WIDEST: usize = $crate::max_account_bound(&[ $( $bound ),* ]);
             const UNINIT: core::mem::MaybeUninit<
@@ -934,17 +948,24 @@ macro_rules! hopper_exact_entrypoint {
                 core::slice::from_raw_parts(views.as_ptr() as *const $crate::AccountView<'_>, count)
             };
             let mut ctx = $crate::Context::new(program_id, accounts, instruction_data);
-            let result: ::core::result::Result<(), $crate::ProgramError> =
-                match instruction_data.first() {
-                    $( ::core::option::Option::Some(&$disc) => $helper(&mut ctx, instruction_data), )*
-                    _ => ::core::result::Result::Err($crate::ProgramError::InvalidInstructionData),
-                };
-            match result {
-                ::core::result::Result::Ok(()) => $crate::__hopper_native::SUCCESS,
-                ::core::result::Result::Err(error) => error.into(),
+            // Each helper returns the entry code itself (`SUCCESS` or the
+            // mapped error), so this is the last call.
+            match disc {
+                $( $disc $( if $guard )? => $helper(&mut ctx, instruction_data), )*
+                _ => $crate::entry_refusal($crate::ProgramError::InvalidInstructionData),
             }
         }
     };
+}
+
+/// The entrypoint's return code for a refused instruction. Cold and out of
+/// line, so the accepted path neither materializes an error code nor
+/// carries the conversion.
+#[doc(hidden)]
+#[cold]
+#[inline(never)]
+pub fn entry_refusal(error: crate::ProgramError) -> u64 {
+    error.into()
 }
 
 /// Custom-error page for refusals at the program entry, below the

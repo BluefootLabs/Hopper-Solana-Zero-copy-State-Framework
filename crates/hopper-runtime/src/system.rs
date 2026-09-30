@@ -183,7 +183,7 @@ impl CreateAccount<'_, '_> {
         self.invoke_signed(&[])
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data =
             encoders::encode_create_account(self.lamports, self.space, self.owner.as_array());
@@ -199,7 +199,7 @@ impl CreateAccount<'_, '_> {
             accounts: &accounts,
         };
 
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -256,7 +256,7 @@ impl CreateAccountAllowPrefund<'_, '_> {
                     data: &data,
                     accounts: &accounts,
                 };
-                crate::cpi::invoke_signed(&instruction, &views, signers)
+                crate::cpi::invoke_signed_builder(&instruction, &views, signers)
             }
             None => {
                 let accounts = [InstructionAccount::writable_signer(self.to.address())];
@@ -266,7 +266,7 @@ impl CreateAccountAllowPrefund<'_, '_> {
                     data: &data,
                     accounts: &accounts,
                 };
-                crate::cpi::invoke_signed(&instruction, &views, signers)
+                crate::cpi::invoke_signed_builder(&instruction, &views, signers)
             }
         }
     }
@@ -302,7 +302,7 @@ impl Transfer<'_> {
             accounts: &accounts,
         };
 
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -332,7 +332,7 @@ impl Assign<'_, '_> {
             accounts: &accounts,
         };
 
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -362,7 +362,7 @@ impl Allocate<'_> {
             accounts: &accounts,
         };
 
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -418,7 +418,7 @@ impl CreateAccountWithSeed<'_, '_> {
             data: &data[..n],
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -465,7 +465,7 @@ impl AllocateWithSeed<'_, '_> {
             data: &data[..n],
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -509,7 +509,7 @@ impl AssignWithSeed<'_, '_> {
             data: &data[..n],
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -556,7 +556,7 @@ impl TransferWithSeed<'_, '_> {
             data: &data[..n],
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -590,7 +590,7 @@ impl AdvanceNonceAccount<'_> {
             data: &data,
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -631,7 +631,7 @@ impl WithdrawNonceAccount<'_> {
             data: &data,
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -662,7 +662,7 @@ impl InitializeNonceAccount<'_, '_> {
             data: &data,
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -691,7 +691,7 @@ impl AuthorizeNonceAccount<'_, '_> {
             data: &data,
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        crate::cpi::invoke_signed_builder(&instruction, &views, signers)
     }
 }
 
@@ -711,7 +711,7 @@ impl UpgradeNonceAccount<'_> {
             data: &data,
             accounts: &accounts,
         };
-        crate::cpi::invoke_signed(&instruction, &views, &[])
+        crate::cpi::invoke_signed_builder(&instruction, &views, &[])
     }
 }
 

@@ -41,9 +41,24 @@ has a before and after for each change.
 - `FieldRef::as_address` returns a reference that lives as long as the
   bytes the view was made over, not as long as the view. Existing callers
   compile unchanged.
+- The helpers named in `hopper_exact_entrypoint!` arms return the entry's
+  `u64` code (`SUCCESS` or `ProgramError::into`), not a `ProgramResult`, so
+  the dispatch is the entrypoint's last call. `#[program(profile = "tiny")]`
+  generates them; only a hand-written invocation of the macro needs its
+  helpers wrapped (`match handler(ctx, data) { Ok(()) => SUCCESS, Err(e) =>
+  e.into() }`). An arm may also carry an `if <const>` guard now.
 
 ### Added
 
+- **`init_compact_mut`.** `AccountView::init_compact_mut::<T>()` and the
+  generated `T::init_compact_mut(account)` stamp a compact account's
+  discriminator, zero its body, and hand back the typed body, in one borrow.
+  `init_compact` followed by `load_compact_mut` did the same work with two
+  borrows, two write-gate checks, and two length tests: 18 CU against 37 on
+  the framework-comparison counter's create.
+- **Coming from Pinocchio.** [docs/FROM_PINOCCHIO.md](docs/FROM_PINOCCHIO.md)
+  ports the Pinocchio counter name by name, with both programs' numbers and
+  the checks Hopper keeps that Pinocchio leaves out.
 - **Every confidential-transfer instruction, run against the Token-2022
   mainnet runs.** `examples/hopper-confidential-lab` puts each of the
   fifteen builders behind an instruction, and its tests drive the whole
@@ -377,6 +392,51 @@ has a before and after for each change.
 
 ### Changed
 
+- **Raw programs cost what hand-written Pinocchio costs.** On pina's
+  framework-comparison fixtures, against the previous commit: the substrate
+  hello world 116 to 111 CU (hand-written Pinocchio: 111) and 1,656 to 1,456
+  bytes (3,160); the substrate counter 1,595 to 1,514 CU on create and 1,742
+  to 1,722 on increment (1,490 and 1,721), and 6,792 to 6,608 bytes (6,512);
+  the macro counter 1,517 to 1,471 and 348 to 325 CU; the macro hello 137 to
+  127 CU. The macro counter grew from 8,352 to 8,744 bytes and the macro
+  hello from 1,768 to 1,824, mostly the unrolled account walk. What changed:
+  - **The account walk.** Every scanning entrypoint walks the records with a
+    pointer instead of a base and an offset, and the first four slots are
+    straight-line code behind compile-time guards: one compare per account,
+    no slot counter. A duplicate marker leaves the unrolled prefix for the
+    one shared loop, so that path is in the binary once.
+  - **Records past the bound are crossed, not checked.** A duplicate marker
+    in the skip-only tail that names a later slot no longer traps. No view is
+    made from those records, so nothing can alias, and a walk with no side
+    effects lets the compiler drop it from a program that never reads its
+    instruction data. Markers in the materialized range trap exactly as
+    before, and the Kani harnesses for the tail now prove it stays in bounds
+    for every marker value.
+  - **CPI accounts.** `CpiAccount::from` copies the three flag bytes as one
+    word instead of turning each into a `bool`, a branch apiece on SBF. A
+    failed invoke's return code is mapped in a cold function.
+  - **System builders invoke through a leaner tier.** They check what
+    soundness needs, that no account in the instruction is borrowed, plus the
+    lamport gate when a write policy is installed. Signer and writable
+    privileges and a repeated writable account are left to the runtime and
+    the System Program, which refuse an escalation before the callee runs and
+    handle one account named twice. A builder handed a read-only account now
+    fails in the runtime instead of with Hopper's `Immutable`.
+    `hopper::cpi::invoke_signed` keeps every check, and the token builders
+    are unchanged: a self-transfer is a silent no-op in SPL Token, so their
+    repeated-writable refusal stays.
+  - **Rent and PDAs.** `Rent::get` and `create_program_address` write into
+    uninitialized memory instead of zeroing a buffer the syscall overwrites.
+    The rent threshold's two real values are tested inline; the rounding path
+    for any other value is out of line.
+  - **Compact accounts** test their length once on the accepted path; the
+    too-small and invalid errors are worked out in a cold path, in the old
+    order.
+  - **The count-exact entrypoint** (`profile = "tiny"`) reads the
+    discriminator once (the walk stores into the input region, so a second
+    read was a second load), folds the reserved event-sink arm away when no
+    context uses `event_cpi`, and calls a per-instruction helper that returns
+    the entry code, so the dispatch is its last call.
 - **Token builders encode once, through `TokenInstruction::emit`.** Each
   builder's bytes and metas are produced by one `emit` impl that writes
   into a `TokenSink`: the CPI (with the program chosen by the caller) or a

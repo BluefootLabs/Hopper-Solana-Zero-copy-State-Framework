@@ -119,24 +119,39 @@ pub const fn rent_exempt_minimum(data_len: usize) -> u64 {
 /// Read the Rent sysvar.
 #[inline]
 pub fn get_rent() -> Result<Rent, ProgramError> {
-    #[allow(unused_mut)]
-    let mut rent = Rent::default();
     #[cfg(target_os = "solana")]
     {
         // 17-byte bincode image (u64 rate, f64 threshold, u8 burn percent)
-        // at the same offsets as the first 17 bytes of the repr(C) struct;
-        // the padding after `burn_percent` is left untouched. 110 CU through
-        // `sol_get_sysvar` instead of 124 through `sol_get_rent_sysvar`.
-        // SAFETY: the struct prefix up to and including `burn_percent` is
-        // `RENT_IMAGE_LEN` bytes of integers and one f64, every bit pattern
-        // of which is valid (`rent_image_offsets` pins the offsets); the
-        // view stays inside the struct.
-        let image = unsafe {
-            core::slice::from_raw_parts_mut(&mut rent as *mut Rent as *mut u8, RENT_IMAGE_LEN)
+        // at the same offsets as the first 17 bytes of the repr(C) struct,
+        // written straight into uninitialized memory: zeroing the struct
+        // first cost three stores the syscall then overwrote. The padding
+        // after `burn_percent` stays uninitialized, as a `Copy` struct's
+        // padding may. 110 CU through `sol_get_sysvar` instead of 124
+        // through `sol_get_rent_sysvar`.
+        let mut rent = core::mem::MaybeUninit::<Rent>::uninit();
+        // SAFETY: `RENT_ID` is a 32-byte address and the destination is the
+        // first `RENT_IMAGE_LEN` bytes of `rent` (the offsets are pinned
+        // below); the syscall writes exactly that many bytes or none.
+        let rc = unsafe {
+            crate::syscalls::sol_get_sysvar(
+                RENT_ID.as_array().as_ptr(),
+                rent.as_mut_ptr() as *mut u8,
+                0,
+                RENT_IMAGE_LEN as u64,
+            )
         };
-        get_sysvar_into(&RENT_ID, 0, image)?;
+        if rc != 0 {
+            return Err(ProgramError::UnsupportedSysvar);
+        }
+        // SAFETY: the syscall succeeded, so it wrote all three fields (the
+        // rate, the threshold, and the burn percent), every bit pattern of
+        // which is valid; only padding is left uninitialized.
+        Ok(unsafe { rent.assume_init() })
     }
-    Ok(rent)
+    #[cfg(not(target_os = "solana"))]
+    {
+        Ok(Rent::default())
+    }
 }
 
 /// Length of the Rent sysvar's account image: `u64 + f64 + u8`.
@@ -184,7 +199,7 @@ impl Rent {
     /// for every loader-permitted `data_len` (`<= 10_485_760`) and realistic
     /// `lamports_per_byte_year` it never saturates, so the byte-match with the
     /// runtime is exact (proven in the Kani harnesses below).
-    #[inline]
+    #[inline(always)]
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
         // The same product Solana's `Rent::minimum_balance` computes, which
         // does not saturate either: the loader caps `data_len` at 10 MiB, so
@@ -223,7 +238,10 @@ const THRESHOLD_TWO_BITS: u64 = 0x4000_0000_0000_0000;
 /// rent-exemption decision made through it stays safe. Saturates at
 /// `u64::MAX` (an infinite threshold saturates too); a zero, negative, or
 /// NaN threshold yields `0`, the same as the cast.
-#[inline]
+///
+/// The two real thresholds are tested inline; the rounding path for any
+/// other value is out of line and cold.
+#[inline(always)]
 pub fn scale_by_exemption_threshold(integer_part: u64, threshold_bits: u64) -> u64 {
     if threshold_bits == THRESHOLD_ONE_BITS {
         return integer_part;
@@ -231,6 +249,12 @@ pub fn scale_by_exemption_threshold(integer_part: u64, threshold_bits: u64) -> u
     if threshold_bits == THRESHOLD_TWO_BITS {
         return integer_part.saturating_mul(2);
     }
+    scale_by_unusual_threshold(integer_part, threshold_bits)
+}
+
+#[cold]
+#[inline(never)]
+fn scale_by_unusual_threshold(integer_part: u64, threshold_bits: u64) -> u64 {
     saturating_mul_u64(integer_part, ceil_years(threshold_bits))
 }
 
@@ -320,8 +344,6 @@ const _: () = {
 /// Read the EpochSchedule sysvar.
 #[inline]
 pub fn get_epoch_schedule() -> Result<EpochSchedule, ProgramError> {
-    #[allow(unused_mut)]
-    let mut schedule = EpochSchedule::default();
     #[cfg(target_os = "solana")]
     {
         // 33-byte bincode image: two u64, one bool byte, two u64. The
@@ -330,9 +352,12 @@ pub fn get_epoch_schedule() -> Result<EpochSchedule, ProgramError> {
         // of 140 through the dedicated syscall.
         let mut image = [0u8; EPOCH_SCHEDULE_IMAGE_LEN];
         get_sysvar_into(&EPOCH_SCHEDULE_ID, 0, &mut image)?;
-        schedule = decode_epoch_schedule(&image);
+        Ok(decode_epoch_schedule(&image))
     }
-    Ok(schedule)
+    #[cfg(not(target_os = "solana"))]
+    {
+        Ok(EpochSchedule::default())
+    }
 }
 
 /// Length of the EpochSchedule sysvar's account image.

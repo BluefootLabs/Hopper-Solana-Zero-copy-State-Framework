@@ -83,7 +83,7 @@ pub unsafe fn invoke_unchecked(
 /// # Safety
 ///
 /// The caller must ensure no account data borrows conflict with the CPI.
-#[inline]
+#[inline(always)]
 pub unsafe fn invoke_signed_unchecked(
     instruction: &InstructionView<'_, '_, '_, '_>,
     accounts: &[CpiAccount<'_>],
@@ -114,7 +114,7 @@ pub unsafe fn invoke_signed_unchecked(
         if result == 0 {
             Ok(())
         } else {
-            Err(ProgramError::from(result))
+            Err(cpi_error(result))
         }
     }
     #[cfg(not(target_os = "solana"))]
@@ -122,6 +122,15 @@ pub unsafe fn invoke_signed_unchecked(
         let _ = (instruction, accounts, signers_seeds);
         Ok(())
     }
+}
+
+/// Map a failed invoke's return code. Out of line and cold, so the success
+/// path after the syscall is one compare.
+#[cfg(target_os = "solana")]
+#[cold]
+#[inline(never)]
+fn cpi_error(code: u64) -> ProgramError {
+    ProgramError::from(code)
 }
 
 // ---------------------------------------------------------------------
@@ -807,6 +816,96 @@ fn dispatch_cpi_fixed<const ACCOUNTS: usize>(
     // access during the CPI, exactly the invariant
     // `invoke_unchecked`/`invoke_signed_unchecked` require.
     unsafe { invoke_signed_unchecked(instruction, accounts.as_slice(), signers_seeds) }
+}
+
+/// The tier Hopper's own instruction builders invoke through.
+///
+/// A builder derives every meta from the view it passes at the same index,
+/// so meta and view name the same account by construction and the address
+/// check of [`invoke_signed`] has nothing to find. What stays is what
+/// soundness needs: writable metas must be exclusively borrowable and
+/// read-only metas shared-borrowable, so no live Rust borrow sees the
+/// callee's writes, and, when a lamport write policy is installed, every
+/// writable meta must be one the policy lets the instruction hand off.
+///
+/// Signer and writable privileges are left to the runtime, which refuses
+/// an escalation before the callee runs; the early refusals
+/// [`invoke_signed`] adds are diagnostics, not protection. So is its
+/// repeated-writable scan: the System, Token, and Token-2022 programs these
+/// builders target handle one account named twice (a self-transfer moves
+/// nothing; `CreateAccount` onto its own payer fails in the System
+/// Program). This is the shape of Pinocchio's builders, with the lamport
+/// gate on top.
+///
+/// Off chain the supported System instructions are emulated exactly as in
+/// [`invoke_signed`].
+#[inline(always)]
+pub(crate) fn invoke_signed_builder<const ACCOUNTS: usize>(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
+    signers_seeds: &[Signer<'_, '_>],
+) -> ProgramResult {
+    #[cfg(not(target_os = "solana"))]
+    if let Some(result) = emulate_host_system(instruction, &account_views[..], signers_seeds) {
+        return result;
+    }
+
+    // A plain loop and no closures: builders are inlined into the handler,
+    // and a closure-shaped body there gets outlined with its captures
+    // passed through the stack.
+    let metas = instruction.accounts;
+    let mut i = 0;
+    while i < ACCOUNTS {
+        if i < metas.len() {
+            if metas[i].is_writable {
+                account_views[i].check_borrow_mut()?;
+            } else {
+                account_views[i].check_borrow()?;
+            }
+        }
+        i += 1;
+    }
+    if crate::write_policy::lamport_gate_active() {
+        check_builder_delegation(metas, &account_views[..])?;
+    }
+
+    let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; ACCOUNTS] =
+        // SAFETY: an array of `MaybeUninit<T>` is valid in any initialization
+        // state; every element is written below before it is read.
+        unsafe { MaybeUninit::uninit().assume_init() };
+    let mut j = 0;
+    while j < ACCOUNTS {
+        cpi_accounts[j] = MaybeUninit::new(CpiAccount::from(account_views[j]));
+        j += 1;
+    }
+    // SAFETY: the loop above initialized all `ACCOUNTS` elements, and
+    // `MaybeUninit<T>` has the layout of `T`.
+    let accounts: &[CpiAccount<'_>; ACCOUNTS] =
+        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount<'_>; ACCOUNTS]) };
+
+    // SAFETY: every meta's account passed its borrow check above (writable
+    // metas exclusively borrowable, read-only metas shared-borrowable), the
+    // invariant `invoke_signed_unchecked` requires.
+    unsafe { invoke_signed_unchecked(instruction, accounts.as_slice(), signers_seeds) }
+}
+
+/// The lamport-delegation sweep of [`invoke_signed_builder`], run only when
+/// a write policy is installed. Out of line so the builders' inlined body
+/// stays the ungated path.
+#[cold]
+#[inline(never)]
+fn check_builder_delegation(
+    metas: &[crate::instruction::InstructionAccount<'_>],
+    account_views: &[&AccountView<'_>],
+) -> ProgramResult {
+    let mut i = 0;
+    while i < metas.len() && i < account_views.len() {
+        if metas[i].is_writable {
+            crate::write_policy::check_lamport_delegation(account_views[i].address())?;
+        }
+        i += 1;
+    }
+    Ok(())
 }
 
 /// Invoke with a dynamic number of accounts (bounded by const generic).

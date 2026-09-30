@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-29 04:17 UTC",
+  "generated": "2026-09-30 09:37 UTC",
   "toolchain": {
     "cargo-build-sbf": "cargo-build-sbf 4.1.0 platform-tools v1.54",
     "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
@@ -15,46 +15,54 @@
     "hello": "DCF5KBmtQ9ryDC7mQezKLwuJHem6coVUCmKkw37M9J4A",
     "counter": "GJQcuWrT2f3f4KNuJcXhhwUa1ZQTYbxzzJ1hotzKu8hS"
   },
-  "source_commit": "e0de4f19671aacf4d7714651730ea0b82779af91",
+  "source_commit": "bcdea6e110e4bb54d4eafaeb2015fc57cc118985",
   "source_tree_clean": false,
   "build_mode": "rebuilt",
-  "lockfile_sha256": "1666b525ddf61b386b56323752d14fc08e7c75a7e4d6c0b26e1f8893a3c66760",
+  "lockfile_sha256": "cf07cb8bdb0dbb9f0daa491140fbb3d7aa50603cf695979bd0082e268cda1754",
   "hello": [
     {
       "label": "Hopper (substrate)",
-      "bytes": 1656,
+      "bytes": 1456,
       "so": "hello_hopper_substrate.so",
-      "elf_sha256": "4838bdf829905035c285f28334308d648452d0bc4024348be6f872e1649d8c59",
-      "hello": 116,
+      "elf_sha256": "6cbf1135ae48dba3cc6928b6def539faaa6518c4c956ddcbc91d824a85389b24",
+      "hello": 111,
       "source": "measured here",
       "arch": "v0"
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 1768,
+      "bytes": 1824,
       "so": "hello_hopper.so",
-      "elf_sha256": "33f8e22e934fc5e491aaf73b2ed150cffc5b76f42b3f2466b7d2dfbde9a5310a",
-      "hello": 137,
+      "elf_sha256": "a3006aa0b07a373be9ba5132bb61a2844a98609958f6483b706783927daecd8b",
+      "hello": 127,
       "source": "measured here",
       "arch": "v0"
     },
     {
       "label": "Hopper (substrate, sBPFv3)",
-      "bytes": 960,
+      "bytes": 760,
       "so": "hello_hopper_substrate.so",
-      "elf_sha256": "988a3405fec1355535d673495cd1ba066000654ec0ad7056463bde4f4e233178",
-      "hello": 116,
+      "elf_sha256": "096d840dd866878508177744176624f59738c3b4e2d67ded45e546e7a9ea2b8f",
+      "hello": 111,
       "source": "measured here",
       "arch": "v3"
     },
     {
       "label": "Hopper (macro, sBPFv3)",
-      "bytes": 1072,
+      "bytes": 1128,
       "so": "hello_hopper.so",
-      "elf_sha256": "8b8a405f2e46c0ff623d431c5d76b5d5f40bde2c7a3c43a2d3cf9cb14a2727aa",
-      "hello": 137,
+      "elf_sha256": "a0def35493d2499fed08cb840a99f237f84e8a48cbb9e9df60ac68a83d23e468",
+      "hello": 127,
       "source": "measured here",
       "arch": "v3"
+    },
+    {
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "bytes": 3160,
+      "so": "hello_pinocchio.so",
+      "elf_sha256": "5d05e239a62e579ea8aa72f2f9658c7d3ac7e60e9321998ca4418f26fd790ed6",
+      "hello": 111,
+      "source": "measured here (cross-check)"
     },
     {
       "label": "Pina",
@@ -84,47 +92,57 @@
   "counter": [
     {
       "label": "Hopper (substrate)",
-      "bytes": 6792,
+      "bytes": 6608,
       "so": "counter_hopper_substrate.so",
-      "elf_sha256": "97f5338ba950942a45488b8e3cceec7109bb8e901d9be9a83990d3cdd83bba48",
-      "initialize": 1595,
-      "increment": 1742,
+      "elf_sha256": "cc1b5cc94d746cc8f76e5438ca0ef74f42817dc0e27f7ba7ec18272d2c1156a1",
+      "initialize": 1514,
+      "increment": 1722,
       "account_size": 10,
       "source": "measured here",
       "arch": "v0"
     },
     {
       "label": "Hopper (macro)",
-      "bytes": 8352,
+      "bytes": 8744,
       "so": "counter_hopper.so",
-      "elf_sha256": "ef2116260aa955773d7e37502b76e0c9979c5fb3fa25cb762a07f794754dd9bc",
-      "initialize": 1517,
-      "increment": 348,
+      "elf_sha256": "8aaca49d5ea5777690efc7ddbfeeb061658d4d776fadee653ae7d77fa7771ae1",
+      "initialize": 1471,
+      "increment": 325,
       "account_size": 25,
       "source": "measured here",
       "arch": "v0"
     },
     {
       "label": "Hopper (substrate, sBPFv3)",
-      "bytes": 5736,
+      "bytes": 5552,
       "so": "counter_hopper_substrate.so",
-      "elf_sha256": "3c8dda168d6131b54d54e8cf38d34d8e2038f9d2cc731c7a2594cd2a77b7221e",
-      "initialize": 1595,
-      "increment": 1742,
+      "elf_sha256": "4d9f4e9dbdaa0c070b0e04f7729171610eddc11ee1c9ad6b3559e4f6a3ae8c50",
+      "initialize": 1514,
+      "increment": 1722,
       "account_size": 10,
       "source": "measured here",
       "arch": "v3"
     },
     {
       "label": "Hopper (macro, sBPFv3)",
-      "bytes": 7352,
+      "bytes": 7744,
       "so": "counter_hopper.so",
-      "elf_sha256": "369e43adf745ae8ca90d5cad45ebd2fbb86334bf4337a2a6cf6158568f5cac17",
-      "initialize": 1517,
-      "increment": 348,
+      "elf_sha256": "0972d95418a3b3316e9a1a8fd60ccb8e8dc51b18df676a1bf8c889d154c1821d",
+      "initialize": 1471,
+      "increment": 325,
       "account_size": 25,
       "source": "measured here",
       "arch": "v3"
+    },
+    {
+      "label": "Pinocchio (pina reference, rebuilt here)",
+      "bytes": 6512,
+      "so": "counter_pinocchio.so",
+      "elf_sha256": "040d6acf1a933535d5bf7a96cb089d70d8b8f817ff86ba6c8825058c582745f6",
+      "initialize": 1490,
+      "increment": 1721,
+      "account_size": 10,
+      "source": "measured here (cross-check)"
     },
     {
       "label": "Pina",

@@ -3,10 +3,23 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-Hopper is a **zero-copy Solana program framework** for building applications
-that hold assets, transfer tokens, settle trades, and enforce on-chain rules.
-Write Rust handlers with typed accounts, access state in place, and invoke
-other Solana programs through checked CPI helpers.
+**The zero-copy framework for Solana programs.** Write programs in Rust with
+typed accounts, generated checks, and one-call CPIs, and ship them at the cost
+of hand-written code. Hopper reads and writes account data where it lives: no
+copies, no deserialization, no allocations.
+
+| pina's fixtures, Mollusk, main on 2026-09-30 | Hand-written Pinocchio | Hopper raw | Hopper framework |
+|---|---:|---:|---:|
+| Hello world | 111 CU, 3,160 B | 111 CU, 1,456 B | 127 CU, 1,824 B |
+| PDA counter, create | 1,490 CU | 1,514 CU | 1,471 CU |
+| PDA counter, update | 1,721 CU | 1,722 CU | 325 CU |
+
+The raw layer is Pinocchio's model and costs what Pinocchio costs. The
+framework generates the signer, owner, layout, and PDA checks and still comes
+in under the hand-written program, because it checks the bump stored in the
+account with one hash instead of re-deriving the address.
+[Why Hopper](docs/WHY_HOPPER.md), [coming from Pinocchio](docs/FROM_PINOCCHIO.md),
+and [the full table](bench/framework-comparison/results/RESULTS.txt).
 
 ## Build the program your users need
 

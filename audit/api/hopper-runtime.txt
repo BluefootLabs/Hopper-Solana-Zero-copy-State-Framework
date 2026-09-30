@@ -2192,7 +2192,7 @@ macro hopper_runtime::error! macro_rules! error { ( $e:expr ) => { ... }; }
 macro hopper_runtime::fast_entrypoint! macro_rules! fast_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
 macro hopper_runtime::hopper_emit_cpi! macro_rules! hopper_emit_cpi { ( $program_id:expr, $event_authority:expr, $bump:expr, $event:expr ) => { ... }; }
 macro hopper_runtime::hopper_entrypoint! macro_rules! hopper_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
-macro hopper_runtime::hopper_exact_entrypoint! macro_rules! hopper_exact_entrypoint { ( $( ( $disc:literal, $bound:expr, $helper:path ) ),* $(,)? ) => { ... }; }
+macro hopper_runtime::hopper_exact_entrypoint! macro_rules! hopper_exact_entrypoint { ( $( ( $disc:literal $( if $guard:expr )?, $bound:expr, $helper:path ) ),* $(,)? ) => { ... }; }
 macro hopper_runtime::hopper_fast_entrypoint! macro_rules! hopper_fast_entrypoint { ( $process_instruction:expr ) => { ... }; ( $process_instruction:expr, $maximum:expr ) => { ... }; }
 macro hopper_runtime::hopper_lazy_entrypoint! macro_rules! hopper_lazy_entrypoint { ( $process:expr ) => { ... }; }
 macro hopper_runtime::hopper_log! macro_rules! hopper_log { ($label:expr, $a:expr) => { ... }; ($label:expr, $a:expr, $b:expr) => { ... }; ($label:expr, $a:expr, $b:expr, $c:expr) => { ... }; ($label:expr, $a:expr, $b:expr, $c:expr, $d:expr) => { ... }; ($label:expr, $a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => { ... }; ($msg:expr) => { ... }; }
@@ -2620,6 +2620,7 @@ pub fn hopper_runtime::AccountView::flags(&self) -> u8
 pub fn hopper_runtime::AccountView::header_word(&self) -> u32
 pub fn hopper_runtime::AccountView::init_compact<T: hopper_runtime::CompactLayout>(&self) -> hopper_runtime::ProgramResult
 pub fn hopper_runtime::AccountView::init_compact_dynamic<T: hopper_runtime::CompactDynamicLayout>(&self) -> hopper_runtime::ProgramResult
+pub fn hopper_runtime::AccountView::init_compact_mut<T: hopper_runtime::CompactLayout>(&self) -> core::result::Result<hopper_runtime::RefMut<'_, T>, hopper_runtime::ProgramError>
 pub fn hopper_runtime::AccountView::init_layout<T: hopper_runtime::LayoutContract>(&self) -> hopper_runtime::ProgramResult
 pub fn hopper_runtime::AccountView::is_data_empty(&self) -> bool
 pub fn hopper_runtime::AccountView::is_signer(&self) -> bool

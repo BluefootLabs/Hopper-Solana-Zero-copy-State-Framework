@@ -1364,6 +1364,18 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
             ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                 account.init_compact::<Self>()
             }
+
+            /// Stamp the discriminator, zero the body, and return it to fill
+            /// in, in one borrow.
+            #[inline(always)]
+            pub fn init_compact_mut<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::RefMut<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.init_compact_mut::<Self>()
+            }
         }
     };
 
