@@ -42,6 +42,9 @@ the 0.5 release:
 | PDA counter, create | 1,490 CU | 1,514 CU | 1,471 CU |
 | PDA counter, update | 1,721 CU | 1,722 CU | 325 CU |
 
+Deployed to devnet, the Hopper programs were charged exactly these compute
+units ([evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
+
 The raw counter is the same program as Pinocchio's. The framework counter
 checks the signer, the owner, the layout, and the PDA before its handler runs,
 and it checks the PDA with one hash from the bump stored in the account. The

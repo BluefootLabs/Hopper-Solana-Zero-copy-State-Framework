@@ -18,6 +18,8 @@ The raw layer is Pinocchio's model and costs what Pinocchio costs. The
 framework generates the signer, owner, layout, and PDA checks and still comes
 in under the hand-written program, because it checks the bump stored in the
 account with one hash instead of re-deriving the address.
+Devnet charged the same compute units
+([evidence](audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
 [Why Hopper](docs/WHY_HOPPER.md), [coming from Pinocchio](docs/FROM_PINOCCHIO.md),
 and [the full table](bench/framework-comparison/results/RESULTS.txt).
 

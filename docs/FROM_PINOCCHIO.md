@@ -21,6 +21,10 @@ the 0.5 release (`scripts/bench-framework-comparison.py`):
 | PDA counter, Hopper raw (create, increment) | 6,608 B | 1,514, 1,722 |
 | PDA counter, Hopper `#[program]` (create, increment) | 8,744 B | 1,471, 325 |
 
+Deployed to devnet on the same day, the Hopper programs in this table were
+charged exactly these compute units
+([evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
+
 The raw counter is the same program as Pinocchio's: the same 10-byte account,
 the same `CreateAccount` CPI, the same `create_program_address` on every
 increment. Most of the 24 CU it adds on create go to checks Pinocchio does not

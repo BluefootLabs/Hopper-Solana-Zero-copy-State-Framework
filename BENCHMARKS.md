@@ -24,7 +24,9 @@ counter checks the signer, the owner, the layout, and the PDA before its
 handler runs, checks the PDA with one hash from the bump stored in the
 account, and keeps a 16-byte header, so its account is 25 bytes.
 [Coming from Pinocchio](docs/FROM_PINOCCHIO.md) lists the checks the raw
-layer makes that Pinocchio leaves out.
+layer makes that Pinocchio leaves out. Deployed to devnet on the same day,
+the four Hopper programs were charged exactly these compute units in all
+eight transactions ([evidence](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
 
 ## Funded token escrow: September 26, 2026
 

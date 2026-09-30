@@ -1,0 +1,89 @@
+{
+  "blockTime": 1790761623,
+  "meta": {
+    "computeUnitsConsumed": 1514,
+    "costUnits": 2842,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "111158mcGacezNeeyXtkvpNp4DNKrre5nWnkGs5C5fSPumy48pbSu7Gu1JngR1zQif83ME",
+            "programIdIndex": 2,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program E4mKDytrmQrhFh5rsepKhuCQxosgRD216fq3VEHZmQNQ invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program log: Counter initialized",
+      "Program E4mKDytrmQrhFh5rsepKhuCQxosgRD216fq3VEHZmQNQ consumed 1514 of 200000 compute units",
+      "Program E4mKDytrmQrhFh5rsepKhuCQxosgRD216fq3VEHZmQNQ success"
+    ],
+    "postBalances": [
+      7407452414,
+      701040,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      7408158454,
+      0,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 505862341,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "9pMqfFQqGZmiCHwG6FAuRsVn3WFaXN7BEx7yy3aUunxk",
+        "11111111111111111111111111111111",
+        "E4mKDytrmQrhFh5rsepKhuCQxosgRD216fq3VEHZmQNQ"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2
+          ],
+          "data": "15P",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "6CuavRMbHD2Sn3dV1gGxbnFu91rFPEua3QPXwKBhCSnV"
+    },
+    "signatures": [
+      "5NgGiSNCnepUD1r4j4tiKstspbSeGidDsdcsC3PipHQdjt7o1Hp1pT2GrFL8GdUhe32Q1ZFyMMgkq5NRoFyX4wGs"
+    ]
+  },
+  "transactionIndex": 6,
+  "version": "legacy"
+}

@@ -399,7 +399,12 @@ has a before and after for each change.
   to 1,722 on increment (1,490 and 1,721), and 6,792 to 6,608 bytes (6,512);
   the macro counter 1,517 to 1,471 and 348 to 325 CU; the macro hello 137 to
   127 CU. The macro counter grew from 8,352 to 8,744 bytes and the macro
-  hello from 1,768 to 1,824, mostly the unrolled account walk. What changed:
+  hello from 1,768 to 1,824, mostly the unrolled account walk. On devnet
+  (round twelve, 2026-09-30) the four fixtures, deployed fresh from commit
+  `f6333ae`, were charged exactly these compute units in eight transactions
+  with every account checked byte for byte
+  ([evidence](audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
+  What changed:
   - **The account walk.** Every scanning entrypoint walks the records with a
     pointer instead of a base and an offset, and the first four slots are
     straight-line code behind compile-time guards: one compare per account,
