@@ -1,0 +1,70 @@
+{
+  "version": {
+    "id": 3371072,
+    "crate": "hopper-lending",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-lending/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-lending/0.5.0/readme",
+    "updated_at": "2026-10-01T03:29:42.036719Z",
+    "created_at": "2026-10-01T03:29:42.036719Z",
+    "downloads": 0,
+    "features": {
+      "default": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-lending/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-lending/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-lending/0.5.0/authors"
+    },
+    "crate_size": 3717,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:29:42.036719Z"
+      }
+    ],
+    "checksum": "c04687cd76b456819b79c8fbd67a3a6c8db0934bedb98c39b5cc2fd7a33b465b",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Lending protocol primitives for Hopper: collateralization ratios, health checks, liquidation math, interest calculations. Zero-copy, no_std, no_alloc, BPF-safe.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-lending/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 93,
+          "comment_lines": 0,
+          "files": 2
+        }
+      },
+      "total_code_lines": 93,
+      "total_comment_lines": 0
+    }
+  }
+}

@@ -62,3 +62,22 @@ are not automatically files reviewed. The scoped review is in
 [`research/token-boundaries-2026-09-30.txt`](../../research/token-boundaries-2026-09-30.txt).
 
 Keypairs, credentials and private deployment transcripts are excluded.
+
+## Publication and website
+
+On 2026-10-01 UTC, 28 new package versions were published from
+`0a8827e177f225574f2285a58875d50e8059ffe7`. Each downloaded archive matches its
+registry checksum, VCS commit, source files, and packaged README. The package
+train covers 29 packages; unchanged `hopper-builtins` 0.4.0 was retained.
+The registry-only consumer passed and all 28 versioned docs.rs pages
+returned HTTP 200. `publication/` contains the public verification receipts.
+
+GitHub Actions did not start because of an account billing lock; its public
+annotations are retained. No successful hosted CI run is claimed.
+
+Website commit `2d834872d41a859a420a3c89760897407bebc1e5` reached Vercel production.
+The live check covered 55 pages and 5061 internal links
+with no failures, including headings, current package commands, the token
+example, release status, and the network observation. Local build and ESLint
+passed. Browser screenshot QA was unavailable. `website/` records the scope
+and exact deployment association.

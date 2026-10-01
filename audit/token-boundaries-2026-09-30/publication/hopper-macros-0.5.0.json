@@ -1,0 +1,70 @@
+{
+  "version": {
+    "id": 3371083,
+    "crate": "hopper-macros",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-macros/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-macros/0.5.0/readme",
+    "updated_at": "2026-10-01T03:30:28.480639Z",
+    "created_at": "2026-10-01T03:30:28.480639Z",
+    "downloads": 0,
+    "features": {
+      "default": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-macros/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-macros/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-macros/0.5.0/authors"
+    },
+    "crate_size": 18282,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:30:28.480639Z"
+      }
+    ],
+    "checksum": "e9a6a92edc182d87141aa5081c1a76b270e50589131a9579e18e684753843ce6",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Declarative macros for Hopper zero-copy state framework. Account groups, instruction descriptors, capability tags, layout metadata. All macro_rules!, no proc macros required.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-macros/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 1285,
+          "comment_lines": 117,
+          "files": 1
+        }
+      },
+      "total_code_lines": 1285,
+      "total_comment_lines": 117
+    }
+  }
+}

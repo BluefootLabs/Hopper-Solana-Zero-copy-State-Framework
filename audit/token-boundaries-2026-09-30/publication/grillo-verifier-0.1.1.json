@@ -1,0 +1,76 @@
+{
+  "version": {
+    "id": 3371091,
+    "crate": "grillo-verifier",
+    "num": "0.1.1",
+    "dl_path": "/api/v1/crates/grillo-verifier/0.1.1/download",
+    "readme_path": "/api/v1/crates/grillo-verifier/0.1.1/readme",
+    "updated_at": "2026-10-01T03:31:16.186336Z",
+    "created_at": "2026-10-01T03:31:16.186336Z",
+    "downloads": 0,
+    "features": {
+      "cli": [
+        "dep:serde",
+        "dep:serde_json"
+      ],
+      "default": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "MIT OR Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/grillo-verifier/0.1.1/dependencies",
+      "version_downloads": "/api/v1/crates/grillo-verifier/0.1.1/downloads",
+      "authors": "/api/v1/crates/grillo-verifier/0.1.1/authors"
+    },
+    "crate_size": 45429,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:31:16.186336Z"
+      }
+    ],
+    "checksum": "e7746041f0a318214c69b91e91bcf3597480e82ca27c497a32282c113cbc3453",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [
+      "grillo"
+    ],
+    "edition": "2021",
+    "description": "Offline verifier for caller-supplied byte and lamport snapshots against Grillo mutation contracts.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/grillo-verifier",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 2078,
+          "comment_lines": 47,
+          "files": 7
+        }
+      },
+      "total_code_lines": 2078,
+      "total_comment_lines": 47
+    }
+  }
+}

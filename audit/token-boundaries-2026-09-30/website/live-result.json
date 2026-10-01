@@ -1,0 +1,406 @@
+{
+  "websiteCommit": "2d834872d41a859a420a3c89760897407bebc1e5",
+  "observedAt": "2026-10-01T03:46:11.353514+00:00",
+  "productionDeploymentId": 6775655384,
+  "publishedVersion": "0.5.0",
+  "pages": 55,
+  "internalLinks": 5061,
+  "failures": [],
+  "headings": [
+    "The zero-copy frameworkfor Solana programs.",
+    "What will you build?",
+    "Keep control as your program grows.",
+    "Start with a program you can read.",
+    "Measure the programs your users run.",
+    "Build at the level your program needs.",
+    "Build with Hopper 0.5.0."
+  ],
+  "responses": [
+    {
+      "path": "/",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/",
+      "sha256": "d76a907becf277309ad6d04c06aefaeb6c27c6b2db7ec922d88bd28af66116b5",
+      "vercelId": "cle1::iad1::hcxfh-1790826357949-57561e3a6fd9"
+    },
+    {
+      "path": "/docs",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs",
+      "sha256": "8c323b8980fee692bab9fc9d539560568f992aa0a963cc10cb4aff4f284cc0c6",
+      "vercelId": "cle1::iad1::4ksf5-1790826357680-ec2fd5fe7213"
+    },
+    {
+      "path": "/docs/instruction-introspection",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/instruction-introspection",
+      "sha256": "1a59c41ebf47b03d93534d2f0a87406fca4477906ddb0152e7ec937c425ba707",
+      "vercelId": "cle1::iad1::z7fjh-1790826358695-5ea29207c155"
+    },
+    {
+      "path": "/docs/token-receipts",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/token-receipts",
+      "sha256": "062c6335d1125cfd11ad1a452d8cbf6652a518f40cdf4fd27eed81391ded3a84",
+      "vercelId": "cle1::iad1::lngdd-1790826359188-a3e4f4908e00"
+    },
+    {
+      "path": "/docs/treasury",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/treasury",
+      "sha256": "820db1655a1d18b85db6bec9b996bcbf9fc389749697cd232834c0542944c3d7",
+      "vercelId": "cle1::iad1::qg7t7-1790826359356-0ac3631db06b"
+    },
+    {
+      "path": "/docs/token-escrow",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/token-escrow",
+      "sha256": "7b9352b76905873540b15ba0a4d679894b83269d6391d046642cd38fa9a88eed",
+      "vercelId": "cle1::iad1::2l9jj-1790826359719-2c9fc892841f"
+    },
+    {
+      "path": "/docs/governance",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/governance",
+      "sha256": "2c2a751ee6145073c30566a06d3f65e226a8d8627e0fb4a3bbcc52235fcc84c7",
+      "vercelId": "cle1::iad1::ts7xt-1790826359795-da145afc6581"
+    },
+    {
+      "path": "/docs/use-cases",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/use-cases",
+      "sha256": "5ee1a1a8d28d8e8fdbfb533c22605f183af5957015ca66f0b5abcb38318f5f81",
+      "vercelId": "cle1::iad1::rhh8z-1790826360143-1a5b0b5acc61"
+    },
+    {
+      "path": "/docs/named-initialization",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/named-initialization",
+      "sha256": "5d4f84073014c084adf63c5932dd7353b5b16ca813f1fb8b2735672e80eb1d7c",
+      "vercelId": "cle1::iad1::bz292-1790826360196-7e1b80579469"
+    },
+    {
+      "path": "/docs/from-pinocchio",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/from-pinocchio",
+      "sha256": "0809e95051e32eecedca69c380b1771983ad4b7f93252a7b56539536f2337bc9",
+      "vercelId": "cle1::iad1::w2bhl-1790826360529-116efb585ae9"
+    },
+    {
+      "path": "/docs/migration-0-4",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/migration-0-4",
+      "sha256": "68e7d472e103c2e626f79211677fa38c45caf96e4fadf4df6f1ec583ccb9a9ca",
+      "vercelId": "cle1::iad1::d7wm5-1790826360612-02364d0fb470"
+    },
+    {
+      "path": "/docs/migration-0-5",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/migration-0-5",
+      "sha256": "889cfb56649fcb76dbf6058f9d5c20079d925f69b4317c6ed72a1738643ff753",
+      "vercelId": "cle1::iad1::7lrb7-1790826360928-2ab57cee22ae"
+    },
+    {
+      "path": "/docs/program-design",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/program-design",
+      "sha256": "453b933366fa0fd116d979f2e31aa13c884369a0b2f4305694565a41dea9843d",
+      "vercelId": "cle1::iad1::7lrb7-1790826361165-257c8adf9d92"
+    },
+    {
+      "path": "/docs/byte-allowance",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/byte-allowance",
+      "sha256": "58cf1ab0303253afa655fc572f6edff9e9e05dfa5fc4bbf5edef05dd7a715284",
+      "vercelId": "cle1::iad1::mpwjv-1790826361366-1edc9900e9d2"
+    },
+    {
+      "path": "/docs/solana-network",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/solana-network",
+      "sha256": "7544817e7afeab027f1f0b18de67e4c286f1ef07207cf66dfeab410368927634",
+      "vercelId": "cle1::iad1::jc8pd-1790826361568-8f382039ffc3"
+    },
+    {
+      "path": "/docs/release-status",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/release-status",
+      "sha256": "c6748c7d70a69b1e51d275f694ea1b46f675e8f7047b594efa770906ae9cde56",
+      "vercelId": "cle1::iad1::nhthp-1790826362248-e014d5f99966"
+    },
+    {
+      "path": "/docs/first-five",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/first-five",
+      "sha256": "d8a1aa7821b3e9105895db9431d96ccbd71e63656f38a3ae40fa0a56a59d0803",
+      "vercelId": "cle1::iad1::9ptxr-1790826362443-626e5a3e3637"
+    },
+    {
+      "path": "/docs/start",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/start",
+      "sha256": "410761115c5f454253f2c409594b9d79aee145aceb63a3cad4ce05771b51110c",
+      "vercelId": "cle1::iad1::fsxnm-1790826362637-96e18af6fe07"
+    },
+    {
+      "path": "/docs/why-hopper",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/why-hopper",
+      "sha256": "94b344e0ac34015fafcf9b66b0e21fab72f0b9fb4b450bccd75a07216b800940",
+      "vercelId": "cle1::iad1::l6gmc-1790826362889-a8621319b6e8"
+    },
+    {
+      "path": "/docs/model",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/model",
+      "sha256": "efc1a95a3826037b9140697c2448f0c959444b527f47cd9474080f484e5625f4",
+      "vercelId": "cle1::iad1::8dj24-1790826363026-4c8c2eb803b5"
+    },
+    {
+      "path": "/docs/architecture",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/architecture",
+      "sha256": "13b0519d96586c11984857c7b70761b389f38fdabbab88a634893ac3bcfbf13e",
+      "vercelId": "cle1::iad1::fpb7j-1790826363255-9e77b1c9d5f3"
+    },
+    {
+      "path": "/docs/layers",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/layers",
+      "sha256": "1393c208ad8ef186f8621b1a2147abf9014a8951a93454b7a3277153bf3ea43c",
+      "vercelId": "cle1::iad1::dz9hc-1790826363447-75ff0642c175"
+    },
+    {
+      "path": "/docs/writing",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/writing",
+      "sha256": "2387620d48dcce724eef54fee06a46d0fe1d9e2da4158227fdfae0e9ce254161",
+      "vercelId": "cle1::iad1::8rj9q-1790826363663-b31d3c027713"
+    },
+    {
+      "path": "/docs/memory-access",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/memory-access",
+      "sha256": "b4c35643e3cd6cee059c057950f546316ac0f238285db147f9f8b7a9bb820f46",
+      "vercelId": "cle1::iad1::52cqj-1790826363865-f2dbade41030"
+    },
+    {
+      "path": "/docs/policy",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/policy",
+      "sha256": "1606a26baf7acba7e881c5b4c02cb4a6581a33deeb2eda0d63032dad11d7650d",
+      "vercelId": "cle1::iad1::v7md7-1790826364721-4e00e49c3109"
+    },
+    {
+      "path": "/docs/event-cpi",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/event-cpi",
+      "sha256": "8c9f2e132aa8221322bf3ead5f28970f5dcbd55f62ef90661c94a510dfd68c35",
+      "vercelId": "cle1::iad1::jc8pd-1790826365048-5c543e1e8994"
+    },
+    {
+      "path": "/docs/composite-contexts",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/composite-contexts",
+      "sha256": "67c10524feab4f02bb8d70f40323ffae1982ffef78d1d2414205b542e689a11f",
+      "vercelId": "cle1::iad1::4cqvb-1790826365140-3b993efd6820"
+    },
+    {
+      "path": "/docs/lazy-migration",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/lazy-migration",
+      "sha256": "26b37b6b10aaafad72b660a1c3e67fc142505f13ab6c19f6c48f595782a3214c",
+      "vercelId": "cle1::iad1::f68lr-1790826365451-1651729f7182"
+    },
+    {
+      "path": "/docs/self-describing-transactions",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/self-describing-transactions",
+      "sha256": "6b64fc9cd3f2d5ba0762a9aa7a7e458225b4e96be8e078df484b31e66575aeb9",
+      "vercelId": "cle1::iad1::qsm7d-1790826365602-e676612ea87e"
+    },
+    {
+      "path": "/docs/tx-tooling",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/tx-tooling",
+      "sha256": "bfd7323eaf51b80e989b315d6cf7443621c62e173fc53302e2ac7f9d247a762d",
+      "vercelId": "cle1::iad1::7zmmb-1790826365818-ade7a35e9252"
+    },
+    {
+      "path": "/docs/self-audit",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/self-audit",
+      "sha256": "ab35af12f0c5ad9b880d42257c07326740f25df271f900f23c49218a79e1a2f7",
+      "vercelId": "cle1::iad1::kbj7c-1790826366040-87a142165563"
+    },
+    {
+      "path": "/docs/effect-verification",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/effect-verification",
+      "sha256": "06c22f7a193f43dacb17c7b7684a660f972e55aa20e3fb8d02a1acd793b98711",
+      "vercelId": "cle1::iad1::pgnp4-1790826366219-b15250ba98b9"
+    },
+    {
+      "path": "/docs/token-2022",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/token-2022",
+      "sha256": "814c2ddbb50ad7194078b3321489ab53614ae31b40d6d41425abc353e6415706",
+      "vercelId": "cle1::iad1::ljz6d-1790826366454-5fa3051ad897"
+    },
+    {
+      "path": "/docs/crypto-capabilities",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/crypto-capabilities",
+      "sha256": "3274e2840eefe5549c021aafac252bb512d436de8a743afc8397bf93d5b196d6",
+      "vercelId": "cle1::iad1::52ks2-1790826366616-59ac4931ab3b"
+    },
+    {
+      "path": "/docs/schema",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/schema",
+      "sha256": "42a769009323d644bb4143e55d1d73df065d138eaee31ac336d8ae970d95a59a",
+      "vercelId": "cle1::iad1::9z446-1790826366865-6009dd15c2cc"
+    },
+    {
+      "path": "/docs/onchain-schema",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/onchain-schema",
+      "sha256": "d6bed977798a235d9be903675c8e0270945da989b9b141cede6c0f8f2f785ddc",
+      "vercelId": "cle1::iad1::hjwr5-1790826367016-bb54983f7a85"
+    },
+    {
+      "path": "/docs/dynamic-fields",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/dynamic-fields",
+      "sha256": "713ff0170aaa8c03824ffb0ebea43cc2a69d085ee64c43643719c72f796d5169",
+      "vercelId": "cle1::iad1::99dsf-1790826367271-6295e3fed97d"
+    },
+    {
+      "path": "/docs/collections-resizing",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/collections-resizing",
+      "sha256": "17973f830e0029b1f6394cee2d4f014d9a2ce1332a104deca768d530732c96ae",
+      "vercelId": "cle1::iad1::69ctd-1790826367462-6e22d46ff858"
+    },
+    {
+      "path": "/docs/dynamic-tails",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/dynamic-tails",
+      "sha256": "d5127b5bb768f144bd155439032ac83336348c5675801717efdd261f49f57b96",
+      "vercelId": "cle1::iad1::89ddh-1790826367686-17dcf96d2efa"
+    },
+    {
+      "path": "/docs/program-migration",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/program-migration",
+      "sha256": "26f960e7b7fa06e0d25f67a121f5b77b524e913698c35f6d76f791908f1a816b",
+      "vercelId": "cle1::iad1::mpwjv-1790826367915-d076ab291212"
+    },
+    {
+      "path": "/docs/program-capabilities",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/program-capabilities",
+      "sha256": "0b2a0f3c52a86b0896240fdbc44a69e4aa5d7d6504be04e92431a59cca91ee4a",
+      "vercelId": "cle1::iad1::9vnhh-1790826368148-926f5d9ea2c8"
+    },
+    {
+      "path": "/docs/bounded-multisig",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/bounded-multisig",
+      "sha256": "1ed36ec9fc5e3e415d1c7f6af05e9dbce8a6ab0534ffa1187ec30925e8ddac5b",
+      "vercelId": "cle1::iad1::qg7t7-1790826368289-68ff36f16571"
+    },
+    {
+      "path": "/docs/tail-lab",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/tail-lab",
+      "sha256": "9906de56a245feb4161530a04a002091c9a8e1da11298521c5bc36e5026d2d71",
+      "vercelId": "cle1::iad1::7qvvj-1790826368535-d0d447ef94b4"
+    },
+    {
+      "path": "/docs/styx-ferry-messaging",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/styx-ferry-messaging",
+      "sha256": "7120865d0f3207a4919acb66da71287b6318f9cd04c3b8ab492b6f769a8f28c1",
+      "vercelId": "cle1::iad1::99dsf-1790826368682-3a7b5b16edd4"
+    },
+    {
+      "path": "/docs/cli",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/cli",
+      "sha256": "848d883893a7ec7520b0d6a5ae6260deb44df46f6320acea9ad605fc0e0e144d",
+      "vercelId": "cle1::iad1::7cbvj-1790826368943-e42a70b849e9"
+    },
+    {
+      "path": "/docs/client-generation",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/client-generation",
+      "sha256": "814b3f33869c2ecee0bf60b29f9c3c2e2a8a461e3c9e9db6ee29265864798805",
+      "vercelId": "cle1::iad1::9zjsv-1790826369028-4ad2e1a2e392"
+    },
+    {
+      "path": "/docs/manager",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/manager",
+      "sha256": "e11c6731d14caedb234d53e53a20c6cc8b0b9a5fa2a93d3c5535f397a1b04c9f",
+      "vercelId": "cle1::iad1::jvxwg-1790826369384-f145bd0aafe0"
+    },
+    {
+      "path": "/docs/native-backend",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/native-backend",
+      "sha256": "26a52dff26eb0ec1eeb4681726a6a8ca0361df086f89ca909f2f5edc0ff801a9",
+      "vercelId": "cle1::iad1::rbssk-1790826369419-ead42d5c9f65"
+    },
+    {
+      "path": "/docs/native-enhancements",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/native-enhancements",
+      "sha256": "652a744244e54a012a9210dc1c9dc19eb3133de9a04ab097e1dcc7e16b923f08",
+      "vercelId": "cle1::iad1::w2bhl-1790826369781-e6098d11dd7c"
+    },
+    {
+      "path": "/docs/profiling",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/profiling",
+      "sha256": "d7221677677b2da9ddf81bf5f0612d2ff76339827ddef354c4e3b9074ce7eafa",
+      "vercelId": "cle1::iad1::9ptxr-1790826369795-209edce16a9d"
+    },
+    {
+      "path": "/docs/cu-costs",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/cu-costs",
+      "sha256": "74852e41d353f693435c3624f492f260523a5db3a58f2a19861e35ed8fdbeb71",
+      "vercelId": "cle1::iad1::7n9jr-1790826370183-e5d5da9330de"
+    },
+    {
+      "path": "/docs/protocol-examples",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/protocol-examples",
+      "sha256": "43d1cf87d730ce68b6b3613164d67d073e9a696e0c8b829be836b7b085b2937e",
+      "vercelId": "cle1::iad1::ljz6d-1790826370184-895157b2b973"
+    },
+    {
+      "path": "/docs/proc-macros",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/proc-macros",
+      "sha256": "5d2f3820e4e8586fcc472e0e9ea27c321b0042874c3dbc41a2ce1ba9c05874ee",
+      "vercelId": "cle1::iad1::zwpm7-1790826370585-2c3f3a3e2862"
+    },
+    {
+      "path": "/docs/unsafe",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/unsafe",
+      "sha256": "e866368656ac86544f33e40f82b9c37458702481d0d462f1d895f08ee757a7c3",
+      "vercelId": "cle1::iad1::bsmj9-1790826370630-cb93ee1a2bbc"
+    },
+    {
+      "path": "/docs/benchmarks",
+      "status": 200,
+      "url": "https://www.hopperzero.dev/docs/benchmarks",
+      "sha256": "40841af7c728a02000d8bbb80ba2ba7d863fa34c757663f4ef3ec9b8c5719bc7",
+      "vercelId": "cle1::iad1::tl9gj-1790826371209-65c5df7ffc0d"
+    }
+  ],
+  "scope": "Exact GitHub/Vercel production commit, live HTTP responses and rendered HTML, story order, release labels, network observation, links and anchors. Browser screenshot QA was unavailable."
+}

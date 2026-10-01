@@ -1,0 +1,70 @@
+{
+  "version": {
+    "id": 3371067,
+    "crate": "hopper-anchor",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-anchor/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-anchor/0.5.0/readme",
+    "updated_at": "2026-10-01T03:29:18.962015Z",
+    "created_at": "2026-10-01T03:29:18.962015Z",
+    "downloads": 0,
+    "features": {
+      "default": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-anchor/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-anchor/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-anchor/0.5.0/authors"
+    },
+    "crate_size": 4112,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:29:18.962015Z"
+      }
+    ],
+    "checksum": "e4114dbb8301ec5b3395797063b2450c15ddec44f9683f5c570d1a24180f1264",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Anchor framework interoperability for Hopper. Compute and check Anchor discriminators and expose discriminator-checked body slices of Anchor-created accounts.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-anchor/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 143,
+          "comment_lines": 4,
+          "files": 2
+        }
+      },
+      "total_code_lines": 143,
+      "total_comment_lines": 4
+    }
+  }
+}

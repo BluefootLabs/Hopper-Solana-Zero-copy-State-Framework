@@ -1,0 +1,84 @@
+{
+  "version": {
+    "id": 3371088,
+    "crate": "hopper-sdk",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-sdk/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-sdk/0.5.0/readme",
+    "updated_at": "2026-10-01T03:30:55.061452Z",
+    "created_at": "2026-10-01T03:30:55.061452Z",
+    "downloads": 0,
+    "features": {
+      "builder": [
+        "std"
+      ],
+      "default": [
+        "std",
+        "narrate",
+        "builder"
+      ],
+      "narrate": [
+        "std"
+      ],
+      "serde_json": [
+        "std"
+      ],
+      "std": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-sdk/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-sdk/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-sdk/0.5.0/authors"
+    },
+    "crate_size": 18901,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:30:55.061452Z"
+      }
+    ],
+    "checksum": "57a431f0c635e8e150e038da1712db5bd66756576ad3da215be8bbf9a1445f67",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Off-chain SDK for the Hopper zero-copy state framework. Parses receipts,\ndecodes account state through segment-aware partial reads, builds instructions\nfrom a ProgramManifest, and narrates Hopper state diffs for indexers and\nexplorers using Hopper layout IDs, segment roles, receipts, and policies.\n",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-sdk/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 1400,
+          "comment_lines": 25,
+          "files": 6
+        }
+      },
+      "total_code_lines": 1400,
+      "total_comment_lines": 25
+    }
+  }
+}

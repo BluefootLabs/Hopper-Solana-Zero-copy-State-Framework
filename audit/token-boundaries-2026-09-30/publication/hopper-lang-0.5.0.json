@@ -1,0 +1,182 @@
+{
+  "version": {
+    "id": 3371089,
+    "crate": "hopper-lang",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-lang/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-lang/0.5.0/readme",
+    "updated_at": "2026-10-01T03:31:07.088128Z",
+    "created_at": "2026-10-01T03:31:07.088128Z",
+    "downloads": 0,
+    "features": {
+      "advanced": [
+        "hopper-core/advanced"
+      ],
+      "anchor-interop": [
+        "dep:hopper-anchor"
+      ],
+      "builtins": [
+        "dep:hopper-builtins"
+      ],
+      "collections": [
+        "hopper-core/collections"
+      ],
+      "cu-trace": [
+        "hopper-runtime/cu-trace"
+      ],
+      "default": [],
+      "diff": [
+        "hopper-core/diff"
+      ],
+      "distribute": [
+        "dep:hopper-distribute"
+      ],
+      "explain": [
+        "hopper-core/explain"
+      ],
+      "finance": [
+        "dep:hopper-finance"
+      ],
+      "frame": [
+        "hopper-core/frame"
+      ],
+      "framework": [],
+      "graph": [
+        "hopper-core/graph"
+      ],
+      "legacy-token-instructions": [
+        "hopper-token/legacy-token-instructions",
+        "hopper-solana/legacy-token-instructions"
+      ],
+      "lending": [
+        "dep:hopper-lending"
+      ],
+      "metaplex": [
+        "dep:hopper-metaplex"
+      ],
+      "migrate": [
+        "hopper-core/migrate"
+      ],
+      "multisig": [
+        "dep:hopper-multisig"
+      ],
+      "panic-location": [
+        "hopper-runtime/panic-location"
+      ],
+      "panic-message": [
+        "hopper-runtime/panic-message"
+      ],
+      "policy": [
+        "hopper-core/policy"
+      ],
+      "proc-macros": [
+        "hopper-macros-proc",
+        "receipt"
+      ],
+      "receipt": [
+        "hopper-core/receipt"
+      ],
+      "remaining-compute-units-syscall": [
+        "hopper-runtime/remaining-compute-units-syscall",
+        "hopper-solana/remaining-compute-units-syscall"
+      ],
+      "sha512-syscall": [
+        "hopper-runtime/sha512-syscall"
+      ],
+      "simd-0321": [
+        "hopper-runtime/simd-0321"
+      ],
+      "simd-0449": [
+        "hopper-runtime/simd-0449",
+        "simd-0321"
+      ],
+      "staking": [
+        "dep:hopper-staking"
+      ],
+      "static-syscalls": [
+        "hopper-runtime/static-syscalls"
+      ],
+      "systems": [
+        "advanced",
+        "collections"
+      ],
+      "touch-map": [
+        "hopper-runtime/touch-map"
+      ],
+      "unguarded-raw-surfaces": [
+        "hopper-runtime/unguarded-raw-surfaces"
+      ],
+      "vesting": [
+        "dep:hopper-vesting"
+      ],
+      "virtual-state": [
+        "hopper-core/virtual-state"
+      ]
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "MIT OR Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-lang/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-lang/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-lang/0.5.0/authors"
+    },
+    "crate_size": 3565766,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:31:07.088128Z"
+      }
+    ],
+    "checksum": "907ab7bc16e2c07da82ca0ad378548ac58344f3653755c7bca958a87ad2c0e2e",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Zero-copy Solana program framework with typed account validation, layout evolution, generated clients, and explicit low-level APIs. no_std and no_alloc by default.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-lang/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Python": {
+          "code_lines": 6612,
+          "comment_lines": 437,
+          "files": 45
+        },
+        "Rust": {
+          "code_lines": 1336,
+          "comment_lines": 86,
+          "files": 6
+        },
+        "Shell": {
+          "code_lines": 276,
+          "comment_lines": 80,
+          "files": 7
+        }
+      },
+      "total_code_lines": 8224,
+      "total_comment_lines": 603
+    }
+  }
+}

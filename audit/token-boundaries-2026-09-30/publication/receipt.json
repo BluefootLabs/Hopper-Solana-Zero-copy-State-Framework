@@ -1,0 +1,230 @@
+{
+  "observedAt": "2026-10-01T03:33:42.821404+00:00",
+  "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+  "crates": [
+    {
+      "crate": "grillo-manifest",
+      "version": "0.1.1",
+      "sha256": "d1e9137da46eec101d7b22da710fd8fbb048dcefd31fb2bf7a015c3a95fdb5ed",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 8
+    },
+    {
+      "crate": "hopper-derive",
+      "version": "0.5.0",
+      "sha256": "77c4590f444484a25e1a3b41eed64d8db0112ae617cc6609cbf9dcf079a7fc99",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 18
+    },
+    {
+      "crate": "hopper-native",
+      "version": "0.5.0",
+      "sha256": "7e55bf38fc0e2db70a0ba292fc5560c309942a625e3719f381df50b8b43186fd",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 38
+    },
+    {
+      "crate": "hopper-topology",
+      "version": "0.1.1",
+      "sha256": "1e645a7610a3d8abf36e3ebade26bbc1c786d33202c1d944f2178400f9e6878a",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 6
+    },
+    {
+      "crate": "hopper-runtime",
+      "version": "0.5.0",
+      "sha256": "c964906868ed03d6aae2e337eb3625c396ebab4d65ff90dab2c763078b1e5e92",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 62
+    },
+    {
+      "crate": "hopper-anchor",
+      "version": "0.5.0",
+      "sha256": "e4114dbb8301ec5b3395797063b2450c15ddec44f9683f5c570d1a24180f1264",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-system",
+      "version": "0.5.0",
+      "sha256": "c86d866a798ae9f1f6e92c1855511870b4926c4915118297e8833f733e02702e",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 2
+    },
+    {
+      "crate": "hopper-systems",
+      "version": "0.5.0",
+      "sha256": "d1076d917dee434ca92b80d4aa11ca82f1ee0d72a2afac4d2b237bedbbd44e29",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 70
+    },
+    {
+      "crate": "hopper-token",
+      "version": "0.5.0",
+      "sha256": "3eea068a06b2928842e3b17ae6e9d3c9030522c154e3f1848806c555a1fc4acf",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-distribute",
+      "version": "0.5.0",
+      "sha256": "d1b890ed76a9c91531d2f612be7773e15823bf39cd9a60d02e4ddd15551b6750",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-lending",
+      "version": "0.5.0",
+      "sha256": "c04687cd76b456819b79c8fbd67a3a6c8db0934bedb98c39b5cc2fd7a33b465b",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-memo",
+      "version": "0.5.0",
+      "sha256": "4df827dc712bf17819ad7ada2cbe653d96e1c09c8b9a21eecbaf8110fd9f1ebc",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 2
+    },
+    {
+      "crate": "hopper-metaplex",
+      "version": "0.5.0",
+      "sha256": "15305fa736dd7f59be9e373fc3249ff175c53037c06d2bf41885268496d3e75e",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 6
+    },
+    {
+      "crate": "hopper-multisig",
+      "version": "0.5.0",
+      "sha256": "1a6fa2cd7a6b92a1e685a58a8367606172675cb99f9177fb9c4164d7e8cacbbb",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-staking",
+      "version": "0.5.0",
+      "sha256": "115de618c0a61286d42884485d8ba7a66963bc08d751779799578714a025cbd3",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-svm",
+      "version": "0.5.0",
+      "sha256": "0d0a276bb837e75f1801dffd81d31afb8aa0225e42ca3aba838368a3ce1553de",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 2
+    },
+    {
+      "crate": "hopper-vesting",
+      "version": "0.5.0",
+      "sha256": "d15ed583c67e7fc42a5ec5d92c490ea520da2d8817772cbf20910f4642611ab7",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-finance",
+      "version": "0.5.0",
+      "sha256": "0e4b5383cd4a9faa61632d989fb50a297301ab520e451393593bb9e5ac5c2597",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 4
+    },
+    {
+      "crate": "hopper-schema",
+      "version": "0.5.0",
+      "sha256": "16e1c2ee78bb8b94627524143a4fb46c855bea9425bf52d814b0e0c47a5b4933",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 11
+    },
+    {
+      "crate": "hopper-macros",
+      "version": "0.5.0",
+      "sha256": "e9a6a92edc182d87141aa5081c1a76b270e50589131a9579e18e684753843ce6",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 2
+    },
+    {
+      "crate": "hopper-solana",
+      "version": "0.5.0",
+      "sha256": "bf450bb46f79eceb056c392e700dd27b280a6c424e9a6a246a3026f99439f53a",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 21
+    },
+    {
+      "crate": "hopper-associated-token",
+      "version": "0.5.0",
+      "sha256": "d66af4a5b8a5e123dbd29d3db3656d9fe47316ffcf786d19e94e9bd73664fb38",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 3
+    },
+    {
+      "crate": "hopper-token-2022",
+      "version": "0.5.0",
+      "sha256": "6427048b42eac4e1d6a034baa0bd4007774febeaaf24896a49087d82004fba18",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 4
+    },
+    {
+      "crate": "hopper-manager",
+      "version": "0.5.0",
+      "sha256": "192284e4393aabb58ce3b96fe22294e360e56ddb200f59575773af13932c8c4a",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 5
+    },
+    {
+      "crate": "hopper-sdk",
+      "version": "0.5.0",
+      "sha256": "57a431f0c635e8e150e038da1712db5bd66756576ad3da215be8bbf9a1445f67",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 7
+    },
+    {
+      "crate": "hopper-lang",
+      "version": "0.5.0",
+      "sha256": "907ab7bc16e2c07da82ca0ad378548ac58344f3653755c7bca958a87ad2c0e2e",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 7
+    },
+    {
+      "crate": "grillo-verifier",
+      "version": "0.1.1",
+      "sha256": "e7746041f0a318214c69b91e91bcf3597480e82ca27c497a32282c113cbc3453",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 8
+    },
+    {
+      "crate": "hopper-cli",
+      "version": "0.5.0",
+      "sha256": "9f7e343f58dc8c6442ea1c13e182a2e92422222beca6dfbfbd235f67dc89dc60",
+      "sourceCommit": "0a8827e177f225574f2285a58875d50e8059ffe7",
+      "registryChecksumMatches": true,
+      "downloadedSourceFilesMatch": 43
+    }
+  ]
+}

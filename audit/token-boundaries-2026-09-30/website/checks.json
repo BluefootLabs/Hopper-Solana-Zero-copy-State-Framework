@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-10-01T03:44:28.093005+00:00",
+  "workingTreeFingerprint": "369c78e414f8618a0539c6473bf044089bcbecc6e6e3b074690b2c293767b103",
+  "checks": [
+    {
+      "name": "build",
+      "command": [
+        "npm.cmd",
+        "run",
+        "build"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "lint",
+      "command": [
+        "npm.cmd",
+        "run",
+        "lint"
+      ],
+      "exitCode": 0
+    }
+  ]
+}

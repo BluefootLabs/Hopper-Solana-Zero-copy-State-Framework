@@ -6,8 +6,12 @@ the Hopper crates together using the [migration guide](MIGRATION_0_5.md).
 The support crates `grillo-manifest`, `grillo-verifier`, and `hopper-topology`
 are 0.1.1; unchanged `hopper-builtins` remains 0.4.0.
 
-This records the tested release source. Registry publication is verified
-separately and is pending at this source commit.
+**Published on crates.io**, checked 2026-10-01 UTC: 28 new package versions.
+Downloaded archives match the registry checksums and publication commit
+`0a8827e177f225574f2285a58875d50e8059ffe7`. A registry-only consumer compiles
+the framework macros, token batches, fallible PDA search, hook parser, and
+token payout receipts. All 28 versioned docs.rs pages responded successfully.
+The unchanged builtins package remains available.
 
 ## Programs and token operations
 
@@ -73,7 +77,11 @@ evidence checksums, and publication metadata checks passed.
 The recorded RustSec database found no known vulnerabilities in this lockfile
 and reported four unmaintained dependencies. These are targeted tests and
 reviews, not an independent security audit. Package checksums, registry-only
-consumer tests, and docs.rs status are added after publication.
+consumer results, and docs.rs status are recorded in the release evidence.
+
+GitHub Actions did not start for the publication commit: its annotations report
+an account billing lock. Local checks and devnet results are recorded above;
+a green hosted CI run is not claimed. The release evidence retains the annotations.
 
 Builds used platform-tools v1.57. Deployment used the official checksum-verified
 Agave 4.3.0 CLI with ordinary feature verification and preflight; the older

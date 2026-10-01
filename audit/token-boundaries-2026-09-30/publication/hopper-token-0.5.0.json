@@ -1,0 +1,73 @@
+{
+  "version": {
+    "id": 3371070,
+    "crate": "hopper-token",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-token/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-token/0.5.0/readme",
+    "updated_at": "2026-10-01T03:29:34.236402Z",
+    "created_at": "2026-10-01T03:29:34.236402Z",
+    "downloads": 0,
+    "features": {
+      "default": [],
+      "legacy-token-instructions": [
+        "hopper-runtime/legacy-token-instructions"
+      ]
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-token/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-token/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-token/0.5.0/authors"
+    },
+    "crate_size": 10292,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:29:34.236402Z"
+      }
+    ],
+    "checksum": "3eea068a06b2928842e3b17ae6e9d3c9030522c154e3f1848806c555a1fc4acf",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Hopper-owned SPL Token builder surface. Thin, no_std instruction builders over Hopper Runtime.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-token/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 908,
+          "comment_lines": 59,
+          "files": 2
+        }
+      },
+      "total_code_lines": 908,
+      "total_comment_lines": 59
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "version": {
+    "id": 3371063,
+    "crate": "hopper-native",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-native/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-native/0.5.0/readme",
+    "updated_at": "2026-10-01T03:28:55.717435Z",
+    "created_at": "2026-10-01T03:28:55.717435Z",
+    "downloads": 0,
+    "features": {
+      "copy": [],
+      "cpi": [],
+      "cu-trace": [],
+      "default": [
+        "cpi",
+        "legacy-projectable"
+      ],
+      "legacy-projectable": [],
+      "panic-location": [],
+      "panic-message": [],
+      "remaining-compute-units-syscall": [],
+      "sha512-syscall": [],
+      "simd-0321": [],
+      "simd-0449": [
+        "simd-0321"
+      ],
+      "static-syscalls": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "MIT OR Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-native/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-native/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-native/0.5.0/authors"
+    },
+    "crate_size": 177867,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:28:55.717435Z"
+      }
+    ],
+    "checksum": "7e55bf38fc0e2db70a0ba292fc5560c309942a625e3719f381df50b8b43186fd",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Low-level Solana backend for Hopper with zero-copy account access, syscalls, checked CPI infrastructure, PDA helpers, and entrypoint glue. no_std and no_alloc.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-native/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 10144,
+          "comment_lines": 1700,
+          "files": 37
+        }
+      },
+      "total_code_lines": 10144,
+      "total_comment_lines": 1700
+    }
+  }
+}

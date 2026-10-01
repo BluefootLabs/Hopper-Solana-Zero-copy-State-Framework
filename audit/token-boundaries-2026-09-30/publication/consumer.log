@@ -1,0 +1,36 @@
+    Updating crates.io index
+     Locking 44 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+ Downloading crates ...
+  Downloaded hopper-derive v0.5.0
+  Downloaded hopper-lang v0.5.0
+    Blocking waiting for file lock on build directory
+   Compiling hopper-runtime v0.5.0
+   Compiling hopper-native v0.5.0
+   Compiling hopper-derive v0.5.0
+   Compiling hopper-systems v0.5.0
+   Compiling hopper-system v0.5.0
+   Compiling hopper-token v0.5.0
+   Compiling hopper-solana v0.5.0
+   Compiling hopper-schema v0.5.0
+   Compiling hopper-macros v0.5.0
+   Compiling hopper-token-2022 v0.5.0
+   Compiling hopper-associated-token v0.5.0
+   Compiling hopper-memo v0.5.0
+   Compiling hopper-lang v0.5.0
+   Compiling hopper-0-5-consumer v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\token-review-2026-09-30\release\registry\consumer)
+    Finished `test` profile [unoptimized] target(s) in 25.31s
+     Running unittests src\lib.rs (target\debug\deps\hopper_0_5_consumer-71b0039b39f463df.exe)
+
+running 1 test
+test malformed_hook_returns_a_typed_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hopper_0_5_consumer
+
+running 1 test
+test src\lib.rs - AuthorityCtx<'ctx,'a,__HOPPER_BASE>::bumps (line 10) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

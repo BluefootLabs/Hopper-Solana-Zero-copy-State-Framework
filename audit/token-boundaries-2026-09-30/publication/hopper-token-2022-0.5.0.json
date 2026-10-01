@@ -1,0 +1,70 @@
+{
+  "version": {
+    "id": 3371086,
+    "crate": "hopper-token-2022",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-token-2022/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-token-2022/0.5.0/readme",
+    "updated_at": "2026-10-01T03:30:45.268050Z",
+    "created_at": "2026-10-01T03:30:45.268050Z",
+    "downloads": 0,
+    "features": {
+      "default": []
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-token-2022/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-token-2022/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-token-2022/0.5.0/authors"
+    },
+    "crate_size": 23513,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:30:45.268050Z"
+      }
+    ],
+    "checksum": "6427048b42eac4e1d6a034baa0bd4007774febeaaf24896a49087d82004fba18",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Hopper-owned Token-2022 builder and screening surface. Thin, no_std instruction builders over Hopper Runtime.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-token-2022/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 859,
+          "comment_lines": 32,
+          "files": 3
+        }
+      },
+      "total_code_lines": 859,
+      "total_comment_lines": 32
+    }
+  }
+}

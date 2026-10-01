@@ -1,0 +1,68 @@
+{
+  "version": {
+    "id": 3371087,
+    "crate": "hopper-manager",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-manager/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-manager/0.5.0/readme",
+    "updated_at": "2026-10-01T03:30:50.444103Z",
+    "created_at": "2026-10-01T03:30:50.444103Z",
+    "downloads": 0,
+    "features": {},
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-manager/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-manager/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-manager/0.5.0/authors"
+    },
+    "crate_size": 9135,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:30:50.444103Z"
+      }
+    ],
+    "checksum": "192284e4393aabb58ce3b96fe22294e360e56ddb200f59575773af13932c8c4a",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Schema-driven inspector for Hopper programs that renders reports from runtime, layout, and schema metadata.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-manager/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 775,
+          "comment_lines": 5,
+          "files": 4
+        }
+      },
+      "total_code_lines": 775,
+      "total_comment_lines": 5
+    }
+  }
+}

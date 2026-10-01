@@ -1,0 +1,10 @@
+{
+  "url": "https://hopperzero.dev/docs/migration-0-5",
+  "status": 200,
+  "sha256": "ded39c4638a2008e0ac5148ef9c45bb70842c8305ee06eac5021e43da5e59341",
+  "verifiedPhrases": [
+    "unchanged layout declarations",
+    "authorization checks",
+    "Changing a layout can still require a migration"
+  ]
+}

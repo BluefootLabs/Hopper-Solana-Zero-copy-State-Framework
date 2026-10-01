@@ -1,0 +1,79 @@
+{
+  "version": {
+    "id": 3371082,
+    "crate": "hopper-schema",
+    "num": "0.5.0",
+    "dl_path": "/api/v1/crates/hopper-schema/0.5.0/download",
+    "readme_path": "/api/v1/crates/hopper-schema/0.5.0/readme",
+    "updated_at": "2026-10-01T03:30:21.213464Z",
+    "created_at": "2026-10-01T03:30:21.213464Z",
+    "downloads": 0,
+    "features": {
+      "default": [
+        "receipt",
+        "policy"
+      ],
+      "policy": [
+        "hopper-core/policy"
+      ],
+      "receipt": [
+        "hopper-core/receipt"
+      ]
+    },
+    "yanked": false,
+    "yank_message": null,
+    "lib_links": null,
+    "license": "Apache-2.0",
+    "links": {
+      "dependencies": "/api/v1/crates/hopper-schema/0.5.0/dependencies",
+      "version_downloads": "/api/v1/crates/hopper-schema/0.5.0/downloads",
+      "authors": "/api/v1/crates/hopper-schema/0.5.0/authors"
+    },
+    "crate_size": 138775,
+    "published_by": {
+      "id": 392153,
+      "login": "QuarksBlueFoot",
+      "name": "Quark",
+      "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+      "url": "https://github.com/QuarksBlueFoot",
+      "github_username_matches": true,
+      "created_at": "2025-04-20T23:29:13Z"
+    },
+    "audit_actions": [
+      {
+        "action": "publish",
+        "user": {
+          "id": 392153,
+          "login": "QuarksBlueFoot",
+          "name": "Quark",
+          "avatar": "https://avatars.githubusercontent.com/u/208407842?v=4",
+          "url": "https://github.com/QuarksBlueFoot",
+          "github_username_matches": true,
+          "created_at": "2025-04-20T23:29:13Z"
+        },
+        "time": "2026-10-01T03:30:21.213464Z"
+      }
+    ],
+    "checksum": "16e1c2ee78bb8b94627524143a4fb46c855bea9425bf52d814b0e0c47a5b4933",
+    "rust_version": null,
+    "has_lib": true,
+    "bin_names": [],
+    "edition": "2021",
+    "description": "Schema export and ABI fingerprinting for Hopper zero-copy state framework. Layout manifests, schema diff, migration checks.",
+    "homepage": "https://hopperzero.dev",
+    "documentation": "https://docs.rs/crate/hopper-schema/0.5.0",
+    "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+    "trustpub_data": null,
+    "linecounts": {
+      "languages": {
+        "Rust": {
+          "code_lines": 17204,
+          "comment_lines": 457,
+          "files": 10
+        }
+      },
+      "total_code_lines": 17204,
+      "total_comment_lines": 457
+    }
+  }
+}
