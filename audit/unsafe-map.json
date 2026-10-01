@@ -12550,7 +12550,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 998,
+   "line": 1001,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12567,7 +12567,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1055,
+   "line": 1058,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12584,7 +12584,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_bounded#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1062,
+   "line": 1065,
    "kind": "block",
    "function": "invoke_signed_bounded",
    "type": null,
@@ -12601,7 +12601,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#1",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1214,
+   "line": 1217,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -12622,7 +12622,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#2",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1226,
+   "line": 1229,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -12643,7 +12643,7 @@
   {
    "id": "crates/hopper-runtime/src/cpi.rs::invoke_signed_deduped#3",
    "file": "crates/hopper-runtime/src/cpi.rs",
-   "line": 1233,
+   "line": 1236,
    "kind": "block",
    "function": "invoke_signed_deduped",
    "type": null,
@@ -14045,8 +14045,8 @@
     "crates/hopper-native/tests/borrow_aware_readers.rs",
     "crates/hopper-solana/src/token2022_ext.rs (test module)",
     "crates/hopper-solana/tests/transfer.rs",
-    "examples/hopper-cicada/tests/lifecycle_sbf_e2e.rs",
-    "tests/exact_cell_accessors_integration.rs"
+    "crates/hopper-spl/hopper-token-2022/src/hook.rs (test module)",
+    "examples/hopper-cicada/tests/lifecycle_sbf_e2e.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -14075,8 +14075,8 @@
     "crates/hopper-native/tests/borrow_aware_readers.rs",
     "crates/hopper-solana/src/token2022_ext.rs (test module)",
     "crates/hopper-solana/tests/transfer.rs",
-    "examples/hopper-cicada/tests/lifecycle_sbf_e2e.rs",
-    "tests/exact_cell_accessors_integration.rs"
+    "crates/hopper-spl/hopper-token-2022/src/hook.rs (test module)",
+    "examples/hopper-cicada/tests/lifecycle_sbf_e2e.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -14540,7 +14540,7 @@
   {
    "id": "crates/hopper-runtime/src/pda.rs::find_and_verify_pda#1",
    "file": "crates/hopper-runtime/src/pda.rs",
-   "line": 324,
+   "line": 341,
    "kind": "block",
    "function": "find_and_verify_pda",
    "type": null,
@@ -14559,7 +14559,7 @@
   {
    "id": "crates/hopper-runtime/src/pda.rs::verify_pda_strict#1",
    "file": "crates/hopper-runtime/src/pda.rs",
-   "line": 353,
+   "line": 370,
    "kind": "block",
    "function": "verify_pda_strict",
    "type": null,
@@ -15897,7 +15897,7 @@
   {
    "id": "crates/hopper-runtime/src/token_batch.rs::data#1",
    "file": "crates/hopper-runtime/src/token_batch.rs",
-   "line": 124,
+   "line": 136,
    "kind": "block",
    "function": "data",
    "type": "TokenBatch",
@@ -15914,7 +15914,7 @@
   {
    "id": "crates/hopper-runtime/src/token_batch.rs::account_metas#1",
    "file": "crates/hopper-runtime/src/token_batch.rs",
-   "line": 131,
+   "line": 143,
    "kind": "block",
    "function": "account_metas",
    "type": "TokenBatch",
@@ -15933,7 +15933,7 @@
   {
    "id": "crates/hopper-runtime/src/token_batch.rs::account_views#1",
    "file": "crates/hopper-runtime/src/token_batch.rs",
-   "line": 144,
+   "line": 156,
    "kind": "block",
    "function": "account_views",
    "type": "TokenBatch",

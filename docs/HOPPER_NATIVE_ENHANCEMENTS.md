@@ -18,10 +18,12 @@ Read [program architecture](ARCHITECTURE.md) for layer responsibilities and
 [unsafe invariants](UNSAFE_INVARIANTS.md) before using raw pointers or unchecked
 invocation. Performance work belongs in reproducible complete-program fixtures.
 
-## In the tree after native 0.4.4 and runtime 0.4.5 (not yet published)
+## Native and runtime 0.5
 
-Source changes on `main` since the 0.4.4 / 0.4.5 publication; the registry
-packages do not carry them until the next patch train.
+These changes require the coordinated 0.5 release. Two safe reader APIs
+changed to close unsound borrows; see [migration](MIGRATION_0_5.md). The
+[release status](https://hopperzero.dev/docs/release-status) records registry
+availability and validation.
 
 - Every sysvar reader goes through `sol_get_sysvar` (110 CU for an image
   under 2,500 bytes) instead of the dedicated getters (100 plus the struct
@@ -46,9 +48,10 @@ packages do not carry them until the next patch train.
   downstream crate; user error codes cannot land in the framework's refusal
   pages; oversized CPI events fail at compile time; `hopper build` fails on
   a builder-reported stack frame overflow.
-- The token builders cover the whole SPL Token instruction set and every
-  Token-2022-only instruction, target either program (`invoke_on`,
-  `invoke_for_owner`), batch into one p-token `Batch` CPI (`TokenBatch`),
+- Shared token builders target either program (`invoke_on`,
+  `invoke_for_owner`). The extension, metadata, group and confidential-transfer
+  builders cover the families listed in the [token guide](TOKEN_2022_GUIDE.md).
+  Supported instructions fit into one p-token `Batch` CPI (`TokenBatch`),
   and are checked byte for byte, metas included, against the canonical
   `spl-token-2022-interface` constructors; `MintPlan` initializes thirteen
   fixed-size extensions.

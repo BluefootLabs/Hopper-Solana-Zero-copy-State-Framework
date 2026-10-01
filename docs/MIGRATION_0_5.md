@@ -4,7 +4,9 @@
 fix changes their signatures. hopper-native and hopper-runtime move to 0.5,
 and so does every crate whose public signatures name their types: a 0.4
 `AccountView` and a 0.5 `AccountView` are different types, so mixing the
-lines would not compile. Upgrade the Hopper crates together.
+lines would not compile. Upgrade the Hopper crates together. `hopper-derive`
+and `hopper-macros` also move to 0.5: their expansions target the matching
+runtime APIs, which a signature-only API inventory cannot fully describe.
 
 ```toml
 hopper = { package = "hopper-lang", version = "0.5", features = ["proc-macros"] }

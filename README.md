@@ -12,9 +12,10 @@ Use the framework for application code and Hopper's own native runtime for
 instructions that need direct control over accounts and syscalls. Your
 program executes on chain; Hopper needs no separate execution service.
 
-This branch includes changes for the upcoming **0.5 release**. The install
-command below selects the published 0.4 line. See [the migration guide](docs/MIGRATION_0_5.md)
-for API changes; current-branch features are not all available from crates.io yet.
+This source and its examples target **Hopper 0.5**. Upgrade the framework,
+runtime, and native crates together; see [the migration guide](docs/MIGRATION_0_5.md)
+for API changes and [release status](https://hopperzero.dev/docs/release-status)
+for registry availability and validation.
 
 ## Build the program your users need
 
@@ -38,7 +39,7 @@ a matching engine and exchange settlement are application logic.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.4.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.5.0", features = ["proc-macros"] }
 ```
 
 ```rust
@@ -146,17 +147,18 @@ transactions verified direct and nested CPI return data.
 See [program measurements](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/BENCHMARKS.md) and
 [release status](https://hopperzero.dev/docs/release-status) for scope and artifacts.
 
-The registry framework and CLI version is **0.4.0**. Latest native/runtime patches
-are **0.4.4 / 0.4.5**; Solana integration is **0.4.1**. Native instruction inspection
-passed 11 finalized devnet transactions. [Token receipt policies](docs/TOKEN_RECEIPTS.md)
-passed a separate 34-transaction run. See the [release record](docs/RELEASE_0_4_VALIDATION.md)
-for package lineage and scoped validation. Repository examples are not published
-crates; `grillo-*` and `hopper-topology` keep their own 0.1.0 versions.
+Hopper 0.5 includes the native and runtime borrow fixes, token builders and
+extension initialization, bounded token batches, and on-chain inspection APIs.
+Upgrade all crates exposing native or runtime types together. The macro crates
+also use the 0.5 line because their expansions target those APIs. `grillo-*` and
+`hopper-topology` use 0.1.1; unchanged `hopper-builtins` remains 0.4.0.
 
-The next release is **0.5.0**: two safe readers in `hopper-native` changed
-signature to close unsound borrows, and every crate that exposes the
-runtime's types moves with them. See
-[moving to 0.5](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/MIGRATION_0_5.md).
+Native instruction inspection passed 11 finalized devnet transactions, and
+[token receipt policies](docs/TOKEN_RECEIPTS.md) passed a separate 34-transaction
+run. Those dated results and the later token-lab runs document specific fixtures;
+they are not a whole-framework security audit. Repository examples are not
+published crates. See the [0.4 release record](docs/RELEASE_0_4_VALIDATION.md)
+for earlier package lineage.
 
 ## Documentation
 

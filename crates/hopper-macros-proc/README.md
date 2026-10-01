@@ -157,7 +157,7 @@ initialization when the application requires a unique address per seed set.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.4.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.5.0", features = ["proc-macros"] }
 ```
 
 Docs: <https://docs.rs/crate/hopper-derive>

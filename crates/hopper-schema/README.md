@@ -25,7 +25,7 @@ for their output buffers and strings.
 - **Migration planner** - Segment-role-aware migration steps between layout versions.
 - **Client generation** - TypeScript, Kotlin (`org.sol4k`), Python, Rust, Go, and C generators from program manifests.
 - **Field intents** - Semantic annotations such as Balance, Authority, Timestamp, and Counter.
-- **Field rules** (in the tree after 0.4.0) - `FieldRule` carries a `#[check]` rule as written, the inclusive integer bounds it decides, and whether those bounds are the whole rule. `FieldRule::change_to` classifies a change between two releases as unchanged, tightened, widened, or rewritten, and `ManifestJsonWithRules` exports the rules under `fieldRules`.
+- **Field rules** (new in 0.5) - `FieldRule` carries a `#[check]` rule as written, the inclusive integer bounds it decides, and whether those bounds are the whole rule. `FieldRule::change_to` classifies a change between two releases as unchanged, tightened, widened, or rewritten, and `ManifestJsonWithRules` exports the rules under `fieldRules`.
 - **Account decoding** - Header and field-level decode from raw bytes using manifest metadata.
 
 ## Schema layering

@@ -26,8 +26,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   authority families (initializers, updates, and toggles), each with
   direct, PDA-signed, and multisig entry points. Their bytes and metas are
   checked against the canonical `spl-token-2022-interface` constructors.
-- **Metadata and group instructions** - `metadata_instructions` (in the
-  tree after 0.4.0) carries the token-metadata interface
+- **Metadata and group instructions** - `metadata_instructions` (new in 0.5) carries the token-metadata interface
   (`InitializeTokenMetadata`, `UpdateMetadataField`, `RemoveMetadataKey`,
   `UpdateMetadataAuthority`, `EmitTokenMetadata`) and the token-group
   interface (`InitializeTokenGroup`, `UpdateTokenGroupMaxSize`,
@@ -35,8 +34,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   targets Token-2022; `invoke_on_program` targets any program that
   implements the interface. The payload is encoded on the stack, 512 bytes
   at most.
-- **Confidential-transfer instructions** - `confidential_instructions` (in
-  the tree after 0.4.0) carries the fifteen sub-instructions of instruction
+- **Confidential-transfer instructions** - `confidential_instructions` (new in 0.5) carries the fifteen sub-instructions of instruction
   27. Ciphertexts, keys, and proofs are made off chain and carried as
   bytes; a `ProofLocation` names where each proof is, and the builder
   orders the sysvar, context-state, authority, and multisig accounts the
@@ -57,7 +55,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 initializers: transfer fee, mint close authority, non-transferable, permanent
 delegate, transfer hook, metadata pointer, default account state, interest
 bearing, scaled UI amount, pausable, group pointer, group member pointer,
-and permissioned burn (the last seven are in the tree after 0.4.0). It initializes extensions before
+and permissioned burn (the last seven were added in 0.5). It initializes extensions before
 `InitializeMint2`, uses live rent, and supports prefunded and PDA mints.
 `check_space` rejects both smaller and larger allocations than the plan.
 
@@ -66,7 +64,7 @@ It does not infer extension semantics, initialize variable-length metadata,
 create token accounts, or mint supply. Propagate errors from the multi-CPI
 sequence so the enclosing instruction rolls back earlier work.
 
-The original mint plan shipped in 0.3.1; the expanded extension set and new instruction families described above are current-branch work for 0.5. See the [Token-2022 guide](https://hopperzero.dev/docs/token-2022) for
+The original mint plan shipped in 0.3.1; the expanded extension set and new instruction families described above are included in 0.5. See the [Token-2022 guide](https://hopperzero.dev/docs/token-2022) for
 complete examples and the distinction between readers, constraints, and creation.
 
 ## When to reach for this
@@ -97,7 +95,7 @@ Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 
 License: Apache-2.0.
 
-## Transfer-hook lists and token batches (upcoming 0.5)
+## Transfer-hook lists and token batches (0.5)
 
 `hook::ExtraAccountMetaList::unpack` selects the Execute discriminator and
 checks the declared TLV value length before exposing entries. Resolution

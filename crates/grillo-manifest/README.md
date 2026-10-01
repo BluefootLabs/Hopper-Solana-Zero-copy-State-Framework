@@ -53,7 +53,7 @@ a type check replaced by an unchecked kind, an account that became optional,
 or a new `init`, `realloc`, or `close` lifecycle. Changes that have no order,
 such as different PDA seeds or a different expected CPI program, are `Review`.
 
-In the tree after 0.1.0 the diff also reads the manifest's `fieldRules`: the
+In 0.1.1 the diff also reads the manifest's `fieldRules`: the
 value rules a program declares on its layout fields. A removed rule
 (`field_rule_removed`) or a looser bound (`field_rule_widened`) is a widening,
 because stored state the old release refused now binds. A tighter or added
@@ -75,8 +75,7 @@ runtime `WritePolicy`. Direct Hopper Native access, unchecked CPI, arbitrary
 unsafe/FFI code, and dependencies are outside that enforcement boundary and
 must not be described as “published equals enforced” without separate review.
 
-This workspace source is version 0.1.0. It was not observed indexed on
-crates.io on 2026-09-06. In Hopper's dependency-first publish order,
-`grillo-manifest` precedes `grillo-verifier`; registry availability must be
-confirmed before publishing the dependent package or advertising registry
-installation.
+This package is version 0.1.1. In Hopper's dependency-first release order,
+`grillo-manifest` precedes `grillo-verifier`. See the
+[release status](https://hopperzero.dev/docs/release-status) for registry
+availability and validation records.

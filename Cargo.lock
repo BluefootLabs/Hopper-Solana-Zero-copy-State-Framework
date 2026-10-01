@@ -2007,7 +2007,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
 name = "grillo-manifest"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2015,7 +2015,7 @@ dependencies = [
 
 [[package]]
 name = "grillo-verifier"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "grillo-manifest",
  "serde",
@@ -2131,7 +2131,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-anchor"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
@@ -2145,7 +2145,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-associated-token"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
  "hopper-solana",
@@ -2229,7 +2229,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -2341,7 +2341,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-derive"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bs58",
  "curve25519-dalek",
@@ -2369,7 +2369,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-distribute"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
@@ -2398,7 +2398,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-finance"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
  "hopper-systems",
@@ -2422,7 +2422,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-lang"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-anchor",
  "hopper-associated-token",
@@ -2450,14 +2450,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-lending"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-macros"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
  "hopper-schema",
@@ -2467,21 +2467,21 @@ dependencies = [
 
 [[package]]
 name = "hopper-manager"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-schema",
 ]
 
 [[package]]
 name = "hopper-memo"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-metaplex"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
@@ -2515,14 +2515,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-multisig"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-native"
-version = "0.4.4"
+version = "0.5.0"
 
 [[package]]
 name = "hopper-native-lifecycle-fixture"
@@ -2606,7 +2606,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.4.5"
+version = "0.5.0"
 dependencies = [
  "bytemuck",
  "hopper-native",
@@ -2649,7 +2649,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-schema"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
  "hopper-systems",
@@ -2657,7 +2657,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-sdk"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-schema",
 ]
@@ -2707,7 +2707,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-solana"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "hopper-native",
  "hopper-runtime",
@@ -2725,7 +2725,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-staking"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
@@ -2739,7 +2739,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-svm"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-native",
  "hopper-runtime",
@@ -2747,14 +2747,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-system"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-systems"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-native",
  "hopper-runtime",
@@ -2785,14 +2785,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-token"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-token-2022"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
  "hopper-solana",
@@ -2858,7 +2858,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-topology"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2890,7 +2890,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-vesting"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hopper-runtime",
 ]

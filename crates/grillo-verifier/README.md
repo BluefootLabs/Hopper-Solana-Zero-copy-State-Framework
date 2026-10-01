@@ -85,11 +85,11 @@ their producer, verify a transaction signature, or bind them to a ledger
 message or program deployment. Complete supplied snapshots and declared
 lamport scope are required for a complete v0.1 observation scope; this is not
 proof of every effect of a ledger transaction. Install the `grillo` binary
-from the 0.1.0 package with its `cli` feature. Registry availability and
+from the 0.1.1 package with its `cli` feature. Registry availability and
 verification records are on the [release status page](https://hopperzero.dev/docs/release-status):
 
 ```sh
-cargo install grillo-verifier --version 0.1.0 --features cli --locked
+cargo install grillo-verifier --version 0.1.1 --features cli --locked
 
 grillo commit hopper.manifest.json             # per-instruction contract commitments
 grillo verify hopper.manifest.json bundle.json # changed ⊆ acquired ⊆ authorized
@@ -132,7 +132,7 @@ grillo authority-diff v1/hopper.manifest.json v2/hopper.manifest.json --approve 
 It prints every instruction that gains authority between two releases: a
 dropped signer, a new writable account, byte ranges that now reach another
 layout field, a removed PDA or `has_one` binding, a new CPI program, a new
-lamport permission, and (in the tree after 0.1.0) a value rule on a layout
+lamport permission, and (in 0.1.1) a value rule on a layout
 field that was removed or loosened. Exit codes: `0` not widened, `2` widened, `3` needs review
 (for example a PDA seed swap), `1` malformed input. `--approve` takes a reviewed
 report and passes only when it lists every widening for exactly this manifest

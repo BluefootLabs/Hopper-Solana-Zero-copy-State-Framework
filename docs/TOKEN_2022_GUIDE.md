@@ -120,7 +120,7 @@ variant's allocation and bytes are checked against the canonical
 confidential extensions, and automatic extension inference are outside this
 API.
 
-## Every Token-2022 instruction
+## Shared token operations and extension builders
 
 The shared instruction set (transfers, mints, burns, approvals, close,
 freeze, authority changes, account and multisig initialization, the
@@ -141,7 +141,7 @@ InitializeAccount3 { account, mint, owner }.invoke_for_owner(&[], &[])?;
 
 The Token-2022-only instructions live in
 `hopper::token_2022::extension_instructions`: `CreateNativeMint`,
-`InitializeNonTransferableMint`, `Reallocate`, and every extension family's
+`InitializeNonTransferableMint`, `Reallocate`, and the listed extension families'
 initializers, updates, and toggles (transfer fee, default account state,
 memo transfer, interest bearing, CPI guard, permanent delegate, transfer
 hook, metadata pointer, group pointer, group member pointer, scaled UI
@@ -157,7 +157,8 @@ UpdateScaledUiAmountMultiplier { mint, authority, multiplier: 3.0, effective_tim
 Resume { mint, authority }.invoke()?;
 ```
 
-`TokenBatch` collects any of these builders and sends them as one `Batch`
+`TokenBatch` collects supported builders within its byte/account limits
+and sends them as one `Batch`
 CPI; SPL Token (p-token) accepts it, and the token-lab devnet runner records
 whether the deployed Token-2022 does.
 

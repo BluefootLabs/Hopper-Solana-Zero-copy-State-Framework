@@ -40,7 +40,7 @@ host CPIs remain validation-only no-ops; test callee behavior in an SVM or on de
 
 PDA helpers: find_program_address, create_program_address, plus Hopper's verify-only sha256 path that skips curve_validate for stored-bump PDA verification. They run in a plain `cargo test` with the cluster's answers, and `find_program_address_const` derives an address and bump at compile time.
 
-On the upcoming 0.5 branch, `pda::try_find_program_address` returns
+In 0.5, `pda::try_find_program_address` returns
 `Result<(Address, u8), ProgramError>` for canonical search without panicking
 on malformed seeds. It uses Hopper's native, allocation-free implementation.
 
@@ -140,7 +140,7 @@ insufficient capacity. Account records include the address and signer/writable
 flags. The list contains earlier calls at the same depth and caller; the
 current instruction's parent and children are excluded.
 
-This release corrects the previous wrappers' syscall return-code and length
+The 0.4.3 native/0.4.4 runtime release corrected the wrappers' syscall return-code and length
 handling. The owned convenience reader retains its 1,232-byte / 64-account limit;
 the bounded data reader selects its byte capacity but still uses 64 account
 records. The new API lets the program choose both scratch capacities. Host calls return
@@ -149,7 +149,7 @@ not authorize a transfer or validate a signature payload.
 
 [Instruction inspection guide](https://hopperzero.dev/docs/instruction-introspection).
 
-## Token batches (upcoming 0.5)
+## Token batches (0.5)
 
 `TokenBatch` collects supported token instructions for one CPI. Accounts can
 be reused across separate inner instructions; duplicate writable roles

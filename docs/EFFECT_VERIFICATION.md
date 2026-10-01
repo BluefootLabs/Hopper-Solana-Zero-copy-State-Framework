@@ -26,12 +26,12 @@ library surface:
 | Effect ABI v0.1 | Stable `grillo` CLI plus embeddable Rust core | Data-byte containment and declared lamport mutation over supplied snapshots and a touch map |
 | Effect ABI v0.2 | Experimental strict Rust contract, binder, and verifier APIs | Complete account-transition dimensions, deployment/artifact binding, remaining-account grammar, and bounded CPI envelopes |
 
-`grillo-manifest` and `grillo-verifier` 0.1.0 are published on crates.io;
+`grillo-manifest` and `grillo-verifier` use version 0.1.1 for this release;
 their registry archive checksums were verified on 2026-09-24 UTC. Install the
 CLI with its explicit feature:
 
 ```sh
-cargo install grillo-verifier --version 0.1.0 --features cli --locked
+cargo install grillo-verifier --version 0.1.1 --features cli --locked
 grillo commit hopper.manifest.json
 grillo verify hopper.manifest.json bundle.json
 ```

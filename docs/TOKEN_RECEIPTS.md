@@ -8,7 +8,9 @@ It needs no indexer or off-chain attestation.
 
 ## Set the receipt policy before transferring
 
-Use `hopper-solana` 0.4.1 with `hopper-runtime` 0.4.3 or later. After validating the
+Use matching `hopper-solana` and `hopper-runtime` 0.5 releases. The API first
+shipped in Solana integration 0.4.1/runtime 0.4.3; keep that pair on the 0.4
+line when maintaining an older program. After validating the
 instruction's caller, configured mint, destination, and extension policy:
 
 ```rust,ignore

@@ -22,13 +22,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Breaking
 
-The next release of hopper-native and hopper-runtime is 0.5.0, and so is
-the next release of every published crate whose public signatures name
-their types, which is all of them except hopper-macros and hopper-derive
-(0.4.1, additions only), grillo-manifest, grillo-verifier, and
-hopper-topology (0.1.1), and hopper-builtins (unchanged).
-`python scripts/api-lock.py --against-published` prints this plan from the
-code and the versions on crates.io. [docs/MIGRATION_0_5.md](docs/MIGRATION_0_5.md)
+The next release of hopper-native and hopper-runtime is 0.5.0, along with
+every published crate whose public signatures name their types. The macro
+crates also move to 0.5 because their expansions target those runtime APIs;
+a signature inventory alone cannot establish expansion compatibility.
+grillo-manifest, grillo-verifier, and hopper-topology move to 0.1.1;
+hopper-builtins remains 0.4.0.
+`python scripts/api-lock.py --against-published` reports the signature-based
+minimum versions. [docs/MIGRATION_0_5.md](docs/MIGRATION_0_5.md)
 has a before and after for each change.
 
 - `AccountView::layout_id` returns `Option<[u8; 8]>`, was

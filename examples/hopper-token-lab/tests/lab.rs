@@ -184,7 +184,7 @@ fn lanes_on_both_programs() {
         );
         assert_eq!(
             format!("{:?}", rejected.raw().program_result),
-            "Err(AccountBorrowFailed)"
+            "Failure(AccountBorrowFailed)"
         );
         assert!(!f
             .svm
@@ -337,7 +337,7 @@ fn hook_wire_validation_in_compiled_program() {
         if let Some(code) = expected {
             assert_eq!(
                 format!("{:?}", result.raw().program_result),
-                format!("Err(Custom({code}))")
+                format!("Failure(Custom({code}))")
             );
         } else {
             assert!(result.succeeded(), "{:#?}", f.svm.logs());

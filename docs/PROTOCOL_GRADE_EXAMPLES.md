@@ -108,7 +108,7 @@ Neither version authenticates the evidence producer, fetches or verifies a
 signature, queries RPC, or replays the ledger. A v0.2 PASS requires
 invocation-entry/exit observations; transaction-wide snapshots are
 inconclusive. Ledger-bound production is roadmap work, not implied by the
-current commitments. Both Grillo workspace packages are versioned 0.1.0 and
+current commitments. Both Grillo workspace packages are versioned 0.1.1 and
 were not observed on crates.io on 2026-09-06; v0.2 is an evidence/schema
 version, not a published crate release.
 

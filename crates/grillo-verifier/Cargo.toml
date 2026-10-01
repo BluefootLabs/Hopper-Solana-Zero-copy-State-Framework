@@ -1,6 +1,6 @@
 [package]
 name = "grillo-verifier"
-version = "0.1.0"
+version = "0.1.1"
 publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -18,7 +18,7 @@ description = "Offline verifier for caller-supplied byte and lamport snapshots a
 # verifier CORE stays pure byte/interval arithmetic over the touch map
 # (`acquired`) and pre/post snapshots (`changed`). An embedder (indexer,
 # security desk) links it with zero extra deps.
-grillo-manifest = { path = "../grillo-manifest", version = "0.1.0" }
+grillo-manifest = { path = "../grillo-manifest", version = "0.1.1" }
 # JSON evidence-bundle parsing lives ONLY behind the `cli` feature (the
 # `grillo` binary). Embedding the core still pulls serde and serde_json in
 # transitively through `grillo-manifest`, which parses manifest JSON.
