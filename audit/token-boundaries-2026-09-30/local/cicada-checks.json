@@ -1,0 +1,52 @@
+{
+  "cli": "hopper 0.5.0\nhopper-schema linked: 1",
+  "checks": [
+    {
+      "name": "compile",
+      "command": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper.exe",
+        "compile",
+        "--emit",
+        "manifest",
+        "--package",
+        "hopper-cicada",
+        "--out",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\cicada.manifest.json",
+        "--force"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "check",
+      "command": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper.exe",
+        "fuzz",
+        "check",
+        "--program",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\cicada.manifest.json",
+        "--plan",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\fuzz\\plans\\hopper-cicada.plan.json"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "run",
+      "command": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper.exe",
+        "fuzz",
+        "run",
+        "--program",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\cicada.manifest.json",
+        "--plan",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\fuzz\\plans\\hopper-cicada.plan.json",
+        "--adapter",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\debug\\hopper-cicada-fuzz-adapter.exe",
+        "--require-invariant",
+        "cicada-business-semantics",
+        "--report",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\cicada-semantic-report.json"
+      ],
+      "exitCode": 0
+    }
+  ]
+}

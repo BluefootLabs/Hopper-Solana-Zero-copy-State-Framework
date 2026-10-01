@@ -1,0 +1,84 @@
+{
+  "blockTime": 1790824718,
+  "meta": {
+    "computeUnitsConsumed": 112,
+    "costUnits": 1345,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6701
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd invoke [1]",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd consumed 112 of 200000 compute units",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd failed: custom program error: 0x1a2d"
+    ],
+    "postBalances": [
+      6722069747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6722074747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6701
+          }
+        ]
+      }
+    }
+  },
+  "slot": 506131592,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd",
+        "5rZPdivSaX4JoEnnixWP4LbEWNXR4jjxW248xMs7auEM"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1
+          ],
+          "data": "5BPuddyJ225GazjMMxGbbYUMomW6qVR1S2WJVwrgjDWf62jtDSY88u6JBwMobh5VeCKN6Wt",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "GhuM6KDLsNkQ2f97QUJK7ZeSoV54mt1E5fEDEYY2Cvh5"
+    },
+    "signatures": [
+      "5SkjbU7nJjpVLGJk7G1q9JJj9xqxhFTieMstVSGJ8qePqXqLpr6eTJbMhcfL1KNRqUxagkrUhkp1ZG1hZrJZPq5L"
+    ]
+  },
+  "transactionIndex": 2,
+  "version": "legacy"
+}

@@ -1,0 +1,8 @@
+{
+  "resultLines": 241,
+  "passed": 2474,
+  "failed": 0,
+  "ignored": 277,
+  "explicitFixture": "release/final/v3/hopper_token_lab.so",
+  "scope": "Reported host unit/integration and doctest results; some existing compiled tests skip when their default fixtures are absent. Token lab used an explicit final ELF."
+}

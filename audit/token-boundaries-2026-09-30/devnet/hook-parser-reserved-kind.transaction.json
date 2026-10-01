@@ -1,0 +1,84 @@
+{
+  "blockTime": 1790824721,
+  "meta": {
+    "computeUnitsConsumed": 185,
+    "costUnits": 1418,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6703
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd invoke [1]",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd consumed 185 of 200000 compute units",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd failed: custom program error: 0x1a2f"
+    ],
+    "postBalances": [
+      6722064747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6722069747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6703
+          }
+        ]
+      }
+    }
+  },
+  "slot": 506131604,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd",
+        "5rZPdivSaX4JoEnnixWP4LbEWNXR4jjxW248xMs7auEM"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1TZk448zTNv5CMudBbpWkZvEg2eeRGBY9XZvsDF2dgtXc99S",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "5J4c9CovmcB7yRCGQQNfuXNC2gGsry6Dk3jrd6nTVuU2"
+    },
+    "signatures": [
+      "jEYmPjakyyUAzzBFJ3wvk1W4zdy5iQDDTJVsmifNaeDRBx5npvQ4Aj6z9pSGZaCgcDcK5pFDxu6Cu26fNWFqwMn"
+    ]
+  },
+  "transactionIndex": 11,
+  "version": "legacy"
+}

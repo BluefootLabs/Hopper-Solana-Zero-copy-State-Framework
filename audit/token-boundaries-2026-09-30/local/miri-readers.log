@@ -1,0 +1,14 @@
+   Compiling hopper-native v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.19s
+     Running tests\borrow_aware_readers.rs (target\miri\x86_64-pc-windows-msvc\debug\deps\borrow_aware_readers-785b93270d40a562.exe)
+
+running 6 tests
+test a_fingerprint_is_taken_under_a_shared_borrow ... ok
+test by_value_lenses_read_in_bounds_and_refuse_an_exclusive_borrow ... ok
+test header_readers_answer_while_unborrowed_or_shared ... ok
+test header_readers_fail_closed_under_an_exclusive_borrow ... ok
+test layout_id_is_a_copy ... ok
+test short_accounts_have_no_header_fields ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+

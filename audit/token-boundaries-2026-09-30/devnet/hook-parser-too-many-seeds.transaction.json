@@ -1,0 +1,84 @@
+{
+  "blockTime": 1790824724,
+  "meta": {
+    "computeUnitsConsumed": 513,
+    "costUnits": 1746,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6704
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd invoke [1]",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd consumed 513 of 200000 compute units",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd failed: custom program error: 0x1a30"
+    ],
+    "postBalances": [
+      6722059747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6722064747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6704
+          }
+        ]
+      }
+    }
+  },
+  "slot": 506131616,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd",
+        "5rZPdivSaX4JoEnnixWP4LbEWNXR4jjxW248xMs7auEM"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1G4Mgc24RxrvenM4FyDJDJxUvsbBbVrap7sd6Zq4dH4MK7rY",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "GChLiqcT2nQuWdpQFyxt2z8bQu29NyjKnEkyDyUcyBGS"
+    },
+    "signatures": [
+      "4qwzo622iCjB1gMC9keufXrgdRJZRt8bw1jdDpUPMVrg5jtfwbRvb4LcghZm2RPRxJ3rZphtPKP8ciGNwYUaumqk"
+    ]
+  },
+  "transactionIndex": 7,
+  "version": "legacy"
+}

@@ -14,8 +14,8 @@ hopper = { package = "hopper-lang", version = "0.5", features = ["proc-macros"] 
 
 `python scripts/api-lock.py --against-published` prints, for every
 published crate, the changes since the version on crates.io and the version
-the next release needs. The list below is what it reports, plus the
-behaviour changes a signature does not show.
+a subsequent release needs. The list below records the 0.4-to-0.5 changes,
+including behavior changes a signature does not show.
 
 Wire formats, discriminators, layout fingerprints, and the account header
 are unchanged. A 0.4 program and a 0.5 program read each other's accounts.

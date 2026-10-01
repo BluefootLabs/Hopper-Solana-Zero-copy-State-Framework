@@ -14,8 +14,8 @@ program executes on chain; Hopper needs no separate execution service.
 
 This source and its examples target **Hopper 0.5**. Upgrade the framework,
 runtime, and native crates together; see [the migration guide](docs/MIGRATION_0_5.md)
-for API changes and [release status](https://hopperzero.dev/docs/release-status)
-for registry availability and validation.
+for API changes and [0.5 validation](docs/RELEASE_0_5_VALIDATION.md)
+for token tests, registry availability, and validation scope.
 
 ## Build the program your users need
 

@@ -1,0 +1,84 @@
+{
+  "blockTime": 1790824726,
+  "meta": {
+    "computeUnitsConsumed": 234,
+    "costUnits": 1467,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6703
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd invoke [1]",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd consumed 234 of 200000 compute units",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd failed: custom program error: 0x1a2f"
+    ],
+    "postBalances": [
+      6722054747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6722059747,
+      1159846,
+      833120,
+      1066800
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6703
+          }
+        ]
+      }
+    }
+  },
+  "slot": 506131627,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd",
+        "5rZPdivSaX4JoEnnixWP4LbEWNXR4jjxW248xMs7auEM"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1G33fr3QA1zYrzyhtaxV6G4tyeddo53QVYxzXYXE13aNEjWG",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "FTvDszFbJ5Qeu2scEGjmm3rYnEcHEjHekh8WX1E2G7kQ"
+    },
+    "signatures": [
+      "3QMMv8SwQfPgoU6FviCN4EYcpLhsTrRFcfHZmapV4eMbnaBaHYsh3K2ceKvo2CoKmcbDRECWdgwaMRgN1594Qkha"
+    ]
+  },
+  "transactionIndex": 8,
+  "version": "legacy"
+}

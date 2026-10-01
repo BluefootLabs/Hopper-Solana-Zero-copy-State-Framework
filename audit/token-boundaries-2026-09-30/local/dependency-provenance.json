@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-01T02:27:14.383953+00:00",
+  "sourceCommit": "ab9d25eda5ed34d01d6f209cee2158e528cd643a",
+  "sourceTreeClean": false,
+  "advisoryDbCommit": "9b3a3b73a7f42606494c943e95f8196e9994df46",
+  "cargoAuditVersion": "cargo-audit 0.22.1",
+  "exitCode": 0,
+  "reportSha256": "5126fd89f6966dbfbc7ec50ed3ee24d82f69ef0f6f73a532251687b472ed7115",
+  "lockSha256": "b49795b0015197c88c582360e6ae99ef93fb7ad7f0d77a2ea6e9f44b0b75501e"
+}

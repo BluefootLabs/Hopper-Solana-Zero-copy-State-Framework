@@ -1,0 +1,40 @@
+[
+  {
+    "name": "svm-v0",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-token-lab",
+      "--test",
+      "lab",
+      "--locked",
+      "--offline",
+      "--",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "elfSha256": "fd42a9d6cd10b685db8fd9b9fbf95ba7a8e17422821d5553d8f5437e6204ceaf",
+    "sourceCommit": "9150e75f9329a7f43a65a1ce2d4c29281177a077"
+  },
+  {
+    "name": "svm-v3",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "hopper-token-lab",
+      "--test",
+      "lab",
+      "--locked",
+      "--offline",
+      "--",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "elfSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+    "sourceCommit": "9150e75f9329a7f43a65a1ce2d4c29281177a077"
+  }
+]

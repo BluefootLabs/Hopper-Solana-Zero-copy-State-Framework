@@ -54,6 +54,17 @@ an explicitly missing fixture fails instead of skipping.
 The hook probe tests parsing and address resolution. It does not invoke a
 transfer-hook program or establish an account's owner/PDA provenance.
 
+## Devnet, October 1 UTC / September 30 local: token boundaries
+
+The 0.5 release fixture completed 59 finalized transactions, including
+10 expected refusals, with matching program dumps before and after.
+It covers both token programs, the existing extension/metadata/group lanes,
+two batch self-transfer refusals before CPI, and eight hook-list probes.
+Withdrawal checks compare token data against pre-state and verify the exact
+recipient credit after fees. Finalized account observations are retained.
+See the [validation bundle](../../audit/token-boundaries-2026-09-30/README.md)
+for source/binary hashes, signatures, and the exact scope.
+
 ## Devnet, 2026-09-28, round ten: metadata and groups
 
 Deployed fresh as `4MWp9iQM1qxLrz9sYj4jdf9BU4waEo58MEPs7R4j7m28` from a clean

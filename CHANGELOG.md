@@ -5,7 +5,10 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
-## Unreleased
+## 0.5.0 - 2026-10-01
+
+[Release validation](docs/RELEASE_0_5_VALIDATION.md) records the final token-lab
+run, source lineage, and publication status.
 
 - Token batches now reject repeated writable roles within an inner instruction,
   including self-transfers, while allowing account reuse across instructions.
@@ -22,7 +25,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Breaking
 
-The next release of hopper-native and hopper-runtime is 0.5.0, along with
+hopper-native and hopper-runtime move to 0.5.0, along with
 every published crate whose public signatures name their types. The macro
 crates also move to 0.5 because their expansions target those runtime APIs;
 a signature inventory alone cannot establish expansion compatibility.
@@ -70,9 +73,8 @@ has a before and after for each change.
   `init_compact` followed by `load_compact_mut` did the same work with two
   borrows, two write-gate checks, and two length tests: 18 CU against 37 on
   the framework-comparison counter's create.
-- **Coming from Pinocchio.** [docs/FROM_PINOCCHIO.md](docs/FROM_PINOCCHIO.md)
-  ports the Pinocchio counter name by name, with both programs' numbers and
-  the checks Hopper keeps that Pinocchio leaves out.
+- **Lower-level programs.** [The raw API guide](docs/FROM_PINOCCHIO.md)
+  explains native entrypoints, accounts, PDA checks, and validation responsibilities.
 - **Every confidential-transfer instruction, run against the Token-2022
   mainnet runs.** `examples/hopper-confidential-lab` puts each of the
   fifteen builders behind an instruction, and its tests drive the whole
@@ -175,8 +177,7 @@ has a before and after for each change.
   bounds its comparisons with literals decide, so
   `FieldRule::change_to` can tell a tightened rule from a widened one
   between two releases (`RuleChange`). A rule no value satisfies
-  (`value >= 10 && value < 10`) is a compile error. Pina has the rules; its
-  rules do not reach its IDL.
+  (`value >= 10 && value < 10`) is a compile error.
 - **Native accessors, opt-in.** `#[hopper::state(accessors)]` generates
   `fn total(&self) -> u64` and `fn set_total(&mut self, u64)` for every
   wire scalar field (`WireU16` to `WireI128`, `WireBool`); the getters are
@@ -401,16 +402,14 @@ has a before and after for each change.
   `scripts/bench-framework-comparison.py` now compares every Hopper row
   with the `results.json` committed at HEAD and exits non-zero when any
   CU column or the ELF size grew, printing each regression;
-  `--allow-regression` publishes such a change deliberately. The same rule
-  Pina's compute-unit CI applies to every same-outcome instruction.
+  `--allow-regression` publishes such a change deliberately.
 
 ### Changed
 
-- **Raw programs cost what hand-written Pinocchio costs.** On pina's
-  framework-comparison fixtures, against the previous commit: the substrate
-  hello world 116 to 111 CU (hand-written Pinocchio: 111) and 1,656 to 1,456
-  bytes (3,160); the substrate counter 1,595 to 1,514 CU on create and 1,742
-  to 1,722 on increment (1,490 and 1,721), and 6,792 to 6,608 bytes (6,512);
+- **Lower raw-entrypoint costs in the dated fixtures.** Against the
+  previous Hopper commit: the substrate hello world went from 116 to 111 CU
+  and 1,656 to 1,456 bytes; the substrate counter from 1,595 to 1,514 CU on
+  create and 1,742 to 1,722 on increment, and 6,792 to 6,608 bytes;
   the macro counter 1,517 to 1,471 and 348 to 325 CU; the macro hello 137 to
   127 CU. The macro counter grew from 8,352 to 8,744 bytes and the macro
   hello from 1,768 to 1,824, mostly the unrolled account walk. On devnet
@@ -479,9 +478,8 @@ has a before and after for each change.
   fields are `Option<W>` no longer demands them: `bind` and `validate`
   require `REQUIRED_ACCOUNT_COUNT` (the declared count minus the trailing
   optional run), and a slot that is not passed at all binds `None` exactly
-  like Anchor's program-id filler. An instruction can therefore append an
-  optional account in a later release without breaking older clients,
-  which Pina allows and Anchor does not; an optional followed by a
+  like the program-id filler. An instruction can therefore append an
+  optional account in a later release without breaking older clients; an optional followed by a
   required field stays demanded, since a missing middle slot would shift
   every later binding. `ACCOUNT_COUNT` is unchanged (it still bounds the
   count-exact entrypoint), and the check descriptions say when a slot may
@@ -602,9 +600,8 @@ has a before and after for each change.
   `#[cold]` empty function (`hint::cold_path`), the stable spelling of a
   branch weight, and are `const`.
 - **`hopper-memo` compiled seventeen CPI bodies**, one per signer count.
-  It now makes one bounded call (`invoke_signed_with_bounds`). The doc
-  comment that attributed the 16-signer cap to pinocchio is corrected: the
-  cap is what fits in one 4 KiB SBF frame.
+  It now makes one bounded call (`invoke_signed_with_bounds`). The 16-signer
+  bound is what fits in one 4 KiB SBF frame.
 - **`#[hopper::args]` with an `OptionByte<T>` field did not compile.** The
   generated `validate_tags` referred to a binding that only exists in
   `parse`; it now validates through `self`, and an `EnumByte<E>` field is
@@ -620,9 +617,7 @@ has a before and after for each change.
   On chain the loader serializes a repeated account once and marks later
   slots as duplicates, so the check is one pointer compare per pair and
   reads no address bytes. A pair declared with `dup = other` (whose own
-  check requires the alias) and optional slots are left out. Pina scans
-  every later slot per mutable field and Anchor v2 keeps a mutable mask;
-  pinocchio has no such check. Measured on the framework-comparison macro
+  check requires the alias) and optional slots are left out. Measured on the framework-comparison macro
   counter, whose `initialize` has one pair (the payer and the new
   account): 1,542 to 1,544 CU and 8,584 to 8,696 bytes; `increment`, with
   one mutable slot, is unchanged at 348.
@@ -631,8 +626,7 @@ has a before and after for each change.
   `#[remaining_accounts(max = N)]` given N + k accounts processed the first
   N as if that were the whole batch. The entrypoint now compares the
   loader's account count with the bound before the walk and refuses with
-  `ERR_TOO_MANY_ACCOUNTS`. The scanning profiles keep Anchor's lenient
-  rule and ignore extra accounts.
+  `ERR_TOO_MANY_ACCOUNTS`. The scanning profiles ignore extra accounts.
 - **`cu_trace!` and `cu_measure!` were silent in downstream programs.**
   Their bodies were wrapped in `#[cfg(feature = "cu-trace")]`, which an
   exported macro evaluates against the calling crate, so a program that

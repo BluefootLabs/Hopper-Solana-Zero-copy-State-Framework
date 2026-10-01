@@ -1,0 +1,224 @@
+[
+  {
+    "name": "resolve",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "metadata",
+      "--format-version",
+      "1",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:20:51.236202+00:00",
+    "finishedAt": "2026-10-01T02:20:53.611290+00:00"
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:20:53.611290+00:00",
+    "finishedAt": "2026-10-01T02:20:55.119937+00:00"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-Dwarnings"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:20:55.119937+00:00",
+    "finishedAt": "2026-10-01T02:26:21.921558+00:00"
+  },
+  {
+    "name": "workspace-tests",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "--workspace",
+      "--locked",
+      "--offline",
+      "--no-fail-fast"
+    ],
+    "exitCode": 101,
+    "startedAt": "2026-10-01T02:26:21.921558+00:00",
+    "finishedAt": "2026-10-01T02:48:52.136282+00:00"
+  },
+  {
+    "name": "workspace-tests",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "--workspace",
+      "--locked",
+      "--offline",
+      "--no-fail-fast"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:50:10.770054+00:00",
+    "finishedAt": "2026-10-01T02:51:51.658734+00:00",
+    "explicitTokenFixture": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\final\\v3\\hopper_token_lab"
+  },
+  {
+    "name": "grillo-cli",
+    "command": [
+      "cargo",
+      "+1.96.0",
+      "test",
+      "-p",
+      "grillo-verifier",
+      "--features",
+      "cli",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:51:51.658734+00:00",
+    "finishedAt": "2026-10-01T02:52:02.481949+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "release-provenance",
+    "command": [
+      "python",
+      "scripts/tests/test_release_provenance.py"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:52:02.482473+00:00",
+    "finishedAt": "2026-10-01T02:52:02.729850+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "publish-selftest",
+    "command": [
+      "python",
+      "scripts/check-publish-train.py",
+      "--self-test"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:52:02.729850+00:00",
+    "finishedAt": "2026-10-01T02:52:02.963274+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "api-selftest",
+    "command": [
+      "python",
+      "scripts/api-lock.py",
+      "--self-test"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:52:02.964279+00:00",
+    "finishedAt": "2026-10-01T02:52:03.064438+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "api-lock",
+    "command": [
+      "python",
+      "scripts/api-lock.py",
+      "--verify"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:52:03.064438+00:00",
+    "finishedAt": "2026-10-01T02:52:48.474686+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "unsafe-comments",
+    "command": [
+      "python",
+      "scripts/check-unsafe-safety-comments.py"
+    ],
+    "exitCode": 1,
+    "startedAt": "2026-10-01T02:52:49.357260+00:00",
+    "finishedAt": "2026-10-01T02:54:21.459009+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "unsafe-comments",
+    "command": [
+      "python",
+      "scripts/check-unsafe-safety-comments.py",
+      "--require-clean",
+      "--inventory-out",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\unsafe-inventory.md"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:54:53.689453+00:00",
+    "finishedAt": "2026-10-01T02:55:10.232628+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "unsafe-map",
+    "command": [
+      "python",
+      "scripts/audit-map.py",
+      "--verify"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:55:10.232628+00:00",
+    "finishedAt": "2026-10-01T02:55:37.450983+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "unsafe-review",
+    "command": [
+      "python",
+      "scripts/audit-map.py",
+      "--check"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:55:37.450983+00:00",
+    "finishedAt": "2026-10-01T02:56:03.793104+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "doc-citations",
+    "command": [
+      "python",
+      "scripts/check-doc-citations.py"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:56:03.793618+00:00",
+    "finishedAt": "2026-10-01T02:56:04.703928+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "evidence",
+    "command": [
+      "python",
+      "scripts/verify-evidence.py"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:56:04.704440+00:00",
+    "finishedAt": "2026-10-01T02:57:57.121043+00:00",
+    "explicitTokenFixture": null
+  },
+  {
+    "name": "rpc-retries",
+    "command": [
+      "python",
+      "scripts/tests/test_devnet_rpc.py"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:57:57.121043+00:00",
+    "finishedAt": "2026-10-01T02:57:57.299743+00:00",
+    "explicitTokenFixture": null
+  }
+]

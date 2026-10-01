@@ -1,0 +1,109 @@
+{
+  "blockTime": 1790824819,
+  "meta": {
+    "computeUnitsConsumed": 4929,
+    "costUnits": 6451,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 901952961
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              0
+            ],
+            "data": "23EHZvLx1LBKj7Whi5vgW7qHu3Hg9m9",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd invoke [1]",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: TokenMetadataInstruction: UpdateField",
+      "Program log: Error: Unknown",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 3112 of 198183 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb failed: custom program error: 0x35c2b5c1",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd consumed 4929 of 200000 compute units",
+      "Program 39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd failed: custom program error: 0x35c2b5c1"
+    ],
+    "postBalances": [
+      6682053107,
+      2682240,
+      1,
+      1159846,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6682058107,
+      2682240,
+      1,
+      1159846,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 901952961
+          }
+        ]
+      }
+    }
+  },
+  "slot": 506132024,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "DYzeV751WThsxAWA2v5pD3qTdQonWKD1PKkH1rjYxvJj",
+        "11111111111111111111111111111111",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "data": "g9uK26jVHP1CB",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "ERmHySDff85Rnvg9hyws9JpVKta5jQnRgpLQ25o4zr5n"
+    },
+    "signatures": [
+      "497QbhuSog1jBpWpqqYcZkVbeumhi6uU5KkSnDnRhy4q47n3ymZVRCm5MzTAPCHze8nwxQEyAsMdikFLeCC3W8Q9"
+    ]
+  },
+  "transactionIndex": 6,
+  "version": "legacy"
+}

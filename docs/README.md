@@ -2,6 +2,9 @@
 
 Start here for the current Hopper framework surface:
 
+- [Hopper 0.5 validation](RELEASE_0_5_VALIDATION.md) - tested source, token operations, on-chain evidence, and release status.
+- [Moving to 0.5](MIGRATION_0_5.md) - upgrade the framework, runtime, and native crates together.
+
 - [FIRST_FIVE_MINUTES.md](FIRST_FIVE_MINUTES.md) - the shortest path through `#[account]`, `#[derive(Accounts)]`, `#[program]`, `Ctx<T>`, and `ctx.accounts.*`.
 - [GETTING_STARTED_SERIOUS.md](GETTING_STARTED_SERIOUS.md) - a source-first walkthrough for a real program shape.
 - [WRITING_HOPPER_PROGRAMS.md](WRITING_HOPPER_PROGRAMS.md) - handler, account, initialization, and wrapper patterns.

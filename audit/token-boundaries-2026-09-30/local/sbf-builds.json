@@ -1,0 +1,50 @@
+[
+  {
+    "name": "build-v0",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.57",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\examples\\hopper-token-lab\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\final\\v0",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:48:06.332607+00:00",
+    "finishedAt": "2026-10-01T02:48:21.982213+00:00",
+    "elfSha256": "fd42a9d6cd10b685db8fd9b9fbf95ba7a8e17422821d5553d8f5437e6204ceaf",
+    "elfBytes": 86608,
+    "sourceCommit": "9150e75f9329a7f43a65a1ce2d4c29281177a077",
+    "treeClean": true
+  },
+  {
+    "name": "build-v3",
+    "command": [
+      "cargo-build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.57",
+      "--manifest-path",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\examples\\hopper-token-lab\\Cargo.toml",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\token-review-2026-09-30\\release\\final\\v3",
+      "--",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-10-01T02:48:22.030174+00:00",
+    "finishedAt": "2026-10-01T02:48:25.768289+00:00",
+    "elfSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+    "elfBytes": 82904,
+    "sourceCommit": "9150e75f9329a7f43a65a1ce2d4c29281177a077",
+    "treeClean": true
+  }
+]

@@ -3,3 +3,4 @@
 # end-of-line conversion on commit or checkout.
 audit/devnet-evidence-*/** -text
 audit/network-features-2026-09-23/** -text
+audit/token-boundaries-2026-09-30/** -text

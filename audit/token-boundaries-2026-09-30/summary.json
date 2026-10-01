@@ -1,0 +1,16 @@
+{
+  "resultLines": 241,
+  "passed": 2474,
+  "failed": 0,
+  "ignored": 277,
+  "explicitFixture": "release/final/v3/hopper_token_lab.so",
+  "scope": "Reported host unit/integration and doctest results; some existing compiled tests skip when their default fixtures are absent. Token lab used an explicit final ELF.",
+  "transactions": 59,
+  "expectedRefusals": 10,
+  "accountObservations": 57,
+  "programId": "39rZWxxKvbrdmk21xsLvjWBXpZcgPoqjY83NRNUgATHd",
+  "programBuildCommit": "9150e75f9329a7f43a65a1ce2d4c29281177a077",
+  "devnetRunnerCommit": "6042bfc30a581734207b16671be27f1e48386e3c",
+  "elfSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+  "cicadaSemanticCases": 698
+}
