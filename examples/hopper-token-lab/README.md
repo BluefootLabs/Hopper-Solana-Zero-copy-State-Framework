@@ -1,9 +1,10 @@
 # Token lab
 
-Every SPL Token and Token-2022 builder Hopper ships, run against the real
-programs on devnet. One instruction per builder family; every instruction
-takes the executable token program as its last account and derives the
-target from it, so the same program serves SPL Token and Token-2022.
+Shared token operations, selected Token-2022 extensions, metadata, and
+groups, run against the real programs on devnet. The table defines this
+lab's scope; other builders have separate fixtures. Token operations take
+the executable token program as their last account and derive the target
+from it, so one program serves both token programs.
 
 | Tag | Instruction | Builders it proves |
 |---|---|---|
@@ -73,7 +74,7 @@ the live programs settled: both SPL Token and Token-2022 accept `Batch`
 (the round trip of two `TransferChecked`s is one token CPI, 2,472 and 5,575
 CU for the whole instruction); SPL Token accepts `UnwrapLamports`
 (4,475 CU including the account's creation); every one of the eight
-extensions the plan supports is accepted alone, seven of them together
+extensions selected by this lab is accepted alone, seven of them together
 (29,294 CU for the mint with default account state, pausable, scaled UI
 amount, group pointer, permissioned burn, metadata pointer, and group
 member pointer), and interest bearing with scaled UI amount is the one pair

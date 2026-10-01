@@ -6,7 +6,7 @@ One lane per token program: create a mint, two immutable-owner accounts (sized
 by GetAccountDataSize), mint supply, a batched there-and-back transfer, the
 UI-amount round trip, an excess-lamport withdrawal, and a multisig. SPL Token
 also gets the wrapped-SOL unwrap; Token-2022 also gets the extended mint
-(every fixed-size extension the plan supports), pause/resume, a scaled-UI
+(the fixed-size extensions selected by this lab), pause/resume, a scaled-UI
 multiplier update, a mint that carries its own metadata (initialize, set and
 replace a key, rename, remove, give up the authority, emit), and a token group
 with a member. Cases the live program refuses are recorded, not hidden.
