@@ -17,8 +17,10 @@ published crate, the changes since the version on crates.io and the version
 a subsequent release needs. The list below records the 0.4-to-0.5 changes,
 including behavior changes a signature does not show.
 
-Wire formats, discriminators, layout fingerprints, and the account header
-are unchanged. A 0.4 program and a 0.5 program read each other's accounts.
+This release preserves the wire formats, discriminators, layout fingerprints,
+and account header for unchanged layout declarations. Programs using the same
+layout can read the same bytes, subject to their owner, version, and application
+authorization checks. Changing a layout can still require a migration.
 
 ## Signatures
 
