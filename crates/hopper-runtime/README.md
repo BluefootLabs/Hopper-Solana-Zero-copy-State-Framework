@@ -40,6 +40,10 @@ host CPIs remain validation-only no-ops; test callee behavior in an SVM or on de
 
 PDA helpers: find_program_address, create_program_address, plus Hopper's verify-only sha256 path that skips curve_validate for stored-bump PDA verification. They run in a plain `cargo test` with the cluster's answers, and `find_program_address_const` derives an address and bump at compile time.
 
+On the upcoming 0.5 branch, `pda::try_find_program_address` returns
+`Result<(Address, u8), ProgramError>` for canonical search without panicking
+on malformed seeds. It uses Hopper's native, allocation-free implementation.
+
 All PDA paths reject oversized seed lists instead of truncating them. The
 16-seed limit includes the bump, and each seed is limited to 32 bytes.
 `const_pda!` evaluates the supplied-bump hash at compile time; it does not
@@ -144,3 +148,12 @@ absence because host stubs have no instruction trace. Program-ID inspection does
 not authorize a transfer or validate a signature payload.
 
 [Instruction inspection guide](https://hopperzero.dev/docs/instruction-introspection).
+
+## Token batches (upcoming 0.5)
+
+`TokenBatch` collects supported token instructions for one CPI. Accounts can
+be reused across separate inner instructions; duplicate writable roles
+within one are rejected, including token self-transfers. Failed pushes leave
+the existing batch unchanged, including when a custom `TokenInstruction`
+emits data and then returns an error. Each inner payload is limited to 255
+bytes by the token batch wire format, in addition to the chosen buffer size.

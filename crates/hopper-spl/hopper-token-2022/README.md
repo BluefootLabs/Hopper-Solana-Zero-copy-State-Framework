@@ -18,8 +18,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   `InitializeImmutableOwner`, `GetAccountDataSize`, `AmountToUiAmount`,
   `UiAmountToAmount`, `WithdrawExcessLamports`, and the rest), sent with
   `invoke_on(TokenProgram::Token2022, ..)` or `invoke_for_owner(..)`.
-- **Extension instructions** - `extension_instructions` carries every
-  Token-2022-only instruction: `CreateNativeMint`,
+- **Extension instructions** - `extension_instructions` carries Token-2022 extension instructions including `CreateNativeMint`,
   `InitializeNonTransferableMint`, `Reallocate`, and the transfer fee,
   default account state, memo transfer, interest bearing, CPI guard,
   permanent delegate, transfer hook, metadata / group / group member
@@ -52,7 +51,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   `check_transfer_hook_program`. Zero-copy TLV scanners over the mint or
   token-account extension area.
 
-## Mint creation in 0.3.1
+## Mint creation
 
 `MintPlan` binds exact allocation to the thirteen fixed-size extension
 initializers: transfer fee, mint close authority, non-transferable, permanent
@@ -67,7 +66,7 @@ It does not infer extension semantics, initialize variable-length metadata,
 create token accounts, or mint supply. Propagate errors from the multi-CPI
 sequence so the enclosing instruction rolls back earlier work.
 
-These APIs ship in the verified 0.3.1 registry release. See the [Token-2022 guide](https://hopperzero.dev/docs/token-2022) for
+The original mint plan shipped in 0.3.1; the expanded extension set and new instruction families described above are current-branch work for 0.5. See the [Token-2022 guide](https://hopperzero.dev/docs/token-2022) for
 complete examples and the distinction between readers, constraints, and creation.
 
 ## When to reach for this
@@ -97,3 +96,19 @@ Versioned API docs: <https://docs.rs/crate/hopper-token-2022>.
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 
 License: Apache-2.0.
+
+## Transfer-hook lists and token batches (upcoming 0.5)
+
+`hook::ExtraAccountMetaList::unpack` selects the Execute discriminator and
+checks the declared TLV value length before exposing entries. Resolution
+supports literal addresses and PDAs with literal, instruction-data, and
+account-key seeds; account-data seeds and pubkey-data entries still require
+explicit application resolution. Validate the list account's owner and PDA
+before trusting it. Resolution returns errors for reserved kinds and invalid
+seed bounds, and leaves the output buffer unchanged on failure.
+
+`TokenBatch` uses fixed-capacity buffers and at most 255 data bytes per inner
+instruction. It permits account reuse across instructions while rejecting
+repeated writable accounts within one instruction. Send larger payloads or
+instructions requiring intentional writable aliases through the appropriate
+individual API. A failed push leaves the batch unchanged.

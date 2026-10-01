@@ -401,3 +401,18 @@ or run the transfer hook.
 
 Mint initialization does not replace the token readers and authority checks
 needed by later instructions. Validate each operation's own contract.
+
+## Hook-list and batch validation on the 0.5 branch
+
+The hook resolver selects the Execute TLV entry by discriminator, checks its
+declared value length, and confines the entry count to that value. Check the
+list account's owner and derived address separately. Literal, instruction-data,
+and account-key seeds are supported; account-data seeds and pubkey-data
+entries require explicit application resolution. A failed resolution leaves
+the caller's output buffer unchanged.
+
+`TokenBatch` permits the same account in different inner instructions but
+rejects repeated writable roles inside one, including self-transfers. Each
+payload must fit 255 bytes and the batch's configured capacity. Failed pushes
+leave the existing batch unchanged. Individual metadata/group APIs can be
+used when an instruction intentionally needs writable aliases.

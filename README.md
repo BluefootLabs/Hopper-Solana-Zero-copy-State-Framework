@@ -3,25 +3,18 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-**The zero-copy framework for Solana programs.** Write programs in Rust with
-typed accounts, generated checks, and one-call CPIs, and ship them at the cost
-of hand-written code. Hopper reads and writes account data where it lives: no
-copies, no deserialization, no allocations.
+**The zero-copy framework for Solana programs.** Build token escrow,
+payments, claims, and treasury programs in Rust, with typed accounts,
+generated validation, and token CPIs. Read and update supported account
+layouts directly in Solana's memory, without deserializing the whole account.
 
-| pina's fixtures, Mollusk, main on 2026-09-30 | Hand-written Pinocchio | Hopper raw | Hopper framework |
-|---|---:|---:|---:|
-| Hello world | 111 CU, 3,160 B | 111 CU, 1,456 B | 127 CU, 1,824 B |
-| PDA counter, create | 1,490 CU | 1,514 CU | 1,471 CU |
-| PDA counter, update | 1,721 CU | 1,722 CU | 325 CU |
+Use the framework for application code and Hopper's own native runtime for
+instructions that need direct control over accounts and syscalls. Your
+program executes on chain; Hopper needs no separate execution service.
 
-The raw layer is Pinocchio's model and costs what Pinocchio costs. The
-framework generates the signer, owner, layout, and PDA checks and still comes
-in under the hand-written program, because it checks the bump stored in the
-account with one hash instead of re-deriving the address.
-Devnet charged the same compute units
-([evidence](audit/devnet-evidence-2026-09-30/framework-fixtures-round12)).
-[Why Hopper](docs/WHY_HOPPER.md), [coming from Pinocchio](docs/FROM_PINOCCHIO.md),
-and [the full table](bench/framework-comparison/results/RESULTS.txt).
+This branch includes changes for the upcoming **0.5 release**. The install
+command below selects the published 0.4 line. See [the migration guide](docs/MIGRATION_0_5.md)
+for API changes; current-branch features are not all available from crates.io yet.
 
 ## Build the program your users need
 
@@ -31,14 +24,14 @@ and [the full table](bench/framework-comparison/results/RESULTS.txt).
 | SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
 | Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
 | Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
-| Token claims and rewards | The whole SPL Token and Token-2022 instruction set as builders (either program, batched into one CPI), on-mint metadata and groups, and the confidential-transfer instructions (the whole flow run on devnet with real proofs), plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
+| Token claims and rewards | Token transfers, minting, approvals, multisig authorities, and bounded batches of supported token instructions, on-mint metadata and groups, and the confidential-transfer instructions (the whole flow run on devnet with real proofs), plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
 | NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
 The escrow example supports classic SPL Token with explicit mint/account
 restrictions. The [Token-2022 guide](https://hopperzero.dev/docs/token-2022)
 covers the extension-aware APIs, and the
 [token lab](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-token-lab/README.md)
-runs every builder family against both token programs on devnet. The orderbook example stores orders;
+exercises shared token operations on both programs, plus Token-2022 extensions, on devnet. The orderbook example stores orders;
 a matching engine and exchange settlement are application logic.
 
 ## Start with ordinary Rust

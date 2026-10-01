@@ -137,7 +137,7 @@ fn cpi_error(code: u64) -> ProgramError {
 
 /// Reject duplicate writable accounts before invoking CPI.
 #[inline]
-fn validate_no_duplicate_writable(
+pub(crate) fn validate_no_duplicate_writable(
     instruction: &InstructionView<'_, '_, '_, '_>,
     account_views: &[&AccountView<'_>],
 ) -> ProgramResult {
@@ -956,6 +956,9 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 /// because for a batch the repeat is the contract, not the footgun. The
 /// runtime serializes a repeated account once and marks the later metas as
 /// duplicates, so the callee sees one account through every one of them.
+/// This low-level function does not parse inner instructions. `TokenBatch`
+/// separately refuses repeated writable accounts within each appended
+/// instruction; custom callers must establish their own alias policy.
 #[inline]
 pub fn invoke_signed_batch_with_bounds<const MAX_ACCOUNTS: usize>(
     instruction: &InstructionView<'_, '_, '_, '_>,

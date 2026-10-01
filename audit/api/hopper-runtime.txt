@@ -3074,6 +3074,7 @@ pub fn hopper_runtime::pda::find_and_verify_pda(account: &hopper_runtime::Accoun
 pub fn hopper_runtime::pda::find_bump_for_address(seeds: &[&[u8]], program_id: &hopper_runtime::Address, expected: &hopper_runtime::Address) -> core::result::Result<u8, hopper_runtime::ProgramError>
 pub fn hopper_runtime::pda::find_canonical_bump_checked(seeds: &[&[u8]], program_id: &hopper_runtime::Address, expected: &hopper_runtime::Address) -> core::result::Result<u8, hopper_runtime::ProgramError>
 pub fn hopper_runtime::pda::find_program_address(seeds: &[&[u8]], program_id: &hopper_runtime::Address) -> (hopper_runtime::Address, u8)
+pub fn hopper_runtime::pda::try_find_program_address(seeds: &[&[u8]], program_id: &hopper_runtime::Address) -> core::result::Result<(hopper_runtime::Address, u8), hopper_runtime::ProgramError>
 pub fn hopper_runtime::pda::verify_address_with_seed(expected: &hopper_runtime::Address, base: &hopper_runtime::Address, seed: &[u8], owner: &hopper_runtime::Address) -> core::result::Result<(), hopper_runtime::ProgramError>
 pub fn hopper_runtime::pda::verify_pda(account: &hopper_runtime::AccountView<'_>, seeds: &[&[u8]], program_id: &hopper_runtime::Address) -> core::result::Result<(), hopper_runtime::ProgramError>
 pub fn hopper_runtime::pda::verify_pda_address(seeds: &[&[u8]], program_id: &hopper_runtime::Address, expected: &hopper_runtime::Address) -> core::result::Result<(), hopper_runtime::ProgramError>

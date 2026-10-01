@@ -1,6 +1,6 @@
 # Solana network compatibility
 
-Alpenglow was rechecked **2026-09-27 19:53 UTC** through finalized public RPC,
+Alpenglow was rechecked **2026-10-01 01:28 UTC (September 30 locally)** through finalized public RPC,
 with expected genesis, Feature ownership, and activation encoding checks.
 These are observations, not authenticated ledger proofs or permanent constants.
 
@@ -10,9 +10,9 @@ The feature account `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS` reports:
 
 | Cluster | Finalized snapshot slot | Alpenglow gate |
 |---|---:|---|
-| Devnet | 504897120 | Active since 504144000 |
-| Testnet | 445830900 | Active since 444620256 |
-| Mainnet-beta | 451096445 | Absent |
+| Devnet | 506103299 | Active since 504144000 |
+| Testnet | 447094610 | Active since 444620256 |
+| Mainnet-beta | 452139219 | Absent |
 
 Anza's [feature tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule)
 records testnet epoch 1042 and devnet epoch 1167, with mainnet activation pending.
@@ -36,10 +36,10 @@ Consensus finality does not remove account locks, compute charges, or applicatio
 authorization requirements. Hopper byte policies continue to govern tracked
 mutation inside the program; they do not change the scheduler's account locks.
 
-## Other runtime observations from September 27
+## Other runtime observations from September 30
 
 The same finalized capture checked 22 feature accounts per cluster, with source
-keys pinned to Agave `f77165963c709934e8ea8564187c00f081b597d1`.
+keys pinned to Agave `b1912476edbb6907f647ff36e6be7808c18f5c2e`.
 
 | Feature | Devnet | Testnet | Mainnet-beta |
 |---|---|---|---|
@@ -104,4 +104,4 @@ SIMD-0648 (unbounded loader-v3 instruction data), SIMD-0645 (SVM JIT
 intrinsics), SIMD-0376 (relaxed signature verification), and SIMD-0558 (a
 leader-info syscall). The rent repricing (SIMD-0437) has its first two stages
 active on every cluster and the remaining three planned for a later Agave line;
-the 250 ms and 200 ms slot stages are active on devnet and testnet only.
+the 250 ms stage is active on all three clusters, and the 200 ms stage is active on devnet and testnet only.

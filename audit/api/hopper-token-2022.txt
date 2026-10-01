@@ -3,6 +3,8 @@
 # script. A line that changes or disappears is a breaking change.
 hopper_token_2022::HookError::BadCount
 hopper_token_2022::HookError::IndexOutOfRange
+hopper_token_2022::HookError::InvalidDiscriminator
+hopper_token_2022::HookError::InvalidSeeds
 hopper_token_2022::HookError::OutputFull
 hopper_token_2022::HookError::TooManySeeds
 hopper_token_2022::HookError::Truncated
@@ -115,6 +117,7 @@ impl<const MAX: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_token_
 impl<const MAX: usize> core::panic::unwind_safe::UnwindSafe for hopper_token_2022::HookAccountBuf<MAX> [auto]
 pub const fn hopper_token_2022::HookAccountBuf::new() -> Self
 pub const hopper_token_2022::EXTRA_ACCOUNT_METAS_SEED: &[u8] = b"extra-account-metas"
+pub const hopper_token_2022::hook::EXECUTE_DISCRIMINATOR: [u8; 8] = _
 pub const hopper_token_2022::hook::EXTRA_ACCOUNT_METAS_SEED: &[u8] = b"extra-account-metas"
 pub const hopper_token_2022::hook::EXTRA_ACCOUNT_META_SIZE: usize = 35usize
 pub const hopper_token_2022::hook::MAX_PDA_SEEDS: usize = 16usize

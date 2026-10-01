@@ -684,4 +684,56 @@ mod token_lab {
         }
         .invoke()
     }
+
+    /// Deliberately construct a self-transfer inside a batch. Rejection
+    /// must come from TokenBatch before a CPI, independently of Accounts.
+    #[instruction(16)]
+    pub fn batch_self_transfer(ctx: Ctx<MintTo>, amount: u64, decimals: u8) -> ProgramResult {
+        let a = &ctx.accounts;
+        let program = token_program(a.token_program.as_account())?;
+        let mut batch = TokenBatch::<32, 4>::new();
+        batch.push(&TransferChecked {
+            from: a.account.as_account(),
+            mint: a.mint.as_account(),
+            to: a.account.as_account(),
+            authority: a.authority.as_account(),
+            amount,
+            decimals,
+        })?;
+        batch.invoke_on(program, &[])
+    }
+
+    /// Exercise the hook resolver on caller-supplied bytes. This is a
+    /// parser fixture, not a hook invocation or an account identity check.
+    #[instruction(17)]
+    pub fn resolve_hook_list(ctx: Ctx<UiAmountRoundTrip>, wire: [u8; 51]) -> ProgramResult {
+        use hopper::token_2022::hook::{ExtraAccountMetaList, HookAccountBuf, HookError};
+        let error = |e| {
+            ProgramError::Custom(match e {
+                HookError::InvalidDiscriminator => 6700,
+                HookError::Truncated => 6701,
+                HookError::BadCount => 6702,
+                HookError::UnsupportedSeed => 6703,
+                HookError::TooManySeeds => 6704,
+                HookError::IndexOutOfRange => 6705,
+                HookError::OutputFull => 6706,
+                HookError::InvalidSeeds => 6707,
+            })
+        };
+        let list = ExtraAccountMetaList::unpack(&wire).map_err(error)?;
+        let mut out = HookAccountBuf::<1>::new();
+        list.resolve_into(
+            &mut out,
+            &[0; 33],
+            ctx.accounts.token_program.key(),
+            &[*ctx.accounts.mint.key()],
+        )
+        .map_err(error)?;
+        let first = out
+            .as_slice()
+            .first()
+            .ok_or(ProgramError::InvalidArgument)?;
+        hopper::return_data::set_return_data(first.address.as_array());
+        Ok(())
+    }
 }

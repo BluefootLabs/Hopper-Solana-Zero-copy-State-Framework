@@ -23,6 +23,8 @@ target from it, so the same program serves SPL Token and Token-2022.
 | 13 | `finalize_metadata(name, key)` | `UpdateMetadataField` on the name, `RemoveMetadataKey` strict and idempotent, `UpdateMetadataAuthority` to none, `EmitTokenMetadata` |
 | 14 | `create_group(max_size)` | `MintPlan` with a group pointer that names the mint, `InitializeTokenGroup` |
 | 15 | `create_group_member` | `MintPlan` with a group member pointer, `InitializeTokenGroupMember` |
+| 16 | `batch_self_transfer(amount, decimals)` | Deliberate writable alias constructed inside a batch; must fail before a token CPI |
+| 17 | `resolve_hook_list([u8; 51])` | Caller-supplied Execute TLV list; literal/PDA resolution and malformed-input refusals |
 
 The devnet runner is `scripts/test-token-lab-devnet.py`. It builds nothing:
 it takes a deployed program id and the ELF it must match, verifies the
@@ -41,8 +43,12 @@ py -3.12 scripts/test-token-lab-devnet.py \
   --elf target/deploy/hopper_token_lab.so --out target/hopper/token-lab-devnet
 ```
 
-Build with `cargo build-sbf` from this directory. The program is 78,136
-bytes as sBPF v0 with the default release profile.
+Build with `cargo build-sbf` from this directory. Test a specific build with
+`HOPPER_TOKEN_LAB_SBF` set to its absolute path without the `.so` suffix;
+an explicitly missing fixture fails instead of skipping.
+
+The hook probe tests parsing and address resolution. It does not invoke a
+transfer-hook program or establish an account's owner/PDA provenance.
 
 ## Devnet, 2026-09-28, round ten: metadata and groups
 

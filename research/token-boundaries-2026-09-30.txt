@@ -1,0 +1,84 @@
+Token boundaries review — September 30, 2026 (America/Chicago)
+
+Observed upstream heads at 2026-10-01 01:15 UTC. This is a scoped source
+review, not an exhaustive audit of each repository or its sister projects.
+GitHub's Pina compare response contains 300 files, a truncation boundary;
+selected files were fetched separately from the pinned tree.
+
+Pins and reviewed scope
+
+- anza-xyz/pinocchio 0dace48f3d798a3355ac2d8374c3920933edd6fd:
+  programs/transfer-hook-interface/src/instructions/execute.rs, especially
+  the instruction discriminator, validation PDA lookup, TLV list selection,
+  account resolution and borrow boundaries. This is a new hook CPI interface,
+  not evidence that every hook integration is automatic or allocation-free.
+- solana-program/transfer-hook ec7063291e968f4b0064e4df0324ff49dcf320df:
+  interface/src/instruction.rs, Execute wire format and stable discriminator.
+- solana-program/libraries 34df090dd1f00743d0f1cc8e2160aba0f3903b83:
+  tlv-account-resolution/src/account.rs discriminator dispatch and resolution;
+  state.rs TLV selection and CPI resolution. Account-data seeds, pubkey-data
+  entries, and privilege de-escalation require more than address derivation.
+- pina-rs/pina 29ce50cb818fd1b905f0faee0e689a651b695a0d:
+  crates/pina/src/pda.rs fallible derivation and hash-only verification;
+  crates/pina_macros/src/entrypoint.rs route resolution and account capacity,
+  especially the spare slot used to preserve excess-account rejection.
+  Its new stored-bump hashing is not a novelty claim Hopper can monopolize.
+- solana-labs/solana-sdk successor anza-xyz/solana-sdk
+  fc89c122394e003d05b52aca81a6fb8ba5a8d306:
+  address/src/derive.rs seed capacity and hash construction;
+  address/src/syscalls.rs allocation-free host bump search and syscall path.
+- otter-sec/anchor anchor-next 9e583372814ce9a669333a2bf4f3f748ea52bece:
+  spl-v2/src/token_interface.rs changes to extension sizing, token-program
+  restrictions, extension initialization before InitializeMint2, and checks.
+  Hopper's MintPlan already explicitly couples sizing and initialization;
+  the two APIs have different configuration and allocation contracts.
+- blueshift-gg/quasar b0de7db4cd271654a2dcf78807dd865e98e0b339:
+  head unchanged from the previous pinned review; no new line-by-line review
+  is claimed. Blueshift and Pina organization repository inventories were
+  refreshed for follow-up selection, not treated as audits of sister repos.
+- anza-xyz/agave b1912476edbb6907f647ff36e6be7808c18f5c2e:
+  feature-set/src/lib.rs keys used in the finalized network capture.
+- solana-foundation/solana-improvement-documents
+  4b643ca8746742183a469681765e694b385bb315: unchanged proposal head.
+
+Concrete Hopper changes from this review
+
+1. TokenBatch waived duplicate writable-account checks for the entire batch.
+   That is necessary across separate inner instructions, but also let a
+   single self-transfer bypass the individual builder's refusal. Validate
+   the newly appended instruction only; preserve cross-instruction reuse.
+2. TokenInstruction is an open trait. A custom encoder may return an error
+   after emitting a prefix. Checkpoint the whole push and restore its visible
+   lengths on error, including the multisig path.
+3. ExtraAccountMetaList::unpack ignored the TLV discriminator and value
+   length, reading its count against the whole account. Select Execute's
+   stable discriminator, walk preceding TLVs, and bound the count by the
+   selected value. This does not validate the account's owner or PDA.
+4. Reserved entry discriminators 3..127 could underflow the external-program
+   index; excessive seed counts/lengths could reach a panicking search.
+   Return errors, reserve a bump slot, and use a fallible PDA search.
+5. Expose the existing native fallible canonical search through the ordinary
+   runtime PDA module as try_find_program_address returning Result. No heap,
+   no new off-chain service, and no claim to have invented PDA derivation.
+
+Limits still open
+
+The hook resolver's address-only API does not implement AccountData seeds or
+pubkey-data entries, nor does it provide a complete hook-program authoring
+interface. These require owner/provenance and borrow-aware account data APIs,
+not silently guessed addresses. Token batches have a 255-byte inner-payload
+wire limit and reject within-instruction writable aliases. Individual APIs
+remain necessary for larger payloads and legitimate aliasing instructions.
+No universal fastest, safest, drop-in replacement, or full-token-coverage
+claim follows from this work. The broader 0.5 release remains coordinated
+because already-landed public signatures break the published 0.4 line.
+
+Cluster observations
+
+Finalized slots: devnet 506103299, testnet 447094610, mainnet-beta 452139219.
+Expected genesis and Feature ownership/encoding were checked for 22 feature
+accounts per cluster. Alpenglow, direct account pointers, direct mapping, and
+SHA-512 were active on devnet/testnet; their mainnet accounts were absent.
+sBPF v3 was active on all three. The 0460 mainnet account had the wrong owner
+for feature evidence and remains unproven. SIMD proposal labels alone are not
+used as activation evidence. See audit/token-boundaries-2026-09-30/research/.

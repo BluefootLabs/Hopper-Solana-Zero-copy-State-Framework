@@ -37,11 +37,14 @@
 //! caller can resolve them explicitly rather than silently producing a
 //! wrong account list.
 
-use hopper_runtime::pda::find_program_address;
+use hopper_runtime::pda::{find_program_address, try_find_program_address};
 use hopper_runtime::Address;
 
 /// PDA seed prefix for the extra-account-metas account.
 pub const EXTRA_ACCOUNT_METAS_SEED: &[u8] = b"extra-account-metas";
+
+/// First eight bytes of SHA-256("spl-transfer-hook-interface:execute").
+pub const EXECUTE_DISCRIMINATOR: [u8; 8] = [105, 37, 101, 197, 75, 251, 102, 26];
 
 /// Size in bytes of one packed `ExtraAccountMeta` entry.
 pub const EXTRA_ACCOUNT_META_SIZE: usize = 35;
@@ -62,6 +65,10 @@ pub const MAX_PDA_SEEDS: usize = 16;
 /// Errors returned while parsing or resolving an extra-account-meta list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HookError {
+    /// No transfer-hook Execute list was found in the TLV data.
+    InvalidDiscriminator,
+    /// No viable off-curve address was found for the supplied seeds.
+    InvalidSeeds,
     /// The account data was shorter than the declared structure.
     Truncated,
     /// The declared entry count does not fit the buffer.
@@ -71,7 +78,7 @@ pub enum HookError {
     /// A seed kind that needs another account's data (disc-`2` /
     /// `AccountData`); resolve it explicitly.
     UnsupportedSeed,
-    /// More seeds than [`MAX_PDA_SEEDS`].
+    /// No room for the bump within [`MAX_PDA_SEEDS`].
     TooManySeeds,
     /// More resolved accounts than the caller's output buffer holds.
     OutputFull,
@@ -117,13 +124,30 @@ pub struct ExtraAccountMetaList<'a> {
 impl<'a> ExtraAccountMetaList<'a> {
     /// Unpack the list from raw extra-account-metas account data.
     ///
-    /// The 8-byte TLV type discriminator is not validated against a
-    /// hard-coded value (it varies by interface version); the structural
-    /// length/count framing is validated instead.
+    /// Selects the first Execute entry by its stable SPL discriminator.
+    /// Other TLV entries may precede it. The list's count must fit inside
+    /// its declared value length, not merely inside the account's bytes.
+    /// This parser does not establish the account's owner or PDA identity.
     #[inline]
     pub fn unpack(data: &'a [u8]) -> Result<Self, HookError> {
+        let mut remaining = data;
+        let data = loop {
+            if remaining.is_empty() || remaining.starts_with(&[0; 8]) {
+                return Err(HookError::InvalidDiscriminator);
+            }
+            if remaining.len() < 12 {
+                return Err(HookError::Truncated);
+            }
+            let value_len = u32::from_le_bytes(remaining[8..12].try_into().unwrap()) as usize;
+            let end = 12usize.checked_add(value_len).ok_or(HookError::Truncated)?;
+            let entry = remaining.get(..end).ok_or(HookError::Truncated)?;
+            if entry[..8] == EXECUTE_DISCRIMINATOR {
+                break entry;
+            }
+            remaining = &remaining[end..];
+        };
         if data.len() < ENTRIES_OFFSET {
-            return Err(HookError::Truncated);
+            return Err(HookError::BadCount);
         }
         let count = u32::from_le_bytes([
             data[COUNT_OFFSET],
@@ -185,6 +209,7 @@ impl<'a> ExtraAccountMetaList<'a> {
     /// resolver allows.
     ///
     /// Returns the number of accounts appended.
+    /// On an error, the output's visible contents are unchanged.
     pub fn resolve_into<const MAX: usize>(
         &self,
         out: &mut HookAccountBuf<MAX>,
@@ -193,14 +218,20 @@ impl<'a> ExtraAccountMetaList<'a> {
         known: &[Address],
     ) -> Result<usize, HookError> {
         let start = out.len();
-        for i in 0..self.count {
-            let entry = self.get(i).ok_or(HookError::Truncated)?;
-            // Earlier-resolved entries are addressable by index too.
-            let resolved =
-                self.resolve_entry(&entry, instruction_data, hook_program, known, out)?;
-            out.push(resolved)?;
+        let result = (|| {
+            for i in 0..self.count {
+                let entry = self.get(i).ok_or(HookError::Truncated)?;
+                // Earlier-resolved entries are addressable by index too.
+                let resolved =
+                    self.resolve_entry(&entry, instruction_data, hook_program, known, out)?;
+                out.push(resolved)?;
+            }
+            Ok(out.len() - start)
+        })();
+        if result.is_err() {
+            out.len = start;
         }
-        Ok(out.len() - start)
+        result
     }
 
     fn resolve_entry<const MAX: usize>(
@@ -220,8 +251,9 @@ impl<'a> ExtraAccountMetaList<'a> {
                 is_writable: entry.is_writable,
             });
         }
-        if disc == 2 {
-            // Pubkey loaded from an account's data; needs the account bytes.
+        if (2..U8_TOP_BIT).contains(&disc) {
+            // Disc 2 needs a separate pubkey-data resolver. Reserved
+            // discriminators must never underflow the external index.
             return Err(HookError::UnsupportedSeed);
         }
 
@@ -243,7 +275,8 @@ impl<'a> ExtraAccountMetaList<'a> {
             address_at(idx, known, resolved_so_far)?
         };
 
-        let (address, _bump) = find_program_address(&seed_refs[..n], program);
+        let (address, _bump) = try_find_program_address(&seed_refs[..n], program)
+            .map_err(|_| HookError::InvalidSeeds)?;
         Ok(ResolvedHookAccount {
             address,
             is_signer: entry.is_signer,
@@ -267,7 +300,8 @@ impl<'a> ExtraAccountMetaList<'a> {
             if kind == 0 {
                 break; // Uninitialized: end of seed list.
             }
-            if n >= MAX_PDA_SEEDS {
+            // PDA search appends the bump as the sixteenth seed.
+            if n >= MAX_PDA_SEEDS - 1 {
                 return Err(HookError::TooManySeeds);
             }
             match kind {
@@ -283,6 +317,9 @@ impl<'a> ExtraAccountMetaList<'a> {
                     // InstructionData: [2, index, len]
                     let index = *config.get(pos + 1).ok_or(HookError::Truncated)? as usize;
                     let len = *config.get(pos + 2).ok_or(HookError::Truncated)? as usize;
+                    if len > hopper_runtime::pda::MAX_SEED_LEN {
+                        return Err(HookError::UnsupportedSeed);
+                    }
                     let end = index.checked_add(len).ok_or(HookError::IndexOutOfRange)?;
                     out[n] = instruction_data
                         .get(index..end)
@@ -394,7 +431,7 @@ mod tests {
     /// records already laid out.
     fn build(entries: &[[u8; EXTRA_ACCOUNT_META_SIZE]]) -> std_vec::Vec<u8> {
         let mut buf = std_vec::Vec::new();
-        buf.extend_from_slice(&[0u8; 8]); // type discriminator
+        buf.extend_from_slice(&EXECUTE_DISCRIMINATOR);
         let value_len = 4 + entries.len() * EXTRA_ACCOUNT_META_SIZE;
         buf.extend_from_slice(&(value_len as u32).to_le_bytes());
         buf.extend_from_slice(&(entries.len() as u32).to_le_bytes());
@@ -438,7 +475,7 @@ mod tests {
 
     #[test]
     fn rejects_count_overrunning_buffer() {
-        let mut data = std::vec![0u8; ENTRIES_OFFSET];
+        let mut data = build(&[]);
         data[COUNT_OFFSET..COUNT_OFFSET + 4].copy_from_slice(&100u32.to_le_bytes());
         assert_eq!(
             ExtraAccountMetaList::unpack(&data).unwrap_err(),
@@ -461,6 +498,96 @@ mod tests {
         assert_eq!(
             list.resolve_into(&mut out, &[], &program, &[]).unwrap_err(),
             HookError::UnsupportedSeed
+        );
+    }
+
+    #[test]
+    fn selects_execute_and_never_reads_entries_past_its_tlv_length() {
+        let entry = [0; EXTRA_ACCOUNT_META_SIZE];
+        let data = build(&[entry]);
+        let mut prefixed = std::vec![9; 8];
+        prefixed.extend_from_slice(&3u32.to_le_bytes());
+        prefixed.extend_from_slice(&[1, 2, 3]);
+        prefixed.extend_from_slice(&data);
+        assert_eq!(ExtraAccountMetaList::unpack(&prefixed).unwrap().len(), 1);
+        let mut bad = data.clone();
+        bad[8..12].copy_from_slice(&4u32.to_le_bytes());
+        assert_eq!(
+            ExtraAccountMetaList::unpack(&bad).unwrap_err(),
+            HookError::BadCount
+        );
+        bad[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert_eq!(
+            ExtraAccountMetaList::unpack(&bad).unwrap_err(),
+            HookError::Truncated
+        );
+        let mut wrong = data;
+        wrong[..8].fill(9);
+        assert_eq!(
+            ExtraAccountMetaList::unpack(&wrong).unwrap_err(),
+            HookError::InvalidDiscriminator
+        );
+    }
+
+    #[test]
+    fn failed_resolution_preserves_existing_output() {
+        for disc in 2..128 {
+            let mut bad = [0; EXTRA_ACCOUNT_META_SIZE];
+            bad[0] = disc;
+            let data = build(&[[0; EXTRA_ACCOUNT_META_SIZE], bad]);
+            let list = ExtraAccountMetaList::unpack(&data).unwrap();
+            let mut out = HookAccountBuf::<3>::new();
+            let existing = ResolvedHookAccount {
+                address: Address::new_from_array([7; 32]),
+                is_signer: false,
+                is_writable: true,
+            };
+            out.push(existing).unwrap();
+            assert_eq!(
+                list.resolve_into(&mut out, &[], &Address::default(), &[]),
+                Err(HookError::UnsupportedSeed)
+            );
+            assert_eq!(out.as_slice(), &[existing]);
+        }
+        let data = build(&[[0; EXTRA_ACCOUNT_META_SIZE]; 2]);
+        let list = ExtraAccountMetaList::unpack(&data).unwrap();
+        let mut out = HookAccountBuf::<1>::new();
+        assert_eq!(
+            list.resolve_into(&mut out, &[], &Address::default(), &[]),
+            Err(HookError::OutputFull)
+        );
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn malformed_seed_shapes_return_errors_instead_of_panicking() {
+        let mut entry = [0; EXTRA_ACCOUNT_META_SIZE];
+        entry[0] = 1;
+        entry[1..5].copy_from_slice(&[2, 0, 33, 0]);
+        let data = build(&[entry]);
+        let list = ExtraAccountMetaList::unpack(&data).unwrap();
+        assert_eq!(
+            list.resolve_into(
+                &mut HookAccountBuf::<1>::new(),
+                &[0; 33],
+                &Address::default(),
+                &[]
+            ),
+            Err(HookError::UnsupportedSeed)
+        );
+        for seed in entry[1..33].chunks_exact_mut(2) {
+            seed.copy_from_slice(&[3, 0]);
+        }
+        let data = build(&[entry]);
+        let list = ExtraAccountMetaList::unpack(&data).unwrap();
+        assert_eq!(
+            list.resolve_into(
+                &mut HookAccountBuf::<1>::new(),
+                &[],
+                &Address::default(),
+                &[Address::default()]
+            ),
+            Err(HookError::TooManySeeds)
         );
     }
 }

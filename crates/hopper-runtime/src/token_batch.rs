@@ -7,11 +7,14 @@
 //! list. One CPI then pays one invocation overhead instead of one per
 //! instruction.
 //!
-//! [`TokenBatch`] is a [`TokenSink`]: any builder in [`crate::token`] or
-//! [`crate::token_2022_ix`] is appended with [`TokenBatch::push`] through
+//! [`TokenBatch`] is a [`TokenSink`]: builders in [`crate::token`] or
+//! [`crate::token_2022_ix`] are appended with [`TokenBatch::push`] through
 //! the same `emit` that its `invoke()` uses, so the batched bytes and the
 //! single-CPI bytes are identical by construction. The buffers are const
 //! generic and live on the stack; nothing is allocated.
+//! Each inner instruction must fit the wire format's 255-byte data and
+//! 255-account limits as well as the batch's capacities. A larger payload
+//! must be sent separately.
 //!
 //! One account may appear in several inner instructions (a transfer there
 //! and back); the batch is sent through
@@ -19,6 +22,8 @@
 //! per-meta check of the default tier and only waives the refusal of one
 //! account behind two writable metas, since for a batch that repeat is the
 //! contract rather than the footgun.
+//! Within an inner instruction, repeated writable accounts are still
+//! refused with `AccountBorrowFailed` (including self-transfers).
 //!
 //! Both programs accepted a batch of two `TransferChecked`s on devnet on
 //! 2026-09-28 (SPL Token at 2,472 CU for the whole instruction, Token-2022
@@ -89,7 +94,7 @@ impl<'a, const DATA: usize, const ACCOUNTS: usize> TokenBatch<'a, DATA, ACCOUNTS
     /// PDA seeds given at invoke time.
     #[inline]
     pub fn push(&mut self, instruction: &impl TokenInstruction<'a>) -> ProgramResult {
-        instruction.emit(&[], self)
+        self.push_multisig(instruction, &[])
     }
 
     /// Append an instruction whose authority is a multisig with these
@@ -100,7 +105,14 @@ impl<'a, const DATA: usize, const ACCOUNTS: usize> TokenBatch<'a, DATA, ACCOUNTS
         instruction: &impl TokenInstruction<'a>,
         multisig_signers: &[&'a AccountView<'a>],
     ) -> ProgramResult {
-        instruction.emit(multisig_signers, self)
+        // TokenInstruction is open: a custom encoder can emit more than
+        // once, or fail after emitting. Keep the whole push transactional.
+        let checkpoint = (self.data_len, self.accounts_len, self.instructions);
+        let result = instruction.emit(multisig_signers, self);
+        if result.is_err() {
+            (self.data_len, self.accounts_len, self.instructions) = checkpoint;
+        }
+        result
     }
 
     /// How many instructions were pushed.
@@ -247,8 +259,24 @@ impl<'a, const DATA: usize, const ACCOUNTS: usize> TokenSink<'a>
             }
         }
 
-        self.data_len = new_data_len;
+        // All new slots are initialized, so the slice accessors may expose
+        // them for validation. Compare only this inner instruction: an
+        // account may legitimately occur again in the next instruction.
+        let previous_accounts_len = self.accounts_len;
         self.accounts_len = new_accounts_len;
+        let instruction = InstructionView {
+            program_id: TokenProgram::Legacy.address(), // irrelevant to alias validation
+            data,
+            accounts: &self.account_metas()[previous_accounts_len..],
+        };
+        if let Err(error) = crate::cpi::validate_no_duplicate_writable(
+            &instruction,
+            &self.account_views()[previous_accounts_len..],
+        ) {
+            self.accounts_len = previous_accounts_len;
+            return Err(error);
+        }
+        self.data_len = new_data_len;
         self.instructions += 1;
         Ok(())
     }
@@ -366,6 +394,85 @@ mod tests {
         let mut few = TokenBatch::<64, 2>::new();
         assert_eq!(few.push(&close), Err(ProgramError::InvalidArgument));
         assert_eq!(few.account_metas().len(), 0);
+    }
+
+    #[test]
+    fn a_batch_refuses_a_self_transfer_but_reuses_accounts_between_instructions() {
+        let (_b1, from) = make_account([1; 32], false);
+        let (_b2, mint) = make_account([2; 32], false);
+        let (_b3, to) = make_account([3; 32], false);
+        let (_b4, authority) = make_account([4; 32], true);
+        let mut batch = TokenBatch::<64, 12>::new();
+        let mut transfer = TransferChecked {
+            from: &from,
+            mint: &mint,
+            to: &to,
+            authority: &authority,
+            amount: 5,
+            decimals: 2,
+        };
+        batch.push(&transfer).unwrap();
+        let before = batch.data().to_vec();
+        transfer.to = &from;
+        assert_eq!(
+            batch.push(&transfer),
+            Err(ProgramError::AccountBorrowFailed)
+        );
+        assert_eq!(batch.data(), before);
+        assert_eq!(batch.len(), 1);
+        assert_eq!(batch.account_metas().len(), 4);
+        transfer.from = &to;
+        batch.push(&transfer).unwrap();
+        assert_eq!(batch.len(), 2);
+        assert_eq!(batch.account_metas().len(), 8);
+    }
+
+    #[test]
+    fn custom_instruction_failure_rolls_back_all_emitted_instructions() {
+        struct Partial;
+        impl<'a> TokenInstruction<'a> for Partial {
+            fn emit(
+                &self,
+                _: &[&'a AccountView<'a>],
+                sink: &mut impl TokenSink<'a>,
+            ) -> ProgramResult {
+                sink.emit(&[17], [], [], &[])?;
+                Err(ProgramError::InvalidArgument)
+            }
+        }
+        for multisig in [false, true] {
+            let mut batch = TokenBatch::<16, 0>::new();
+            TokenSink::emit(&mut batch, &[20], [], [], &[]).unwrap();
+            let before = batch.data().to_vec();
+            let result = if multisig {
+                batch.push_multisig(&Partial, &[])
+            } else {
+                batch.push(&Partial)
+            };
+            assert_eq!(result, Err(ProgramError::InvalidArgument));
+            assert_eq!(batch.data(), before);
+            assert_eq!(batch.len(), 1);
+        }
+    }
+
+    #[test]
+    fn writable_trailing_alias_is_refused_even_for_distinct_views() {
+        let (_b1, from) = make_account([1; 32], false);
+        let (_b2, alias) = make_account([1; 32], false);
+        let mut batch = TokenBatch::<16, 2>::new();
+        assert_eq!(
+            TokenSink::emit(
+                &mut batch,
+                &[17],
+                [InstructionAccount::writable(from.address())],
+                [&from],
+                &[Trailing::writable(&[&alias])]
+            ),
+            Err(ProgramError::AccountBorrowFailed)
+        );
+        assert!(batch.is_empty());
+        assert_eq!(batch.data(), &[255]);
+        assert!(batch.account_views().is_empty());
     }
 
     #[test]

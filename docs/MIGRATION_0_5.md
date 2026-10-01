@@ -128,4 +128,11 @@ Nothing here needs a change to existing code:
 - The `panic-location` and `panic-message` features.
 - PDA derivation and verification on the host, and
   `find_program_address_const`.
+- `pda::try_find_program_address` returns a `Result` for canonical search.
+  Hook-list resolution uses it and rejects malformed TLV framing and reserved
+  entry kinds. `HookError` has new `InvalidDiscriminator` and `InvalidSeeds`
+  variants; update exhaustive matches.
+- Token batches reject duplicate writable roles within an inner instruction.
+  Reuse across instructions remains supported. Failed pushes preserve the
+  existing batch, including custom encoders that fail after writing.
 - `hopper_interface!`'s `pub struct View as Layout` form and `ORIGIN`.

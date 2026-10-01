@@ -20,7 +20,12 @@ struct Fixture {
 
 fn setup() -> Option<Fixture> {
     let program_id = Pubkey::new_unique();
-    let Some(mut svm) = LiteSvmHarness::load(&program_id, ELF_PATH_STEM) else {
+    let path = std::env::var("HOPPER_TOKEN_LAB_SBF").unwrap_or_else(|_| ELF_PATH_STEM.into());
+    let Some(mut svm) = LiteSvmHarness::load(&program_id, &path) else {
+        assert!(
+            std::env::var_os("HOPPER_TOKEN_LAB_SBF").is_none(),
+            "explicit SBF fixture missing: {path}"
+        );
         eprintln!("SKIPPED: build {ELF_PATH_STEM}.so first");
         return None;
     };
@@ -161,6 +166,33 @@ fn lanes_on_both_programs() {
         assert!(result.succeeded(), "mint_to failed: {:#?}", f.svm.logs());
         assert_eq!(&f.bank[&a].data[64..72], &1_000_000u64.to_le_bytes());
 
+        let before = f.bank[&a].clone();
+        let rejected = process(
+            &mut f,
+            16,
+            &payload,
+            vec![
+                AccountMeta::new(mint, false),
+                AccountMeta::new(a, false),
+                AccountMeta::new_readonly(payer, true),
+                AccountMeta::new_readonly(token, false),
+            ],
+        );
+        assert!(
+            !rejected.succeeded(),
+            "batched self-transfer must fail before a CPI"
+        );
+        assert_eq!(
+            format!("{:?}", rejected.raw().program_result),
+            "Err(AccountBorrowFailed)"
+        );
+        assert!(!f
+            .svm
+            .logs()
+            .iter()
+            .any(|line| line == &format!("Program {token} invoke [2]")));
+        assert_eq!(f.bank[&a], before);
+
         let mut payload = 1_234_567u64.to_le_bytes().to_vec();
         let result = process(
             &mut f,
@@ -234,5 +266,82 @@ fn lanes_on_both_programs() {
         let data = &f.bank[&multisig].data;
         assert_eq!(data.len(), 355);
         assert_eq!(&data[..3], &[1, 2, 1]);
+    }
+}
+
+#[test]
+fn hook_wire_validation_in_compiled_program() {
+    let Some(mut f) = setup() else { return };
+    let token = mollusk_svm_programs_token::token2022::ID;
+    let mint = create_mint(&mut f, token);
+    let mut valid = [0u8; 51];
+    valid[..8].copy_from_slice(&[105, 37, 101, 197, 75, 251, 102, 26]);
+    valid[8..12].copy_from_slice(&39u32.to_le_bytes());
+    valid[12..16].copy_from_slice(&1u32.to_le_bytes());
+    valid[17..49].copy_from_slice(mint.as_ref());
+    let mut pda_wire = valid;
+    pda_wire[16] = 1;
+    pda_wire[17..49].fill(0);
+    pda_wire[17..19].copy_from_slice(&[3, 0]);
+    let derived = process(
+        &mut f,
+        17,
+        &pda_wire,
+        vec![
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new_readonly(token, false),
+        ],
+    );
+    assert!(derived.succeeded(), "{:#?}", f.svm.logs());
+    assert_eq!(
+        derived.raw().return_data,
+        Pubkey::find_program_address(&[mint.as_ref()], &token)
+            .0
+            .to_bytes()
+    );
+    let mut cases = vec![(valid, None)];
+    let mut bad = valid;
+    bad[..8].fill(9);
+    cases.push((bad, Some(6700)));
+    let mut bad = valid;
+    bad[8..12].copy_from_slice(&4u32.to_le_bytes());
+    cases.push((bad, Some(6702)));
+    let mut bad = valid;
+    bad[8..12].copy_from_slice(&40u32.to_le_bytes());
+    cases.push((bad, Some(6701)));
+    let mut bad = valid;
+    bad[16] = 3;
+    bad[17..49].fill(0);
+    cases.push((bad, Some(6703)));
+    let mut bad = valid;
+    bad[16] = 1;
+    for seed in bad[17..49].chunks_exact_mut(2) {
+        seed.copy_from_slice(&[3, 0]);
+    }
+    cases.push((bad, Some(6704)));
+    let mut bad = valid;
+    bad[16] = 1;
+    bad[17..49].fill(0);
+    bad[17..20].copy_from_slice(&[2, 0, 33]);
+    cases.push((bad, Some(6703)));
+    for (wire, expected) in cases {
+        let result = process(
+            &mut f,
+            17,
+            &wire,
+            vec![
+                AccountMeta::new_readonly(mint, false),
+                AccountMeta::new_readonly(token, false),
+            ],
+        );
+        if let Some(code) = expected {
+            assert_eq!(
+                format!("{:?}", result.raw().program_result),
+                format!("Err(Custom({code}))")
+            );
+        } else {
+            assert!(result.succeeded(), "{:#?}", f.svm.logs());
+            assert_eq!(result.raw().return_data, mint.to_bytes());
+        }
     }
 }

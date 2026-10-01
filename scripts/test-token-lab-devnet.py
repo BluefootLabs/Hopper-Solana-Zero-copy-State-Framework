@@ -61,6 +61,8 @@ TAG_SET_METADATA_KEY = 12
 TAG_FINALIZE_METADATA = 13
 TAG_CREATE_GROUP = 14
 TAG_CREATE_GROUP_MEMBER = 15
+TAG_BATCH_SELF_TRANSFER = 16
+TAG_RESOLVE_HOOK_LIST = 17
 EXT_METADATA_POINTER, EXT_METADATA = 18, 19
 EXT_GROUP_POINTER, EXT_GROUP = 20, 21
 EXT_GROUP_MEMBER_POINTER, EXT_GROUP_MEMBER = 22, 23
@@ -229,6 +231,50 @@ def main() -> None:
         assert text == expected_text, (text, expected_text)
         record["uiAmount"] = text
         record["roundTrippedAmount"] = back
+
+    def batch_refusal(lane, token, mint, a):
+        before = account(a)
+        tx, record = send(f"batch-self-transfer-{lane}", args.program,
+                         [mint + ":w", a + ":w", "payer:s", token],
+                         bytes([TAG_BATCH_SELF_TRANSFER]) + struct.pack("<QB", BATCH_AMOUNT, DECIMALS),
+                         allow_failure=True)
+        assert tx["meta"]["err"] == {"InstructionError": [0, "AccountBorrowFailed"]}
+        assert not any(line == f"Program {token} invoke [2]" for line in tx["meta"]["logMessages"])
+        after = account(a, tx["slot"])
+        assert after["bytes"] == before["bytes"] and after["lamports"] == before["lamports"]
+        record["tokenProgramInvocations"] = 0
+        record["tokenAccountUnchanged"] = True
+
+    def hook_parser(mint):
+        discriminator = hashlib.sha256(b"spl-transfer-hook-interface:execute").digest()[:8]
+        wire = bytearray(discriminator + struct.pack("<II", 39, 1) + bytes([0]) + pubkey_bytes(mint) + bytes([0, 1]))
+        cases = [("literal", wire[:], None)]
+        pda = wire[:]; pda[16] = 1; pda[17:49] = bytes([3, 0] + [0] * 30)
+        cases.append(("account-key-pda", pda, None))
+        derived = json.loads(run(["solana", "find-program-derived-address", TOKEN_2022,
+                                  "pubkey:" + mint, "--output", "json"]))["address"]
+        wrong = wire[:]; wrong[:8] = bytes([9] * 8)
+        cases.append(("wrong-type", wrong, 6700))
+        short = wire[:]; short[8:12] = struct.pack("<I", 4)
+        cases.append(("count-past-tlv", short, 6702))
+        long = wire[:]; long[8:12] = struct.pack("<I", 40)
+        cases.append(("truncated-tlv", long, 6701))
+        reserved = wire[:]; reserved[16] = 3; reserved[17:49] = bytes(32)
+        cases.append(("reserved-kind", reserved, 6703))
+        many = wire[:]; many[16] = 1; many[17:49] = bytes([3, 0] * 16)
+        cases.append(("too-many-seeds", many, 6704))
+        oversized = wire[:]; oversized[16] = 1; oversized[17:49] = bytes([2, 0, 33] + [0] * 29)
+        cases.append(("oversized-seed", oversized, 6703))
+        for label, data, error in cases:
+            tx, record = send(f"hook-parser-{label}", args.program, [mint, TOKEN_2022],
+                              bytes([TAG_RESOLVE_HOOK_LIST]) + data, allow_failure=error is not None)
+            if error is None:
+                expected = derived if label == "account-key-pda" else mint
+                assert return_data(tx) == pubkey_bytes(expected)
+                record["expectedAddress"] = expected
+            else:
+                assert tx["meta"]["err"] == {"InstructionError": [0, {"Custom": error}]}
+            record["expectedError"] = error
 
     def withdraw_excess(lane, token, target, size):
         send(f"prefund-{lane}", SYSTEM, ["payer:sw", target + ":w"], struct.pack("<IQ", 2, PREFUND))
@@ -422,10 +468,12 @@ def main() -> None:
         b, _ = immutable_account(f"immutable-b-{lane}", lane, token, mint, [EXT_IMMUTABLE_OWNER])
         mint_to(lane, token, mint, a, SUPPLY)
         batch(lane, token, mint, a, b)
+        batch_refusal(lane, token, mint, a)
         ui_round_trip(f"ui-amount-{lane}", token, mint, UI_AMOUNT, "1.234567")
         withdraw_excess(lane, token, a, size_a)
         multisig(lane, token, a)
         accounts[lane] = {"mint": mint, "a": a, "b": b}
+    hook_parser(accounts["token-2022"]["mint"])
     wrap_and_unwrap()
 
     # The live program decides which extensions coexist (Token-2022 refuses a

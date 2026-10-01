@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## Unreleased
 
+- Token batches now reject repeated writable roles within an inner instruction,
+  including self-transfers, while allowing account reuse across instructions.
+  Failed custom encoders leave the existing batch unchanged.
+- Transfer-hook lists select the Execute discriminator and respect TLV value
+  boundaries. Reserved entry kinds and invalid seed shapes return errors;
+  failed resolution leaves its output unchanged. Account-data seed resolution
+  still requires application code.
+- `hopper_runtime::pda::try_find_program_address` exposes allocation-free,
+  fallible canonical PDA search as `Result<(Address, u8), ProgramError>`.
+  Hook resolution uses it instead of a panicking search.
+- The token lab includes batched self-transfer refusals and caller-supplied
+  hook-list probes, with independent SDK/CLI checks for valid derived addresses.
+
 ### Breaking
 
 The next release of hopper-native and hopper-runtime is 0.5.0, and so is

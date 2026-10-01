@@ -82,6 +82,23 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
     crate::native_boundary::find_program_address(seeds, program_id)
 }
 
+/// Find the canonical address and bump without panicking on invalid seeds.
+///
+/// Returns `InvalidSeeds` for 16 or more base seeds, a seed over 32 bytes,
+/// or an exhausted bump search. The bump occupies one of the 16 seed slots.
+/// Uses Hopper's native hashing and curve checks on chain and on the host,
+/// with no heap allocation.
+#[inline]
+pub fn try_find_program_address(
+    seeds: &[&[u8]],
+    program_id: &Address,
+) -> Result<(Address, u8), ProgramError> {
+    let backend = hopper_native::Address::new_from_array(*program_id.as_array());
+    hopper_native::pda::based_try_find_program_address(seeds, &backend)
+        .map(|(address, bump)| (Address::new_from_array(address.to_bytes()), bump))
+        .map_err(ProgramError::from)
+}
+
 /// The canonical program-derived address of `seeds` under `program_id`
 /// and its bump, found at compile time. The seeds may be any `const`
 /// expressions. See `hopper_native::pda::find_program_address_const`.
@@ -495,6 +512,26 @@ mod tests {
 mod seeded_address_tests {
     use super::*;
     use solana_pubkey::Pubkey;
+
+    #[test]
+    fn fallible_search_matches_sdk_and_rejects_invalid_seed_shapes() {
+        let program = Address::new_from_array([9; 32]);
+        for seed in [b"".as_slice(), b"vault", &[7; 32]] {
+            let (address, bump) = try_find_program_address(&[seed], &program).unwrap();
+            let (expected, expected_bump) =
+                Pubkey::find_program_address(&[seed], &Pubkey::new_from_array([9; 32]));
+            assert_eq!(address.to_bytes(), expected.to_bytes());
+            assert_eq!(bump, expected_bump);
+        }
+        assert_eq!(
+            try_find_program_address(&[&[0; 33]], &program),
+            Err(ProgramError::InvalidSeeds)
+        );
+        assert_eq!(
+            try_find_program_address(&[b"x".as_slice(); 16], &program),
+            Err(ProgramError::InvalidSeeds)
+        );
+    }
 
     #[test]
     fn create_with_seed_matches_the_canonical_derivation() {
