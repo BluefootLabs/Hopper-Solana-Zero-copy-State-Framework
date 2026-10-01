@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Drive the hopper-token-lab program on public devnet against SPL Token and
-Token-2022 and verify every account it touches byte by byte.
+Token-2022 and verify balances, account fields, extension layouts, and returns.
 
 One lane per token program: create a mint, two immutable-owner accounts (sized
 by GetAccountDataSize), mint supply, a batched there-and-back transfer, the
@@ -89,6 +89,7 @@ def main() -> None:
     elf = args.elf.read_bytes()
     records = []
     findings = {}
+    observations = []
 
     def write(name, value):
         (out / name).write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
@@ -100,9 +101,11 @@ def main() -> None:
         assert dump.read_bytes() == elf, "deployed ELF differs from tested artifact"
 
     def account(address, slot=0):
-        value = rpc("getMultipleAccounts", [[address], {
+        response = rpc("getMultipleAccounts", [[address], {
             "encoding": "base64", "commitment": "finalized", "minContextSlot": slot
-        }])["value"][0]
+        }])
+        observations.append({"address": address, "minimumSlot": slot, "response": response})
+        value = response["value"][0]
         if value is None:
             return None
         value = dict(value)
@@ -203,7 +206,7 @@ def main() -> None:
         assert token_amount(account(target, tx["slot"])["bytes"]) == amount
 
     def batch(lane, token, mint, a, b):
-        before = (token_amount(account(a)["bytes"]), token_amount(account(b)["bytes"]))
+        before = (account(a), account(b))
         tx, record = send(f"batch-{lane}", args.program,
                           [a + ":w", mint, b + ":w", "payer:s", token],
                           bytes([TAG_BATCH_ROUND_TRIP]) + struct.pack("<QB", BATCH_AMOUNT, DECIMALS),
@@ -212,11 +215,13 @@ def main() -> None:
         invocations = [line for line in logs if line == f"Program {token} invoke [2]"]
         if tx["meta"]["err"] is None:
             assert len(invocations) == 1, "two transfers must cost one token CPI"
-            after = (token_amount(account(a, tx["slot"])["bytes"]),
-                     token_amount(account(b, tx["slot"])["bytes"]))
-            assert after == before, (before, after)
+            after = (account(a, tx["slot"]), account(b, tx["slot"]))
+            for old, new in zip(before, after):
+                for field in ("bytes", "lamports", "owner", "executable"):
+                    assert old[field] == new[field], (field, old[field], new[field])
             record["tokenProgramInvocations"] = 1
             record["balancesUnchangedAfterRoundTrip"] = True
+            record["tokenAccountsUnchangedAfterRoundTrip"] = True
             findings[f"batch-{lane}"] = "accepted"
         else:
             findings[f"batch-{lane}"] = f"refused: {tx['meta']['err']}"
@@ -233,17 +238,20 @@ def main() -> None:
         record["roundTrippedAmount"] = back
 
     def batch_refusal(lane, token, mint, a):
-        before = account(a)
+        before = (account(a), account(mint))
         tx, record = send(f"batch-self-transfer-{lane}", args.program,
                          [mint + ":w", a + ":w", "payer:s", token],
                          bytes([TAG_BATCH_SELF_TRANSFER]) + struct.pack("<QB", BATCH_AMOUNT, DECIMALS),
                          allow_failure=True)
         assert tx["meta"]["err"] == {"InstructionError": [0, "AccountBorrowFailed"]}
         assert not any(line == f"Program {token} invoke [2]" for line in tx["meta"]["logMessages"])
-        after = account(a, tx["slot"])
-        assert after["bytes"] == before["bytes"] and after["lamports"] == before["lamports"]
+        after = (account(a, tx["slot"]), account(mint, tx["slot"]))
+        for old, new in zip(before, after):
+            for field in ("bytes", "lamports", "owner", "executable"):
+                assert old[field] == new[field], (field, old[field], new[field])
         record["tokenProgramInvocations"] = 0
         record["tokenAccountUnchanged"] = True
+        record["mintUnchanged"] = True
 
     def hook_parser(mint):
         discriminator = hashlib.sha256(b"spl-transfer-hook-interface:execute").digest()[:8]
@@ -278,13 +286,20 @@ def main() -> None:
 
     def withdraw_excess(lane, token, target, size):
         send(f"prefund-{lane}", SYSTEM, ["payer:sw", target + ":w"], struct.pack("<IQ", 2, PREFUND))
-        assert account(target)["lamports"] == rent(size) + PREFUND
+        before = account(target)
+        assert before["lamports"] == rent(size) + PREFUND
         tx, record = send(f"withdraw-excess-{lane}", args.program,
                           [target + ":w", "payer:w", "payer:s", token], bytes([TAG_WITHDRAW_EXCESS]))
         after = account(target, tx["slot"])
         assert after["lamports"] == rent(size), (after["lamports"], rent(size))
-        assert token_amount(after["bytes"]) == token_amount(account(target)["bytes"])
+        for field in ("bytes", "owner", "executable"):
+            assert after[field] == before[field], field
+        payer_index = tx["transaction"]["message"]["accountKeys"].index(payer)
+        assert (tx["meta"]["postBalances"][payer_index]
+                - tx["meta"]["preBalances"][payer_index]) == PREFUND - tx["meta"]["fee"]
         record["withdrawnLamports"] = PREFUND
+        record["tokenDataUnchanged"] = True
+        record["recipientCreditAfterFeesVerified"] = True
 
     def multisig(lane, token, member):
         address, key = new_key(f"multisig-{lane}")
@@ -515,6 +530,7 @@ def main() -> None:
     deployment("after")
     assert run(["git", "rev-parse", "HEAD"]).strip() == source
     assert not run(["git", "status", "--porcelain"]).strip(), "source changed during capture"
+    write("account-observations.json", observations)
     write("receipt.json", {"schema": "hopper.token-lab-devnet.v1", "sourceCommit": source,
                           "rpcEndpoint": RPC, "genesisHash": GENESIS, "commitment": "finalized",
                           "programId": args.program, "elfSha256": hashlib.sha256(elf).hexdigest(),

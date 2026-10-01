@@ -29,10 +29,13 @@ from it, so one program serves both token programs.
 
 The devnet runner is `scripts/test-token-lab-devnet.py`. It builds nothing:
 it takes a deployed program id and the ELF it must match, verifies the
-on-chain dump before and after, drives both lanes, checks every touched
-account byte by byte (mint fields, token account fields, TLV entries and
-their lengths, multisig members, lamport balances against the live
-rent-exempt minimum), and writes a receipt with the findings: which cases
+on-chain dump before and after, drives both lanes, checks token balances,
+mint and account fields, TLV entries and lengths, multisig members, return
+data, and lamports against live rent. Batch round trips and self-transfer
+refusals preserve the checked accounts' complete data, owner, lamports,
+and executable flag. Excess-lamport withdrawal preserves token data and
+credits the recipient by the expected amount after fees. The runner saves
+its finalized account observations and writes a receipt with which cases
 the live programs accepted and which they refused. A refusal by the live
 program (an extension the deployed Token-2022 does not know yet, `Batch` on
 Token-2022, `UnwrapLamports` on a program without discriminator 45) is
