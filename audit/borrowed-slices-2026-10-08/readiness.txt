@@ -1,0 +1,13 @@
+hopper audit-check
+status             : NOT READY
+reviewed           : 2026-10-08
+evidence verified  : 50
+quality gates fresh: 4
+findings:
+  Blocker [external-audit] external-audit preparation is in progress at phase 'scope-and-evidence-preparation'; no independent reviewer is engaged and no independent review has started
+  Blocker [sbf-clean-attestation] medium release-blocking item is open: Required Agave 2.3.13 and 4.2.1-forward SBF jobs for final clean source remain unexecuted. GitHub run 36812193185 failed to start both jobs because of an account billing lock. Local compiled VM and devnet evidence is retained separately and does not close this CI gate.
+  Warning [transaction-v1] medium tracked item is tracked: Transaction v1 is active on mainnet-beta (finalized feature observation October 7, activation slot 447120000). Hopper still emits legacy transactions; v1 authoring and acceptance tests remain tracked implementation work.
+  Warning [devnet-blake3-availability] medium tracked item is tracked: Both native and runtime BLAKE3 probes finalized with ProgramFailedToComplete on the observed October 7 devnet. The default function fixture excludes the unavailable symbol; local VM success and ELF deployment do not establish live support. Modular exponentiation is separately feature-unavailable and has no live success claim.
+  Warning [devnet-epoch-schedule-consistency] medium tracked item is tracked: The EpochSchedule account and both runtime getters report 8192 slots per epoch while RPC reports 432000 and Clock agrees with RPC. Hopper decoding and schedule arithmetic match supplied bytes; use Clock for current epoch. Both function receipts preserve allPassed=false.
+  Warning [devnet-program-coverage] medium tracked item is tracked: October 7 named devnet suites exercised 29 of 52 compiled packages, with one further identical-ELF package. October 8 adds 44 finalized transactions for the new borrowed-batch fixture and builds all 53 packages for v3. All 52 existing default v3 artifacts remain byte-identical, preserving earlier evidence for those exact bytes and workloads without claiming re-execution. The 22 baseline packages and untested handler/feature combinations remain outside live verification.
+  Warning [bounded-client-coverage] medium tracked item is tracked: Borrowed-batch codecs are verified for Rust and TypeScript. Kotlin, Python, Go and C instruction emitters still assume fixed offsets and are unsupported for bounded dynamic arguments. Existing owned BoundedString/BoundedVec aliases retain unknown-size/fixed metadata; use their direct type spelling. See audit/borrowed-slices-2026-10-08/README.md.

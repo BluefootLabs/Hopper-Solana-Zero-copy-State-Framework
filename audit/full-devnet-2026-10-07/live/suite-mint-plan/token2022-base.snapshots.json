@@ -1,0 +1,56 @@
+{
+  "addresses": [
+    "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+    "CZNHAtHAC7Wo7Ln7fFg5Ss4mUiGV3ryCKEEVX67oQBoX"
+  ],
+  "before": {
+    "context": {
+      "apiVersion": "4.4.0-beta.0",
+      "slot": 508550532
+    },
+    "value": [
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2131210420,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      },
+      null
+    ]
+  },
+  "after": {
+    "context": {
+      "apiVersion": "4.4.0-beta.0",
+      "slot": 508550539
+    },
+    "value": [
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2130133620,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      },
+      {
+        "data": [
+          "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAJAQEAAAA3fO7YA4lrQOa3uzq012oqBtG0XWdmjLUHWhhBW05C4Q==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1066800,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709551615,
+        "space": 82
+      }
+    ]
+  }
+}

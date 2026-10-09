@@ -1,0 +1,29 @@
+{
+  "allPassed": true,
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "label": "desktop",
+      "width": 1440,
+      "testHeight": 1000,
+      "screenshotHeight": 1000,
+      "keyboardCountControl": true,
+      "malformedElementToggle": true,
+      "noHorizontalOverflow": true,
+      "docsNavigation": true,
+      "reducedMotion": true
+    },
+    {
+      "label": "mobile",
+      "width": 390,
+      "testHeight": 844,
+      "screenshotHeight": 1400,
+      "keyboardCountControl": true,
+      "malformedElementToggle": true,
+      "noHorizontalOverflow": true,
+      "docsNavigation": true,
+      "reducedMotion": true
+    }
+  ],
+  "pageErrors": []
+}

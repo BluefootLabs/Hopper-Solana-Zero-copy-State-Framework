@@ -1,0 +1,820 @@
+   Compiling hopper-runtime v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-system v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-memo v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 25s
+     Running unittests src\main.rs (target\debug\deps\framework_verifier-9461c7e0e1914ccf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ambient_gate_sbf.rs (target\debug\deps\ambient_gate_sbf-083348ad26f5d122.exe)
+
+running 2 tests
+typed-header-hex: 5201000040f1d31e9ea36a9a01000000
+test typed_cell_probe_header ... ok
+case 0: 99 CU, expected result verified
+case 1: 388 CU, expected result verified
+case 2: 384 CU, expected result verified
+case 3: 360 CU, expected result verified
+case 4: 1029 CU, expected result verified
+case 5: 420 CU, expected result verified
+case 6: 408 CU, expected result verified
+case 7: 309 CU, expected result verified
+case 0: 99 CU, expected result verified
+case 8: 358 CU, expected result verified
+case 9: 326 CU, expected result verified
+typed-header-hex: 5201000040f1d31e9ea36a9a01000000
+case 16: 184 CU, typed initialization verified
+case 10: 606 CU, expected typed result verified
+case 11: 445 CU, expected typed result verified
+case 12: 437 CU, expected typed result verified
+case 13: 441 CU, expected typed result verified
+case 14: 487 CU, expected typed result verified
+case 15: 400 CU, expected typed result verified
+test ambient_gate_enforces_public_surfaces_in_sbf ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\borrowed_args_sbf.rs (target\debug\deps\borrowed_args_sbf-a32c761bd74c205c.exe)
+
+running 2 tests
+borrowed-dispatch mode=2 case=exact cu=258
+borrowed-dispatch mode=3 case=tail32 cu=438
+borrowed-dispatch mode=2 case=bad-option cu=52
+test generated_borrowed_dispatch_validates_before_writing_on_the_vm ... ok
+borrowed-dispatch mode=0 case=exact cu=256
+borrowed-dispatch mode=1 case=tail32 cu=438
+borrowed-dispatch mode=0 case=bad-option cu=48
+test borrowed_arguments_validate_before_writing_on_the_vm ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests\byte_allowance_sbf.rs (target\debug\deps\byte_allowance_sbf-118e0d3d6e26bb7f.exe)
+
+running 4 tests
+
+<<<hopper-manifest-json-begin>>>
+{
+  "name": "hopper-framework-verifier",
+  "version": "0.0.0",
+  "description": "Host-side Mollusk runner that proves and measures the framework-comparison fixtures; same command line and checks as pina's verifier.",
+  "layouts": [
+    {
+      "name": "AllowanceBook",
+      "disc": 92,
+      "version": 1,
+      "layoutId": "7a6ee6c48cc8cff4",
+      "totalSize": 272,
+      "hasDynamicTail": false,
+      "fieldCount": 5,
+      "fields": [
+        { "name": "authority", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "delegates", "type": "[Address;CELLS]", "size": 128, "offset": 48, "intent": "custom" },
+        { "name": "limits", "type": "[WireU64;CELLS]", "size": 32, "offset": 176, "intent": "custom" },
+        { "name": "spent", "type": "[WireU64;CELLS]", "size": 32, "offset": 208, "intent": "custom" },
+        { "name": "revisions", "type": "[WireU64;CELLS]", "size": 32, "offset": 240, "intent": "custom" }
+      ],
+      "semanticFingerprint": "0b5eddfc005f2163"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize",
+      "tag": 0,
+      "discriminatorBytes": [0],
+      "args": [
+        { "name": "delegate0", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "delegate1", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "delegate2", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "delegate3", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "limit", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "book", "writable": true, "signer": false, "layoutRef": "AllowanceBook" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "consume",
+      "tag": 1,
+      "discriminatorBytes": [1],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" },
+        { "name": "expected_revision", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "delegate", "writable": false, "signer": true },
+        { "name": "book", "writable": true, "signer": false, "layoutRef": "AllowanceBook" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 208, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 208, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "spent" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "set_limit",
+      "tag": 2,
+      "discriminatorBytes": [2],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" },
+        { "name": "expected_revision", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "limit", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "book", "writable": true, "signer": false, "layoutRef": "AllowanceBook" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 176, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 176, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "limits" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    }
+  ],
+  "events": [],
+  "policies": [],
+  "layoutMetadata": [],
+  "contexts": [
+    {
+      "name": "Initialize",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": true, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "book", "kind": "AllowanceBook", "writable": true, "signer": false, "layoutRef": "AllowanceBook", "seeds": [], "optional": false, "lifecycle": "init", "payer": "authority", "initSpace": 272, "hasOne": [] },
+        { "name": "system_program", "kind": "Program", "writable": false, "signer": false, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "initialize"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "Consume",
+      "accounts": [
+        { "name": "delegate", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "book", "kind": "AllowanceBook", "writable": true, "signer": false, "layoutRef": "AllowanceBook", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] }
+      ],
+      "instructions": [
+        "consume"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 208, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 208, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "spent" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "SetLimit",
+      "accounts": [
+        { "name": "authority", "kind": "Signer", "writable": false, "signer": true, "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [] },
+        { "name": "book", "kind": "AllowanceBook", "writable": true, "signer": false, "layoutRef": "AllowanceBook", "seeds": [], "optional": false, "lifecycle": "existing", "hasOne": [
+          "authority"
+        ] }
+      ],
+      "instructions": [
+        "set_limit"
+      ],
+      "policies": [],
+      "receiptsExpected": true,
+      "mutationClasses": [],
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [],
+      "writeRanges": [
+        { "account": "book", "accountIndex": 1, "offset": 176, "size": 32 },
+        { "account": "book", "accountIndex": 1, "offset": 240, "size": 32 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 176, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "limits" },
+        { "accountIndex": 1, "baseOffset": 240, "stride": 8, "cellSize": 8, "count": 4, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    }
+  ],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
+}
+<<<hopper-manifest-json-end>>>
+test allowance_program::__hopper_manifest_export::__hopper_print_manifest ... ok
+ALLOWANCE_HEADER_HEX=5c0100007a6ee6c48cc8cff401000000
+ALLOWANCE_HEADER_HEX=5c0100007a6ee6c48cc8cff401000000
+unsigned payer: Err(MissingRequiredSignature), 159 CU, complete rollback
+readonly payer: Err(Immutable), 161 CU, complete rollback
+wrong delegate: Err(Custom(7800)), 406 CU, complete rollback
+op=1, slot=0, 862 CU, exact two-cell write
+unsigned book: Err(PrivilegeEscalation), 1393 CU, complete rollback
+stale revision: Err(Custom(7801)), 425 CU, complete rollback
+op=2, slot=0, 833 CU, exact two-cell write
+readonly book: Err(Immutable), 157 CU, complete rollback
+limit exceeded: Err(Custom(7802)), 457 CU, complete rollback
+op=1, slot=0, 862 CU, exact two-cell write
+wrong system program: Err(IncorrectProgramId), 186 CU, complete rollback
+zero amount: Err(Custom(7803)), 368 CU, complete rollback
+op=1, slot=1, 862 CU, exact two-cell write
+payer aliases book: Err(Custom(45058)), 179 CU, complete rollback
+out of bounds: Err(InvalidInstructionData), 365 CU, complete rollback
+op=2, slot=1, 833 CU, exact two-cell write
+truncated init arguments: Err(InvalidInstructionData), 129 CU, complete rollback
+max selector: Err(InvalidInstructionData), 365 CU, complete rollback
+op=1, slot=1, 862 CU, exact two-cell write
+trailing init arguments: Err(InvalidInstructionData), 130 CU, complete rollback
+wrong admin: Err(InvalidAccountData), 159 CU, complete rollback
+op=1, slot=2, 862 CU, exact two-cell write
+foreign book owner: Err(Custom(0)), 1543 CU, complete rollback
+stale admin revision: Err(Custom(7801)), 450 CU, complete rollback
+op=2, slot=2, 833 CU, exact two-cell write
+missing signer: Err(MissingRequiredSignature), 79 CU, complete rollback
+preallocated book data: Err(AccountAlreadyInitialized), 365 CU, complete rollback
+op=1, slot=2, 862 CU, exact two-cell write
+readonly book: Err(Immutable), 84 CU, complete rollback
+insufficient rent payer: Err(Custom(1)), 1543 CU, complete rollback
+op=1, slot=3, 862 CU, exact two-cell write
+truncated arguments: Err(InvalidInstructionData), 67 CU, complete rollback
+op=2, slot=3, 833 CU, exact two-cell write
+trailing arguments: Err(InvalidInstructionData), 68 CU, complete rollback
+surplus initialization account ignored: exact expected state, 1667 CU
+test initialization_refusals_preserve_all_accounts ... ok
+op=1, slot=3, 862 CU, exact two-cell write
+reinitialize: Err(AccountAlreadyInitialized), 365 CU, complete rollback
+surplus consume account ignored: exact expected state, 924 CU
+test lifecycle_changes_only_selected_cells ... ok
+delegate aliases book: Err(Custom(7800)), 434 CU, complete rollback
+unsigned administrator: Err(MissingRequiredSignature), 78 CU, complete rollback
+foreign owner: Err(IncorrectProgramId), 87 CU, complete rollback
+bad discriminator: Err(InvalidAccountData), 118 CU, complete rollback
+bad layout id: Err(InvalidAccountData), 123 CU, complete rollback
+bad version: Err(InvalidAccountData), 120 CU, complete rollback
+bad schema epoch: Err(InvalidAccountData), 125 CU, complete rollback
+short layout: Err(AccountDataTooSmall), 115 CU, complete rollback
+spent overflow: Err(ArithmeticOverflow), 441 CU, complete rollback
+revision overflow: Err(ArithmeticOverflow), 451 CU, complete rollback
+limit below spent: Err(Custom(7804)), 454 CU, complete rollback
+test adversarial_inputs_preserve_all_account_state ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\canonical_pda_sbf.rs (target\debug\deps\canonical_pda_sbf-b6a94037a972231b.exe)
+
+running 3 tests
+stored-bump retained CU=312
+canonical PDA mode=0, CU=1072, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+initialized PDA bind mode=5 CU=1123
+initialized PDA bind mode=6 CU=1122
+initialized PDA bind mode=7 CU=312
+test canonical_initialization_persists_the_validated_bump_and_rejects_reinitialization ... ok
+test stored_bump_binds_the_same_account_byte_without_claiming_canonicality ... ok
+canonical PDA mode=1, CU=67, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+canonical PDA mode=2, CU=1089, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+canonical PDA mode=3, CU=2095, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+canonical PDA mode=4, CU=1078, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+canonical PDA mode=5, CU=1123, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+canonical PDA mode=6, CU=1122, bump=253, address=9SYK9Hz32R4zqkqV5jkVutvjARXEwCKdM1bmdN5qiYgG, ELF bytes=12416
+test canonical_constant_matches_runtime_search_and_rejections ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.79s
+
+     Running tests\checked_cpi_sbf.rs (target\debug\deps\checked_cpi_sbf-65fa4c99c8990627.exe)
+
+running 1 test
+abort tag 2: 40 CU
+abort tag 3: 48 CU
+test specialized_signer_preflight_returns_before_system_or_token_cpi ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\function_lab_sbf.rs (target\debug\deps\function_lab_sbf-5691ceafb0af41fb.exe)
+
+running 1 test
+hash-0-0-0: 384 CU
+hash-0-0-1: 400 CU
+hash-0-0-2: 422 CU
+hash-0-0-16: 562 CU
+hash-0-0-17: 572 CU
+hash-0-0-32: 722 CU
+hash-0-0-64: 1042 CU
+hash-0-1-0: 387 CU
+hash-0-1-1: 403 CU
+hash-0-1-2: 425 CU
+hash-0-1-16: 565 CU
+hash-0-1-17: 575 CU
+hash-0-1-32: 725 CU
+hash-0-1-64: 1045 CU
+hash-1-0-0: 389 CU
+hash-1-0-1: 405 CU
+hash-1-0-2: 427 CU
+hash-1-0-16: 567 CU
+hash-1-0-17: 577 CU
+hash-1-0-32: 727 CU
+hash-1-0-64: 1047 CU
+hash-1-1-0: 392 CU
+hash-1-1-1: 408 CU
+hash-1-1-2: 430 CU
+hash-1-1-16: 570 CU
+hash-1-1-17: 580 CU
+hash-1-1-32: 730 CU
+hash-1-1-64: 1050 CU
+hash-0-empty-17: 572 CU
+hash-1-empty-17: 577 CU
+empty: 24 CU
+unknown: 34 CU
+hash-truncated: 42 CU
+hash-fixture-cap: 44 CU
+hash-zero-surplus: 49 CU
+copy-0-64-13: 198 CU
+copy-0-8-8: 198 CU
+copy-0-0-0: 198 CU
+copy-0-7-8: 90 CU
+copy-1-64-13: 199 CU
+copy-1-8-8: 199 CU
+copy-1-0-0: 185 CU
+copy-1-7-8: 90 CU
+move-0-63-1: 194 CU
+move-1-63-0: 194 CU
+move-0-64-0: 177 CU
+move-64-0-64: 176 CU
+move-63-2-0: 79 CU
+move-0-2-63: 82 CU
+fill-3: 184 CU
+fill-4: 181 CU
+fill-5: 182 CU
+compare-8-0-8: 272 CU
+compare-8-1-9: 268 CU
+compare-8-0-7: 220 CU
+compare-0-64-64: 204 CU
+epoch-arithmetic-0: 154 CU
+epoch-arithmetic-1: 161 CU
+epoch-arithmetic-2: 170 CU
+epoch-arithmetic-3: 170 CU
+epoch-arithmetic-4: 229 CU
+epoch-arithmetic-5: 304 CU
+epoch-arithmetic-6: 171 CU
+epoch-arithmetic-7: 221 CU
+epoch-arithmetic-8: 164 CU
+epoch-arithmetic-9: 223 CU
+epoch-arithmetic-10: 213 CU
+epoch-arithmetic-11: 221 CU
+arithmetic-0: 749 CU
+arithmetic-1: 751 CU
+arithmetic-2: 747 CU
+arithmetic-3: 750 CU
+arithmetic-4: 737 CU
+arithmetic-5: 712 CU
+arithmetic-6: 710 CU
+arithmetic-7: 747 CU
+arithmetic-8: 735 CU
+arithmetic-9: 748 CU
+arithmetic-10: 751 CU
+arithmetic-11: 747 CU
+arithmetic-12: 750 CU
+return-0: 153 CU
+return-1: 153 CU
+return-1023: 157 CU
+return-1024: 157 CU
+return-1025: 60 CU
+edwards-valid: 319 CU
+edwards-add-identity: 659 CU
+edwards-multiply-one: 2361 CU
+edwards-multiply-zero: 2361 CU
+ristretto-identity: 325 CU
+ristretto-add-identity: 705 CU
+poseidon-ones-twos: 971 CU
+bn254-add-identity: 544 CU
+bn254-multiply-one: 4053 CU
+bn254-empty-pairing: 36659 CU
+bn254-compress-identity: 311 CU
+bn254-decompress-identity: 731 CU
+bn254-reject-length-6: 56 CU
+bn254-reject-length-7: 57 CU
+bn254-reject-length-8: 58 CU
+stack-top-level: 543 CU
+receipt-0-0: 238 CU
+receipt-0-16: 254 CU
+receipt-1-0: 342 CU
+receipt-1-16: 358 CU
+106 known-answer cases and 7 account cases passed
+test function_lab_known_answers_on_the_vm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\governance_sbf.rs (target\debug\deps\governance_sbf-3f18803f6c9dcc51.exe)
+
+running 7 tests
+test multisig::tests::bounded_tail_roundtrips_label_and_signers ... ok
+program-layout: {"core":"0a0200007dc41a3e36081e1601000000","permissions":"0b020000de48bbce84b31d0201000000","budget":"0c020000d3d95df0c72542ee01000000","multisig":"07020000b425e79b0431413f01000000","payout":"0801000045c5b8e5d6812ac301000000","multisigSize":392,"payoutSize":113}
+test multisig::tests::multisig_data_helpers_cover_initialize_update_and_thresholds ... ok
+test multisig::tests::duplicate_members_cannot_satisfy_a_threshold ... ok
+test program_layout_headers ... ok
+test multisig_authenticates_members_and_moves_sol ... ok
+test treasury_moves_sol_and_enforces_clock_budget_and_permissions ... ok
+test multisig_payout_is_bounded_single_use_and_invalidated_by_policy_changes ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\lifecycle_sbf.rs (target\debug\deps\lifecycle_sbf-d0bc311682efb384.exe)
+
+running 1 test
+native [0] signer=true: 127 CU
+native [1] signer=true: 115 CU
+native [2] signer=true: 108 CU
+native [3] signer=true: 118 CU
+native [4] signer=true: 113 CU
+native [5, 32, 0] signer=true: 1518 CU
+native [6] signer=true: 140 CU
+native [7] signer=true: 285 CU
+native [8] signer=true: 119 CU
+native [9] signer=true: 1606 CU
+native [5, 32, 0] signer=false: 363 CU
+native [5, 255, 255] signer=true: 257 CU
+test lifecycle_and_segment_guards_preserve_complete_account_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\mint_plan_sbf.rs (target\debug\deps\mint_plan_sbf-7d4eaf821cd7e7d6.exe)
+
+running 5 tests
+mint-plan legacy=true extensions=0 bytes=82 CU=3471
+test exhausted_budget_rolls_back_successful_creation_and_extension_cpis ... ok
+mint-plan legacy=false extensions=0 bytes=82 CU=4478
+mint-plan legacy=false extensions=1 bytes=278 CU=8555
+test extension_constraint_rejects_identical_bytes_under_a_forged_owner ... ok
+mint-plan legacy=false extensions=2 bytes=202 CU=7750
+mint-plan legacy=false extensions=3 bytes=314 CU=11039
+mint-plan legacy=false extensions=4 bytes=170 CU=7404
+mint-plan legacy=false extensions=5 bytes=282 CU=10693
+mint-plan legacy=false extensions=6 bytes=206 CU=9887
+mint-plan legacy=false extensions=7 bytes=318 CU=13239
+mint-plan legacy=false extensions=8 bytes=202 CU=7700
+test prefunding_and_pda_signers_charge_only_the_live_rent_shortfall ... ok
+test invalid_creation_and_initialization_leave_accounts_unchanged ... ok
+mint-plan legacy=false extensions=9 bytes=314 CU=10989
+mint-plan legacy=false extensions=10 bytes=238 CU=10183
+mint-plan legacy=false extensions=11 bytes=350 CU=13535
+mint-plan legacy=false extensions=12 bytes=206 CU=9837
+mint-plan legacy=false extensions=13 bytes=318 CU=13189
+mint-plan legacy=false extensions=14 bytes=242 CU=12382
+mint-plan legacy=false extensions=15 bytes=354 CU=15797
+mint-plan legacy=false extensions=16 bytes=234 CU=7945
+mint-plan legacy=false extensions=17 bytes=346 CU=11234
+mint-plan legacy=false extensions=18 bytes=270 CU=10431
+mint-plan legacy=false extensions=19 bytes=382 CU=13780
+mint-plan legacy=false extensions=20 bytes=238 CU=10082
+mint-plan legacy=false extensions=21 bytes=350 CU=13434
+mint-plan legacy=false extensions=22 bytes=274 CU=12631
+mint-plan legacy=false extensions=23 bytes=386 CU=16042
+mint-plan legacy=false extensions=24 bytes=270 CU=10381
+mint-plan legacy=false extensions=25 bytes=382 CU=13730
+mint-plan legacy=false extensions=26 bytes=306 CU=12927
+mint-plan legacy=false extensions=27 bytes=418 CU=16338
+mint-plan legacy=false extensions=28 bytes=274 CU=12581
+mint-plan legacy=false extensions=29 bytes=386 CU=15992
+mint-plan legacy=false extensions=30 bytes=310 CU=15189
+mint-plan legacy=false extensions=31 bytes=422 CU=18874
+mint-plan legacy=false extensions=32 bytes=234 CU=7929
+mint-plan legacy=false extensions=33 bytes=346 CU=11218
+mint-plan legacy=false extensions=34 bytes=270 CU=10415
+mint-plan legacy=false extensions=35 bytes=382 CU=13764
+mint-plan legacy=false extensions=36 bytes=238 CU=10066
+mint-plan legacy=false extensions=37 bytes=350 CU=13418
+mint-plan legacy=false extensions=38 bytes=274 CU=12615
+mint-plan legacy=false extensions=39 bytes=386 CU=16026
+mint-plan legacy=false extensions=40 bytes=270 CU=10365
+mint-plan legacy=false extensions=41 bytes=382 CU=13714
+mint-plan legacy=false extensions=42 bytes=306 CU=12911
+mint-plan legacy=false extensions=43 bytes=418 CU=16322
+mint-plan legacy=false extensions=44 bytes=274 CU=12565
+mint-plan legacy=false extensions=45 bytes=386 CU=15976
+mint-plan legacy=false extensions=46 bytes=310 CU=15173
+mint-plan legacy=false extensions=47 bytes=422 CU=18858
+mint-plan legacy=false extensions=48 bytes=302 CU=10609
+mint-plan legacy=false extensions=49 bytes=414 CU=13958
+mint-plan legacy=false extensions=50 bytes=338 CU=13155
+mint-plan legacy=false extensions=51 bytes=450 CU=16566
+mint-plan legacy=false extensions=52 bytes=306 CU=12809
+mint-plan legacy=false extensions=53 bytes=418 CU=16220
+mint-plan legacy=false extensions=54 bytes=342 CU=15417
+mint-plan legacy=false extensions=55 bytes=454 CU=19102
+mint-plan legacy=false extensions=56 bytes=338 CU=13105
+mint-plan legacy=false extensions=57 bytes=450 CU=16516
+mint-plan legacy=false extensions=58 bytes=374 CU=15713
+mint-plan legacy=false extensions=59 bytes=486 CU=19398
+mint-plan legacy=false extensions=60 bytes=342 CU=15367
+mint-plan legacy=false extensions=61 bytes=454 CU=19052
+mint-plan legacy=false extensions=62 bytes=378 CU=18249
+mint-plan legacy=false extensions=63 bytes=490 CU=21784
+test all_extension_subsets_initialize_with_exact_canonical_state_and_rent ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\named_vault_sbf.rs (target\debug\deps\named_vault_sbf-1df427453a729273.exe)
+
+running 2 tests
+unsigned init: Err(MissingRequiredSignature), CU=96, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=0 CU=1488
+readonly init: Err(Immutable), CU=98, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=260, rollback
+unsigned init: Err(PrivilegeEscalation), CU=1278, rollback
+vault deposit CU=1392
+readonly init: Err(Immutable), CU=94, rollback
+vault withdraw CU=237
+init insufficient rent: Err(Custom(1)), CU=1428, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=500000 CU=1488
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=0 CU=1488
+reinitialization: Err(AccountAlreadyInitialized), CU=260, rollback
+zero amount: Err(Custom(6002)), CU=191, rollback
+vault deposit CU=1392
+unsigned authority: Err(MissingRequiredSignature), CU=102, rollback
+vault withdraw CU=237
+readonly vault: Err(Immutable), CU=102, rollback
+wrong authority: Err(InvalidAccountData), CU=168, rollback
+VAULT_HEADER_HEX=0101000011a7a81acb67013101000000
+vault init prefund=3000000 CU=1486
+wrong owner: Err(IncorrectProgramId), CU=107, rollback
+reinitialization: Err(AccountAlreadyInitialized), CU=260, rollback
+wrong layout: Err(InvalidAccountData), CU=136, rollback
+vault deposit CU=1392
+zero amount: Err(Custom(6002)), CU=167, rollback
+vault withdraw CU=237
+test named_initialization_and_custody_round_trip ... ok
+unsigned authority: Err(MissingRequiredSignature), CU=90, rollback
+readonly vault: Err(Immutable), CU=90, rollback
+wrong authority: Err(InvalidAccountData), CU=156, rollback
+wrong owner: Err(IncorrectProgramId), CU=94, rollback
+wrong layout: Err(InvalidAccountData), CU=125, rollback
+insufficient tracked balance: Err(Custom(6001)), CU=191, rollback
+insufficient depositor funds: Err(Custom(1)), CU=1345, rollback
+overflow after successful transfer CPI: Err(ArithmeticOverflow), CU=1393, rollback
+test initialization_and_access_refusals_preserve_all_accounts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\orderbook_sbf.rs (target\debug\deps\orderbook_sbf-a3b46e728f00f502.exe)
+
+running 2 tests
+unsigned book init: Err(MissingRequiredSignature), 64 CU, full rollback
+orderbook initialize: Ok(()), 65902 CU
+dirty trailing byte init: Err(AccountAlreadyInitialized), 65582 CU, full rollback
+post bid: 903 CU, exact account state
+post ask: 902 CU, exact account state
+stranger cannot remove ask: Err(Custom(7300)), 422 CU, full rollback
+record ask event: 1027 CU, exact account state
+drain event: 1146 CU, exact account state
+empty drain: Err(Custom(7305)), 229 CU, full rollback
+reinitialize: Err(AccountAlreadyInitialized), 134 CU, full rollback
+test orderbook_initialization_and_lifecycle_change_only_expected_bytes ... ok
+orderbook initialize: Ok(()), 65902 CU
+missing maker signature: Err(MissingRequiredSignature), 61 CU, full rollback
+readonly book: Err(InvalidAccountData), 85 CU, full rollback
+foreign book owner: Err(IncorrectProgramId), 73 CU, full rollback
+bad layout: Err(InvalidAccountData), 139 CU, full rollback
+overlapping registry: Err(InvalidAccountData), 158 CU, full rollback
+excessive count: Err(InvalidAccountData), 285 CU, full rollback
+full side: Err(Custom(7301)), 290 CU, full rollback
+full event ring preserves ask: Err(Custom(7307)), 283 CU, full rollback
+test orderbook_initialization_and_mutation_refusals_preserve_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\pda_boundaries_sbf.rs (target\debug\deps\pda_boundaries_sbf-15b61c06a9a4d3db.exe)
+
+running 1 test
+empty base seeds: all 12 public PDA paths matched SDK seed limits
+32-byte seed: all 12 public PDA paths matched SDK seed limits
+15 base seeds plus bump: all 12 public PDA paths matched SDK seed limits
+16 base seeds plus bump, hash-equivalent: all 12 public PDA paths matched SDK seed limits
+17 base seeds, truncated suffix: all 12 public PDA paths matched SDK seed limits
+nonempty suffix must never be ignored: all 12 public PDA paths matched SDK seed limits
+33-byte seed, hash-equivalent: all 12 public PDA paths matched SDK seed limits
+test pda_helpers_match_the_signing_seed_domain_in_sbf ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\return_provenance_sbf.rs (target\debug\deps\return_provenance_sbf-678844945bd316d8.exe)
+
+running 1 test
+return tag 4: 1293 CU
+return tag 7: 2350 CU
+return tag 5: 1302 CU
+return tag 6: 1161 CU
+test return_data_checks_direct_producer_and_typed_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sibling_introspection_sbf.rs (target\debug\deps\sibling_introspection_sbf-24c32600d5e3ecee.exe)
+
+running 1 test
+sibling case 1: 2486 CU; Ok(())
+sibling case 2: 2487 CU; Ok(())
+sibling case 3: 2466 CU; Ok(())
+sibling case 4: 2543 CU; Ok(())
+sibling case 5: 2324 CU; Err(AccountDataTooSmall)
+sibling case 6: 1712 CU; Ok(())
+sibling case 7: 2363 CU; Ok(())
+sibling case 8: 3531 CU; Ok(())
+sibling case 9: 11912 CU; Ok(())
+sibling case 10: 4037 CU; Ok(())
+sibling case 11: 2326 CU; Err(AccountDataTooSmall)
+test sibling_reads_respect_lengths_privileges_order_and_scope ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\token_escrow_sbf.rs (target\debug\deps\token_escrow_sbf-a271402c59fcdfe4.exe)
+
+running 2 tests
+escrow make CU=6209, header=02020000b2e9d63057f5904701000000
+escrow make CU=7518, header=02020000b2e9d63057f5904701000000
+reinitialize: Err(AccountAlreadyInitialized), CU=1167
+missing signer: Err(MissingRequiredSignature), CU=217
+repeated take: Err(InvalidAccountData), CU=308
+missing writable: Err(Immutable), CU=219
+repeated cancel: Err(InvalidAccountData), CU=194
+escrow op=1, donation=0, CU=7232
+missing signer: Err(MissingRequiredSignature), CU=221
+missing writable: Err(Immutable), CU=223
+escrow make CU=7518, header=02020000b2e9d63057f5904701000000
+missing signer: Err(MissingRequiredSignature), CU=620
+missing writable: Err(Immutable), CU=622
+missing writable: Err(Immutable), CU=622
+repeated take: Err(InvalidAccountData), CU=308
+trailing payload: Err(InvalidInstructionData), CU=190
+repeated cancel: Err(InvalidAccountData), CU=194
+escrow op=1, donation=37, CU=8469
+short payload: Err(InvalidInstructionData), CU=189
+escrow make CU=7518, header=02020000b2e9d63057f5904701000000
+wrong token program: Err(InvalidArgument), CU=668
+wrong vault PDA: Err(InvalidSeeds), CU=594
+repeated take: Err(InvalidAccountData), CU=308
+missing signer: Err(MissingRequiredSignature), CU=271
+repeated cancel: Err(InvalidAccountData), CU=194
+escrow op=2, donation=0, CU=4895
+missing writable: Err(Immutable), CU=275
+missing writable: Err(Immutable), CU=518
+escrow make CU=7518, header=02020000b2e9d63057f5904701000000
+missing writable: Err(Immutable), CU=912
+missing writable: Err(Immutable), CU=919
+repeated take: Err(InvalidAccountData), CU=308
+missing writable: Err(Immutable), CU=926
+repeated cancel: Err(InvalidAccountData), CU=194
+escrow op=2, donation=37, CU=4895
+test funded_make_take_cancel_and_donations ... ok
+missing writable: Err(Immutable), CU=931
+missing writable: Err(Immutable), CU=938
+trailing payload: Err(InvalidInstructionData), CU=217
+short payload: Err(InvalidInstructionData), CU=216
+wrong token program: Err(InvalidArgument), CU=950
+wrong vault PDA: Err(InvalidSeeds), CU=895
+missing signer: Err(MissingRequiredSignature), CU=163
+missing writable: Err(Immutable), CU=165
+missing writable: Err(Immutable), CU=164
+missing writable: Err(Immutable), CU=708
+missing writable: Err(Immutable), CU=715
+trailing payload: Err(InvalidInstructionData), CU=723
+short payload: Err(InvalidInstructionData), CU=132
+wrong token program: Err(InvalidArgument), CU=728
+wrong vault PDA: Err(InvalidSeeds), CU=693
+source mint: Err(Custom(6100)), CU=856
+source owner: Err(Custom(6102)), CU=869
+maker payment owner: Err(Custom(6102)), CU=939
+make funding fails after state and vault creation: Err(Custom(1)), CU=6280
+zero offer: Err(Custom(6104)), CU=640
+freeze authority mint: Err(Custom(6105)), CU=778
+foreign mint owner: Err(IncorrectProgramId), CU=749
+token policy substitution: Err(Custom(6100)), CU=1741
+token policy substitution: Err(Custom(6102)), CU=1754
+token policy substitution: Err(Custom(6103)), CU=1766
+token policy substitution: Err(Custom(6103)), CU=1768
+token policy substitution: Err(Custom(6100)), CU=2027
+token policy substitution: Err(Custom(6102)), CU=2040
+token policy substitution: Err(Custom(6103)), CU=2052
+token policy substitution: Err(Custom(6103)), CU=2054
+token policy substitution: Err(Custom(6100)), CU=1958
+token policy substitution: Err(Custom(6102)), CU=1971
+token policy substitution: Err(Custom(6103)), CU=1983
+token policy substitution: Err(Custom(6103)), CU=1985
+token policy substitution: Err(Custom(6100)), CU=1820
+token policy substitution: Err(Custom(6102)), CU=1833
+token policy substitution: Err(Custom(6103)), CU=1845
+token policy substitution: Err(Custom(6103)), CU=1847
+token policy substitution: Err(Custom(6100)), CU=1889
+token policy substitution: Err(Custom(6102)), CU=1902
+token policy substitution: Err(Custom(6103)), CU=1914
+token policy substitution: Err(Custom(6103)), CU=1916
+vault delegate or close authority: Err(Custom(6103)), CU=1771
+cancel vault authority substitution: Err(Custom(6103)), CU=880
+vault delegate or close authority: Err(Custom(6103)), CU=1773
+cancel vault authority substitution: Err(Custom(6103)), CU=882
+stored binding substitution: Err(InvalidAccountData), CU=347
+stored binding substitution: Err(InvalidAccountData), CU=506
+stored binding substitution: Err(InvalidAccountData), CU=427
+stored binding substitution: Err(InvalidAccountData), CU=465
+stored binding substitution: Err(InvalidAccountData), CU=388
+stale quote: Err(Custom(6101)), CU=1636
+aliased recipient: Err(Custom(45058)), CU=258
+unauthorized cancel: Err(InvalidAccountData), CU=230
+insufficient taker funds: Err(Custom(1)), CU=3357
+state-close overflow after exchange and vault-close CPIs: Err(ArithmeticOverflow), CU=5870
+state-close overflow after refund and vault-close CPIs: Err(ArithmeticOverflow), CU=3534
+test adversarial_accounts_and_cpi_failures_rollback ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\token_outcomes_sbf.rs (target\debug\deps\token_outcomes_sbf-d47c74dd81c2c15a.exe)
+
+running 1 test
+token extended=false, policy=100/99, actual=100: 1935 CU
+token extended=false, policy=100/100, actual=100: 1935 CU
+token extended=false, policy=100/99, actual=99: 1832 CU
+token extended=false, policy=100/1, actual=0: 1849 CU
+token extended=false, policy=100/0, actual=101: 1830 CU
+token extended=false, policy=0/0, actual=0: 95 CU
+token extended=false, policy=100/101, actual=100: 94 CU
+token extended=true, policy=100/99, actual=100: 4650 CU
+token extended=true, policy=100/100, actual=100: 4549 CU
+token extended=true, policy=100/99, actual=99: 4547 CU
+token extended=true, policy=100/1, actual=0: 4194 CU
+token extended=true, policy=100/0, actual=101: 4547 CU
+token extended=true, policy=0/0, actual=0: 95 CU
+token extended=true, policy=100/101, actual=100: 94 CU
+test token_receipt_policy_and_dedup_cpi_match_complete_svm_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

@@ -18,7 +18,8 @@ tasks:
 - `#[hopper::context]` -- emit lower-level typed account accessors for migrations and systems-mode code
 - `#[hopper::program]` -- emit dispatch glue over ordinary Hopper handlers
 - `#[hopper::event]` -- emit event types and metadata
-- `#[hopper::args]` -- emit borrowed instruction-argument parsers
+- `#[hopper::args]` -- emit borrowed instruction-argument parsers; the unreleased
+  source also decodes `&MyArgs` handler parameters with recursive validation
 - `#[derive(HopperInitSpace)]` -- derive initialization space for Pod structs
 - `hopper::canonical_pda!` -- emit a canonical PDA and bump for explicit literal inputs
 

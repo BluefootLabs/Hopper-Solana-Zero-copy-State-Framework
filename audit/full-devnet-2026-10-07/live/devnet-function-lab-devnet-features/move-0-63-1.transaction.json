@@ -1,0 +1,69 @@
+{
+  "blockTime": 1791397394,
+  "meta": {
+    "computeUnitsConsumed": 195,
+    "costUnits": 1240,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h invoke [1]",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h consumed 195 of 200000 compute units",
+      "Program return: B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h AAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pg==",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h success"
+    ],
+    "postBalances": [
+      2790493380,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2790498380,
+      833120
+    ],
+    "preTokenBalances": [],
+    "returnData": {
+      "data": [
+        "AAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pg==",
+        "base64"
+      ],
+      "programId": "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+    },
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508543870,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "3ZyzV3qCHHBjo6HESpBzMqJpNAoCBknCghGaRCBNz8MNWKW8FD9TLgPKwsFgh2a5z3PogN9EZfyxYwPiNT8kYWevVEF7YGE",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "4aM9jqK7C4Vp7CQRqp5tKsgjoGjaH52EjeMNf47s1Lom"
+    },
+    "signatures": [
+      "5Cq7XEss2sSk6ZbKXW7JvikXJFqByVFwgpL5haMdAaYpA7DLoZ1Hp6xsFJcNH5Kk5632pHB5HQ8eYco1c359mdr4"
+    ]
+  },
+  "transactionIndex": 6,
+  "version": "legacy"
+}

@@ -1,0 +1,129 @@
+{
+  "blockTime": 1791398983,
+  "meta": {
+    "computeUnitsConsumed": 11770,
+    "costUnits": 13995,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              0
+            ],
+            "data": "47zJyq1uxeuSWLSVzc9iqJrzrqZdsLhjfoZyMLiHEy2ZVTs4JatAMnUA1oWXA3xsbCGZodD",
+            "programIdIndex": 2,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "ZnZQ2JFShj76c3NDGALqcuTNFdsdsgHFDQtQMHEa76nSsr",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "GC4pNhRtfidazzK7ZsJvQ7iaiPTk3SBr4VUtTTJzNnvqYV75p2c91VJu5AzG87qmcWgiyR2sqADwdv5sVCvHz6ZbrF",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "bSpqAWd4bP6P5FhdjYX3jW7YW1ZpbfcmrL4vvckrvMy44aLiGwDnDxdBJy9UaXqCeDL8GkWdNhmUSsKN7aJGzqY758U",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeMintCloseAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1356 of 195481 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: MetadataPointerInstruction::Initialize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1379 of 192979 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeMint2",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 2273 of 190523 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn consumed 11770 of 200000 compute units",
+      "Program FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn success"
+    ],
+    "postBalances": [
+      2128101780,
+      2021840,
+      1,
+      1159846,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2130133620,
+      0,
+      1,
+      1159846,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508550546,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "HXQpwSKC4xA5RTNYLjK1Tk2rGE1Qn3SxhPr7H8uGbGk7",
+        "11111111111111111111111111111111",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            3,
+            2
+          ],
+          "data": "8QwQj1",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "6WWYrmA3vjZoBqFgHBxgwD2D3876Gc8VZKhasaGXhA8M"
+    },
+    "signatures": [
+      "5Fg7KUFjoTje6HU1hzD1Np9D7o9NpmFqgyMwS6XnCvAYr9b3rHokUKryGoz7xi4A6FQHXrFAd1fU1mwNtSsaQeYn",
+      "2bP9NwRU41Lk2fxWuUhR89LX9193H4K8qKKSMnKd4L4vck9v8pJueEhFQ6rSiCpbzEfkr5PnvnLVeMM8LN5NCuVM"
+    ]
+  },
+  "transactionIndex": 8,
+  "version": "legacy"
+}

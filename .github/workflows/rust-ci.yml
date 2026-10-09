@@ -100,6 +100,7 @@ jobs:
           cargo test -p hopper-systems --test trust_tests --locked
           cargo test -p hopper-bounded-multisig --locked
           cargo test -p hopper-lang --features proc-macros --test dynamic_account_integration --locked
+          cargo test -p hopper-lang --features proc-macros --test checked_args --locked
           cargo test -p hopper-lang --features proc-macros --test remaining_accounts_context_integration --locked
           cargo test -p hopper-lang --features proc-macros --test token_2022_docs --locked
           # Grillo is the independent effect verifier: its fail-closed
@@ -108,6 +109,7 @@ jobs:
           # compile; an always-PASS regression is invisible to check/clippy.
           cargo test -p grillo-verifier --features cli --locked
           cargo test -p hopper-cli --locked verify::
+          cargo test -p hopper-cli --bin hopper --locked cmd::audit_check::tests
           cargo test -p hopper-cli --locked cmd::fuzz::tests
           cargo test -p hopper-cli --test fuzz_adapter_process_e2e --locked
       - name: Verify manifest-derived Cicada fuzz plan
@@ -159,6 +161,7 @@ jobs:
         run: |
           python3 scripts/check-publish-train.py --self-test
           python3 scripts/tests/test_release_provenance.py
+          python3 scripts/tests/test_quality_gate.py
           python3 scripts/check-publish-train.py --out target/hopper/release/publish-train.json
           archive_count=$(find target/package -maxdepth 1 -type f -name '*.crate' | wc -l)
           test "${archive_count}" -eq 29

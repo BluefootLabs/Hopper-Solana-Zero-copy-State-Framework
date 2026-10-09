@@ -1,0 +1,77 @@
+{
+  "blockTime": 1791389832,
+  "meta": {
+    "computeUnitsConsumed": 153,
+    "costUnits": 1484,
+    "err": {
+      "InstructionError": [
+        0,
+        "ArithmeticOverflow"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program GBjEJhxFrMBjiKV6GerioYqaii7utAiSs2cUU6VpqCo4 invoke [1]",
+      "Program GBjEJhxFrMBjiKV6GerioYqaii7utAiSs2cUU6VpqCo4 consumed 153 of 200000 compute units",
+      "Program GBjEJhxFrMBjiKV6GerioYqaii7utAiSs2cUU6VpqCo4 failed: Program arithmetic overflowed"
+    ],
+    "postBalances": [
+      6628793806,
+      731520,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6628798806,
+      731520,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "ArithmeticOverflow"
+        ]
+      }
+    }
+  },
+  "slot": 508512185,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "BMpqqeqvLkCDjQBtPuuXfAPMCqAY6xQH522mTYPcpJ6n",
+        "GBjEJhxFrMBjiKV6GerioYqaii7utAiSs2cUU6VpqCo4"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0
+          ],
+          "data": "126jNUNmKT8u44WTY",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "CqK8k9n3cNvh5y9gYmPswxSEC6oTjmNEv79hfeQAXwhx"
+    },
+    "signatures": [
+      "qGHUqT8iddQZ4hHFiwrzuj6izHArrAftRFLugtndcvo3Pv7hj8VwCPuerZzrdWSFNNA9CGqMP9gGYhfh2Cpk3cJ"
+    ]
+  },
+  "transactionIndex": 5,
+  "version": "legacy"
+}

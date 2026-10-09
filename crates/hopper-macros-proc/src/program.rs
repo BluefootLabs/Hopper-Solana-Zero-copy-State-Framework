@@ -1353,58 +1353,24 @@ fn arg_wire_metadata(ty: &Type) -> (TokenStream, TokenStream) {
         other => other,
     };
 
-    if let Type::Path(type_path) = unwrapped {
-        if let Some(segment) = type_path.path.segments.last() {
-            let name = segment.ident.to_string();
-            if name == "BoundedVec" || name == "HopperVec" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    let mut generic_args = args.args.iter();
-                    let element = generic_args.next();
-                    let capacity = generic_args.next();
-                    if let (Some(GenericArgument::Type(element)), Some(capacity)) =
-                        (element, capacity)
-                    {
-                        return (
-                            quote! {
-                                <#unwrapped as ::hopper::hopper_runtime::TailCodec>::MAX_ENCODED_LEN as u16
-                            },
-                            quote! {
-                                ::hopper::hopper_schema::ArgEncoding::BoundedVec {
-                                    max_len: (#capacity) as u16,
-                                    element_size:
-                                        <#element as ::hopper::hopper_runtime::TailCodec>::MAX_ENCODED_LEN as u16,
-                                }
-                            },
-                        );
-                    }
-                }
-            }
-            if name == "BoundedString" || name == "HopperString" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(capacity) = args.args.first() {
-                        return (
-                            quote! {
-                                <#unwrapped as ::hopper::hopper_runtime::TailCodec>::MAX_ENCODED_LEN as u16
-                            },
-                            quote! {
-                                ::hopper::hopper_schema::ArgEncoding::BoundedString {
-                                    max_len: (#capacity) as u16,
-                                }
-                            },
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     let legacy_size = arg_wire_size(unwrapped);
-    let size = if matches!(unwrapped, Type::Array(_)) {
-        quote! { ::core::mem::size_of::<#unwrapped>() as u16 }
+    let size = if matches!(unwrapped, Type::Array(_) | Type::Path(_)) {
+        // Borrowed user layouts publish their size through the same decoder
+        // that consumes them. Type aliases therefore keep the wire contract.
+        quote! {{
+            let size = <#ty as ::hopper::__macro_support::DecodeInstructionArg>::WIRE_SIZE;
+            assert!(size <= u16::MAX as usize, "instruction argument exceeds manifest size range");
+            size as u16
+        }}
     } else {
         quote! { #legacy_size }
     };
-    (size, quote! { ::hopper::hopper_schema::ArgEncoding::Fixed })
+    let encoding = if matches!(unwrapped, Type::Array(_) | Type::Path(_)) {
+        quote! { <#ty as ::hopper::__macro_support::DecodeInstructionArg>::ENCODING }
+    } else {
+        quote! { ::hopper::hopper_schema::ArgEncoding::Fixed }
+    };
+    (size, encoding)
 }
 
 fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<Handler>> {
@@ -3361,7 +3327,7 @@ mod manifest_statics_tests {
     }
 
     #[test]
-    fn typed_args_publish_real_names_types_and_table_sizes() {
+    fn typed_args_publish_real_names_types_and_decoder_metadata() {
         let out = expand_spaceless(
             quote!(entrypoint = false),
             quote! {
@@ -3379,18 +3345,29 @@ mod manifest_statics_tests {
         assert!(
             out.contains(
                 "::hopper::hopper_schema::ArgDescriptor{\
-                 name:\"amount\",canonical_type:\"u64\",size:8u16,\
-                 encoding:::hopper::hopper_schema::ArgEncoding::Fixed,}"
+                 name:\"amount\",canonical_type:\"u64\",size:{\
+                 letsize=<u64as::hopper::__macro_support::DecodeInstructionArg>::WIRE_SIZE;"
             ),
-            "u64 arg must carry its table size: {out}",
+            "u64 arg must use its decoder's wire size: {out}",
         );
         assert!(
             out.contains(
                 "name:\"memo\",canonical_type:\"[u8;12]\",\
-                 size:::core::mem::size_of::<[u8;12]>()asu16,\
-                 encoding:::hopper::hopper_schema::ArgEncoding::Fixed"
+                 size:{letsize=<[u8;12]as::hopper::__macro_support::DecodeInstructionArg>::WIRE_SIZE;"
             ),
-            "byte-array arg must resolve its literal length: {out}",
+            "byte-array arg must use its decoder's wire size: {out}",
+        );
+        for ty in ["u64", "[u8;12]"] {
+            assert!(
+                out.contains(&format!(
+                    "encoding:<{ty}as::hopper::__macro_support::DecodeInstructionArg>::ENCODING"
+                )),
+                "argument encoding must come from the same decoder as its size: {out}",
+            );
+        }
+        assert!(
+            out.contains("assert!(size<=u16::MAXasusize,"),
+            "manifest sizes must reject overflow before narrowing: {out}",
         );
         // Variable-length args are UNKNOWN: size 0, never fabricated.
         assert!(

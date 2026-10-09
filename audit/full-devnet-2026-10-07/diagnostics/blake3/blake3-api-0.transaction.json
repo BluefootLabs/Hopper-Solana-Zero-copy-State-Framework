@@ -1,0 +1,71 @@
+{
+  "blockTime": 1791393184,
+  "meta": {
+    "computeUnitsConsumed": 200000,
+    "costUnits": 201029,
+    "err": {
+      "InstructionError": [
+        0,
+        "ProgramFailedToComplete"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 97sx5Qn3E2gzxVMBypx1LTxHWTaZkU4AmtPJRNFcfwpF invoke [1]",
+      "Program 97sx5Qn3E2gzxVMBypx1LTxHWTaZkU4AmtPJRNFcfwpF consumed 178 of 200000 compute units",
+      "Program 97sx5Qn3E2gzxVMBypx1LTxHWTaZkU4AmtPJRNFcfwpF failed: unsupported BPF instruction"
+    ],
+    "postBalances": [
+      6546096389,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      6546101389,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "ProgramFailedToComplete"
+        ]
+      }
+    }
+  },
+  "slot": 508526232,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "97sx5Qn3E2gzxVMBypx1LTxHWTaZkU4AmtPJRNFcfwpF"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "11E87MmU",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "9ZZWYGUemaS9hHbFcD2sqxXdMf6jaxJv2xcCo4rQxBD3"
+    },
+    "signatures": [
+      "VwRNZXkmc3VQvRnLaWaUo4rnezzqNKvz1yh5DqBHKcXT1qaLFU6ZoxEJeYuNZoz2aWXtirfhHsJXuNumk5qW123"
+    ]
+  },
+  "transactionIndex": 3,
+  "version": "legacy"
+}

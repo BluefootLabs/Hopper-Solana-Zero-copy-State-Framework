@@ -1,0 +1,107 @@
+{
+  "blockTime": 1791399263,
+  "meta": {
+    "computeUnitsConsumed": 1345,
+    "costUnits": 3695,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 1
+        }
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              2
+            ],
+            "data": "3Bxs3zzLZLuLQEYX",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Transfer: insufficient lamports 9060200, need 1000000000",
+      "Program 11111111111111111111111111111111 failed: custom program error: 0x1",
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw consumed 1345 of 200000 compute units",
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw failed: custom program error: 0x1"
+    ],
+    "postBalances": [
+      1986033956,
+      9060200,
+      939800,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1986043956,
+      9060200,
+      939800,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 1
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508551724,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "9tMNVoXGoLJUDaU1bGX4n6fXjVUZcPWp8BmZ8U1tHHUN",
+        "5teZQTm6nmJ8tztgqGe34kmXo3zqd6ESDuFDgXpsAdPi",
+        "11111111111111111111111111111111",
+        "J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            2,
+            3
+          ],
+          "data": "jxCWRzNSWCP",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "BrbVpNaJJg16vsXo675p6S1tNLbEnT7TRcRXsxn62dxN"
+    },
+    "signatures": [
+      "4puF7ExYQtNJjDE9TKt4DGwYuMRxzv78T1gDUhahssXbfkuLgxxwJ8Hr585nkMp8zMmb7LhuZNMFeU5tXNvSj3FU",
+      "4meoUkG97DmX5Wdh8wDsUeKZdrDwSRRth1Lx6pZZL5Y1RUGuURtNxaBtKtZuBFTP2Bm73ABGVyzmehKEKBiSHxvZ"
+    ]
+  },
+  "transactionIndex": 34,
+  "version": "legacy"
+}

@@ -13,19 +13,6 @@
 
 use hopper_runtime::ProgramResult;
 
-/// A byte slice descriptor matching the Solana runtime's `SolBytes` ABI.
-#[cfg(target_os = "solana")]
-#[repr(C)]
-struct SolBytes {
-    ptr: *const u8,
-    len: u64,
-}
-
-#[cfg(target_os = "solana")]
-extern "C" {
-    fn sol_log_data(data: *const SolBytes, data_len: u64);
-}
-
 /// Emit a raw receipt (log the bytes to the runtime).
 ///
 /// Uses `sol_log_data` on BPF, which emits structured binary data
@@ -39,23 +26,7 @@ extern "C" {
 /// ```
 #[inline(always)]
 pub fn emit_receipt(data: &[u8]) -> ProgramResult {
-    #[cfg(target_os = "solana")]
-    {
-        let field = SolBytes {
-            ptr: data.as_ptr(),
-            len: data.len() as u64,
-        };
-        // SAFETY: `field` matches the runtime `SolBytes` ABI, and both the
-        // descriptor and its borrowed byte slice remain valid for the duration
-        // of this synchronous syscall. The descriptor count is exactly one.
-        unsafe {
-            sol_log_data(&field as *const SolBytes, 1);
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = data;
-    }
+    hopper_runtime::__hopper_native::log::log_data(&[data]);
     Ok(())
 }
 
@@ -65,30 +36,7 @@ pub fn emit_receipt(data: &[u8]) -> ProgramResult {
 /// distinguish different receipt types from the same program.
 #[inline(always)]
 pub fn emit_tagged_receipt(tag: u8, data: &[u8]) -> ProgramResult {
-    #[cfg(target_os = "solana")]
-    {
-        let tag_byte: [u8; 1] = [tag];
-        let fields: [SolBytes; 2] = [
-            SolBytes {
-                ptr: tag_byte.as_ptr(),
-                len: 1,
-            },
-            SolBytes {
-                ptr: data.as_ptr(),
-                len: data.len() as u64,
-            },
-        ];
-        // SAFETY: Both descriptors match the runtime `SolBytes` ABI and point
-        // to live slices for the duration of this synchronous syscall. The
-        // descriptor count matches the two-element `fields` array.
-        unsafe {
-            sol_log_data(fields.as_ptr(), 2);
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (tag, data);
-    }
+    hopper_runtime::__hopper_native::log::log_data(&[&[tag], data]);
     Ok(())
 }
 

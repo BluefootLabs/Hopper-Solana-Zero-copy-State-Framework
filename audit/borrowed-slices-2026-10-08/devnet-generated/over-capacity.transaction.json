@@ -1,0 +1,77 @@
+{
+  "blockTime": 1791508482,
+  "meta": {
+    "computeUnitsConsumed": 48,
+    "costUnits": 1459,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidInstructionData"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program CtbmtFBWz9uF7AmhPJHtbovjqVgRJPd7Rjf1xco5Msid invoke [1]",
+      "Program CtbmtFBWz9uF7AmhPJHtbovjqVgRJPd7Rjf1xco5Msid consumed 48 of 200000 compute units",
+      "Program CtbmtFBWz9uF7AmhPJHtbovjqVgRJPd7Rjf1xco5Msid failed: invalid instruction data"
+    ],
+    "postBalances": [
+      1179445268,
+      731520,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1179450268,
+      731520,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      }
+    }
+  },
+  "slot": 509009340,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "61Jc59ioTBV6yesBds1PGXrA8UJq8KKBdGs2TgYWF11V",
+        "CtbmtFBWz9uF7AmhPJHtbovjqVgRJPd7Rjf1xco5Msid"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0
+          ],
+          "data": "2uwEuQPkkYEduAR8Xo2A6j1ec2nKH5USyHgqhoJvFYAqEHGw6znfkXrJvezXKZED1MxGKLZ98UZ5rWxGUoa9P7erkEPBd7Bmi6wHJ1tE3s7TEY9NCzuFPzUBeW4tBBdH9t4f8ztwj9f5uJjZRGcGB6agv9H6FE9ySSShRhSRWL92nno1EifDZvTRiEdQ4XKQ2ZadEnL4vySYyEbtZAjrxM142ZhgKAZT6AcYTHVCvwnMsFVsZSkeWsamt7cKhypYLxQHRihXm34G7GXw4Ym6sCvGrrChPs3GBLYs12i7UacezymSCoQ4pyVoMYFWhEcu2iYVzTknHThS4VA9ZS86pQwVzoNGbMGje2W7yJx28C4Gwero1pRpgUhoeeK4XLxrFaj34tb63gSuwz4AMKQPoNd1h9HnesZ65SpPK2ctSF63s45W6mMAHrZzbRM88etuDAzmNSMb7",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "5Vn5acRNFP6ZCau6ressnXXmQ6HkEsd19LSuituE4hwu"
+    },
+    "signatures": [
+      "2PwPsjWBFqixdDkz4r8ELpqvPWAykZTCqkt5qG3HjW9jHZBhhNK1TYDFQcHspweRJu6M5PtF1YYJobBogXnw2YJk"
+    ]
+  },
+  "transactionIndex": 24,
+  "version": "legacy"
+}

@@ -1,5 +1,9 @@
 # Solana network baseline, reviewed 2026-08-17; corrected 2026-09-06
 
+Historical snapshot. Use the [October 2 baseline](SOLANA_NETWORK_BASELINE.md)
+for the latest recorded feature and rent observations. The proposal and pending
+activation language below describes earlier observations, not current status.
+
 This file is a dated compatibility baseline, not a prediction. “Live” means the
 Solana Foundation or the on-chain feature account confirms Mainnet activation.
 Targets and schedules remain “upcoming” until that happens.

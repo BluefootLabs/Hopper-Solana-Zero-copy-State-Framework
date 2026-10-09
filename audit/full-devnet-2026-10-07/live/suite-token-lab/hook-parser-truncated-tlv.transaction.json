@@ -1,0 +1,84 @@
+{
+  "blockTime": 1791401632,
+  "meta": {
+    "computeUnitsConsumed": 112,
+    "costUnits": 1345,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6701
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 112 of 200000 compute units",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP failed: custom program error: 0x1a2d"
+    ],
+    "postBalances": [
+      1047967957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1047972957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6701
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508561651,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "Db3MFBHUXGEKy1dusetAd1YcaobUCHHA9pvu7bJagx8P",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "5BPuddyJ225GazjMMxGbbYUMrN9Ed2LBQSwek2Bkh8SgkE8aVjNFPbrDtoATLXtgtWKPftk",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "6rtxkBVJckvsuMpLE2rZvxRM8hBDvivQVY7a8VssmRwc"
+    },
+    "signatures": [
+      "3F4PxGdWuuEwy6DYPh3BdazBbooPxgwmK4BzHrZEhziUqaTYEfSkkwNnfjM6Gy9HnZYWNaLz8Ayf96GE2X38XiXQ"
+    ]
+  },
+  "transactionIndex": 2,
+  "version": "legacy"
+}

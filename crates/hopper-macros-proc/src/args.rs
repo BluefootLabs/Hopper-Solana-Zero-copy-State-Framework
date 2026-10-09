@@ -14,7 +14,6 @@
 //!
 //! ## Design notes
 //!
-//! Anchor and Quasar parse args via Borsh deserialization into owned values.
 //! Hopper's args derive is **borrowing zero-copy**: the handler receives a
 //! `&'a VaultDepositArgs` where the bytes still live in the instruction-data
 //! region. No allocation. No copy. No serialization boundary.
@@ -39,37 +38,48 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         ));
     }
 
-    let metas: Punctuated<Meta, Token![,]> = Punctuated::<Meta, Token![,]>::parse_terminated
-        .parse2(attr.clone())
-        .unwrap_or_default();
+    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(attr)?;
 
     let mut cu_hint: u32 = 0;
+    let mut has_cu = false;
     let mut allow_tail = false;
     for m in &metas {
         match m {
-            Meta::NameValue(nv) => {
-                if nv.path.is_ident("cu") {
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Int(li),
-                        ..
-                    }) = &nv.value
-                    {
-                        cu_hint = li.base10_parse::<u32>()?;
-                    }
+            Meta::NameValue(nv) if nv.path.is_ident("cu") => {
+                if has_cu {
+                    return Err(syn::Error::new_spanned(m, "duplicate `cu` hint"));
                 }
+                let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(li),
+                    ..
+                }) = &nv.value
+                else {
+                    return Err(syn::Error::new_spanned(
+                        &nv.value,
+                        "`cu` requires a u32 integer literal",
+                    ));
+                };
+                cu_hint = li.base10_parse::<u32>()?;
+                has_cu = true;
             }
             // Bare `tail` flag marks the args struct as accepting
             // trailing bytes past the packed prefix. The emitted
             // `parse()` still only validates `data.len() >= PACKED_SIZE`
             // but gains a `parse_with_tail()` companion that
-            // returns `(&Self, &[u8])`. Tail bytes are the Hopper
-            // equivalent of Quasar's `Tail<&[u8]>` pattern: a
-            // variable-size suffix decoded by the handler rather
-            // than the args derive.
+            // returns `(&Self, &[u8])`. The variable-size suffix is
+            // decoded by the handler rather than the args derive.
             Meta::Path(p) if p.is_ident("tail") => {
+                if allow_tail {
+                    return Err(syn::Error::new_spanned(m, "duplicate `tail` option"));
+                }
                 allow_tail = true;
             }
-            _ => {}
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    m,
+                    "expected `tail` or `cu = <u32>`",
+                ))
+            }
         }
     }
 
@@ -116,41 +126,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let cu_lit = LitInt::new(&format!("{}u32", cu_hint), name.span());
     let ty_list: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
-    // For every `OptionByte<T>` field in the struct, emit a post-cast
-    // `validate_tag()` call so a malformed tag byte (anything other
-    // than 0 or 1) fails `parse()` instead of leaking into user code.
-    // This matches Quasar's `OptionZc::validate_zc` contract. Pure
-    // text match on the outer type name: a field spelled
-    // `hopper_runtime::option_byte::OptionByte<...>` or just
-    // `OptionByte<...>` both route through.
-    let option_field_idents: Vec<&syn::Ident> = fields
-        .iter()
-        .filter(|f| is_option_byte_type(&f.ty))
-        .filter_map(|f| f.ident.as_ref())
-        .collect();
-    let mut tag_validators: Vec<TokenStream> = option_field_idents
-        .iter()
-        .map(|ident| {
-            quote! {
-                self.#ident.validate_tag()?;
-            }
-        })
-        .collect();
-    // An `EnumByte<E>` argument must name a variant: refuse the
-    // instruction at parse, before the handler can read the field.
-    tag_validators.extend(
-        fields
-            .iter()
-            .filter(|f| is_enum_byte_type(&f.ty))
-            .filter_map(|f| f.ident.as_ref())
-            .map(|ident| {
-                quote! {
-                    self.#ident.validate().map_err(|_| {
-                        ::hopper::__runtime::ProgramError::InvalidInstructionData
-                    })?;
-                }
-            }),
-    );
+    // Trait dispatch follows aliases and nested Pod implementations. The
+    // default scalar validator is empty and can be optimized out.
+    let field_idents: Vec<_> = fields.iter().filter_map(|f| f.ident.as_ref()).collect();
 
     // Tail support. Emit `parse_with_tail` only when the struct
     // opted in via `#[hopper::args(tail)]`. The helper returns
@@ -164,7 +142,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             /// instruction carries a variable-length suffix.
             ///
             /// Available because the `#[hopper::args(tail)]` marker
-            /// is set. For strict fixed-size args, use `parse`.
+            /// is set. This performs a raw overlay without value validation.
             #[inline]
             pub fn parse_with_tail(data: &[u8])
                 -> ::core::result::Result<
@@ -175,6 +153,16 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 let head = Self::parse(data)?;
                 let tail = &data[Self::PACKED_SIZE..];
                 ::core::result::Result::Ok((head, tail))
+            }
+
+            /// Validate the fixed prefix and return it with the borrowed tail.
+            /// The caller validates the tail's application-specific encoding.
+            #[inline]
+            pub fn parse_with_tail_checked(data: &[u8])
+                -> ::core::result::Result<(&Self, &[u8]), ::hopper::__runtime::ProgramError>
+            {
+                let head = Self::parse_checked(data)?;
+                ::core::result::Result::Ok((head, &data[Self::PACKED_SIZE..]))
             }
         }
     } else {
@@ -273,22 +261,26 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 ::core::result::Result::Ok(r)
             }
 
-            /// Validate every `OptionByte<T>` tag byte on this args
-            /// struct. Returns `Err(ProgramError::InvalidInstructionData)`
-            /// when any tag is not 0 or 1. `parse_checked` runs this
-            /// automatically; call it directly when you have a
-            /// borrowed `&Self` from another source.
+            /// Validate each field through `Pod::validate_value`, including
+            /// aliases, arrays, nested layouts, enums, and present options.
+            /// All representation errors become `InvalidInstructionData`.
+            #[inline]
+            pub fn validate_values(&self) -> ::hopper::__runtime::ProgramResult {
+                #(::hopper::__runtime::Pod::validate_value(&self.#field_idents)
+                    .map_err(|_| ::hopper::__runtime::ProgramError::InvalidInstructionData)?;)*
+                ::core::result::Result::Ok(())
+            }
+
+            /// Compatibility name for `validate_values`.
             #[inline]
             pub fn validate_tags(&self)
                 -> ::core::result::Result<(), ::hopper::__runtime::ProgramError>
             {
-                #( #tag_validators )*
-                ::core::result::Result::Ok(())
+                self.validate_values()
             }
 
-            /// Zero-copy parse plus `OptionByte` tag validation in one
-            /// call. Prefer this over `parse(...)` when the args
-            /// struct carries any `OptionByte<T>` fields.
+            /// Borrow and validate a fixed prefix, allowing trailing bytes.
+            /// Use `parse_exact_checked` when the complete payload must match.
             #[inline]
             pub fn parse_checked(data: &[u8])
                 -> ::core::result::Result<&Self, ::hopper::__runtime::ProgramError>
@@ -296,11 +288,39 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 let r = Self::parse(data).map_err(|_| {
                     ::hopper::__runtime::ProgramError::InvalidInstructionData
                 })?;
-                r.validate_tags()?;
+                r.validate_values()?;
                 ::core::result::Result::Ok(r)
             }
 
+            /// Borrow and validate a complete fixed-size payload. Both short
+            /// buffers and trailing bytes return `InvalidInstructionData`.
+            #[inline]
+            pub fn parse_exact_checked(data: &[u8])
+                -> ::core::result::Result<&Self, ::hopper::__runtime::ProgramError>
+            {
+                if data.len() != Self::PACKED_SIZE {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::InvalidInstructionData,
+                    );
+                }
+                Self::parse_checked(data)
+            }
+
             #parse_with_tail_fn
+        }
+
+        impl<'__hopper_args> ::hopper::__macro_support::DecodeInstructionArg<'__hopper_args>
+            for &'__hopper_args #name
+        {
+            const WIRE_SIZE: usize = #name::PACKED_SIZE;
+
+            #[inline]
+            fn decode(decoder: &mut ::hopper::__macro_support::Decoder<'__hopper_args>)
+                -> ::core::result::Result<Self, ::hopper::__runtime::ProgramError>
+            {
+                let bytes = decoder.read_array_ref::<{ #name::PACKED_SIZE }>()?;
+                #name::parse_exact_checked(bytes)
+            }
         }
     };
 
@@ -321,32 +341,6 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
         });
         has_c
     })
-}
-
-/// Heuristic: does this type spell `OptionByte<...>`?
-///
-/// The rule is name-only because `#[hopper::args]` runs at macro
-/// expansion time with no type-resolution context. Users who qualify
-/// the type as `hopper_runtime::option_byte::OptionByte<T>` or just
-/// `OptionByte<T>` both match; any other alias falls through. A
-/// different name means the user will need to call `.validate_tag()`
-/// on their args struct themselves.
-fn is_option_byte_type(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(p) = ty {
-        if let Some(last) = p.path.segments.last() {
-            return last.ident == "OptionByte";
-        }
-    }
-    false
-}
-
-fn is_enum_byte_type(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(p) = ty {
-        if let Some(last) = p.path.segments.last() {
-            return last.ident == "EnumByte";
-        }
-    }
-    false
 }
 
 fn canonical_ty_name(ty: &syn::Type) -> String {
@@ -452,7 +446,7 @@ mod args_tests {
     }
 
     #[test]
-    fn option_byte_field_emits_tag_validator() {
+    fn fields_use_trait_validation() {
         let expanded = expand_ok(
             quote!(),
             quote! {
@@ -463,8 +457,22 @@ mod args_tests {
             },
         );
         assert!(expanded.contains("validate_tags"));
-        assert!(
-            expanded.contains(". flag . validate_tag") || expanded.contains(".flag.validate_tag")
-        );
+        assert!(expanded.contains("Pod :: validate_value (& self . flag)"));
+    }
+
+    #[test]
+    fn invalid_options_report_an_error() {
+        let item = quote! { #[repr(C)] pub struct Args { pub value: u8 } };
+        for attr in [
+            quote!(tails),
+            quote!(tail, tail),
+            quote!(tail = true),
+            quote!(cu = "100"),
+            quote!(cu = 1, cu = 2),
+            quote!(cu = 4294967296),
+            quote!(cu =),
+        ] {
+            assert!(expand(attr.clone(), item.clone()).is_err(), "{attr}");
+        }
     }
 }

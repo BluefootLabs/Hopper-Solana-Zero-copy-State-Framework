@@ -1,0 +1,20 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H
+data      : 137 bytes (0x00b06948b1d19e6dd4df7619783b1449ec1effad2b3413a8968945a05994d845b68d624e8d52ca5886b16e8431d5d86fa6e2439d1d73d2eaa4c54e9829ca206d6ab06948b1d19e6dd4df7619783b1449ec1effad2b3413a8968945a05994d845b68d624e8d52ca5886b16e8431d5d86fa6e2439d1d73d2eaa4c54e9829ca206d6a6400000000000000)
+accounts  : 3 slots
+  [0] 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4 sw
+  [1] 7tTVNxnC3ohogF72iK47HHMXdWZpSFv97eQdwRFCyvTc -w
+  [2] 11111111111111111111111111111111 --
+signers   : payer 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 374/1232 bytes (legacy)
+
+signature : KmMu8LCdcyxQ3AP3ifWHTTQ322RtWBp2RjE7gR5Ydj4iBFSbsH6AXcDqZdcYwCofQ1Uvo26iUzBL4p9DYjRGrB1
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"PrivilegeEscalation"]}
+compute   : 1393 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain KmMu8LCdcyxQ3AP3ifWHTTQ322RtWBp2RjE7gR5Ydj4iBFSbsH6AXcDqZdcYwCofQ1Uvo26iUzBL4p9DYjRGrB1 --rpc https://api.devnet.solana.com

@@ -1,0 +1,16 @@
+init-note: finalized, 2122 CU, ok
+add-reviewer-0: finalized, 596 CU, ok
+add-reviewer-1: finalized, 613 CU, ok
+add-reviewer-2: finalized, 630 CU, ok
+add-reviewer-when-full: finalized, 573 CU, refused {"InstructionError": [0, "AccountDataTooSmall"]}
+rewrite-note-shorter: finalized, 1000 CU, ok
+rewrite-note-longest: finalized, 1315 CU, ok
+rewrite-note-utf8: finalized, 2153 CU, ok
+rewrite-note-empty-body: finalized, 339 CU, refused {"InstructionError": [0, {"Custom": 6700}]}
+rewrite-note-by-stranger: finalized, 328 CU, refused {"InstructionError": [0, "InvalidAccountData"]}
+init-blob: finalized, 1722 CU, ok
+write-blob-longest: finalized, 1633 CU, ok
+write-blob-tag-out-of-range: finalized, 361 CU, refused {"InstructionError": [0, {"Custom": 6702}]}
+write-blob-empty: finalized, 309 CU, refused {"InstructionError": [0, {"Custom": 6701}]}
+init-blob-tag-out-of-range: finalized, 1644 CU, refused {"InstructionError": [0, {"Custom": 6702}]}
+All tail-lab devnet cases and exact state checks passed.

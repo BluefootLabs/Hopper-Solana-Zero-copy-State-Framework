@@ -36,6 +36,7 @@ const hopper_runtime::LayoutContract::VERSION: u8
 const hopper_runtime::LayoutMigration::MIGRATIONS: &'static [hopper_runtime::MigrationEdge]
 const hopper_runtime::ProgramId::ID: hopper_runtime::Address
 const hopper_runtime::SeqElement::STRIDE: usize
+const hopper_runtime::TailCodec::FIXED_ENCODED_LEN: core::option::Option<usize> = None
 const hopper_runtime::TailCodec::MAX_ENCODED_LEN: usize
 const hopper_runtime::WireLayout::WIRE_SIZE: usize
 const hopper_runtime::cpi_event::CpiEvent::TAG: u8
@@ -905,16 +906,26 @@ impl<'a, T, const N: usize> !core::marker::Sync for hopper_runtime::RemainingExt
 impl<'a, T, const N: usize> !core::marker::Sync for hopper_runtime::SegmentsMut<'a, T, N> [auto]
 impl<'a, T, const N: usize> !core::panic::unwind_safe::UnwindSafe for hopper_runtime::SegmentsMut<'a, T, N> [auto]
 impl<'a, T, const N: usize> core::fmt::Debug for hopper_runtime::SegmentsMut<'a, T, N>
+impl<'a, T, const N: usize> core::marker::Freeze for hopper_runtime::BoundedSlice<'a, T, N> [auto]
 impl<'a, T, const N: usize> core::marker::Freeze for hopper_runtime::RemainingExternalAccounts<'a, T, N> [auto]
 impl<'a, T, const N: usize> core::marker::Freeze for hopper_runtime::SegmentsMut<'a, T, N> [auto]
+impl<'a, T, const N: usize> core::marker::Send for hopper_runtime::BoundedSlice<'a, T, N> where T: core::marker::Sync [auto]
+impl<'a, T, const N: usize> core::marker::Sync for hopper_runtime::BoundedSlice<'a, T, N> where T: core::marker::Sync [auto]
+impl<'a, T, const N: usize> core::marker::Unpin for hopper_runtime::BoundedSlice<'a, T, N> [auto]
 impl<'a, T, const N: usize> core::marker::Unpin for hopper_runtime::RemainingExternalAccounts<'a, T, N> where T: core::marker::Unpin [auto]
 impl<'a, T, const N: usize> core::marker::Unpin for hopper_runtime::SegmentsMut<'a, T, N> [auto]
+impl<'a, T, const N: usize> core::marker::UnsafeUnpin for hopper_runtime::BoundedSlice<'a, T, N> [auto]
 impl<'a, T, const N: usize> core::marker::UnsafeUnpin for hopper_runtime::RemainingExternalAccounts<'a, T, N> [auto]
 impl<'a, T, const N: usize> core::marker::UnsafeUnpin for hopper_runtime::SegmentsMut<'a, T, N> [auto]
+impl<'a, T, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_runtime::BoundedSlice<'a, T, N> where T: core::panic::unwind_safe::RefUnwindSafe [auto]
 impl<'a, T, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_runtime::RemainingExternalAccounts<'a, T, N> where T: core::panic::unwind_safe::RefUnwindSafe [auto]
 impl<'a, T, const N: usize> core::panic::unwind_safe::RefUnwindSafe for hopper_runtime::SegmentsMut<'a, T, N> [auto]
+impl<'a, T, const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_runtime::BoundedSlice<'a, T, N> where T: core::panic::unwind_safe::RefUnwindSafe [auto]
 impl<'a, T, const N: usize> core::panic::unwind_safe::UnwindSafe for hopper_runtime::RemainingExternalAccounts<'a, T, N> where T: core::panic::unwind_safe::UnwindSafe [auto]
+impl<'a, T: core::clone::Clone + hopper_native::pod::Pod, const N: usize> core::clone::Clone for hopper_runtime::BoundedSlice<'a, T, N>
 impl<'a, T: core::clone::Clone + hopper_runtime::SeqElement> core::clone::Clone for hopper_runtime::TailSeq<'a, T>
+impl<'a, T: core::fmt::Debug + hopper_native::pod::Pod, const N: usize> core::fmt::Debug for hopper_runtime::BoundedSlice<'a, T, N>
+impl<'a, T: core::marker::Copy + hopper_native::pod::Pod, const N: usize> core::marker::Copy for hopper_runtime::BoundedSlice<'a, T, N>
 impl<'a, T: core::marker::Copy + hopper_runtime::SeqElement> core::marker::Copy for hopper_runtime::TailSeq<'a, T>
 impl<'a, T> !core::marker::Send for hopper_runtime::ForeignLens<'a, T> [auto]
 impl<'a, T> !core::marker::Send for hopper_runtime::Ref<'a, T> [auto]
@@ -2225,6 +2236,9 @@ pub const fn hopper_runtime::Address::new(bytes: [u8; 32]) -> Self
 pub const fn hopper_runtime::Address::new_from_array(bytes: [u8; 32]) -> Self
 pub const fn hopper_runtime::Address::to_bytes(&self) -> [u8; 32]
 pub const fn hopper_runtime::BehaviorWrite::new(offset: u32, size: u32) -> Self
+pub const fn hopper_runtime::BoundedSlice::as_slice(&self) -> &'a [T]
+pub const fn hopper_runtime::BoundedSlice::is_empty(&self) -> bool
+pub const fn hopper_runtime::BoundedSlice::len(&self) -> usize
 pub const fn hopper_runtime::BoundedString::capacity(&self) -> usize
 pub const fn hopper_runtime::BoundedString::empty() -> Self
 pub const fn hopper_runtime::BoundedString::is_empty(&self) -> bool
@@ -2432,7 +2446,8 @@ pub const hopper_runtime::crypto::CURVE_GROUP_ADD: u64 = 0u64
 pub const hopper_runtime::crypto::CURVE_GROUP_MUL: u64 = 2u64
 pub const hopper_runtime::crypto::CURVE_GROUP_SUB: u64 = 1u64
 pub const hopper_runtime::crypto::ED25519_PROGRAM_ID: hopper_runtime::Address = _
-pub const hopper_runtime::crypto::MAX_HASH_SEGMENTS: usize = 16usize
+pub const hopper_runtime::crypto::MAX_BIG_MOD_EXP_BYTES: usize = 512usize
+pub const hopper_runtime::crypto::MAX_HASH_SEGMENTS: usize = 20_000usize
 pub const hopper_runtime::crypto::MAX_INSTRUCTION_ACCOUNTS_BYTES: usize = 2_176usize
 pub const hopper_runtime::crypto::MAX_INSTRUCTION_DATA_LEN: usize = 1_232usize
 pub const hopper_runtime::crypto::MAX_POSEIDON_INPUTS: usize = 12usize
@@ -2666,6 +2681,8 @@ pub fn hopper_runtime::AccountView::zero_appended(&self, previous_len: usize) ->
 pub fn hopper_runtime::AccountView::zero_range(&self, start: usize, len: usize) -> hopper_runtime::ProgramResult
 pub fn hopper_runtime::Address::as_upstream<T>(&self) -> &T where T: hopper_runtime::TransparentAddress
 pub fn hopper_runtime::Address::from_upstream<T>(upstream: &T) -> &hopper_runtime::Address where T: hopper_runtime::TransparentAddress
+pub fn hopper_runtime::BoundedSlice::parse_exact(input: &'a [u8]) -> core::result::Result<Self, hopper_runtime::ProgramError>
+pub fn hopper_runtime::BoundedSlice::parse_prefix(input: &'a [u8]) -> core::result::Result<(Self, &'a [u8]), hopper_runtime::ProgramError>
 pub fn hopper_runtime::BoundedString::as_bytes(&self) -> &[u8]
 pub fn hopper_runtime::BoundedString::as_str(&self) -> core::result::Result<&str, hopper_runtime::ProgramError>
 pub fn hopper_runtime::BoundedString::clear(&mut self)
@@ -4001,6 +4018,7 @@ pub mod hopper_runtime::account_wrappers
 pub mod hopper_runtime::audit
 pub mod hopper_runtime::behavior
 pub mod hopper_runtime::borrow
+pub mod hopper_runtime::bounded_slice
 pub mod hopper_runtime::compact
 pub mod hopper_runtime::compute
 pub mod hopper_runtime::context
@@ -4061,6 +4079,7 @@ pub struct hopper_runtime::AccountView<'info> { .. }
 pub struct hopper_runtime::Address(_)
 pub struct hopper_runtime::BehaviorChecked<B, O> { .. }
 pub struct hopper_runtime::BehaviorWrite {}
+pub struct hopper_runtime::BoundedSlice<'a, T: hopper_native::pod::Pod, const N: usize> { .. }
 pub struct hopper_runtime::BoundedString<const N: usize> { .. }
 pub struct hopper_runtime::BoundedVec<T, const N: usize> where T: hopper_runtime::TailCodec + core::marker::Copy + core::default::Default { .. }
 pub struct hopper_runtime::Context<'a> { .. }
@@ -4154,6 +4173,7 @@ pub struct hopper_runtime::behavior::BehaviorChecked<B, O> { .. }
 pub struct hopper_runtime::behavior::BehaviorWrite {}
 pub struct hopper_runtime::borrow::Ref<'a, T: ?core::marker::Sized> { .. }
 pub struct hopper_runtime::borrow::RefMut<'a, T: ?core::marker::Sized> { .. }
+pub struct hopper_runtime::bounded_slice::BoundedSlice<'a, T: hopper_native::pod::Pod, const N: usize> { .. }
 pub struct hopper_runtime::context::Context<'a> { .. }
 pub struct hopper_runtime::context::ScopedContext<'ctx, 'a> { .. }
 pub struct hopper_runtime::cpi::Seed<'a> { .. }

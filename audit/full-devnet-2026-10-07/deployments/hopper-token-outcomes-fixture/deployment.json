@@ -1,0 +1,14 @@
+{
+  "label": "hopper-token-outcomes-fixture",
+  "programId": "AGoG5emeZ1JDK63B5xkxArLQeQ2Kd6JA63XvUeUPcHgn",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-token-outcomes-fixture\\hopper_token_outcomes_fixture.so",
+  "elfBytes": 9912,
+  "elfSha256": "77b8fb608cd598a2206d87c9439ef9ab5156780f87ebecb4ab15c7baf5581136",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508550720,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:50:41.645700+00:00"
+}

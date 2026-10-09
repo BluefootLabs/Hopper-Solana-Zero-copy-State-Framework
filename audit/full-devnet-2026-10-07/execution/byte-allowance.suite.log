@@ -1,0 +1,15 @@
+fund-delegate0: finalized, 150 CU, complete account state verified
+fund-delegate1: finalized, 150 CU, complete account state verified
+init-unsigned-authority: finalized, 159 CU, complete account state verified
+Traceback (most recent call last):
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-byte-allowance-devnet.py", line 212, in <module>
+    main()
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-byte-allowance-devnet.py", line 128, in main
+    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", SYSTEM], init_data, error="MissingRequiredSignature")
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-byte-allowance-devnet.py", line 106, in refuse
+    record = send(name, args.program, metas, data, signers, error)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-byte-allowance-devnet.py", line 80, in send
+    assert actual_error == (None if error is None else {"InstructionError": [0, error]}), (name, actual_error)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('init-unsigned-book', {'InstructionError': [0, 'PrivilegeEscalation']})

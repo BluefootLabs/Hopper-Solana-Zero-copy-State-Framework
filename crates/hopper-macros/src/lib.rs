@@ -106,7 +106,13 @@ macro_rules! hopper_layout {
 
         // SAFETY: #[repr(C)] over alignment-1 fields, all bit patterns valid
         // for the constituent Pod types (header, wire integers, byte arrays).
-        unsafe impl $crate::hopper_core::account::Pod for $name {}
+        unsafe impl $crate::hopper_core::account::Pod for $name {
+            #[inline]
+            fn validate_value(&self) -> $crate::hopper_runtime::__hopper_native::ProgramResult {
+                $($crate::hopper_core::account::Pod::validate_value(&self.$field)?;)+
+                ::core::result::Result::Ok(())
+            }
+        }
 
         // SAFETY: the seal repeats the `Pod` contract (fixed size, alignment 1,
         // no padding, no pointers, every bit pattern valid), which the
@@ -1470,7 +1476,13 @@ macro_rules! hopper_interface {
         unsafe impl $crate::hopper_core::account::Zeroable for $name {}
 
         // SAFETY: #[repr(C)] over alignment-1 fields, all bit patterns valid.
-        unsafe impl $crate::hopper_core::account::Pod for $name {}
+        unsafe impl $crate::hopper_core::account::Pod for $name {
+            #[inline]
+            fn validate_value(&self) -> $crate::hopper_runtime::__hopper_native::ProgramResult {
+                $($crate::hopper_core::account::Pod::validate_value(&self.$field)?;)+
+                ::core::result::Result::Ok(())
+            }
+        }
 
         // SAFETY: the seal repeats the `Pod` contract (fixed size, alignment 1,
         // no padding, no pointers, every bit pattern valid), which the

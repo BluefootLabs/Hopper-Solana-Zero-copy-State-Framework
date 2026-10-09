@@ -1,0 +1,6 @@
+{
+  "originalScript": "scripts/test-borrowed-slice-clients.py",
+  "originalSha256": "2a51a0da02682984dd7f1b1deecd8bb6dd2e8c0f6e3dae8d85108b48a2e507c5",
+  "runnerSha256": "db5cb4e462480e6ba32b22d9e6a970a64a27aefe0edba8717ea4f149cfaf623a",
+  "changes": "Resolve the repository root from this deeper location and use target/borrowed-slices-client-host-check for both Cargo commands. All test assertions and generator calls are unchanged."
+}

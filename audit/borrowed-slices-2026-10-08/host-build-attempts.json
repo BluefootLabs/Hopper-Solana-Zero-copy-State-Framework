@@ -1,0 +1,19 @@
+{
+  "scope": "Host build scheduling diagnostics; these logs are not passing quality gates.",
+  "attempts": [
+    {
+      "log": "workspace-tests.log",
+      "status": "interrupted",
+      "reason": "Serial build resumed from cache with four jobs; no test or source change.",
+      "sha256": "901c4119701175ff9632914d460deec03296c83b3f45b00d73f26e6b787928c6"
+    },
+    {
+      "log": "workspace-tests-final.log",
+      "status": "interrupted",
+      "reason": "Shared build-directory lock contention; replaced by isolated target run.",
+      "sha256": "256920d31a6e3c8c7b7c6e25b6976dd361363b398cfdd33869c4affe88178eb2"
+    }
+  ],
+  "selectedTestReceipt": "workspace-tests-isolated.json",
+  "selectedClippyReceipt": "clippy-isolated.json"
+}

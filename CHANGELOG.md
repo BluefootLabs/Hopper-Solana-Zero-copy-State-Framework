@@ -5,6 +5,97 @@ All notable changes to Hopper land here. The format follows
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 1.0 ships; pre-1.0 minor versions may break the API.
 
+## 0.6.0 (unreleased): checked wire contracts
+
+- Preserve scalar, array, owned-vector and string metadata through Rust aliases.
+  Reject variable-stride instruction vectors and manifest-size truncation.
+- Validate bounded instruction strings as UTF-8 before account binding, including
+  through aliases. Keep large execution archives in the repository instead of
+  distributing them with the framework crate.
+- Add Python bounded instruction encoders with exact byte-width and UTF-8
+  capacity checks. C, Go and Kotlin builders explicitly refuse these unsupported
+  encodings before producing data.
+- Add `TailCodec::FIXED_ENCODED_LEN`, defaulting to unknown, for exact-width
+  element declarations. Account-tail decoding remains available for variable codecs.
+
+- Add `BoundedSlice<'a, T, N>` with capacity and recursive representation checks,
+  exact/prefix parsing, and zero-copy generated handler admission.
+- Preserve bounded wire metadata through aliases; reject oversized manifest
+  footprints at compile time.
+- Generate variable-length Rust instruction codecs with checked decoding and
+  fallible builders. Sequence elements are explicit fixed-width wire bytes.
+  Regenerate bounded-argument clients and handle the new `Result` return types.
+- Add a no-allocator Solana batch fixture, compiled VM checks, generated client
+  execution tests, and a source-bound devnet runner.
+
+## Unreleased
+
+- Epoch helpers saturate normal-epoch arithmetic and handle a zero epoch
+  length without division by zero. Boundary vectors execute through the
+  function lab; this does not mask an inconsistent cluster schedule.
+- Generated raw-context entrypoints now resolve the default account-capacity
+  constant through the framework's private runtime export. This fixes SBF
+  compilation of the counter and external-oracle examples.
+- Raw and tagged receipts use the shared native logging boundary, fixing SBF
+  v3 linking while preserving their data segments. The function lab checks
+  their binary logs, including empty payloads.
+- A deployable function lab checks safe runtime boundaries against known-answer
+  vectors, live sysvars and complete account state. It covers hash slice counts,
+  memory operations, wire arithmetic, return data, enabled crypto syscalls and
+  duplicate-account borrow tracking. Inactive cluster features are explicit gaps.
+- Runtime SHA-256, Keccak-256 and BLAKE3 delegate to the native hash boundary,
+  replacing the runtime-only 16-slice limit with the shared 20,000-slice limit.
+  Practical memory and compute limits still apply. Host SHA-256 now computes
+  the native implementation's real digest; other host hash stubs remain stubs.
+- Modular exponentiation documents its little-endian operands and rejects
+  oversized operands, invalid moduli and mismatched output before the syscall.
+  SIMD-0529 was absent on public devnet on October 7; it is not claimed as live.
+
+- `#[hopper::args]` generates a checked decoder for borrowed `&MyArgs` program
+  parameters. Fixed layouts compose with scalars, other borrowed layouts, and
+  an explicit byte tail; representation validation precedes account binding.
+  Typed-handler manifests retain the layout's wire size through type aliases.
+- Generated TypeScript instruction builders reject incorrect lengths for fixed
+  byte-array and opaque-layout arguments instead of silently zero-padding short
+  inputs or allowing a long input to overlap the next argument.
+- The borrowed-argument Solana fixture exercises manual and generated dispatch
+  against the same state transition. The devnet runner can select either path,
+  and its source snapshot now includes Markdown and workflow/configuration
+  inputs through the shared quality-gate inventory.
+
+- Quality-gate receipts include Markdown inputs. Documentation compiled by
+  `include_str!` can no longer change without invalidating the recorded gate;
+  both the recorder and verifier detect edits, additions, and removals.
+
+- Audit schema 2 binds required quality gates to execution receipts, validates
+  their command/date/result/log, and detects changes to the complete recorded
+  Rust, configuration, script, and workflow source inventory. Schema 1 remains
+  readable. `scripts/record-quality-gate.py` records checks without a shell.
+- The evidence verifier includes new untracked bundles, so a new archive
+  cannot silently escape local verification before it is staged.
+- API release planning distinguishes an actual registry 404 from network,
+  rate-limit, server, or malformed-response failures. An unavailable registry
+  now fails the plan instead of reporting published crates as unpublished.
+
+- Checked borrowed argument parsing validates actual field types through
+  aliases, arrays, nested layouts, enums, and present optional payloads.
+  `Pod::validate_value` provides the shared representation hook; hand-written
+  marker implementations retain their default acceptance of every value.
+- `#[hopper::args]` adds `parse_exact_checked`, `parse_with_tail_checked` (with
+  `tail`), and `validate_values`. Existing raw overlays and prefix parsing keep
+  their length policy. Invalid nested representations now fail checked parsing.
+- Unknown, malformed, and duplicate argument macro options are compile errors.
+  See [borrowed arguments](docs/BORROWED_ARGUMENTS.md) for the API and boundaries.
+
+- A compiled SBF fixture exercises checked arguments through account writes,
+  including malformed input, authorization failures, and overflow. The devnet
+  runner verifies deployment hashes, return-data provenance, and refused-write
+  invariants against a recorded working-source snapshot.
+- `hopper audit-check` rejects missing required evidence or gates, duplicate
+  or blank identifiers, and empty gate commands. Only passed, fresh gates count
+  as current. Dates require bounded `YYYY-MM-DD` values, avoiding overflow from
+  oversized years.
+
 ## 0.5.0 - 2026-10-01
 
 [Release validation](docs/RELEASE_0_5_VALIDATION.md) records the final token-lab

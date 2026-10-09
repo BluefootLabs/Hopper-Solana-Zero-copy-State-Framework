@@ -1,0 +1,69 @@
+{
+  "blockTime": 1791397333,
+  "meta": {
+    "computeUnitsConsumed": 199,
+    "costUnits": 1244,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h invoke [1]",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h consumed 199 of 200000 compute units",
+      "Program return: B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h ra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2trQ==",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h success"
+    ],
+    "postBalances": [
+      2790543380,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2790548380,
+      833120
+    ],
+    "preTokenBalances": [],
+    "returnData": {
+      "data": [
+        "ra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2trQ==",
+        "base64"
+      ],
+      "programId": "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+    },
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508543618,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "3YpyXy2MUAKNyXzv9qaf8QXuqXem23FjXNZUndzHmFmsrUhTdx7vPfLi7EkxiHKKq1xPyM6L2x2fmg4M5WGMebjtWP8niLv",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "BivvGk2gND77piMxA22Hho7ZGD6QrN9guMo8JYYezGtd"
+    },
+    "signatures": [
+      "245YMHcNRujxiZkbRwYog95WWL1GBsFGwrucPhBHmgnawSgwXY8n6dT2gMYUyjWA9PaxoxSVckdmpsoVubyNVdfq"
+    ]
+  },
+  "transactionIndex": 4,
+  "version": "legacy"
+}

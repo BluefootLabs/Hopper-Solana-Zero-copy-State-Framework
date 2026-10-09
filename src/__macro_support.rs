@@ -5,7 +5,7 @@ use hopper_core::abi::{
     TypedAddress, UntypedAddress, WireBool, WireI128, WireI16, WireI32, WireI64, WireU128, WireU16,
     WireU32, WireU64,
 };
-use hopper_runtime::{Address, BoundedString, BoundedVec, ProgramError};
+use hopper_runtime::{Address, BoundedSlice, BoundedString, BoundedVec, ProgramError};
 
 /// Bounded decoder over the instruction payload after the discriminator byte.
 pub struct Decoder<'a> {
@@ -85,10 +85,18 @@ impl<'a> Decoder<'a> {
 
 /// Decode a single authored handler argument from instruction bytes.
 pub trait DecodeInstructionArg<'a>: Sized {
+    /// Maximum wire footprint when supplied by a decoder.
+    /// Zero means the decoder has not declared a fixed size.
+    const WIRE_SIZE: usize = 0;
+
+    /// Wire encoding, independent of the handler's type spelling or aliases.
+    const ENCODING: hopper_schema::ArgEncoding = hopper_schema::ArgEncoding::Fixed;
+
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError>;
 }
 
 impl<'a> DecodeInstructionArg<'a> for u8 {
+    const WIRE_SIZE: usize = 1;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         decoder.read_copy::<Self>()
@@ -96,6 +104,7 @@ impl<'a> DecodeInstructionArg<'a> for u8 {
 }
 
 impl<'a> DecodeInstructionArg<'a> for i8 {
+    const WIRE_SIZE: usize = 1;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         decoder.read_copy::<Self>()
@@ -106,6 +115,7 @@ macro_rules! impl_decode_le {
     ($($ty:ty),* $(,)?) => {
         $(
             impl<'a> DecodeInstructionArg<'a> for $ty {
+                const WIRE_SIZE: usize = size_of::<$ty>();
                 #[inline(always)]
                 fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
                     let bytes = decoder.read_array::<{ core::mem::size_of::<$ty>() }>()?;
@@ -119,6 +129,7 @@ macro_rules! impl_decode_le {
 impl_decode_le!(u16, u32, u64, u128, i16, i32, i64, i128);
 
 impl<'a> DecodeInstructionArg<'a> for bool {
+    const WIRE_SIZE: usize = 1;
     #[inline]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         match u8::decode(decoder)? {
@@ -133,6 +144,7 @@ macro_rules! impl_decode_wire_int {
     ($($wire:ty => $native:ty),* $(,)?) => {
         $(
             impl<'a> DecodeInstructionArg<'a> for $wire {
+                const WIRE_SIZE: usize = size_of::<$native>();
                 #[inline(always)]
                 fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
                     Ok(<$wire>::new(<$native as DecodeInstructionArg<'a>>::decode(decoder)?))
@@ -154,6 +166,7 @@ impl_decode_wire_int!(
 );
 
 impl<'a> DecodeInstructionArg<'a> for WireBool {
+    const WIRE_SIZE: usize = 1;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         Ok(WireBool::new(bool::decode(decoder)?))
@@ -161,6 +174,7 @@ impl<'a> DecodeInstructionArg<'a> for WireBool {
 }
 
 impl<'a, T> DecodeInstructionArg<'a> for TypedAddress<T> {
+    const WIRE_SIZE: usize = 32;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         Ok(Self::new(decoder.read_array::<32>()?))
@@ -168,6 +182,7 @@ impl<'a, T> DecodeInstructionArg<'a> for TypedAddress<T> {
 }
 
 impl<'a> DecodeInstructionArg<'a> for UntypedAddress {
+    const WIRE_SIZE: usize = 32;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         Ok(Self(decoder.read_array::<32>()?))
@@ -175,6 +190,7 @@ impl<'a> DecodeInstructionArg<'a> for UntypedAddress {
 }
 
 impl<'a, E: hopper_runtime::UnitEnum> DecodeInstructionArg<'a> for hopper_runtime::EnumByte<E> {
+    const WIRE_SIZE: usize = 1;
     /// One byte that must name a variant of `E`.
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
@@ -187,6 +203,7 @@ impl<'a, E: hopper_runtime::UnitEnum> DecodeInstructionArg<'a> for hopper_runtim
 }
 
 impl<'a> DecodeInstructionArg<'a> for Address {
+    const WIRE_SIZE: usize = 32;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         Ok(Address::new(decoder.read_array::<32>()?))
@@ -194,6 +211,7 @@ impl<'a> DecodeInstructionArg<'a> for Address {
 }
 
 impl<'a, const N: usize> DecodeInstructionArg<'a> for [u8; N] {
+    const WIRE_SIZE: usize = N;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         decoder.read_array::<N>()
@@ -201,6 +219,7 @@ impl<'a, const N: usize> DecodeInstructionArg<'a> for [u8; N] {
 }
 
 impl<'a, const N: usize> DecodeInstructionArg<'a> for &'a [u8; N] {
+    const WIRE_SIZE: usize = N;
     #[inline(always)]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         decoder.read_array_ref::<N>()
@@ -215,12 +234,54 @@ impl<'a> DecodeInstructionArg<'a> for &'a [u8] {
 }
 
 impl<'a, const N: usize> DecodeInstructionArg<'a> for BoundedString<N> {
+    const WIRE_SIZE: usize = {
+        assert!(
+            N <= u16::MAX as usize - 2,
+            "bounded string wire size must fit manifest u16"
+        );
+        2 + N
+    };
+    const ENCODING: hopper_schema::ArgEncoding =
+        hopper_schema::ArgEncoding::BoundedString { max_len: N as u16 };
     #[inline]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         let (value, consumed) =
             <BoundedString<N> as hopper_runtime::TailCodec>::decode(decoder.remaining())
                 .map_err(|_| ProgramError::InvalidInstructionData)?;
+        value
+            .as_str()
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
         decoder.take(consumed)?;
+        Ok(value)
+    }
+}
+
+impl<'a, T: hopper_runtime::Pod, const N: usize> DecodeInstructionArg<'a>
+    for BoundedSlice<'a, T, N>
+{
+    const WIRE_SIZE: usize = {
+        assert!(
+            size_of::<T>() > 0,
+            "borrowed elements must have a nonzero wire size"
+        );
+        assert!(N <= u16::MAX as usize, "bounded slice count must fit u16");
+        let size = 2 + N * size_of::<T>();
+        assert!(
+            size <= u16::MAX as usize,
+            "bounded slice wire size must fit manifest u16"
+        );
+        size
+    };
+    const ENCODING: hopper_schema::ArgEncoding = hopper_schema::ArgEncoding::BoundedVec {
+        max_len: N as u16,
+        element_size: size_of::<T>() as u16,
+    };
+
+    #[inline]
+    fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
+        let input = decoder.remaining();
+        let (value, rest) = Self::parse_prefix(input)?;
+        decoder.take(input.len() - rest.len())?;
         Ok(value)
     }
 }
@@ -229,6 +290,31 @@ impl<'a, T, const N: usize> DecodeInstructionArg<'a> for BoundedVec<T, N>
 where
     T: hopper_runtime::TailCodec + Copy + Default,
 {
+    const WIRE_SIZE: usize = {
+        let width = match T::FIXED_ENCODED_LEN {
+            Some(width) => width,
+            None => panic!("instruction vectors require a fixed-width element codec"),
+        };
+        assert!(
+            width == T::MAX_ENCODED_LEN,
+            "fixed element width must match its codec bound"
+        );
+        assert!(N <= u16::MAX as usize, "bounded vector count must fit u16");
+        assert!(
+            width <= u16::MAX as usize,
+            "bounded vector element size must fit u16"
+        );
+        let size = 2 + N * width;
+        assert!(
+            size <= u16::MAX as usize,
+            "bounded vector wire size must fit manifest u16"
+        );
+        size
+    };
+    const ENCODING: hopper_schema::ArgEncoding = hopper_schema::ArgEncoding::BoundedVec {
+        max_len: N as u16,
+        element_size: T::MAX_ENCODED_LEN as u16,
+    };
     #[inline]
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
         let (value, consumed) =

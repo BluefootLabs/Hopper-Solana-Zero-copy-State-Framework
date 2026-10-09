@@ -1,0 +1,118 @@
+{
+  "blockTime": 1791401656,
+  "meta": {
+    "computeUnitsConsumed": 8980,
+    "costUnits": 11220,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              0
+            ],
+            "data": "47zJyopxYZY2utT2N4cMse9WfEbZwPPuSxWRv8nvzniByUTARGCf4Grj74vLecWzQGhKNPV",
+            "programIdIndex": 2,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "idDUAMq5DP9zsqVF6Lq2YNmYXyQarnuY2z9WbKPsxfLBp5K67UZpEk7Xu",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "bRf4LjseHkpPJtznseUQBdZWSAWoVUbmC1uZkUnQE1PZhqmANRtcM6CeNtsKkjqyz9oN2fN93qFZapKgXmPySoL3eYg",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: ScaledUiAmountExtension",
+      "Program log: ScaledUiAmountMintInstruction::Initialize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1432 of 195654 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeMint2",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 2102 of 193146 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 8980 of 200000 compute units",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP success"
+    ],
+    "postBalances": [
+      1040825797,
+      1798320,
+      1,
+      1159846,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1042634117,
+      0,
+      1,
+      1159846,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508561751,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "E85FT6nr1e1yW2VDXW9T6A4kLmJmtuYX7oikbTHU5Duj",
+        "11111111111111111111111111111111",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "data": "5V",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "7GQVb27bBfGeSk8D7fF4v6A8ivBcWKkDJCx3FEs6ToJg"
+    },
+    "signatures": [
+      "tGdR97hTv7w4p5brv53em7SiZ4bHWvgL1kTg1iJnK5m6JoHre7hzHNgZddSgt9AAb6mPV1XodUsdiizBy8Fc6xe",
+      "2GDQ7SFLRHbKDtdqxpS5B6En6o9skXxaicvLAinP1N7b4vQRg32kFxQr3bR7jXGT1W9MD9t36CTzrPWJURJ6Vix2"
+    ]
+  },
+  "transactionIndex": 10,
+  "version": "legacy"
+}

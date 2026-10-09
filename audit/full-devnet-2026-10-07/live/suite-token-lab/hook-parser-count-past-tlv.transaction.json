@@ -1,0 +1,84 @@
+{
+  "blockTime": 1791401630,
+  "meta": {
+    "computeUnitsConsumed": 120,
+    "costUnits": 1353,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6702
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 120 of 200000 compute units",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP failed: custom program error: 0x1a2e"
+    ],
+    "postBalances": [
+      1047972957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1047977957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6702
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508561644,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "Db3MFBHUXGEKy1dusetAd1YcaobUCHHA9pvu7bJagx8P",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "5BPuddyJ225GYLvMXHSuHj1ZYkAp7sxQP8M89KihMcCHfEP6yvGo4avbTnTXJE1q142eXA8",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "2M29kSQh4bWMYMTHmt95iYTVjBxrHca9CkQrsUtgSZaR"
+    },
+    "signatures": [
+      "5jR82wZGV3SsTWuZjwozq7JVALWYJFoyC4CZnANy59TF1KMixyugBfMTpmQpaAqSVgaYj2Tewx8TQ37tBkSMtMCg"
+    ]
+  },
+  "transactionIndex": 16,
+  "version": "legacy"
+}

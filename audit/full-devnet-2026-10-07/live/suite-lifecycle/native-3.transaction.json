@@ -1,0 +1,79 @@
+{
+  "blockTime": 1791401893,
+  "meta": {
+    "computeUnitsConsumed": 118,
+    "costUnits": 2466,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT invoke [1]",
+      "Program 93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT consumed 118 of 200000 compute units",
+      "Program 93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT success"
+    ],
+    "postBalances": [
+      836230289,
+      10000000,
+      731520,
+      1,
+      833120,
+      1731520
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      836240289,
+      10000000,
+      731520,
+      1,
+      833120,
+      1731520
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508562748,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "Ff7oSq1SiGTyGybu1pyDh6kNCi7UDu5xYTUi8eFfQDEJ",
+        "6QhbMhjNnVuidYBAGQeqJfXmGxHYgyMnXMjeBXNkJ5g5",
+        "11111111111111111111111111111111",
+        "93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT",
+        "9zhaLnDTqLy6LFNa8ZjMrEmHtRCEdqeqwzAiSahSv3jz"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            5,
+            1,
+            3
+          ],
+          "data": "4",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "CRfhrvpPaKcS9qdQAoRjbDG9zmNSDVuTnAgAvaZrBeim"
+    },
+    "signatures": [
+      "3JywFULcna9FJhwhQt196yqGHdLNTfruaksyh62GRzCbyLF3pfSSub99KiL4TFxgpSMdAxdHmygXWnk3cKCKpr8y",
+      "4zgfsXRZbL5pkcpzy4d3geA4H1XaeFCSbKKMujg6tS2rdtXejucudgJbuY7jcz36CTD7GHjpgJXkZotvZCMJHWKQ"
+    ]
+  },
+  "transactionIndex": 91,
+  "version": "legacy"
+}

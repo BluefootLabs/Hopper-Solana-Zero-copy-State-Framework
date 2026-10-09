@@ -54,6 +54,13 @@ pub trait TailCodec: Sized {
     /// uses this to pre-size reallocs.
     const MAX_ENCODED_LEN: usize;
 
+    /// Exact encoded width, when every value has the same width.
+    ///
+    /// `None` is the conservative default for custom and variable-length
+    /// codecs. Instruction-vector metadata requires `Some(width)` because
+    /// its element descriptor cannot represent variable-stride elements.
+    const FIXED_ENCODED_LEN: Option<usize> = None;
+
     /// Serialize `self` into `out`. Returns the number of bytes
     /// written (always `<= MAX_ENCODED_LEN`). Fails with
     /// `AccountDataTooSmall` when `out.len() < encoded_len`.
@@ -163,6 +170,7 @@ impl<'a> TailStr<'a> {
 
 impl TailCodec for u8 {
     const MAX_ENCODED_LEN: usize = 1;
+    const FIXED_ENCODED_LEN: Option<usize> = Some(1);
     #[inline]
     fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
         if out.is_empty() {
@@ -186,6 +194,7 @@ macro_rules! tail_codec_int {
         $(
             impl TailCodec for $ty {
                 const MAX_ENCODED_LEN: usize = $n;
+                const FIXED_ENCODED_LEN: Option<usize> = Some($n);
                 #[inline]
                 fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
                     if out.len() < $n {
@@ -216,6 +225,7 @@ tail_codec_int! {
 // `bool` as 1 byte (0 = false, 1 = true; anything else rejected).
 impl TailCodec for bool {
     const MAX_ENCODED_LEN: usize = 1;
+    const FIXED_ENCODED_LEN: Option<usize> = Some(1);
     #[inline]
     fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
         if out.is_empty() {
@@ -237,6 +247,7 @@ impl TailCodec for bool {
 // `[u8; N]`. raw fixed-width bytes.
 impl<const N: usize> TailCodec for [u8; N] {
     const MAX_ENCODED_LEN: usize = N;
+    const FIXED_ENCODED_LEN: Option<usize> = Some(N);
     #[inline]
     fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
         if out.len() < N {
@@ -678,6 +689,7 @@ where
 
 impl TailCodec for crate::address::Address {
     const MAX_ENCODED_LEN: usize = 32;
+    const FIXED_ENCODED_LEN: Option<usize> = Some(32);
 
     #[inline]
     fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {

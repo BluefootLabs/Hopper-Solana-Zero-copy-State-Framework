@@ -1,0 +1,91 @@
+{
+  "blockTime": 1791401996,
+  "meta": {
+    "computeUnitsConsumed": 1161,
+    "costUnits": 2189,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidAccountData"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [],
+            "data": "3",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG invoke [1]",
+      "Program 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH invoke [2]",
+      "Program 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH consumed 16 of 198994 compute units",
+      "Program 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH success",
+      "Program DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG consumed 1161 of 200000 compute units",
+      "Program DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG failed: invalid account data for instruction"
+    ],
+    "postBalances": [
+      780887155,
+      833120,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      780892155,
+      833120,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      }
+    }
+  },
+  "slot": 508563174,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH",
+        "DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1
+          ],
+          "data": "7",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "12y64VpwFoyYy2mNVPsftLGCht2Q8A6Cxgy8KEFwDoVi"
+    },
+    "signatures": [
+      "5uAWqWV8B98mbVSoMS2NgYE9qytPHFxWm3y6Ac8XTxaKLNeGTFaQvKhWchD6YtgWnDZm4SZtXoTpQFtqzBWW8jcq"
+    ]
+  },
+  "transactionIndex": 14,
+  "version": "legacy"
+}

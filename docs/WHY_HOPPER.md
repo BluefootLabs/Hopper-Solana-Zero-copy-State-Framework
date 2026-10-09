@@ -27,6 +27,14 @@ order matching, and NFT integrations still need your application's rules.
 
 ## Check the result
 
+The next release connects borrowed argument layouts to ordinary Rust handlers:
+declare `#[hopper::args]` once and accept `&MyArgs`. The same declaration supports
+manual parsing, generated dispatch, nested value checks, and fixed wire-size
+metadata. Large fixed payloads stay borrowed instead of becoming owned argument
+structs. The [argument guide](BORROWED_ARGUMENTS.md) describes the syntax and
+boundaries. This feature is unreleased; measure the complete instruction before
+claiming a compute advantage.
+
 The classic-token escrow at commit `847a0b0` completed 33 finalized devnet
 transactions on September 30, 2026, including expected refusals. Taking an
 offer, refunding surplus, and closing accounts cost 7,836 CU in that fixture.
@@ -34,8 +42,9 @@ These are application measurements, not a cost guarantee for another program.
 The [transactions and state checks](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-30/escrow-round12)
 identify the source and deployed binary.
 
-This branch is preparing 0.5. Use the [migration guide](MIGRATION_0_5.md) to
-distinguish its API changes from the published 0.4 packages.
+Hopper 0.5.0 is published. Use the [migration guide](MIGRATION_0_5.md) when
+upgrading and [release readiness](RELEASE_READINESS.md) for the explicitly
+unreleased additions and outstanding review requirements.
 
 ## Build
 

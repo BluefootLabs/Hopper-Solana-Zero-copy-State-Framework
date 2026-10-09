@@ -1,0 +1,30 @@
+[
+  {
+    "arch": "v0",
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\borrowed-slices-host-check\\debug\\deps\\borrowed_slices_sbf-585bad18a6cab876.exe",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "runnerSha256": "b0e829403343ef6426b15dab9f85d4044f3e632d6096df20ee63ab4ac5a9d8f9",
+    "elfSha256": "3248025cd521c360586386695f8d27dad9816c4a5755adf5dd7cd203a9e6e635",
+    "sourceUnchanged": true,
+    "instructionCases": 1626,
+    "log": "compiled-vm-v0.log"
+  },
+  {
+    "arch": "v3",
+    "argv": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\borrowed-slices-host-check\\debug\\deps\\borrowed_slices_sbf-585bad18a6cab876.exe",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "runnerSha256": "b0e829403343ef6426b15dab9f85d4044f3e632d6096df20ee63ab4ac5a9d8f9",
+    "elfSha256": "56c5d135c10c1b7d2b6ea03bf9555343ed412f51800227ce411e65bc176a4878",
+    "sourceUnchanged": true,
+    "instructionCases": 1626,
+    "log": "compiled-vm-v3.log"
+  }
+]

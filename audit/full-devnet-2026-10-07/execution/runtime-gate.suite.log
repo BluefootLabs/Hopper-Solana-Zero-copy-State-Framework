@@ -1,0 +1,26 @@
+created state: 4QnMoDewqg5VrRQVR5zfvnwhsfmJkBqub5hE4yNzmuMD
+created foreign: 9Q5VMEVAnon5RjnvPYZBNBynTaFW2F2eipUphE3UyPyu
+case-16: finalized, 184 CU, exact state verified
+case-16-reinit: finalized, 90 CU, exact state verified
+Traceback (most recent call last):
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 256, in <module>
+    main()
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 200, in main
+    record = send(name, args.program, [f"{a}:w" for a in addresses], bytes([case]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 154, in send
+    tx = finalize(match[1])
+         ^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 69, in finalize
+    tx = rpc("getTransaction", [signature, {"commitment": "finalized", "maxSupportedTransactionVersion": 1}])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 55, in rpc
+    with urllib.request.urlopen(request, timeout=45) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "urllib\request.py", line 215, in urlopen
+  File "urllib\request.py", line 521, in open
+  File "urllib\request.py", line 630, in http_response
+  File "urllib\request.py", line 559, in error
+  File "urllib\request.py", line 492, in _call_chain
+  File "urllib\request.py", line 639, in http_error_default
+urllib.error.HTTPError: HTTP Error 429: Too Many Requests

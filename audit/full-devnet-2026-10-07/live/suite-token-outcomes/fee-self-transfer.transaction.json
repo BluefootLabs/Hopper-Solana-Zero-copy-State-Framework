@@ -1,0 +1,112 @@
+{
+  "blockTime": 1791399171,
+  "meta": {
+    "computeUnitsConsumed": 129,
+    "costUnits": 1639,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidArgument"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program AGoG5emeZ1JDK63B5xkxArLQeQ2Kd6JA63XvUeUPcHgn invoke [1]",
+      "Program AGoG5emeZ1JDK63B5xkxArLQeQ2Kd6JA63XvUeUPcHgn consumed 129 of 200000 compute units",
+      "Program AGoG5emeZ1JDK63B5xkxArLQeQ2Kd6JA63XvUeUPcHgn failed: invalid program argument"
+    ],
+    "postBalances": [
+      2055063158,
+      1554480,
+      1159846,
+      2062480,
+      833120
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "A9YzeNvEQ3ihJGmcoPXSjb5YynsKoTuBuBFfubxQxXq2",
+        "owner": "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "900",
+          "decimals": 6,
+          "uiAmount": 0.0009,
+          "uiAmountString": "0.0009"
+        }
+      }
+    ],
+    "preBalances": [
+      2055068158,
+      1554480,
+      1159846,
+      2062480,
+      833120
+    ],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "A9YzeNvEQ3ihJGmcoPXSjb5YynsKoTuBuBFfubxQxXq2",
+        "owner": "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "900",
+          "decimals": 6,
+          "uiAmount": 0.0009,
+          "uiAmountString": "0.0009"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidArgument"
+        ]
+      }
+    }
+  },
+  "slot": 508551340,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "F8X56WNyA7Mci6p1z9jUJSJ6QGeMgkU9rTPhK5ySfQJn",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "A9YzeNvEQ3ihJGmcoPXSjb5YynsKoTuBuBFfubxQxXq2",
+        "AGoG5emeZ1JDK63B5xkxArLQeQ2Kd6JA63XvUeUPcHgn"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            3,
+            1,
+            0,
+            2
+          ],
+          "data": "1A7kaBckgecsfbCeut8sB6rpvBFgH8hc8F",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "5MGUJkf7AzRUrLMT6Y6KHtijjh8BbHzF96v8pFNj6R3R"
+    },
+    "signatures": [
+      "4QYpQ7k5vCzpHbYhVDXqyGf4Wxc61PpSxfyaq4AHHmSaikyq7uWkPzKxeeciFQjWk5SGVXThNqyoBkfNuSzmDjew"
+    ]
+  },
+  "transactionIndex": 20,
+  "version": "legacy"
+}

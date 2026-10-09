@@ -1,0 +1,14 @@
+{
+  "label": "hopper-xp-program-b",
+  "programId": "2bArokL4ehD2eGN4hk2J6gXbMt29ykF1KZr2T38EzLwn",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-xp-program-b\\hopper_xp_program_b.so",
+  "elfBytes": 2536,
+  "elfSha256": "6f3da529c922bb52a4b8c3e3a3ca24af6e8c262bf7c8fa7dc0ac1b06b6e72fc7",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508543603,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:22:46.756323+00:00"
+}

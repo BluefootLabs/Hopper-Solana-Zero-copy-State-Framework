@@ -1,0 +1,43 @@
+COMMAND: npm run typecheck
+
+> hopper-site@0.2.1 typecheck
+> tsc --noEmit
+
+COMMAND: npm run lint
+
+> hopper-site@0.2.1 lint
+> eslint .
+
+COMMAND: npm run build
+
+> hopper-site@0.2.1 build
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 677ms
+- Experiments (use with caution):
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 47s
+  Running TypeScript ...
+  Finished TypeScript in 1025ms ...
+  Collecting page data using 6 workers ...
+  Generating static pages using 6 workers (0/61) ...
+  Generating static pages using 6 workers (15/61) 
+  Generating static pages using 6 workers (30/61) 
+  Generating static pages using 6 workers (45/61) 
+✓ Generating static pages using 6 workers (61/61) in 563ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /docs
+└ ƒ /docs/[slug]
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

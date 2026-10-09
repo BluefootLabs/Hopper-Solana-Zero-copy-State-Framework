@@ -1,0 +1,78 @@
+{
+  "blockTime": 1791398402,
+  "meta": {
+    "computeUnitsConsumed": 120,
+    "costUnits": 1150,
+    "err": {
+      "InstructionError": [
+        0,
+        "Immutable"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac invoke [1]",
+      "Program DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac consumed 120 of 200000 compute units",
+      "Program DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac failed: Account is immutable"
+    ],
+    "postBalances": [
+      2788360340,
+      731520,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2788365340,
+      731520,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "Immutable"
+        ]
+      }
+    }
+  },
+  "slot": 508548107,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "A6wztqoznnHb7dFRSiJ5MJ6gZm3d7CvHLpC5YDhxfd4T",
+        "DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0,
+            1
+          ],
+          "data": "LZ6WDUDKvXriK",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "Cv3CQtEb2KFrcJ5xMoUdQhibgfRgPgTLbsxxYLEv4FyA"
+    },
+    "signatures": [
+      "jsBi7gJxqJP9UxMfELLs87rHuPAc7CT6njM243wZPAkX2BHW36u5qPsiqcQGXcyjSTuaKBS3SGbqqskPW3iEDQ9"
+    ]
+  },
+  "transactionIndex": 8,
+  "version": "legacy"
+}

@@ -1,0 +1,54 @@
+{
+  "allPassed": true,
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "hopper-lang",
+        "--test",
+        "borrowed_slices",
+        "--features",
+        "proc-macros",
+        "--locked",
+        "--offline",
+        "-j",
+        "1"
+      ],
+      "exitCode": 0,
+      "log": "check-0.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\release-0-6-checks\\clients-final\\Cargo.toml",
+        "--offline",
+        "-j",
+        "1"
+      ],
+      "exitCode": 0,
+      "log": "check-1.log"
+    },
+    {
+      "command": [
+        "node",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\release-0-6-checks\\clients-final\\check.cjs",
+        "D:\\tmp\\Hopper-Website\\node_modules\\typescript",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\dispatch-2026-10-07\\client\\node_modules\\@solana\\web3.js"
+      ],
+      "exitCode": 0,
+      "log": "check-2.log"
+    },
+    {
+      "command": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\release-0-6-checks\\clients-final\\check.py"
+      ],
+      "exitCode": 0,
+      "log": "check-3.log"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "arch": "v3",
+    "command": [
+      "cargo",
+      "test",
+      "-j",
+      "1",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "borrowed_args_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "elfSha256": "6cee2923ab9891bf3a476a61555af74fa3eba895d9271caa49296f147d3c126a",
+    "sourceSnapshotSha256": "8573f3de2c6564f3e0293a73c1547bb2005319cc0f1032cb3588701f59cea502",
+    "instructions": 2108
+  },
+  {
+    "arch": "v0",
+    "command": [
+      "cargo",
+      "test",
+      "-j",
+      "1",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "borrowed_args_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "elfSha256": "0ac7b9fff73a656cb4b81b219e6701f9190ba8a55dcc01b9c7e246d7ee01ebdf",
+    "sourceSnapshotSha256": "8573f3de2c6564f3e0293a73c1547bb2005319cc0f1032cb3588701f59cea502",
+    "instructions": 2108
+  }
+]

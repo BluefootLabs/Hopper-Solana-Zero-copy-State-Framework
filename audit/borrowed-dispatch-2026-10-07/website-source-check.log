@@ -1,0 +1,5 @@
+
+> hopper-site@0.2.1 check:examples
+> node scripts/sync-program-examples.mjs --check --framework D:\tmp\Hopper-Solana-Zero-copy-State-Framework
+
+8 website excerpts match their framework source and file hashes.

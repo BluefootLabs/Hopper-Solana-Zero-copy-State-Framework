@@ -1,0 +1,65 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+     Running unittests src\lib.rs (target\debug\deps\hopper_native-cb6387f18296dbc6.exe)
+
+running 4 tests
+test sysvar::abi_tests::epoch_schedule_decodes_canonical_image ... ok
+test sysvar::abi_tests::epoch_schedule_reads_canonical_byte_image ... ok
+test sysvar::abi_tests::epoch_schedule_extreme_inputs_do_not_wrap_or_panic ... ok
+test sysvar::abi_tests::epoch_schedule_warmup_boundaries ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 128 filtered out; finished in 0.00s
+
+     Running tests\borrow_aware_readers.rs (target\debug\deps\borrow_aware_readers-a213c16620e876c9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\cpi_borrow_preflight.rs (target\debug\deps\cpi_borrow_preflight-258f969825f782cd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\lifecycle_preflight.rs (target\debug\deps\lifecycle_preflight-4fdbed69e7733092.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\loader_input_conformance.rs (target\debug\deps\loader_input_conformance-0e16aa4d6b466ec1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\mapped_borrows.rs (target\debug\deps\mapped_borrows-63f665b5bac4f4f1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\mem_primitives.rs (target\debug\deps\mem_primitives-9ad9ee977d644a3b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\nonce_state.rs (target\debug\deps\nonce_state-22a3bd7a0568de66.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\projection_and_lenses.rs (target\debug\deps\projection_and_lenses-a0c74386e0f19730.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\unsafe_accessors.rs (target\debug\deps\unsafe_accessors-ccae77bb0c7f311c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+

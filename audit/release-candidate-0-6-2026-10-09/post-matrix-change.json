@@ -1,0 +1,8 @@
+{
+  "paths": [
+    "tests/borrowed_slices.rs"
+  ],
+  "description": "Two borrowed_slices integration-test calls replace a cloned one-element slice with std::slice::from_ref. Reversing exactly those substitutions reproduces the matrix source hash. This integration test is not compiled into a Solana program. Final workspace and Clippy receipts include this cleanup.",
+  "beforeSha256": "60380c39ff9eda56f3c914dcbb755fb8d9e412b6f974f870224f0ec549b5fc6a",
+  "afterSha256": "edf325ee7978e93b5e676c1d4ec752ab1c0e36be9eb7ae495010d8f17a4cfd39"
+}

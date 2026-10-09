@@ -52,6 +52,28 @@ layout, validation, and dispatch surfaces.
 | `hopper::canonical_pda!` | Canonical address and bump from an explicit program-ID string and literal byte-string seeds, computed on the build host |
 | `#[derive(HopperInitSpace)]` | `INIT_SPACE` derive for hand-authored Pod structs |
 
+## Borrowed argument validation (0.6)
+
+Accept a declared layout directly as `&MyArgs` in a `#[hopper::program]`
+handler. The generated decoder borrows its fixed bytes, validates nested values,
+and then binds the accounts. Mix borrowed layouts with scalar parameters and
+an explicit final `&[u8]` tail; unconsumed bytes are rejected. Typed-handler
+manifests retain the fixed wire size, including through a layout type alias.
+The layout needs no `Clone` or `Copy` implementation. Avoid a separate manual
+`DecodeInstructionArg` implementation for the same reference type because the
+macro now supplies it.
+
+`#[hopper::args]` checked parsers validate fields through their Rust types,
+including aliases, arrays, nested layouts, and present `OptionByte` payloads.
+Use `parse_exact_checked(data)` for a complete fixed payload, or
+`parse_with_tail_checked(data)` with `#[hopper::args(tail)]` to borrow a checked
+prefix and its byte suffix. `parse_checked` keeps accepting a fixed prefix;
+`parse` remains a raw overlay. Validation uses `Pod::validate_value` without
+allocating or copying the argument struct. The `pod` and `state` macros compose
+that hook across their fields. See the
+[argument guide](https://hopperzero.dev/docs/borrowed-arguments) for custom types,
+payload boundaries, and the distinction from application rules.
+
 ## `#[hopper::state]` Copy contract
 
 State structs are wire overlays and must be `Clone + Copy`. Write the derive
@@ -172,3 +194,10 @@ search. Extension constraints establish Token-2022 ownership before inspecting
 TLV bytes. Optional/composite bump gathering remains a separate path. The
 `#[bump]` marker names a stored byte; initialization must write the validated
 bump explicitly and later handlers must preserve the intended invariant.
+
+## Bounded borrowed handler arguments (0.6)
+
+`#[program]` handlers accept `BoundedSlice<'_, T, N>` alongside fixed and
+scalar arguments. Decoder metadata preserves element width and capacity
+through type aliases. Validation finishes before typed account binding and
+handler entry. See [borrowed batches](https://hopperzero.dev/docs/borrowed-slices).

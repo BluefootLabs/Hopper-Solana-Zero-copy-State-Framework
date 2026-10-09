@@ -1,0 +1,85 @@
+{
+  "blockTime": 1791402509,
+  "meta": {
+    "computeUnitsConsumed": 340,
+    "costUnits": 1970,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 7004
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program gTbu3FVn88ma7qH5NYJCGrS8zrdmGjnNwiBozqg8uoq invoke [1]",
+      "Program gTbu3FVn88ma7qH5NYJCGrS8zrdmGjnNwiBozqg8uoq consumed 340 of 200000 compute units",
+      "Program gTbu3FVn88ma7qH5NYJCGrS8zrdmGjnNwiBozqg8uoq failed: custom program error: 0x1b5c"
+    ],
+    "postBalances": [
+      383508472,
+      1708760,
+      1350000,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      383513472,
+      1708760,
+      1350000,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 7004
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508565324,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "c6iJZVgb6WTg3sqwo9pNRCEjWVCJVejqyw3GYYdgAHX",
+        "BDBmPQxYPQuhzJDMsddA42VJ6TSjamEVByEXXgenoVJh",
+        "gTbu3FVn88ma7qH5NYJCGrS8zrdmGjnNwiBozqg8uoq"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2
+          ],
+          "data": "2Uok59752wFM",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "2LNZrgU16fKy6Cf5VvzC3LBSCip3cHd6HnZdWFWqS8kq"
+    },
+    "signatures": [
+      "tgTMR1KnvgCggqUetyD2wYMh5sSkcaFYXJYQSuorZeq9sCWbnw6XApjbgZ5hE8mybuH25gSKAc5pm8eYSQsAaMr"
+    ]
+  },
+  "transactionIndex": 3,
+  "version": "legacy"
+}

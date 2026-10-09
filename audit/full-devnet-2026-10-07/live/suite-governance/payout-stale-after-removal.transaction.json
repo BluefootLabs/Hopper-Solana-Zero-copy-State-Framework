@@ -1,0 +1,84 @@
+{
+  "blockTime": 1791402466,
+  "meta": {
+    "computeUnitsConsumed": 273,
+    "costUnits": 2209,
+    "err": {
+      "InstructionError": [
+        0,
+        "InvalidAccountData"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 4a6VJJH3SC9iEmWjuRWTc3gxQjApyG5VToQ5iPBTzztB invoke [1]",
+      "Program 4a6VJJH3SC9iEmWjuRWTc3gxQjApyG5VToQ5iPBTzztB consumed 273 of 200000 compute units",
+      "Program 4a6VJJH3SC9iEmWjuRWTc3gxQjApyG5VToQ5iPBTzztB failed: invalid account data for instruction"
+    ],
+    "postBalances": [
+      387215992,
+      1224280,
+      1150000,
+      4215880,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      387220992,
+      1224280,
+      1150000,
+      4215880,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      }
+    }
+  },
+  "slot": 508565147,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "8hi529S9eiZyjqfSocaf9q8wxqDtdeSRiL8fpqS343Zg",
+        "BDBmPQxYPQuhzJDMsddA42VJ6TSjamEVByEXXgenoVJh",
+        "EZd4jq14F16ixCRvy1HeVRkHxXYtDFokpiG5vZd9KsJU",
+        "4a6VJJH3SC9iEmWjuRWTc3gxQjApyG5VToQ5iPBTzztB"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            3,
+            1,
+            2
+          ],
+          "data": "7",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "43xgTmuPT8M5nBTxL9ZPwJgG1eUJTrVsoAWGcPT4tRm1"
+    },
+    "signatures": [
+      "57umcYRSVfM1vezvDyEfSC8GMrYmsv43v6PFKg29FgNR4QzhQCamajPM2kbrFJo7v2gSM5KgVuJ43bqjXvu41p7W"
+    ]
+  },
+  "transactionIndex": 0,
+  "version": "legacy"
+}

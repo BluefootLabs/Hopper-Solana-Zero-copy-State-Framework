@@ -3,19 +3,46 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-**The zero-copy framework for Solana programs.** Build token escrow,
-payments, claims, and treasury programs in Rust, with typed accounts,
-generated validation, and token CPIs. Read and update supported account
-layouts directly in Solana's memory, without deserializing the whole account.
+**A Rust framework for Solana with zero-copy account state.** Declare account
+layouts and validation, write handlers, and call other programs through CPI.
+Supported layouts borrow the account bytes supplied to your program, so a field
+update does not require deserializing and serializing the whole account.
 
 Use the framework for application code and Hopper's own native runtime for
 instructions that need direct control over accounts and syscalls. Your
 program executes on chain; Hopper needs no separate execution service.
 
-This source and its examples target **Hopper 0.5**. Upgrade the framework,
+**Hopper 0.5.0 is published.** This checkout also contains explicitly marked
+unreleased additions. Upgrade the framework,
 runtime, and native crates together; see [the migration guide](docs/MIGRATION_0_5.md)
 for API changes and [0.5 validation](docs/RELEASE_0_5_VALIDATION.md)
 for token tests, registry availability, and validation scope.
+
+The next release adds [composable checked borrowed arguments](docs/BORROWED_ARGUMENTS.md):
+declare a wire layout once, then accept `&MyArgs` in a program handler or parse it
+at a lower-level entrypoint. Both paths validate nested option and enum values
+without allocating or copying the struct. Borrowed layouts can be followed by
+ordinary arguments or an explicit byte tail.
+Its [Solana fixture](bench/borrowed-args/README.md) checks exact and tailed inputs,
+return bytes, and unchanged accounts after refusals. These APIs are unreleased.
+
+The next release also adds [checked borrowed batches](docs/BORROWED_SLICES.md).
+Accept `BoundedSlice<'_, Order, 32>` in a handler to validate a length-prefixed
+batch directly in the instruction buffer. Capacity limits and nested value
+checks run before handler admission, without copying into a 32-element array.
+Manual parsing and generated handlers share the same wire contract.
+
+The workspace now targets **0.6.0**. Its [migration guide](docs/MIGRATION_0_6.md)
+explains checked client encoders, alias-preserving metadata, and the client
+languages that support bounded arguments. Registry availability remains 0.5.0
+until the next publication completes.
+
+The [function lab](bench/function-lab/README.md) exercises Hopper's runtime
+functions as a real Solana program, with independent expected values and
+explicit cluster-feature requirements. It complements the application and
+token suites; a passing fixture is not a claim that every feature is deployed.
+The [network baseline](docs/SOLANA_NETWORK_BASELINE.md) records observed syscall
+availability and sysvar inconsistencies that applications must account for.
 
 ## Build the program your users need
 
@@ -25,8 +52,6 @@ for token tests, registry availability, and validation scope.
 | SOL custody and payments | [SOL vault](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-vault/README.md): create, deposit through the System Program, and authorized withdrawal |
 | Multisig administration | [Bounded multisig](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-bounded-multisig/README.md): member-approved payments, expiring single-use payouts, permissionless execution, and revocation |
 | Delegated treasury spending | [Treasury](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-treasury/README.md): real SOL transfers, operator permissions, period budgets, freeze controls, and live-clock cooldowns |
-| Token claims and rewards | Token transfers, minting, approvals, multisig authorities, and bounded batches of supported token instructions, on-mint metadata and groups, and the confidential-transfer instructions (the whole flow run on devnet with real proofs), plus vesting, staking, and distribution math; add your eligibility, funded custody, and replay rules |
-| NFT and cNFT markets | Token Metadata helpers and application accounts; cNFTs require a custom Bubblegum integration |
 
 The escrow example supports classic SPL Token with explicit mint/account
 restrictions. The [Token-2022 guide](https://hopperzero.dev/docs/token-2022)
@@ -35,7 +60,19 @@ covers the extension-aware APIs, and the
 exercises shared token operations on both programs, plus Token-2022 extensions, on devnet. The orderbook example stores orders;
 a matching engine and exchange settlement are application logic.
 
+For claims, rewards, and asset integrations, start with the
+[capability guide](docs/PROGRAM_CAPABILITIES.md). Token CPI, vesting and
+distribution math, and Token Metadata helpers are building blocks. Eligibility,
+replay protection, marketplace settlement, and Bubblegum integration require
+application code.
+
 ## Start with ordinary Rust
+
+The next release adds recursively checked borrowed arguments and execution
+receipts that invalidate stale self-audit results when source inputs change.
+See [release readiness](docs/RELEASE_READINESS.md) for verified gates and open
+requirements, and [framework boundaries](docs/FRAMEWORK_BOUNDARIES.md) for
+source-pinned comparisons with Pinocchio, Pina, Quasar, and Anchor v2.
 
 ```toml
 [dependencies]
@@ -50,7 +87,7 @@ use hopper::prelude::*;
 #[account(discriminator = 1, version = 1)]
 pub struct Counter {
     pub authority: Address,
-    pub count: WireU64,
+    pub value: WireU64,
 }
 
 #[derive(Accounts)]
@@ -60,18 +97,21 @@ pub struct Increment<'info> {
     pub authority: Signer<'info>,
 }
 
-#[program]
-mod counter {
+#[program(profile = "tiny")]
+mod counter_program {
     use super::*;
 
-    #[instruction(1)]
+    #[instruction(0)]
     pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
-        ctx.accounts.counter.get_mut()?.count.checked_add_assign(1)
+        let mut counter = ctx.accounts.counter.get_mut()?;
+        counter.value.checked_add_assign(1)?;
+        Ok(())
     }
 }
 ```
 
-Read [your first program](https://hopperzero.dev/docs/first-five), then follow a
+This excerpt from [the counter](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-counter/src/lib.rs) expects
+initialized state. Read [your first program](https://hopperzero.dev/docs/first-five), then follow a
 funded example through its account creation, authorization, transfers, and tests.
 
 ## One execution stack, from handlers to syscalls
@@ -90,6 +130,13 @@ layer directly. Application programs run on Solana's SVM; no off-chain service
 is required to authorize their ordinary instructions or execute transfers.
 Host tools generate clients, inspect accounts, and collect evidence.
 
+[The execution model](docs/THE_HOPPER_MODEL.md) separates generated admission
+checks, handler logic, optional policies, and Solana's runtime enforcement.
+Hopper uses Rust and Cargo; its macros do not introduce a separate language or VM.
+Scalar handler arguments are decoded values; the unreleased `&MyArgs` integration
+borrows a checked wire layout directly. Borrowed account state, borrowed
+argument APIs, and dynamic-field codecs each have their own copying behavior.
+
 Programs can [inspect prior calls on chain](docs/INSTRUCTION_INTROSPECTION.md),
 including their data, account identities, and instruction privileges, using
 caller-owned scratch buffers. Applications keep authorization and transfer
@@ -105,6 +152,11 @@ Headered accounts validate owner, discriminator, version, and layout identity.
 Compact accounts use an explicit discriminator and size contract. Bounded
 strings and vectors keep variable data controlled; segment borrows let handlers
 work with selected fields without copying an entire account.
+
+The unreleased source also provides [composable borrowed argument validation](docs/BORROWED_ARGUMENTS.md):
+checked parsers follow aliases, arrays, nested layouts, and present optional
+values. Choose exact-length payloads or an explicit borrowed tail, while keeping
+instruction arguments in their original buffer.
 
 Optional write policies constrain Hopper-tracked accesses within the program.
 They do not sandbox arbitrary downstream programs, create byte-level transaction
@@ -123,7 +175,8 @@ one attribute on the field:
 pub tier: u8,
 ```
 
-The framework holds itself to the same standard. `audit/UNSAFE_MAP.md`
+The repository retains the verification archives separately from the library
+download. The framework holds itself to the same standard. `audit/UNSAFE_MAP.md`
 lists every `unsafe` site in Hopper with the justification written next to
 it, the tests that reach it, and a hash of its code, and CI fails when a
 site has no reasoning of its own or runs on the host without a test that

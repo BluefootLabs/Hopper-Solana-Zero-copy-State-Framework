@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 2,
+  "ready": false,
+  "reviewedOn": "2026-10-07",
+  "evidenceVerified": 42,
+  "qualityGatesCurrent": 4,
+  "findings": [
+    {
+      "level": "blocker",
+      "id": "external-audit",
+      "message": "external-audit preparation is in progress at phase 'scope-and-evidence-preparation'; no independent reviewer is engaged and no independent review has started"
+    },
+    {
+      "level": "blocker",
+      "id": "sbf-clean-attestation",
+      "message": "medium release-blocking item is open: Required Agave 2.3.13 and 4.2.1-forward SBF jobs for final clean source remain unexecuted. GitHub run 36812193185 failed to start both jobs because of an account billing lock. Local compiled VM and devnet evidence is retained separately and does not close this CI gate."
+    },
+    {
+      "level": "warning",
+      "id": "transaction-v1",
+      "message": "medium tracked item is tracked: Transaction v1 is active on mainnet-beta (finalized feature observation October 7, activation slot 447120000). Hopper still emits legacy transactions; v1 authoring and acceptance tests remain tracked implementation work."
+    },
+    {
+      "level": "warning",
+      "id": "devnet-blake3-availability",
+      "message": "medium tracked item is tracked: Both native and runtime BLAKE3 probes finalized with ProgramFailedToComplete on the observed October 7 devnet. The default function fixture excludes the unavailable symbol; local VM success and ELF deployment do not establish live support. Modular exponentiation is separately feature-unavailable and has no live success claim."
+    },
+    {
+      "level": "warning",
+      "id": "devnet-epoch-schedule-consistency",
+      "message": "medium tracked item is tracked: The EpochSchedule account and both runtime getters report 8192 slots per epoch while RPC reports 432000 and Clock agrees with RPC. Hopper decoding and schedule arithmetic match supplied bytes; use Clock for current epoch. Both function receipts preserve allPassed=false."
+    },
+    {
+      "level": "warning",
+      "id": "devnet-program-coverage",
+      "message": "medium tracked item is tracked: Current named devnet suites exercise 29 of 52 compiled packages; one further package has identical-ELF October 7 evidence. The other 22 packages and untested handler/feature combinations remain outside current live verification. See audit/full-devnet-2026-10-07/coverage.json."
+    }
+  ]
+}

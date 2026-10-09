@@ -1,0 +1,81 @@
+{
+  "blockTime": 1791399252,
+  "meta": {
+    "computeUnitsConsumed": 90,
+    "costUnits": 2140,
+    "err": {
+      "InstructionError": [
+        0,
+        "Immutable"
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw invoke [1]",
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw consumed 90 of 200000 compute units",
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw failed: Account is immutable"
+    ],
+    "postBalances": [
+      1986073956,
+      9059200,
+      940800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1986083956,
+      9059200,
+      940800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "Immutable"
+        ]
+      }
+    }
+  },
+  "slot": 508551679,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "9tMNVoXGoLJUDaU1bGX4n6fXjVUZcPWp8BmZ8U1tHHUN",
+        "5teZQTm6nmJ8tztgqGe34kmXo3zqd6ESDuFDgXpsAdPi",
+        "J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            2
+          ],
+          "data": "2Uok59752wFM",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "2iKjgbRpfi6VQFgtJj9andkym9sKEpg98PVfyJtYadCn"
+    },
+    "signatures": [
+      "4cNN4uYYV152iaFgPYTjtFQJbpEQV4gVE5SvmsY4pzLVctQohmYmN3XQx3P9GxUi4dTQLtmdqv88WYq6WtFebcsd",
+      "3DnHrbrkwXy2pnWUs3PsEbecW84ECso4o8hJLSqV589krgp4NYH2qbtrDtJo8dMJh271hrtXRSKmBcxycgJmWizt"
+    ]
+  },
+  "transactionIndex": 2,
+  "version": "legacy"
+}

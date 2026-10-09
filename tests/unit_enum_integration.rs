@@ -121,7 +121,7 @@ fn arguments_refuse_an_unknown_variant_at_parse() {
     bad.push(0);
     bad.extend_from_slice(&[0u8; 32]);
     // `parse` is the raw overlay; `parse_checked` validates every tagged
-    // field, which is what the generated dispatch calls.
+    // field. Call the checked parser at the instruction's input boundary.
     assert_eq!(
         PlaceArgs::parse_checked(&bad).err(),
         Some(ProgramError::InvalidInstructionData)

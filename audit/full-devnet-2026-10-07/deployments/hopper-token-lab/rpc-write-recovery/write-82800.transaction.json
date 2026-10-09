@@ -1,0 +1,66 @@
+{
+  "blockTime": 1791401493,
+  "meta": {
+    "computeUnitsConsumed": 2370,
+    "costUnits": 3744,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program BPFLoaderUpgradeab1e11111111111111111111111 invoke [1]",
+      "Program BPFLoaderUpgradeab1e11111111111111111111111 success"
+    ],
+    "postBalances": [
+      1062021520,
+      422031160,
+      1
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1062026520,
+      422031160,
+      1
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508561068,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "AWwwcWQycii78RVdets38S4GZgAh17CrYW16X4hUN7Xv",
+        "BPFLoaderUpgradeab1e11111111111111111111111"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0
+          ],
+          "data": "93HNcz12gRiVpKnELQNrxXTenaTFuXVH3ZeehjYeaZqG1JHs5QsG8VFcpSsR9TyRtk8pjbRebrUneTLK9vab5CzQ2aokJXbySQzw8NGRmrJCxaLB8USZViPtog8UHFSBfDoaBB9T4RSheFwAkEz1T6eUUm6WyMxoUt7",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "3Q57dnPsr8gPrGbJxGDbL6gGMsTW9gUgsC8bBRDUkgon"
+    },
+    "signatures": [
+      "3tg74QaLpLvmFLBzmCtEYfrtodQ5cytsyN2sg7x5oaaxLGcX7CEMieSzGrkjNRE3ShhVr3HngARryCftz2FVyEdA"
+    ]
+  },
+  "transactionIndex": 16,
+  "version": "legacy"
+}

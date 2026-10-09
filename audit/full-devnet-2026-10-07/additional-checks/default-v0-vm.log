@@ -1,0 +1,127 @@
+   Compiling hopper-runtime v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-system v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-system)
+   Compiling hopper-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token)
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-solana)
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-memo v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-memo)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-framework-verifier v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\framework-comparison\verifier)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.10s
+     Running tests\function_lab_sbf.rs (target\debug\deps\function_lab_sbf-5691ceafb0af41fb.exe)
+
+running 1 test
+hash-0-0-0: 384 CU
+hash-0-0-1: 400 CU
+hash-0-0-2: 422 CU
+hash-0-0-16: 562 CU
+hash-0-0-17: 572 CU
+hash-0-0-32: 722 CU
+hash-0-0-64: 1042 CU
+hash-0-1-0: 387 CU
+hash-0-1-1: 403 CU
+hash-0-1-2: 425 CU
+hash-0-1-16: 565 CU
+hash-0-1-17: 575 CU
+hash-0-1-32: 725 CU
+hash-0-1-64: 1045 CU
+hash-1-0-0: 389 CU
+hash-1-0-1: 405 CU
+hash-1-0-2: 427 CU
+hash-1-0-16: 567 CU
+hash-1-0-17: 577 CU
+hash-1-0-32: 727 CU
+hash-1-0-64: 1047 CU
+hash-1-1-0: 392 CU
+hash-1-1-1: 408 CU
+hash-1-1-2: 430 CU
+hash-1-1-16: 570 CU
+hash-1-1-17: 580 CU
+hash-1-1-32: 730 CU
+hash-1-1-64: 1050 CU
+hash-0-empty-17: 572 CU
+hash-1-empty-17: 577 CU
+empty: 24 CU
+unknown: 34 CU
+hash-truncated: 42 CU
+hash-fixture-cap: 44 CU
+hash-zero-surplus: 49 CU
+copy-0-64-13: 199 CU
+copy-0-8-8: 199 CU
+copy-0-0-0: 199 CU
+copy-0-7-8: 90 CU
+copy-1-64-13: 200 CU
+copy-1-8-8: 200 CU
+copy-1-0-0: 185 CU
+copy-1-7-8: 90 CU
+move-0-63-1: 196 CU
+move-1-63-0: 196 CU
+move-0-64-0: 177 CU
+move-64-0-64: 176 CU
+move-63-2-0: 79 CU
+move-0-2-63: 82 CU
+fill-3: 184 CU
+fill-4: 181 CU
+fill-5: 182 CU
+compare-8-0-8: 283 CU
+compare-8-1-9: 276 CU
+compare-8-0-7: 217 CU
+compare-0-64-64: 221 CU
+epoch-arithmetic-0: 154 CU
+epoch-arithmetic-1: 161 CU
+epoch-arithmetic-2: 170 CU
+epoch-arithmetic-3: 170 CU
+epoch-arithmetic-4: 229 CU
+epoch-arithmetic-5: 304 CU
+epoch-arithmetic-6: 171 CU
+epoch-arithmetic-7: 221 CU
+epoch-arithmetic-8: 164 CU
+epoch-arithmetic-9: 223 CU
+epoch-arithmetic-10: 213 CU
+epoch-arithmetic-11: 221 CU
+arithmetic-0: 749 CU
+arithmetic-1: 751 CU
+arithmetic-2: 747 CU
+arithmetic-3: 750 CU
+arithmetic-4: 737 CU
+arithmetic-5: 712 CU
+arithmetic-6: 710 CU
+arithmetic-7: 747 CU
+arithmetic-8: 735 CU
+arithmetic-9: 748 CU
+arithmetic-10: 751 CU
+arithmetic-11: 747 CU
+arithmetic-12: 750 CU
+return-0: 153 CU
+return-1: 153 CU
+return-1023: 157 CU
+return-1024: 157 CU
+return-1025: 60 CU
+edwards-valid: 319 CU
+edwards-add-identity: 659 CU
+edwards-multiply-one: 2361 CU
+edwards-multiply-zero: 2361 CU
+ristretto-identity: 325 CU
+ristretto-add-identity: 705 CU
+poseidon-ones-twos: 971 CU
+bn254-add-identity: 544 CU
+bn254-multiply-one: 4053 CU
+bn254-empty-pairing: 36659 CU
+bn254-compress-identity: 311 CU
+bn254-decompress-identity: 731 CU
+bn254-reject-length-6: 56 CU
+bn254-reject-length-7: 57 CU
+bn254-reject-length-8: 58 CU
+stack-top-level: 543 CU
+receipt-0-0: 238 CU
+receipt-0-16: 254 CU
+receipt-1-0: 342 CU
+receipt-1-16: 358 CU
+106 known-answer cases and 7 account cases passed
+test function_lab_known_answers_on_the_vm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

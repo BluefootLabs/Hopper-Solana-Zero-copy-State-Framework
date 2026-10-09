@@ -1,0 +1,14 @@
+{
+  "label": "hopper-byte-allowance",
+  "programId": "DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-byte-allowance\\hopper_byte_allowance.so",
+  "elfBytes": 25400,
+  "elfSha256": "f0cfafe7c3abca830286888262441fffefac2a3b9e65eec04a2c3d75311e2ef4",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508551755,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:54:56.099215+00:00"
+}

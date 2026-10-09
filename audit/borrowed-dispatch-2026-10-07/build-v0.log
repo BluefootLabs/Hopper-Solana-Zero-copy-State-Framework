@@ -1,0 +1,5 @@
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-macros)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-borrowed-args-fixture v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\bench\borrowed-args\program)
+    Finished `release` profile [optimized] target(s) in 14.37s

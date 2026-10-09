@@ -1,0 +1,82 @@
+{
+  "blockTime": 1791399306,
+  "meta": {
+    "computeUnitsConsumed": 1393,
+    "costUnits": 2755,
+    "err": {
+      "InstructionError": [
+        0,
+        "PrivilegeEscalation"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H invoke [1]",
+      "6tdVygij8VuFy47bfmXSRTpdjdKCSAj4WvfSgmYc4oXK's signer privilege escalated",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H consumed 1393 of 200000 compute units",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H failed: Cross-program invocation with unauthorized signer or writable account"
+    ],
+    "postBalances": [
+      1853099909,
+      0,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1853104909,
+      0,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "PrivilegeEscalation"
+        ]
+      }
+    }
+  },
+  "slot": 508551905,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "6tdVygij8VuFy47bfmXSRTpdjdKCSAj4WvfSgmYc4oXK",
+        "11111111111111111111111111111111",
+        "DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2
+          ],
+          "data": "1DRpPzn8PUe9sV8FUMew6yVFgMfjd7mvszAQuMjDWMfTHQBTHtMPwEHs9ecs5P8JneXNgx4GnDFzX9LRzjo48RHkjmUgnfwZGaK3KihvvNZipqQc9F9Qu4tnGy7BddeWzMUaXUVhYFhDpjSKZSUDYoM599Uy5AdsvKf2yMHVEJHS8goj6tWCvThRLcf",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "8zz9WicRCJoLz8kkjzLeFpzMw4gvMEs3JsrCmasFJe7p"
+    },
+    "signatures": [
+      "pWy7UuFzRXqH7ExyPBZB8cuVVUPC4jZtPEdA1ReTFVCfKiFQTEKA1gLeDxeCRW4K5Z1Qi8munG6MWCZfaG8EhwQ"
+    ]
+  },
+  "transactionIndex": 16,
+  "version": "legacy"
+}

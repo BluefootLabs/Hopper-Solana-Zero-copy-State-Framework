@@ -1,0 +1,100 @@
+{
+  "blockTime": 1791401993,
+  "meta": {
+    "computeUnitsConsumed": 1302,
+    "costUnits": 2330,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountDataTooSmall"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [],
+            "data": "2",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG invoke [1]",
+      "Program 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH invoke [2]",
+      "Program 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH consumed 121 of 198994 compute units",
+      "Program return: 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH Kg==",
+      "Program 3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH success",
+      "Program DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG consumed 1302 of 200000 compute units",
+      "Program return: DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG Kg==",
+      "Program DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG failed: account data too small for instruction"
+    ],
+    "postBalances": [
+      780892155,
+      833120,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      780897155,
+      833120,
+      833120
+    ],
+    "preTokenBalances": [],
+    "returnData": {
+      "data": [
+        "Kg==",
+        "base64"
+      ],
+      "programId": "3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH"
+    },
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountDataTooSmall"
+        ]
+      }
+    }
+  },
+  "slot": 508563161,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "3APqKDSg5iR2M56txmrahrN5VWgHgNQ4gLN9TpumnVpH",
+        "DFaGcdFWDKtcT9SJUmj6YpNy66xTQCzDAtGNtYbGrcFG"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1
+          ],
+          "data": "6",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "J5GTuEKk88vUCWBLs8hgRki9zFCsSUKk3x3q3ffKPyoU"
+    },
+    "signatures": [
+      "3kxK1ytEudzDbPrFSXarihK9yJvQCHvckkEG5ysRCHRjzftwpR2q1jgmNwxdFVukJHNAb7UFQEoxV9wd7xxcNUtV"
+    ]
+  },
+  "transactionIndex": 13,
+  "version": "legacy"
+}

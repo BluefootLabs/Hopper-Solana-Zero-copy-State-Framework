@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-07T16:05:25.975232+00:00",
+  "programId": "GBjEJhxFrMBjiKV6GerioYqaii7utAiSs2cUU6VpqCo4",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "rpc": "https://api.devnet.solana.com",
+  "arch": "v3",
+  "elfBytes": 4432,
+  "elfSha256": "6cee2923ab9891bf3a476a61555af74fa3eba895d9271caa49296f147d3c126a",
+  "sourceSnapshotSha256": "8573f3de2c6564f3e0293a73c1547bb2005319cc0f1032cb3588701f59cea502",
+  "emptyAccountsBeforeDeploymentAtSlot": 508509201,
+  "solanaCli": {
+    "tag": "v4.3.0",
+    "releaseUrl": "https://github.com/anza-xyz/agave/releases/tag/v4.3.0",
+    "assetUrl": "https://github.com/anza-xyz/agave/releases/download/v4.3.0/solana-release-x86_64-pc-windows-msvc.tar.bz2",
+    "assetId": 572712614,
+    "githubAssetDigest": "sha256:27d598632589970a0516a631aae6f91dcba2a072bdc2a32f9a7f547eae7d726e",
+    "downloadSha256": "27d598632589970a0516a631aae6f91dcba2a072bdc2a32f9a7f547eae7d726e",
+    "version": "solana-cli 4.3.0 (src:825efd18; feat:c9ad34d2, client:Agave)",
+    "extracted": [
+      {
+        "file": "solana-keygen.exe",
+        "sha256": "9a7b1d93f6d70479311b3841f8e3c2060c9c9731e5bb62fb65b3b4daf059fc03",
+        "bytes": 3307520
+      },
+      {
+        "file": "solana.exe",
+        "sha256": "c3820df6dd2537023892998aef1ceaabe27557953fee8d46b9a9eba7cf175b4c",
+        "bytes": 25527296
+      }
+    ]
+  },
+  "senderSha256": "e7411660c665984fe3d614502d35212ee664cc4f610bf7b318bf1afbd18307d4",
+  "preflightEnabled": true,
+  "localFeatureSelectionOverride": false,
+  "senderVersion": "hopper 0.5.0\nhopper-schema linked: 1",
+  "sameDeployedBytesAfterClientOnlyFix": true
+}

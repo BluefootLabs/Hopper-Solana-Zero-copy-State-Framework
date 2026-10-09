@@ -36,7 +36,13 @@ Do not add a RustSec ignore without a row in this file. The row must name the Ru
 
 ## Current RustSec ledger
 
-Last checked: 2026-08-16 with `cargo audit --json --no-fetch` against the local RustSec cache.
+Last checked: 2026-10-07 using a clean export of RustSec commit
+`b8a1a33e246a0a9a3b5f377248c41a503defec74` (1,294 advisories).
+`cargo audit --db target/hopper/dispatch-2026-10-07/rustsec-db --no-fetch --json`
+passed. The [execution receipt](../audit/borrowed-dispatch-2026-10-07/dependency-audit.json)
+binds the source/lockfile inventory and retained JSON report. The archive also
+contains the exact database export and its file hashes. The four
+informational advisories below remain unchanged; no advisory is ignored.
 
 The audit gate exits successfully with **0 vulnerability advisories, 4
 unmaintained informational advisories, and 0 unsound advisories**. None of the

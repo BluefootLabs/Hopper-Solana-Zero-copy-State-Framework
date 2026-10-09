@@ -1,0 +1,94 @@
+{
+  "blockTime": 1791397356,
+  "meta": {
+    "computeUnitsConsumed": 2543,
+    "costUnits": 3571,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "1j",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "5",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt invoke [1]",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt invoke [2]",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt consumed 40 of 198937 compute units",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt success",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt invoke [2]",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt consumed 405 of 197871 compute units",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt success",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt consumed 2543 of 200000 compute units",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt success"
+    ],
+    "postBalances": [
+      2335922515,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2335927515,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508543711,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "2XM",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "EmWxg1kLnTcLD2FiGC5ueUXssu5EFqmr37ju7fgLDqBk"
+    },
+    "signatures": [
+      "3tkmbUSCWGaqpGJv113W2T2TQYuwUGCdP2Xr1B6qTMQSZhfDMP8uCoNGszjhgZFxivWnjKnFDZL7KfLMZxs5zpdQ"
+    ]
+  },
+  "transactionIndex": 19,
+  "version": "legacy"
+}

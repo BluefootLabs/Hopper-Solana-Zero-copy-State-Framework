@@ -1,0 +1,17 @@
+{
+  "label": "hopper-migration",
+  "programId": "GKAYqEMgjECoHoy7ruupaM5oBbB6Gs2NS69Fp6GUut9v",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-migration\\hopper_migration.so",
+  "elfBytes": 24048,
+  "elfSha256": "a385f3b09cc056b7962ba6903c9c5f643a3f27ac0f719332b4d160bbdf41baeb",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508566363,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:54:22.301229+00:00",
+  "recoveredFromExistingBuffer": true,
+  "recoveryReceipt": "rpc-write-recovery/complete-buffer.json",
+  "recoveryDriverSha256": "c4f6cb63fe3ceb5fc4f65c7c1335268f09e4b0b23a213dff99b6698fd431ea88"
+}

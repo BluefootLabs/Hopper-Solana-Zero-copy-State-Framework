@@ -230,6 +230,16 @@ fn write_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> 
         write!(f, ", args {}Args", pascal)?;
     }
     writeln!(f, ") (Instruction, error) {{")?;
+    if ix
+        .args
+        .iter()
+        .any(|arg| arg.encoding != crate::ArgEncoding::Fixed)
+    {
+        writeln!(f, "\treturn Instruction{{}}, errors.New(\"hopper client: bounded instruction arguments require the Rust, TypeScript, or Python client\")")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+        return Ok(());
+    }
     writeln!(f, "\tdata := make([]byte, {}DataLen)", pascal)?;
     writeln!(f, "\tdata[0] = {}Disc", pascal)?;
     let mut offset = 1usize;

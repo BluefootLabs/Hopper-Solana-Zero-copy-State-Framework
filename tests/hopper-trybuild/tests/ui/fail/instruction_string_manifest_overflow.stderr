@@ -1,0 +1,18 @@
+error[E0080]: evaluation panicked: bounded string wire size must fit manifest u16
+ --> $RUST/core/src/panic.rs
+  |
+  = note: evaluation of `<hopper::systems::BoundedString<65534> as hopper::__macro_support::DecodeInstructionArg<'_>>::WIRE_SIZE` failed here
+  |
+ ::: $WORKSPACE/src/__macro_support.rs
+  |
+  | /         assert!(
+  | |             N <= u16::MAX as usize - 2,
+  | |             "bounded string wire size must fit manifest u16"
+  | |         );
+  | |_________- in this macro invocation
+
+note: erroneous constant encountered
+ --> tests/ui/fail/instruction_string_manifest_overflow.rs:4:24
+  |
+4 | const INVALID: usize = <BoundedString<65534> as DecodeInstructionArg>::WIRE_SIZE;
+  |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

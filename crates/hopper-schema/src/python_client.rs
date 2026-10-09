@@ -35,8 +35,8 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use crate::{
-    clientgen::layout_is_compact, EventDescriptor, InstructionDescriptor, LayoutManifest,
-    ProgramManifest,
+    clientgen::layout_is_compact, ArgEncoding, EventDescriptor, InstructionDescriptor,
+    LayoutManifest, ProgramManifest,
 };
 
 fn py_type(canonical: &str) -> &'static str {
@@ -277,6 +277,7 @@ impl<'a> fmt::Display for PyInstructions<'a> {
             self.0.name
         )?;
         writeln!(f, "import struct")?;
+        writeln!(f, "import builtins as _hopper_builtins")?;
         writeln!(f)?;
         for ix in self.0.instructions {
             fmt_instruction(f, ix)?;
@@ -295,7 +296,12 @@ fn fmt_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fm
             write!(f, ", ")?;
         }
         write_snake(f, a.name)?;
-        write!(f, ": {}", py_type(a.canonical_type))?;
+        let ty = match a.encoding {
+            ArgEncoding::BoundedVec { .. } => "list[bytes]",
+            ArgEncoding::BoundedString { .. } => "str",
+            ArgEncoding::Fixed => py_type(a.canonical_type),
+        };
+        write!(f, ": {}", ty)?;
     }
     writeln!(f, ") -> bytes:")?;
     writeln!(
@@ -303,12 +309,89 @@ fn fmt_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fm
         "    \"\"\"Assemble the raw instruction data for `{}`. tag={}\"\"\"",
         ix.name, ix.tag
     )?;
-    writeln!(f, "    parts: list[bytes] = [bytes([{}])]", ix.tag)?;
-    for a in ix.args {
-        let fmt = struct_format(a.canonical_type, a.size);
-        write!(f, "    parts.append(struct.pack(\"{}\", ", fmt)?;
-        write_snake(f, a.name)?;
-        writeln!(f, "))")?;
+    write!(f, "    _hopper_args = (")?;
+    for arg in ix.args {
+        write_snake(f, arg.name)?;
+        write!(f, ", ")?;
+    }
+    writeln!(f, ")")?;
+    writeln!(f, "    import builtins as _hopper_builtins")?;
+    writeln!(f, "    import struct")?;
+    writeln!(f, "    parts = [_hopper_builtins.bytes([{}])]", ix.tag)?;
+    for (index, a) in ix.args.iter().enumerate() {
+        writeln!(f, "    value = _hopper_args[{}]", index)?;
+        match a.encoding {
+            ArgEncoding::BoundedVec {
+                max_len,
+                element_size,
+            } => {
+                writeln!(f, "    if _hopper_builtins.len(value) > {}:", max_len)?;
+                writeln!(
+                    f,
+                    "        raise _hopper_builtins.ValueError(\"{} exceeds capacity\")",
+                    a.name
+                )?;
+                writeln!(f, "    if _hopper_builtins.any(not _hopper_builtins.isinstance(item, (_hopper_builtins.bytes, _hopper_builtins.bytearray)) or _hopper_builtins.len(item) != {} for item in value):", element_size)?;
+                writeln!(
+                    f,
+                    "        raise _hopper_builtins.ValueError(\"{} element width mismatch\")",
+                    a.name
+                )?;
+                writeln!(
+                    f,
+                    "    parts.append(struct.pack(\"<H\", _hopper_builtins.len(value)))"
+                )?;
+                writeln!(
+                    f,
+                    "    parts.extend(_hopper_builtins.bytes(item) for item in value)"
+                )?;
+            }
+            ArgEncoding::BoundedString { max_len } => {
+                writeln!(
+                    f,
+                    "    encoded = value.encode(\"utf-8\", errors=\"strict\")"
+                )?;
+                writeln!(f, "    if _hopper_builtins.len(encoded) > {}:", max_len)?;
+                writeln!(
+                    f,
+                    "        raise _hopper_builtins.ValueError(\"{} exceeds byte capacity\")",
+                    a.name
+                )?;
+                writeln!(
+                    f,
+                    "    parts.append(struct.pack(\"<H\", _hopper_builtins.len(encoded)))"
+                )?;
+                writeln!(f, "    parts.append(encoded)")?;
+            }
+            ArgEncoding::Fixed => {
+                if py_type(a.canonical_type) == "bytes" {
+                    writeln!(
+                        f,
+                        "    if not _hopper_builtins.isinstance(value, (_hopper_builtins.bytes, _hopper_builtins.bytearray)) or _hopper_builtins.len(value) != {}:",
+                        a.size
+                    )?;
+                    writeln!(
+                        f,
+                        "        raise _hopper_builtins.ValueError(\"{} width mismatch\")",
+                        a.name
+                    )?;
+                }
+                if matches!(a.canonical_type, "u128" | "i128") {
+                    writeln!(
+                        f,
+                        "    parts.append(value.to_bytes(16, \"little\", signed={}))",
+                        if a.canonical_type == "i128" {
+                            "True"
+                        } else {
+                            "False"
+                        }
+                    )?;
+                } else {
+                    let fmt = struct_format(a.canonical_type, a.size);
+                    writeln!(f, "    parts.append(struct.pack(\"{}\", value))", fmt)?;
+                }
+            }
+        }
     }
     writeln!(f, "    return b\"\".join(parts)")?;
 

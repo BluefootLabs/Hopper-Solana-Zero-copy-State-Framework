@@ -1,433 +1,231 @@
 # The Hopper Model
 
-Hopper is a typed state pipeline framework for Solana. This page is the
-canonical reference for how the whole system fits together.
+Hopper is a Rust framework for Solana programs. You describe account layouts
+and admission checks, write a handler, and compile it to SBF with the Solana
+build tools. Rust macros generate code at build time; the resulting checks and
+handler run inside Solana's VM.
+
+Start with `#[account]`, `#[derive(Accounts)]`, `#[program]`, and `Ctx<T>`.
+The [counter](../examples/hopper-counter/src/lib.rs) demonstrates an update to
+initialized state. The [vault](../examples/hopper-vault/src/lib.rs) also creates
+accounts and moves SOL.
 
 ## The Pipeline
 
-The full workflow has seven stages. A program can use the stages it needs:
+An ordinary typed instruction follows this path:
 
-```
-1. Define     Layout your state with hopper_layout!
-2. Resolve    Parse accounts from the instruction
-3. Validate   Run checks, verify signatures, enforce policy
-4. Execute    Mutate state in a controlled phase
-5. Record     Capture a StateReceipt of what changed
-6. Verify     Assert invariants and compatibility
-7. Inspect    Use the CLI to explain, diff, and plan migrations
-```
+1. Solana supplies the program ID, accounts, privileges, and instruction bytes.
+2. Hopper dispatches the instruction and decodes its declared handler arguments.
+3. The generated account binding checks the requested account types and constraints.
+4. Your handler borrows state, applies business rules, and makes any required CPI.
+5. The handler returns a result. Solana enforces its runtime rules and commits a
+   successful transaction or rolls back failed transaction state changes.
 
-You can use less of it for simple programs (a basic vault needs 1-4) and
-more of it for complex protocols (a multi-segment treasury uses all seven).
-The pipeline is always the mental model.
+Policies, state receipts, phased execution, and migration helpers are optional.
+They run only through the paths your program actually uses. CLI inspection,
+client generation, and release self-audit run off chain.
+
+| Boundary | Hopper provides | Your program supplies |
+| --- | --- | --- |
+| Account admission | Typed owner/layout checks, signer wrappers, declared writable, `has_one`, seed, and other constraints | Which authority, accounts, programs, and layouts to accept |
+| State access | Checked borrows and supported zero-copy layouts | Arithmetic, economic invariants, lifecycle, and error propagation |
+| CPI | Instruction builders and checked invocation paths | Intended callee, account relationships, supported asset policies, and outcome checks |
+| Transaction execution | An SBF program using Solana's account and syscall ABI | Accounts, instruction data, signatures, and compute budget in the client transaction |
+| Inspection | Manifests, generated clients, bounded receipts, and evidence tools | Tests that cover the application's success and failure behavior |
+
+For example, `Signer` alone accepts a signing account. Adding
+`has_one = authority` binds that signer to an authority stored in state. Neither
+chooses your application's authority policy for you.
 
 ## State Layouts
 
-State is defined with `hopper_layout!`:
+`#[account]` defines the normal framework layout. Fixed fields use byte-backed,
+alignment-safe representations such as `WireU64`. Supported views borrow bytes
+from account memory instead of deserializing the whole account into an owned
+Rust object. Updates write through that borrow.
 
-```rust
-hopper_layout! {
-    pub struct Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority> = 32,
-        balance:   WireU64                = 8,
-        bump:      u8                     = 1,
-    }
-}
-```
+Zero-copy is specific to that access path. It does not mean zero validation,
+zero compute, or no copies anywhere in the program or validator. Regular
+scalar handler arguments are decoded values. Dynamic fields vary: address
+vectors can be borrowed, while other tail codecs return bounded owned values.
+Client encoding and token-program execution have their own costs.
 
-This generates:
+[Borrowed instruction arguments](BORROWED_ARGUMENTS.md) are a separate API.
+The unreleased checked parsers validate nested option/enum representations;
+raw parsing and overlays do not acquire that validation automatically.
+The same unreleased layout can be a `&MyArgs` handler parameter: generated
+dispatch borrows and validates it before binding the account context. Multiple
+fixed layouts and scalars can compose in declaration order. An explicit final
+`&[u8]` accepts the remaining bytes; the application validates its content.
 
-- A `#[repr(C)]` struct with alignment-1 wire types (no padding, no platform variance)
-- A deterministic 8-byte `LAYOUT_ID` (SHA-256 fingerprint of type + fields)
-- Canonical whole-layout accessors: `load()` / `load_mut()`
-- Specialized validation helpers such as `load_foreign()` and `load_compatible()`
-- Low-level `overlay()` / `overlay_mut()` helpers for explicit slice-driven access
-- `SIZE`, `LEN`, `DISC`, `VERSION` constants
-- `BUMP_OFFSET` for PDA verification
+## The 16-Byte Header
 
-Every field is a fixed-size byte-backed type. No heap. No serialization.
-The struct is laid directly on top of account bytes via pointer cast.
+Default headered layouts store a discriminator, version, flags, layout ID, and
+schema epoch in a 16-byte header. Typed admission verifies the account owner and
+the selected layout contract. A matching header is not proof of authority or
+business correctness.
 
-## The Default 16-Byte Header
+Opt-in compact accounts use a one-byte discriminator and an explicit body-size
+contract. Fixed compact loads require exact size; compact-dynamic loads require
+a minimum prefix and leave tail semantics to the application. Their layout ID
+lives in trusted manifest metadata, not in the account bytes.
 
-Every default/headered Hopper-owned layout starts with this standard header:
-
-```
-[0]       disc        u8        Account type discriminator
-[1]       version     u8        Layout version
-[2..4]    flags       u16 LE    Status flags (frozen, segmented, etc.)
-[4..12]   layout_id   [u8;8]    SHA-256 fingerprint
-[12..16]  schema_epoch u32 LE    Schema evolution epoch, default 1
-```
-
-The header makes that account form self-describing at the identity level. A
-raw-header tool can decode type discriminator, version, fingerprint, and schema
-epoch without knowing the fields; a manifest is still required for field,
-segment, policy, and migration semantics. Opt-in compact layouts begin with
-`[disc][fixed body]`; fixed layouts end there, while compact-dynamic layouts may
-carry a tail after that minimum prefix. They carry no header fingerprint and
-obtain layout identity from a manifest/IDL or generated SDK constant.
+See [the wire format](ARCHITECTURE.md#wire-format) for offsets and fingerprint
+construction.
 
 ## One Access System
 
-Hopper is easiest to reason about when access is treated as one system with
-different guarantees, not multiple frameworks.
+Choose the checks needed at the point where bytes become a typed view:
 
-**Validated whole-layout access (default).** Full pipeline: validation,
-fingerprints, receipts, tooling.
+| Access | What it establishes |
+| --- | --- |
+| Typed `Account<T>` binding | Owner and selected layout contract, plus declared context constraints |
+| `ctx.accounts.state.get()` / `get_mut()` | A checked shared or mutable borrow of an admitted account |
+| Runtime account loaders | The checks documented by that loader; compact loading alone does not authorize a write |
+| Slice overlays / `pod_from_bytes` | A supported in-memory representation; caller establishes provenance and application meaning |
+| Unsafe raw access | Caller must uphold the function's full safety contract |
 
-```rust
-let vault = Vault::load(account, program_id)?;
-```
-
-**Direct typed slice access.** Direct typed view, no header validation.
-For hot paths where you need the cast without the checks.
-
-```rust
-let vault = pod_from_bytes::<Vault>(data)?;
-```
-
-**Explicit raw escape hatch.** Raw cast, caller owns all risk.
-
-```rust
-let vault = unsafe { Vault::load_unchecked(data) };
-```
-
-In the dated 2026-07-09 primitive fixture, the checked Pod cast and raw cast
-each measured 2 CU net, at the harness's measurement resolution. That is not a
-universal cast cost: toolchain, surrounding validation, and tracking determine
-the full instruction cost. Most programs use the validated path. Direct typed
-slices are for already-proven data. Raw access is the explicit unsafe escape
-hatch.
-
-See [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the full doctrine.
+The runtime account view wraps the native backend representation. Framework
+handlers and lower-level APIs are exposed by the same facade, but the native
+and runtime view types are distinct. Moving down a layer requires reviewing the
+checks and guards that layer supplies.
 
 ## Specialized Validation Helpers
 
-Hopper keeps one whole-layout loading path and exposes specialized helpers when
-the guarantee changes:
+Headered, compact, foreign, compatible-version, and observational loaders make
+different promises. A foreign view must establish the intended owner and ABI;
+a compatibility loader needs an explicit accepted-version policy. Observational
+tooling reads are not an authorization mechanism.
 
-| Helper | What changes | Use case |
-|--------|--------------|----------|
-| `load()` / `load_mut()` | default full Hopper validation | Own program accounts |
-| `load_foreign()` / `load_foreign_multi()` | foreign ownership and ABI proof | Cross-program reads |
-| `load_compatible()` | version compatibility instead of exact identity | Migration windows |
-| `load_unchecked()` | caller owns validation | Benchmarks, init-time writes |
-| `load_unverified()` | best-effort tooling read | Indexers, tooling |
-
-`load()` is the default. `load_foreign()` enables cross-program reads without
-crate dependencies via `hopper_interface!`. `load_compatible()` is for
-migration rollouts where a single instruction must accept more than one
-layout version. Trust profiles (`strict`, `compatible`,
-`read_only`, `observational`) remain additional configuration over the same
-underlying loading story.
-
-At the raw runtime layer, the equivalent helpers are
-`account.load_cross_program::<T>()` and `account.layout_info()`.
+Use [memory access](MEMORY_ACCESS.md) and the individual API's contract when
+selecting a loader. No universal compute cost applies to all these paths.
 
 ## Validation and Checks
 
-Hopper provides two validation styles. Both are in the prelude.
+Typed account constraints run when the context binds. Handler checks enforce
+application rules after admission. Checked integer operations reject overflow;
+propagate the error to the instruction boundary when the transaction must fail.
+A helper returning an error does not undo earlier local writes if your handler
+catches and ignores it.
 
-**Guards** (free functions, return `ProgramResult`):
+Checked data borrows track live references. Shared reads can coexist; mutable
+access needs exclusivity. Checked CPI tests the requested account privileges
+against the live borrow state. A read-only CPI may accept a shared read, while a
+writable CPI requires releasing all conflicting borrows. Drop a mutable guard
+before the call, then obtain a fresh view of the resulting state.
 
-```rust
-require_signer(depositor)?;
-require_owner(pool, program_id)?;
-require_writable(pool)?;
-```
-
-**Core checks** (free functions, return `ProgramResult`):
-
-```rust
-check_account(pool, program_id, 1, Pool::SIZE)?;
-check_has_one(vault.authority.as_bytes(), signer)?;
-verify_pda(expected_key, &seeds, bump, program_id)?;
-```
-
-**Chainable checks** (methods on `AccountView`, return `Result<&Self>`):
-
-```rust
-pool.check_signer()?.check_writable()?.check_owned_by(program_id)?;
-```
-
-For complex validation, use `ValidationGraph`:
-
-```rust
-let mut graph = ValidationGraph::<8>::new();
-graph.add("signer", check_signer(depositor));
-graph.add("owner", check_owner(pool, program_id));
-graph.add("writable", check_writable(pool));
-graph.run_all()?;
-```
-
-The validation graph names each check so failures are identifiable in logs.
+The default runtime CPI tier also checks meta/view identity, required privilege
+coverage, and repeated writable roles. Borrow-only and builder tiers have their
+own contracts. Supplied PDA seeds are ultimately derived and checked by the SVM
+against the calling program; a host preflight cannot substitute for that check.
 
 ## Policy and Capabilities
 
-Every instruction declares what it does through capabilities and what
-validation that triggers through policy:
-
-```rust
-// Use a named policy pack (ships with Hopper):
-const DEPOSIT_CAPS: CapabilitySet = TREASURY_WRITE_CAPS;
-
-// Resolve requirements at const time:
-let reqs = TREASURY_WRITE_POLICY.resolve(&DEPOSIT_CAPS);
-// reqs.has(PolicyRequirement::Authority)          -> true
-// reqs.has(PolicyRequirement::LamportConservation) -> true
-// reqs.has(PolicyRequirement::StateSnapshot)       -> true
-// reqs.has(PolicyRequirement::InvariantCheck)      -> true
-```
-
-Named packs for common patterns:
-
-| Pack | Triggers |
-|------|----------|
-| `TREASURY_WRITE` | Authority + snapshot + lamport conservation + invariants |
-| `JOURNAL_TOUCH` | Authority + journal capacity + snapshot |
-| `EXTERNAL_CALL` | CPI guard + post-mutation check + snapshot |
-| `SHARD_MUTATION` | Authority + snapshot + invariants |
-| `MIGRATION_SENSITIVE` | Authority + rent exemption + snapshot + invariants |
-| `AUTHORITY_CHANGE` | Authority + CPI guard + post-mutation check + invariants |
-
-Each pack is a `const` pair: `*_POLICY` (requirement bindings) and
-`*_CAPS` (capability set). You can also build custom policies with
-`InstructionPolicy::new().when(cap, req)`.
+Optional write contracts can constrain tracked data ranges, lamport operations,
+and writable CPI delegation. Explicit capability declarations and policy packs
+help express the required checks. They do not infer business rules or sandbox
+every instruction a downstream program might run. Raw access and bypass APIs
+require review against their documented obligations.
 
 ## Phased Execution
 
-Hopper uses typestate to enforce execution phases:
-
-```rust
-let frame = Frame::resolve(accounts)?
-    .validate(|ctx| { /* checks */ })?
-    .execute(|ctx| { /* mutations */ })?;
-```
-
-The compiler prevents calling `.execute()` before `.validate()`. Phases
-map directly to the pipeline: Resolve (step 2), Validate (step 3),
-Execute (step 4).
+The optional `Frame` API uses typestate to order resolve, validate, and execute
+phases. The compiler enforces that API's ordering; the application supplies the
+validation and mutation closures. Passing a validation closure does not prove
+that its checks are sufficient. Ordinary `Ctx<T>` handlers do not automatically
+construct a frame.
 
 ## State Receipts
 
-After mutation, capture what changed:
+`StateReceipt` can summarize a configured mutation scope, including before/after
+fingerprints, changes, and recorded invariant outcomes. Programs explicitly
+capture and emit these receipts. Their FNV fingerprints are not cryptographic
+proofs, and recorded flags do not prove that an arbitrary rule was correctly
+implemented. A receipt covers the scope and observations supplied by its caller.
 
-```rust
-let mut receipt = StateReceipt::<256>::begin(&Vault::LAYOUT_ID, buf);
-// ... mutate ...
-receipt.commit_with_segments(buf, &segments);
-receipt.set_invariants(passed, count);
-receipt.set_policy_flags(DEPOSIT_CAPS.bits());
-emit_slices(&[&receipt.to_bytes()]);
-```
-
-The current 72-byte receipt encodes the legacy 64-byte prefix plus the v2
-failure payload:
-
-- Before/after fingerprints (FNV-1a)
-- Changed byte count and field regions
-- Resize detection (old/new sizes)
-- Segment change mask
-- Invariant pass/fail summary
-- Policy flags (which capabilities were declared)
-- Journal append count
-- CPI invocation count
-- Committed flag
-- Failed invariant index, error code, and failure stage
-
-Receipts are the signature Hopper artifact. Every serious mutation can
-produce a receipt that explains what changed, why it was allowed, and
-whether the account remains compatible.
-
-Decode receipts with `hopper receipt <hex>`.
+`hopper receipt <hex>` decodes a receipt off chain. Release self-audit execution
+receipts are a separate host-tool artifact, described in [self-audit](SELF_AUDIT.md).
 
 ## Segments and Roles
 
-Complex accounts can be divided into segments:
+Segments divide account data into bounded regions. Segment leases can allow
+disjoint local borrows and reject incompatible overlapping ranges. Roles help
+express preservation, migration, and access rules through the APIs that enforce
+them.
 
-```rust
-hopper_layout! {
-    pub struct PoolState, disc = 1, version = 1 { ... }
-}
-hopper_layout! {
-    pub struct PoolConfig, disc = 2, version = 1 { ... }
-}
-```
-
-Each segment has a role that carries semantic meaning:
-
-| Role | Meaning | Migration behavior |
-|------|---------|-------------------|
-| Core | Primary state | Must preserve |
-| Extension | Optional extra fields | Must preserve |
-| Journal | Append-only log | Clearable on migration |
-| Index | Derived lookup structure | Rebuildable |
-| Cache | Cached/precomputed data | Rebuildable |
-| Audit | Immutable audit trail | Must preserve |
-| Shard | Partitioned data | Must preserve |
-
-Roles reduce cognitive load. When someone reads your code, they know
-a Journal segment is append-only and clearable. They know a Cache segment
-can be rebuilt. The migration planner uses roles to classify what must be
-preserved, what can be cleared, and what can be rebuilt.
+Solana locks whole writable accounts. Two byte ranges in one account do not
+allow two transactions to write that account concurrently. Splitting state
+across accounts may reduce contention, with rent, account-list, and lifecycle
+tradeoffs. Segment operations do not create a new scheduler or fee model.
 
 ## Fingerprints and Compatibility
 
-Current proc-macro layouts derive `LAYOUT_ID` from the first eight bytes of
-SHA-256 over an ordered `hopper:wire:v2` descriptor. A fixed layout named Vault
-with `authority: Address`, `balance: WireU64`, and `bump: u8` at version 1 uses:
+A layout fingerprint identifies a declared wire contract. The current proc
+macros hash an ordered descriptor and retain eight SHA-256 bytes. They do not
+recursively inspect every nested user type or alias. Changes to those types
+still need versioning and compatibility review.
 
-```text
-hopper:wire:v2|S:Vault|V:1|f0:authority:Address|f1:balance:WireU64|f2:bump:u8
-```
-
-Dynamic-tail declarations add their tail schema/type. Older manual and
-declarative APIs may use a different fingerprint contract. Use generated
-identities and review changes to nested types and aliases explicitly; the
-macro does not recursively inspect every user-defined type.
-
-Headered accounts store the identity in their header. Compact accounts keep
-the fingerprint in schema/manifest metadata, not account bytes. Compatibility checking is
-built in:
-
-```rust
-// Is V2 a strict superset of V1?
-assert!(is_append_compatible(&v1_manifest, &v2_manifest));
-
-// Can V2 readers still parse V1 data?
-assert!(is_backward_readable(&v1_manifest, &v2_manifest));
-```
-
-The migration planner generates step-by-step plans:
-
-```
-hopper plan @v1.json @v2.json
-
-Migration: Vault v1 -> v2
-  Policy: AppendOnly
-  Steps:
-    1. Realloc from 57 to 73 bytes
-    2. CopyPrefix 57 bytes
-    3. ZeroInit bytes 57..73
-    4. UpdateHeader (version, layout_id)
-```
+Manifest comparison and migration planning are off-chain tools. Applying a
+migration requires an authorized on-chain path that checks source and target
+layouts, funds any required rent, and preserves application invariants. A CLI
+plan does not change a deployed account by itself.
 
 ## Invariants
 
-Post-mutation correctness checks:
-
-```rust
-let mut invariants = InvariantSet::new();
-invariants.check(
-    vault.total_deposit.get() >= vault.total_withdrawn.get(),
-    BalanceInvariantViolation::CODE,
-);
-invariants.finalize()?; // returns first failure as ProgramError
-```
-
-Invariant results are recorded in receipts so tooling can verify that
-every mutation passed its correctness checks.
+Applications define and run their own invariants. Hopper offers checked
+arithmetic, validation helpers, invariant collections, and optional recorded
+results. Use tests for hostile accounts, malformed inputs, arithmetic edges,
+and failures after CPI. Ensure errors reach the transaction boundary when
+rollback is required.
 
 ## Collections
 
-Hopper ships 8 zero-copy collections that live directly in account data
-(`crates/hopper-core/src/collections/`):
-
-- **FixedVec** -- fixed-capacity vector
-- **RingBuffer** -- ring buffer with wrap-around
-- **PackedMap** -- key-value map in contiguous bytes
-- **SortedVec** -- always-sorted vector
-- **BitSet** -- compact bit flags
-- **Slab** -- fixed-size block allocator with free-list
-- **Journal** -- append-only log with circular wrap
-- **SlotMap** -- generation-tagged slot storage (ABA-safe keys)
-
-All collections are `no_std`, `no_alloc`, operate on `&[u8]` /
-`&mut [u8]` slices, validate their own stored metadata at construction,
-and are fuzzed against hostile metadata
-(`collections::hostile_metadata_proptests`).
+Account-backed collections include `FixedVec`, `RingBuffer`, `PackedMap`,
+`SortedVec`, `BitSet`, `Slab`, `Journal`, and `SlotMap`. Their constructors validate
+stored metadata within caller-provided slices. Capacity, placement, ownership,
+and authorization remain application choices. These collections do not provide
+a matching engine, token custody, or automatic account growth.
 
 ## CLI Tooling
 
-Hopper includes a CLI for inspecting, comparing, and planning:
+The CLI scaffolds projects, builds programs, exports manifests, generates
+clients, inspects state, and collects evidence. These are development and
+operations tools. Ordinary Hopper instructions need no separate execution
+service. A client must still submit a valid Solana transaction.
 
-```
-hopper explain <hex>           Human-readable headered-account explanation
-hopper inspect <hex>           Raw header decode
-hopper segments <hex>          Segment registry map with roles
-hopper receipt <hex>           Decode a 72-byte state receipt, or a legacy 64-byte receipt
-hopper compat @v1.json @v2.json  Compatibility report
-hopper diff @v1.json @v2.json    Field-level diff
-hopper plan @v1.json @v2.json    Migration plan with steps
-hopper schema-export           Schema format reference
-```
-
-Bare `hopper explain <hex>` reports what the supplied 16-byte header says.
-Manifest-backed Manager commands add field, segment, policy, and migration
-meaning. A receipt summarizes only its configured/supplied scope; neither a
-header nor a receipt alone proves everything that happened in a transaction.
+Host Rust tests are useful for parsing, validation, and arithmetic. Some host
+System Program calls are emulated; other CPI paths are validation-only no-ops.
+A successful host call therefore does not prove tokens moved. Run the compiled
+program and actual callee in an SVM or on devnet to check transfer behavior.
 
 ## Cross-Program Interfaces
 
-Headered Hopper accounts carry self-description at the identity level. A
-program can read another program's headered account by verifying that header:
-
-```rust
-hopper_interface! {
-    pub struct VaultView as Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority> = 32,
-        balance:   WireU64                = 8,
-        bump:      u8                     = 1,
-    }
-}
-
-let vault = VaultView::load_cross_program(account, &VAULT_PROGRAM_ID)?;
-```
-
-`VaultView` is the local type. `as Vault` names the layout the owning
-program declared, which is part of the fingerprint. The generated overlay
-is read-only, checks the owner and the layout id, and needs no crate
-dependency on the source program.
+Foreign account adapters validate an explicit owner and wire contract before
+reading another program's state. They do not confer write authority over it.
+Use that program's supported CPI instructions to change its state. Token
+accounts belong to the selected Token Program; writing an amount field in your
+own account does not transfer tokens.
 
 ## Error Handling
 
-Define sequential error codes with `hopper_error!`:
-
-```rust
-hopper_error! {
-    base = 6000;
-    PoolFrozen,
-    UnauthorizedAdmin,
-    DepositExceedsMax,
-}
-```
-
-Each variant becomes a struct with a `CODE` constant and `Into<ProgramError>`
-impl. Propagate returned errors so failed instructions roll back their state changes.
-These helpers do not prevent panics in application code or other runtime paths.
+Return errors for rejected actions and propagate failed CPI and invariant
+checks. Solana rolls back state changes from a failed transaction; fees can
+still be charged. A receipt, log message, or host-side success response is not
+a substitute for checking the transaction result and relevant account state.
 
 ## Design Principles
 
-1. **Bytes first.** Think in offsets and wire formats, not abstractions.
-2. **Pipeline model.** Define, Resolve, Validate, Execute, Record, Verify, Inspect.
-3. **Layered validation.** Typestate and generated metadata complement runtime
-   ownership, permission, layout, and policy checks.
-4. **Explicit costs.** The default core is `no_std` and `no_alloc`. Optional
-   facilities, callbacks, and application choices carry their own costs; measure
-   the compiled workload and the features it actually enables.
-5. **Explicit identity.** Headered accounts carry the 16-byte identity header;
-   compact accounts carry a discriminator plus a fixed or minimum-prefix size
-   contract and use external schema metadata.
-6. **Deliberate evolution.** Append compatibility is one policy; explicit typed
-   migrations can transform, grow, or shrink data. Validate the source and target
-   layouts and preserve the application's invariants.
-7. **Rigid where safety matters, flexible where architecture matters.**
+Use ordinary Rust, make account admission explicit, keep supported state views
+borrowed, and choose optional machinery when it solves a concrete problem.
+Measure complete instructions, including their validation and CPI. Keep
+published features, unreleased APIs, and fixture-specific evidence distinct.
 
 ## Where to Go Next
 
-- [README.md](../README.md) -- quick start and docs map
-- [MEMORY_ACCESS.md](MEMORY_ACCESS.md) -- memory tier doctrine and performance
-- [UNSAFE_INVARIANTS.md](UNSAFE_INVARIANTS.md) -- every unsafe block cataloged
-- [ARCHITECTURE.md](ARCHITECTURE.md) -- crate structure and module map
-- [hopper-showcase](../examples/hopper-showcase/src/lib.rs) -- canonical example
+- [First program](FIRST_FIVE_MINUTES.md)
+- [Funded SOL vault](../examples/hopper-vault/src/lib.rs)
+- [Program capabilities](PROGRAM_CAPABILITIES.md)
+- [Framework boundaries](FRAMEWORK_BOUNDARIES.md)
+- [Release evidence](RELEASE_EVIDENCE.md)
+- [Solana account rules](https://solana.com/docs/core/accounts)
+- [Solana CPI rules](https://solana.com/docs/core/cpi)

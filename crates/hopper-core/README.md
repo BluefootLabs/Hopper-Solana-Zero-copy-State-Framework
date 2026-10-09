@@ -13,6 +13,14 @@ borrow checks, and cross-program interfaces.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
+These are optional Rust building blocks used inside a Solana program. Segment
+leases govern local borrows; Solana still locks whole writable accounts.
+Installed policies cover their documented tracked access paths and CPI
+delegation, not arbitrary downstream code. Receipts summarize the supplied
+scope and recorded checks; they are not independent proofs of business
+correctness. Plain framework handlers do not automatically run a phased frame,
+install a write policy, or emit a state receipt.
+
 ## What's here
 
 Account header: optional 16-byte self-describing header for standard headered layouts (disc, version, flags, layout fingerprint, schema epoch). Compact layouts use a one-byte discriminator instead.

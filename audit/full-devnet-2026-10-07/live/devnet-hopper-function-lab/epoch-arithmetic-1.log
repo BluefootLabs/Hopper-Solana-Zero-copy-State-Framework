@@ -1,0 +1,14 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac
+data      : 51 bytes (0x030280970600000000008097060000000000010e00000000000000e0ff0700000000001f000000000000000100000000000000)
+accounts  : 0 slots
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+wire      : 220/1232 bytes (legacy)
+
+signature : 7foCYm4NsdjS29dybQdxREZmVpmTDUpapfXp15EFcBaXVYjjoQV6puvGsqXDWt3SsGtbfp4N1wV4efkiHn9cpuE
+confirmed : yes
+compute   : (transaction landed; RPC has not indexed it yet)
+
+explain it: hopper tx explain 7foCYm4NsdjS29dybQdxREZmVpmTDUpapfXp15EFcBaXVYjjoQV6puvGsqXDWt3SsGtbfp4N1wV4efkiHn9cpuE --rpc https://api.devnet.solana.com

@@ -1,0 +1,137 @@
+{
+  "blockTime": 1791399020,
+  "meta": {
+    "computeUnitsConsumed": 10000,
+    "costUnits": 12226,
+    "err": {
+      "InstructionError": [
+        1,
+        "ProgramFailedToComplete"
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [
+      {
+        "index": 1,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              0
+            ],
+            "data": "47zJymVnMKzWVQoChP5zHtaNFcDifuSdt3hCkTuA8cbeDQpec2XQLEZuz3b2kRsYbD4StQ3",
+            "programIdIndex": 2,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "qvXSDoJLUVKs8sDwvbNwmG46XECMzEoFAeK7pHqwoSYQ996spu7kVYgMjkHZRHcNSUvPVKeEDTs1kRHqimznxD9pisUr4c3HA1ApB92cqD",
+            "programIdIndex": 4,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              1
+            ],
+            "data": "ZnZQ2JFShj76c3NDGALqcuTNFdsdsgHFDQtQMHEa76nSsr",
+            "programIdIndex": 4,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1632 of 3818 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeMintCloseAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1053 of 1053 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb failed: exceeded CUs meter at BPF instruction",
+      "Program FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn consumed 9850 of 9850 compute units",
+      "Program FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn failed: Program failed to complete"
+    ],
+    "postBalances": [
+      2118618337,
+      0,
+      1,
+      1,
+      1159846,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2118628337,
+      0,
+      1,
+      1,
+      1159846,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          1,
+          "ProgramFailedToComplete"
+        ]
+      }
+    }
+  },
+  "slot": 508550700,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "F5o2nsPEjXuY5MWKJAenMmppy145MoFrxfk5PwR9QM21",
+        "11111111111111111111111111111111",
+        "ComputeBudget111111111111111111111111111111",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 4,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "EW1ZaP",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        },
+        {
+          "accounts": [
+            0,
+            1,
+            4,
+            2
+          ],
+          "data": "99w3u1",
+          "programIdIndex": 5,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "8ChgFv8Da7wNPhQ6tJJ6Khv3ei14iQNwiVLzkmMVwXSV"
+    },
+    "signatures": [
+      "2cQbALx2nqxkmmp7ekg6fUwghY5SuMExKGtyDQfAc4tjHt6H37cFgudRbn2uPvm5GCjjUMEUdp6tZ7zfJsub4xYq",
+      "PLbZQBVKFMR4PCBFvNsBf7k2qmAwby39K6VEZY6Zm3ih2c7JSL3Hh4JLC9CBuK7mJtXzZopC3jKAGXYouWjqQxL"
+    ]
+  },
+  "transactionIndex": 7,
+  "version": "legacy"
+}

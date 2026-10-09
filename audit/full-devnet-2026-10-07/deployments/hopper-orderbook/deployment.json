@@ -1,0 +1,14 @@
+{
+  "label": "hopper-orderbook",
+  "programId": "6T6pF9tqtbsHb1nDEqPs6MQQQSLm3Fzk9wzthn6gBjNb",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-orderbook\\hopper_orderbook.so",
+  "elfBytes": 17336,
+  "elfSha256": "d0ba8c54ee0fdfdb67321041513d263d1173a2978d7d54aebbc9882ad0e67557",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508567703,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:58:42.880515+00:00"
+}

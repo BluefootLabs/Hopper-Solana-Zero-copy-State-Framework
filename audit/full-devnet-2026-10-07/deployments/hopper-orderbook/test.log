@@ -1,0 +1,18 @@
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-core)
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-solana)
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-schema)
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros)
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source)
+   Compiling hopper-orderbook v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\hopper-orderbook)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.64s
+     Running tests\devnet.rs (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\debug\deps\devnet-f517680c10aae5b0.exe)
+
+running 2 tests
+test rpc_redaction_removes_credentials_and_query_values ... ok
+wrote hopper.devnet-evidence.v1 receipt
+test orderbook_post_bid_changes_only_the_decoded_bids_record ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.92s
+

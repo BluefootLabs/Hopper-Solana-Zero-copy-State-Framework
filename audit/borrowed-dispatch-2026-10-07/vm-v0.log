@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running tests\borrowed_args_sbf.rs (target\debug\deps\borrowed_args_sbf-a844608026cd27aa.exe)
+
+running 2 tests
+borrowed-dispatch mode=2 case=exact cu=261
+borrowed-dispatch mode=3 case=tail32 cu=441
+borrowed-dispatch mode=2 case=bad-option cu=52
+test generated_borrowed_dispatch_validates_before_writing_on_the_vm ... ok
+borrowed-dispatch mode=0 case=exact cu=259
+borrowed-dispatch mode=1 case=tail32 cu=441
+borrowed-dispatch mode=0 case=bad-option cu=48
+test borrowed_arguments_validate_before_writing_on_the_vm ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.72s
+

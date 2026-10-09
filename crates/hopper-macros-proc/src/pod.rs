@@ -20,9 +20,10 @@
 //! ```
 //!
 //! The macro emits:
-//! - `unsafe impl ::hopper::__runtime::Pod for SmallHeader {}`. the
+//! - `unsafe impl ::hopper::__runtime::Pod for SmallHeader`. the
 //!   canonical runtime Pod impl that unlocks every `segment_ref`,
 //!   `segment_mut`, `raw_ref`, `raw_mut`, `read_data` API.
+//!   Its `validate_value` method delegates representation checks to each field.
 //! - `impl ::hopper::hopper_core::account::FixedLayout for SmallHeader
 //!   { const SIZE: usize = size_of::<Self>(); }`. for any downstream
 //!   code that needs `T::SIZE` without duplicating the integer literal.
@@ -64,6 +65,15 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         Fields::Unnamed(f) => f.unnamed.iter().map(|f| f.ty.clone()).collect(),
         Fields::Unit => Vec::new(),
     };
+    let field_members: Vec<syn::Member> = input
+        .fields
+        .iter()
+        .enumerate()
+        .map(|(index, field)| match &field.ident {
+            Some(name) => syn::Member::Named(name.clone()),
+            None => syn::Member::Unnamed(syn::Index::from(index)),
+        })
+        .collect();
 
     let sum_sizes = if field_types.is_empty() {
         quote! { 0usize }
@@ -137,7 +147,13 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // SAFETY: the same proofs. Every bit pattern is valid for each
         // field, there is no padding to leave uninitialized, and a
         // `Pod` field holds no pointer or reference.
-        unsafe impl #impl_generics ::hopper::__runtime::Pod for #name #ty_generics #where_clause {}
+        unsafe impl #impl_generics ::hopper::__runtime::Pod for #name #ty_generics #where_clause {
+            #[inline]
+            fn validate_value(&self) -> ::hopper::__runtime::__hopper_native::ProgramResult {
+                #(::hopper::__runtime::Pod::validate_value(&self.#field_members)?;)*
+                ::core::result::Result::Ok(())
+            }
+        }
 
         // SAFETY: the seal repeats the `Pod` contract (fixed size, alignment 1,
         // no padding, no pointers, every bit pattern valid), which the

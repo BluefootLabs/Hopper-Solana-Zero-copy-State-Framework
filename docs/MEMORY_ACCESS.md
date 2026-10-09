@@ -1,6 +1,6 @@
 # Memory Access Doctrine
 
-Hopper does not reject pointer casting. It civilizes it.
+Hopper exposes account bytes through explicit layout and access contracts.
 
 This document describes Hopper's single access system and the three guarantee
 levels it exposes. These are not separate Hopper modes. They are the same
@@ -138,8 +138,8 @@ Unlike naive pointer-cast approaches, Hopper layers this on top of:
 - Versioned headers with deterministic layout fingerprints
 - Five-tier loading from full validation to raw unchecked
 - Segmented accounts with typed roles
-- State receipts tracking every mutation
-- CLI tooling that can explain any account from raw hex
+- Optional state receipts describing changes within a captured region
+- CLI inspection of account bytes using the matching Hopper manifest
 
 Hopper delivers pointer-cast class performance through a safer, more evolvable,
 more inspectable state model. The raw path exists when you need it. The safe

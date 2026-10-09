@@ -1,0 +1,15 @@
+error[E0080]: evaluation panicked: instruction vectors require a fixed-width element codec
+ --> $RUST/core/src/panic.rs
+  |
+  = note: evaluation of `<hopper::systems::BoundedVec<std::option::Option<u16>, 4> as hopper::__macro_support::DecodeInstructionArg<'_>>::WIRE_SIZE` failed here
+  |
+ ::: $WORKSPACE/src/__macro_support.rs
+  |
+  |             None => panic!("instruction vectors require a fixed-width element codec"),
+  |                     ----------------------------------------------------------------- in this macro invocation
+
+note: erroneous constant encountered
+ --> tests/ui/fail/instruction_vector_variable_stride.rs:4:24
+  |
+4 | const INVALID: usize = <BoundedVec<Option<u16>, 4> as DecodeInstructionArg>::WIRE_SIZE;
+  |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,24 @@
+{
+  "cliSha256": "d6be944769a2caf205cb0777156b6506efbfa21628e7ba768a90dd27daeebd00",
+  "checks": [
+    {
+      "command": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\borrowed-slices-host-check\\debug\\hopper.exe",
+        "audit-check",
+        "--json"
+      ],
+      "exitCode": 0,
+      "stdout": "readiness.json",
+      "stderr": "readiness.json.stderr"
+    },
+    {
+      "command": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\borrowed-slices-host-check\\debug\\hopper.exe",
+        "audit-check"
+      ],
+      "exitCode": 0,
+      "stdout": "readiness.txt",
+      "stderr": "readiness.txt.stderr"
+    }
+  ]
+}

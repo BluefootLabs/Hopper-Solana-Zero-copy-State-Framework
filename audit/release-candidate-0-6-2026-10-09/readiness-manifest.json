@@ -1,0 +1,571 @@
+{
+  "schemaVersion": 2,
+  "reviewedOn": "2026-10-09",
+  "maxReviewAgeDays": 30,
+  "externalAudit": {
+    "status": "preparation-in-progress",
+    "phase": "scope-and-evidence-preparation",
+    "startedOn": "2026-08-16",
+    "scope": "audit/EXTERNAL_AUDIT_SCOPE.md",
+    "provider": null,
+    "report": null
+  },
+  "evidence": [
+    {
+      "id": "external-audit-scope",
+      "path": "audit/EXTERNAL_AUDIT_SCOPE.md",
+      "sha256": "b250ac117b32dd2c5e7cf966a35d561f13c1d6170b6660572cf8a6e666d05090",
+      "required": true,
+      "description": "independent review scope, objectives, invariants, and handoff requirements",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "security-policy",
+      "path": "SECURITY.md",
+      "sha256": "ba890f05611dc9d249c2ec4fb4c0403e548a5608d5ed660cf78c06a194216dca",
+      "required": true,
+      "description": "vulnerability reporting and support policy",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "unsafe-invariants",
+      "path": "docs/UNSAFE_INVARIANTS.md",
+      "sha256": "e82b33521d856c25bcdfd8b164fd8c41629590913f655aae9a88e81fbea7a34e",
+      "required": true,
+      "description": "unsafe-code inventory and proof obligations",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "dependency-audit",
+      "path": "docs/DEPENDENCY_AUDIT.md",
+      "sha256": "997fea1d1a61bd3405569239fdb6293e7d15d9c835c3e690a7c03e79a2dffc73",
+      "required": true,
+      "description": "dependency advisory snapshot and disposition",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "architecture",
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "18d8b62da7313d833d005dcce4bf748e2b9f6fa6c67ff7bf12cd413516eab941",
+      "required": true,
+      "description": "trust boundaries and component architecture",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "release-evidence",
+      "path": "docs/RELEASE_EVIDENCE.md",
+      "sha256": "965ffddd7c79215fe87f9c4c56e458a9e89d5acf0633def38b2f016b9737c19f",
+      "required": true,
+      "description": "binary, fuzz, publication-train, and benchmark evidence boundaries",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "cicada-sbf-local-attestation",
+      "path": "audit/framework-refinement-2026-09-24/cicada/attestation.json",
+      "sha256": "dc9186779f7e23b115ac4edf768703ce76676117922bc4ff87d11aae9ef48869",
+      "required": true,
+      "description": "historical clean local Cicada SBF attestation for ab955e42; does not attest the unreleased working tree",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "benchmark-method",
+      "path": "BENCHMARKS.md",
+      "sha256": "6300ad2267de59bf044256714629d05ab870a727f953176849aa5f29b02f0c27",
+      "required": true,
+      "description": "benchmark method, clean pinned measurements, and claim boundaries",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "framework-matrix-2026-08-16",
+      "path": "audit/framework-matrix-2026-08-16.json",
+      "sha256": "45537af0ae81e1700b5f23fa4dfd80f306aada4d63767f098e2fdd533579ee56",
+      "required": true,
+      "description": "historical clean five-framework archive; current fixture measurements are separately dated in BENCHMARKS.md",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "network-baseline",
+      "path": "docs/SOLANA_NETWORK_BASELINE.md",
+      "sha256": "002ce65d9db3e1f290225ea4dc18b2c67e67bb85f026677c0d139b7092b1a140",
+      "required": true,
+      "description": "finalized October 7 network observations; explicit transaction and deployment limits",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "readiness-dossier",
+      "path": "docs/RELEASE_READINESS.md",
+      "sha256": "7ff40dc2ab0b2aada52d32a422faa557da693a4d5cfc856d0c8bdb109bba0927",
+      "required": true,
+      "description": "current release requirements, dossier reconciliation, and evidence boundaries",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "zero-copy-peer-audit",
+      "path": "docs/FRAMEWORK_BOUNDARIES.md",
+      "sha256": "670e53384de42a5cc296165859ee9212a798e82b0902e4f42ae13738426ee4a9",
+      "required": true,
+      "description": "source-pinned zero-copy boundary comparison; not an independent audit",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "cicada-manifest",
+      "path": "crates/grillo-manifest/tests/fixtures/hopper-cicada.manifest.json",
+      "sha256": "0bf633b8c790c3ca0a9359ffb67906642a25ae40e0dc1dfb79215eb16785127f",
+      "required": true,
+      "description": "checked-in Cicada contract manifest used by independent parser and verifier tests",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "cicada-fuzz-plan",
+      "path": "fuzz/plans/hopper-cicada.plan.json",
+      "sha256": "67639c95cdd37663db9a93f50870e3361daa1b5587bcd2b4f6d944eede2da49c",
+      "required": true,
+      "description": "manifest-derived no-skip Cicada host-semantic plan and commitment",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "publish-order",
+      "path": "release/publish-order.toml",
+      "sha256": "eeb9f67448569b6e8bbb0a6876a4df2fa103571c7e7fd2aa43db4fac86030812",
+      "required": true,
+      "description": "dependency-ordered public crate publication train",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "sbf-attestation-tool",
+      "path": "scripts/attest-sbf-release.py",
+      "sha256": "9be5b21a8d85cc6347ada6c9a3a989d8e8ff474672c0f83c4e0fc216db412b38",
+      "required": true,
+      "description": "clean-tree binary, manifest, and publish-check attestation generator",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "publish-train-tool",
+      "path": "scripts/check-publish-train.py",
+      "sha256": "d2e376a9f42618ebb58cb74817b668974ffe27153c730846734e3499aee56fca",
+      "required": true,
+      "description": "package-order and crates.io index readiness verifier",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "dependency-lock",
+      "path": "Cargo.lock",
+      "sha256": "a4bfae3e742684034e13c1ba6de466a82f0b9b97a5af6df192944387d0b233a3",
+      "required": true,
+      "description": "resolved Rust dependency graph",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "toolchain",
+      "path": "rust-toolchain.toml",
+      "sha256": "5676593100f62af2164e8d2dd36d7943e3993aacb767856366a8e972f1237ce9",
+      "required": true,
+      "description": "reproducible Rust toolchain",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "rust-ci",
+      "path": ".github/workflows/rust-ci.yml",
+      "sha256": "f0efae4950e13e183ae327ba12a3ca45f6f60e4f619f8c60a8f4419e65ed5532",
+      "required": true,
+      "description": "host checks, tests, fuzz smoke and Kani lanes",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "sbf-ci",
+      "path": ".github/workflows/solana-sbf.yml",
+      "sha256": "5335d50dde1546a8e8a3831ac12c3bfd6f84d1e57fc4a1153b93c38e993b21fa",
+      "required": true,
+      "description": "Solana SBF build and test lane",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "unsafe-ci",
+      "path": ".github/workflows/unsafe-safety.yml",
+      "sha256": "0484e0f44ed6d3e2b8e2c128851a35abb79513136b23aafe3135d8ea0498a4d2",
+      "required": true,
+      "description": "unsafe inventory drift gate",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "network-observations",
+      "path": "audit/borrowed-dispatch-2026-10-07/network.json",
+      "sha256": "e97657abf94624c0ba1c4f45650e4e4ac07a12c5dff00826b53f00d1ea291e89",
+      "required": true,
+      "description": "finalized October 7 devnet/mainnet feature, version and rent observations",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "peer-source-revisions",
+      "path": "audit/borrowed-slices-2026-10-08/peer-sources.json",
+      "sha256": "5365f0e970635a0193a53e8f43c5ece7fd3a75b53e6aab40b70a54871d1529db",
+      "required": true,
+      "description": "October 8 source pins and hashes for selected Pinocchio, Pina, Quasar and Anchor v2 files; not exhaustive feature parity.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-args-devnet",
+      "path": "audit/borrowed-dispatch-2026-10-07/devnet-manual/summary.json",
+      "sha256": "6a5ea116711b0a41c0fb38fd736f1dbea11fee91cc63625cdd6dd0e27bfbaef5",
+      "required": true,
+      "description": "20 finalized manual-dispatch transactions with expected errors and complete fixture-state comparisons",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-args-binary",
+      "path": "audit/borrowed-dispatch-2026-10-07/borrowed-args-v3.so",
+      "sha256": "6cee2923ab9891bf3a476a61555af74fa3eba895d9271caa49296f147d3c126a",
+      "required": true,
+      "description": "fresh v3 manual/generated fixture matched to deployed bytes before and after execution",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "cicada-semantic-run",
+      "path": "audit/readiness-2026-10-02/cicada-semantic-report.json",
+      "sha256": "33333fe7173d6e0525066778bf9c876cdf32db3bd54d1e5e1b35645df31db66a",
+      "required": true,
+      "description": "698 host semantic cases with no skips; not compiled SBF execution",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "publication-0-5",
+      "path": "audit/token-boundaries-2026-09-30/publication/publish-train.json",
+      "sha256": "a472138efe7f5613025d598cc9182a97c0f3b91a265269946213887be271c487",
+      "required": true,
+      "description": "clean source 0.5 publication train receipt",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "unsafe-site-map",
+      "path": "audit/unsafe-map.json",
+      "sha256": "02db6af2c7c546cbbb281f2c6107eaf6532700d2d4ed7a449a6027fc6285e2c4",
+      "required": true,
+      "description": "current source map of unsafe sites, obligations, and tests",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "sbf-ci-compat-status",
+      "path": "audit/readiness-2026-10-02/ci-compat-annotations.json",
+      "sha256": "fef192cc8543c0d08362bb4e31a155bc442a51f711be0f707fd533159a6f2003",
+      "required": true,
+      "description": "GitHub account billing lock prevented the required compatibility job from starting",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "sbf-ci-forward-status",
+      "path": "audit/readiness-2026-10-02/ci-forward-annotations.json",
+      "sha256": "fef192cc8543c0d08362bb4e31a155bc442a51f711be0f707fd533159a6f2003",
+      "required": true,
+      "description": "GitHub account billing lock prevented the required forward job from starting",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-generated-devnet",
+      "path": "audit/borrowed-dispatch-2026-10-07/devnet-generated/summary.json",
+      "sha256": "a1b016e6f5bd5e41e4705d34afeaa8b9642be1643a6f9d0f728d9a4a00536698",
+      "required": true,
+      "description": "20 finalized generated-handler transactions, including 14 expected refusals with unchanged fixture state",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-dispatch-vm",
+      "path": "audit/borrowed-dispatch-2026-10-07/sbf-tests.json",
+      "sha256": "cdbb2a85b4e3ecaae6b789bd867c417e73b018fefdd49eb9e52e9fb1334d2be1",
+      "required": true,
+      "description": "manual/generated validation matrix: 2,108 compiled instructions per architecture on v0 and v3",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-dispatch-client",
+      "path": "audit/borrowed-dispatch-2026-10-07/client-check.json",
+      "sha256": "c2162d1cc145b3f939b51f143c77d13f33e43448614fea3f48345ebaf445cee2",
+      "required": true,
+      "description": "generated TypeScript fixed-width and zero-width arguments exercised with Solana web3.js",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "all-programs-v0",
+      "path": "audit/full-devnet-2026-10-07/compiled-v0/report.json",
+      "sha256": "2a359f0c0498d1409fb41926e0531104f109e9ca9c7538bb5b89c2343499255d",
+      "required": true,
+      "description": "Historical October 7 builds for 52 packages on v0; the additional borrowed-batch fixture has separate v0 and v3 build/execution evidence.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "all-programs-v3",
+      "path": "audit/release-candidate-0-6-2026-10-09/all-programs-v3/report.json",
+      "sha256": "4a993976e67b511f0cab2b91d4f6f9b77f6268f85629f1d51a462417f9e49ead",
+      "required": true,
+      "description": "All 53 deployable packages built from the final source for SBF v3 with a fresh Cargo target; compilation does not execute every handler.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "compiled-function-matrix",
+      "path": "audit/full-devnet-2026-10-07/compiled-v3/vm-matrix.json",
+      "sha256": "99694c9c6f0aebfc5de321c05cb45e1dd5cdba8702d1f04a809a8abe2d817c4b",
+      "required": true,
+      "description": "36 compiled verifier tests over the named fixture ELFs; coverage.json records their package scope.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "function-lab-devnet",
+      "path": "audit/full-devnet-2026-10-07/live/devnet-hopper-function-lab/summary.json",
+      "sha256": "d30ef45457ae7ed2bf92d86d93bebdea17815de128a341c9caf3dd05fe3943ab",
+      "required": true,
+      "description": "116 finalized default-function transactions; functionChecksPassed=true and allPassed=false because the observed EpochSchedule values disagree with RPC/Clock.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "function-lab-features-devnet",
+      "path": "audit/full-devnet-2026-10-07/live/devnet-function-lab-devnet-features/summary.json",
+      "sha256": "a69f69c1c0e9b13ef291c601e8c97c0e17932d1a62b9a2cbf28ffe9f7adeb76b",
+      "required": true,
+      "description": "130 finalized feature-variant transactions including SHA-512; function checks pass but the EpochSchedule consistency finding remains open.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "program-coverage",
+      "path": "audit/full-devnet-2026-10-07/coverage.json",
+      "sha256": "cf7b8e1cb05424a2a0fefc5fd5fcaf441775d52b4c80c0c61de2c9db9b77a0b4",
+      "required": true,
+      "description": "October 7 per-package execution scope: 29 named live packages, one additional identical-ELF package, and 22 packages without live execution; not re-executed for October 8 source.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "current-test-corrections",
+      "path": "audit/full-devnet-2026-10-07/source-delta/inventory.json",
+      "sha256": "b9a3fb55e91b20ae99e6e11b6095103669bc6a533c22c8d223412d7ce486364d",
+      "required": true,
+      "description": "Historical October 7 source delta and two exact-error test corrections; subsequent production changes are inventoried in borrowed-slices-source.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "website-function-lab",
+      "path": "audit/release-candidate-0-6-2026-10-09/website-check.json",
+      "sha256": "96f0c18e2d6aeda9f18a7de4ac3f90b14cf2eb84add5a93ef16033584cd6034f",
+      "required": true,
+      "description": "63 served pages and 5698 internal links/anchors pass; production browser interaction checks are archived separately.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-validation",
+      "path": "audit/borrowed-slices-2026-10-08/README.md",
+      "sha256": "8141ce8dc90a2ebb24767ed1b36f79af081c67e6bccf1cdf95d197ae20185be1",
+      "required": true,
+      "description": "Historical October 8 borrowed-batch evidence; subsequent alias, Python codec, and UTF-8 fixes are covered by the October 9 candidate archive.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-source",
+      "path": "audit/release-candidate-0-6-2026-10-09/current-source.json",
+      "sha256": "c536f3b5f3367d4da0b614a380407c89c93dc8263d7a81d0eb772eed00b51074",
+      "required": true,
+      "description": "Final normalized source inventory; post-devnet change is confined to a macro unit-test expectation and the final fixture ELF matches the live binary.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "binary-continuity",
+      "path": "audit/release-candidate-0-6-2026-10-09/binary-continuity.json",
+      "sha256": "1ed2fe7abe3a1e3b9745be2ccd6f260c6dd9ffa0cd2df2f5822f07195eeb6165",
+      "required": true,
+      "description": "Per-program comparison with October 8 artifacts. Changed binaries do not inherit previous devnet results.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-vm",
+      "path": "audit/release-candidate-0-6-2026-10-09/compiled-vm.json",
+      "sha256": "96e02157f408364b1bc9cb7f517e32da99d24da678dc7b28cb07b337a22ca657",
+      "required": true,
+      "description": "3252 compiled instruction cases across v0/v3 on the final borrowed-batch binaries; owned-alias dispatch is covered separately by live transactions.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-manual-devnet",
+      "path": "audit/release-candidate-0-6-2026-10-09/devnet-manual/summary.json",
+      "sha256": "5fff1d609074b7dec8f137894f8ec2408c706cfa8f1d7647e1b9ad7de40fe49f",
+      "required": true,
+      "description": "22 finalized manual-dispatch transactions; exact binary checks, expected errors, return data, and state preservation.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-generated-devnet",
+      "path": "audit/release-candidate-0-6-2026-10-09/devnet-generated/summary.json",
+      "sha256": "2c349dcac714e7a8d673cafa7d6aa02f6794d007adfb843746b129fc6f8600d9",
+      "required": true,
+      "description": "22 finalized generated borrowed-dispatch transactions; exact binary checks, expected errors, return data, and state preservation.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-clients",
+      "path": "audit/release-candidate-0-6-2026-10-09/client-check/summary.json",
+      "sha256": "e64f2aaf23d15b5ddf603e2f98c735bae3ee948ff3c56c0f05767239be470bff",
+      "required": true,
+      "description": "Generated Rust, TypeScript and Python client execution against independent bytes, capacities, element widths, and privileges. C/Go/Kotlin bounded builders explicitly reject unsupported encoding.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-slices-website",
+      "path": "audit/borrowed-slices-2026-10-08/website-gates.json",
+      "sha256": "158c8be6a0e6fae08197a9b971fb4c14d80e8bcff8e6829ff76db57bd48b0aa4",
+      "required": true,
+      "description": "Historical October 8 website build, lint and typecheck evidence. The October 9 candidate records the updated site commit, browser QA, and live deployment.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "release-0-6-candidate",
+      "path": "audit/release-candidate-0-6-2026-10-09/README.md",
+      "sha256": "20fe141eb05c3ab95682757cab9415d1dffecaebbb7c8f3ac2d3936a74035c6d",
+      "required": true,
+      "description": "October 9 validation, 0.6 package plan, client scope, and remaining release requirements; no publication attestation.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "owned-aliases-devnet",
+      "path": "audit/release-candidate-0-6-2026-10-09/devnet-owned-aliases/summary.json",
+      "sha256": "9783a3b71269dfcf7dff2e3bd8d36c5f82f52e3ce6c2319f4b56fd6141d17dee",
+      "required": true,
+      "description": "23 finalized owned-alias transactions including UTF-8, capacity, privilege and overflow refusals; this handler copies owned arguments.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "website-release-0-6",
+      "path": "audit/release-candidate-0-6-2026-10-09/website-commit.json",
+      "sha256": "68e52566b7d53ffff810e3a0236293f87cbaa15ecf257ceaffe55113eee14859",
+      "required": true,
+      "description": "Pushed website commit matches the validated source inventory, keeping published version 0.5.0 separate from workspace 0.6.0.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "release-0-6-package-diagnostic",
+      "path": "audit/release-candidate-0-6-2026-10-09/package-verified.json",
+      "sha256": "20640d9f761de95f7c797202cc2d6355f548dc5afc2094a160712fc1661ffc2f",
+      "required": true,
+      "description": "All 29 packages pass metadata, dependency order and archive closure checks in a dirty-tree diagnostic. This is not a clean release or upload receipt.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "release-0-6-api-plan",
+      "path": "audit/release-candidate-0-6-2026-10-09/api-plan-pinned.log",
+      "sha256": "f5b93752e95d99140e3be8068fff6a0631fa328b6890a947acacbbcb0b26bfee",
+      "required": true,
+      "description": "Strict registry API comparison uses the pinned Rust toolchain for both baseline and workspace. Twenty-five crates target 0.6.0; four unchanged support crates retain their versions.",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "peer-source-heads-2026-10-09",
+      "path": "audit/release-candidate-0-6-2026-10-09/peer-heads.json",
+      "sha256": "56a8fc2bfbd0f8180a0516a474d73267e071b12314230ce2485262b164e2323e",
+      "required": true,
+      "description": "Current primary-source repository heads for Pinocchio, Pina, Quasar and Anchor v2; unchanged from the prior file-level comparison.",
+      "normalizeLineEndings": false
+    }
+  ],
+  "qualityGates": [
+    {
+      "id": "fmt",
+      "command": "cargo fmt --all -- --check",
+      "lastRunOn": "2026-10-09",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true,
+      "receipt": {
+        "path": "audit/release-candidate-0-6-2026-10-09/fmt.json",
+        "sha256": "1978dcd0becfdff9ab15d275b8a3f8647c9cd08c387ac897d0a1a2501ef35054"
+      }
+    },
+    {
+      "id": "clippy",
+      "command": "cargo clippy -j4 --workspace --all-targets --locked --offline --target-dir target/borrowed-slices-host-check -- -D warnings",
+      "lastRunOn": "2026-10-09",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true,
+      "receipt": {
+        "path": "audit/release-candidate-0-6-2026-10-09/clippy.json",
+        "sha256": "80ae1a6471cbfc478280f2804878c96804420508577f2e4b7888eed62cfdc2cb"
+      }
+    },
+    {
+      "id": "workspace-tests",
+      "command": "cargo test -j4 --workspace --locked --offline --no-fail-fast --target-dir target/borrowed-slices-host-check",
+      "lastRunOn": "2026-10-09",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true,
+      "receipt": {
+        "path": "audit/release-candidate-0-6-2026-10-09/workspace-tests.json",
+        "sha256": "019fe0ca7dade2ceb0b0f7912273da05d1138ac42923336a2fe137cdef15df91"
+      }
+    },
+    {
+      "id": "dependency-audit-gate",
+      "command": "cargo audit --db target/hopper/borrowed-slices-2026-10-08/rustsec-db --no-fetch --json",
+      "lastRunOn": "2026-10-09",
+      "status": "passed",
+      "maxAgeDays": 30,
+      "required": true,
+      "receipt": {
+        "path": "audit/release-candidate-0-6-2026-10-09/dependency-audit.json",
+        "sha256": "fab0f619fda14a7d587e342f20eb19100f27d5ce31cb99996fb295e445394140"
+      }
+    }
+  ],
+  "knownBlockers": [
+    {
+      "id": "peer-benchmark",
+      "severity": "high",
+      "status": "closed",
+      "releaseBlocking": true,
+      "description": "clean same-fixture Hopper, Anchor v2, Quasar, Pinocchio and Star Frame evidence is retained for Hopper 8696640 and benchmark source af5bc95 at benchmark evidence-carrier commit 7ab6a3e; all 30 rejection gates passed and the archive ZIP SHA-256 is c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747"
+    },
+    {
+      "id": "sbf-clean-attestation",
+      "severity": "medium",
+      "status": "open",
+      "releaseBlocking": true,
+      "description": "Required Agave 2.3.13 and 4.2.1-forward SBF jobs for final clean source remain unexecuted. GitHub run 36812193185 failed to start both jobs because of an account billing lock. Local compiled VM and devnet evidence is retained separately and does not close this CI gate."
+    },
+    {
+      "id": "publication-train",
+      "severity": "high",
+      "status": "closed",
+      "releaseBlocking": true,
+      "description": "The obsolete 0.3 requirement is superseded by the completed 0.5 train: 28 new indexed versions from clean commit 0a8827e177f225574f2285a58875d50e8059ffe7 plus unchanged hopper-builtins 0.4.0, archive verification and a registry-only consumer. No next-version publication is claimed."
+    },
+    {
+      "id": "transaction-v1",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "Transaction v1 is active on mainnet-beta (finalized feature observation October 7, activation slot 447120000). Hopper still emits legacy transactions; v1 authoring and acceptance tests remain tracked implementation work."
+    },
+    {
+      "id": "devnet-blake3-availability",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "Both native and runtime BLAKE3 probes finalized with ProgramFailedToComplete on the observed October 7 devnet. The default function fixture excludes the unavailable symbol; local VM success and ELF deployment do not establish live support. Modular exponentiation is separately feature-unavailable and has no live success claim."
+    },
+    {
+      "id": "devnet-epoch-schedule-consistency",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "The EpochSchedule account and both runtime getters report 8192 slots per epoch while RPC reports 432000 and Clock agrees with RPC. Hopper decoding and schedule arithmetic match supplied bytes; use Clock for current epoch. Both function receipts preserve allPassed=false."
+    },
+    {
+      "id": "devnet-program-coverage",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "October 9 adds 67 finalized borrowed-batch and owned-alias transactions and builds all 53 default v3 programs. Against October 8, 39 binaries are identical and 14 changed. Historical execution does not validate changed binaries. The 22 baseline packages without named live suites and untested handler/feature combinations remain outside complete live coverage."
+    },
+    {
+      "id": "bounded-client-coverage",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "Rust, TypeScript and Python bounded clients execute independent wire-contract checks. Owned scalar, fixed-array, vector and string aliases retain decoder metadata. C, Go and Kotlin bounded instruction builders explicitly reject unsupported encoding; implementation and cross-language execution remain tracked."
+    }
+  ]
+}

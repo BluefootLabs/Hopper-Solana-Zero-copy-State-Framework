@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-02",
+  "libraryTests": {
+    "command": "cargo test -j 1 -p hopper-native -p hopper-runtime -p hopper-derive -p hopper-macros -p hopper-lang --features hopper-lang/proc-macros --lib --locked --offline",
+    "passed": 671,
+    "failed": 0
+  },
+  "readinessTests": {
+    "command": "cargo test -j 1 -p hopper-cli --bin hopper cmd::audit_check::tests --locked --offline",
+    "passed": 8,
+    "failed": 0
+  },
+  "compiledVm": {
+    "command": "HOPPER_BORROWED_ARGS_SBF=<fixture> cargo test -j 1 -p hopper-framework-verifier --test borrowed_args_sbf --locked --offline -- --ignored",
+    "binaries": [
+      "fixture-v0.so",
+      "fixture-v3.so"
+    ],
+    "instructionsPerBinary": 1051,
+    "passed": true
+  },
+  "deployment": {
+    "cli": "solana-cli 4.3.0",
+    "builder": "cargo-build-sbf 4.4.0",
+    "platformTools": "v1.57",
+    "signature": "NrHAAcks4yvipT7trVfLVN9GMbuDTWtWfkivovKBQHho8gKLWrFPzPn2pBkdwaPkgtvdvyuV7dNxRxeFGzsPFr6",
+    "cluster": "devnet"
+  },
+  "workspaceCheck": {
+    "command": "cargo check -j 1 --workspace --all-targets --locked --offline",
+    "exitCode": 0
+  },
+  "clippy": {
+    "command": "cargo clippy -j 1 -p hopper-native -p hopper-runtime -p hopper-derive -p hopper-macros -p hopper-lang -p hopper-cli -p hopper-borrowed-args-fixture --features hopper-lang/proc-macros --lib --bins --locked --offline -- -D warnings",
+    "exitCode": 0
+  },
+  "unsafeMap": {
+    "sites": 855,
+    "current": true,
+    "unjustified": 0
+  },
+  "unsafeContracts": {
+    "rustFiles": 324,
+    "publicPackages": 29,
+    "exitCode": 0
+  },
+  "docCitations": {
+    "checked": 219,
+    "unresolved": 0
+  },
+  "readinessCheck": {
+    "command": "hopper audit-check --strict --json",
+    "exitCode": 1,
+    "ready": false,
+    "blockers": 27,
+    "warnings": 1,
+    "manifestSha256": "f0bd3e3de931bafba43ab8f73b89fbe69af2f223c51539e42958c41d6ae53a3c"
+  }
+}

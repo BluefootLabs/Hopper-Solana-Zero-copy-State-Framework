@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "native",
+    "exitCode": 0,
+    "elfSha256": "60e7a388966c5b888f099b28c3d8a50deddb8c53783597eddbe213af644f2a59",
+    "testBinarySha256": "5d904d609402c3ee7a62f4e591caca206a1fd862e4e1b59d009fedf13bbe6ecf"
+  },
+  {
+    "kind": "runtime",
+    "exitCode": 0,
+    "elfSha256": "d7eff9bfa2551d85711310adabaca3e61e561b9123035d1a97ccc7eb9c32cddf",
+    "testBinarySha256": "5d904d609402c3ee7a62f4e591caca206a1fd862e4e1b59d009fedf13bbe6ecf"
+  }
+]

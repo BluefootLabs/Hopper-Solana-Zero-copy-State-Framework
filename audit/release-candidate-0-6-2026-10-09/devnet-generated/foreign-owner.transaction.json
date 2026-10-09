@@ -1,0 +1,77 @@
+{
+  "blockTime": 1791523889,
+  "meta": {
+    "computeUnitsConsumed": 158,
+    "costUnits": 1192,
+    "err": {
+      "InstructionError": [
+        0,
+        "IllegalOwner"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program AeSdZW4tFTjHhisMEisXVXDMaq96Aktnzy5nSgwHgS8u invoke [1]",
+      "Program AeSdZW4tFTjHhisMEisXVXDMaq96Aktnzy5nSgwHgS8u consumed 158 of 200000 compute units",
+      "Program AeSdZW4tFTjHhisMEisXVXDMaq96Aktnzy5nSgwHgS8u failed: Provided owner is not allowed"
+    ],
+    "postBalances": [
+      1142452881,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1142457881,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "IllegalOwner"
+        ]
+      }
+    }
+  },
+  "slot": 509073848,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "11111111111111111111111111111111",
+        "AeSdZW4tFTjHhisMEisXVXDMaq96Aktnzy5nSgwHgS8u"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0
+          ],
+          "data": "QXBLmN6tF15z1G9iSmQMt6ht3SaM5Ep9F",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "2UbeMPSRVoTt4z2UzUQvL2A3BbBtFHUAAqnYWGjQxC7D"
+    },
+    "signatures": [
+      "25fW1E5gCoxvQ4sZN7GvrNJrzxkMULyUpb2gzDUFwzBjH8PR9P2Tir2PWA7RCBTg1oCBUAz8HixQQBVLjt8J8txe"
+    ]
+  },
+  "transactionIndex": 21,
+  "version": "legacy"
+}

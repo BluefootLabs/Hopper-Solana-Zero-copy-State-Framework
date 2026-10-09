@@ -1441,6 +1441,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/programs/counter/hopper/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/pda-boundaries/program/src/lib.rs",
     "crates/hopper-core/src/collections/mod.rs (test module)",
     "crates/hopper-core/tests/unsafe_boundary_tests.rs",
@@ -2082,6 +2083,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/programs/counter/hopper/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/pda-boundaries/program/src/lib.rs",
     "crates/hopper-core/src/collections/mod.rs (test module)",
     "crates/hopper-core/tests/unsafe_boundary_tests.rs",
@@ -2761,6 +2763,7 @@
    "justification": "`AccountLayoutEntry` is `Pod`, size `SIZE`, alignment 1.",
    "justification_class": "specific",
    "tests": [
+    "bench/framework-comparison/verifier/tests/function_lab_sbf.rs",
     "bench/framework-comparison/verifier/tests/governance_sbf.rs",
     "crates/hopper-core/src/manifest.rs (test module)",
     "crates/hopper-core/tests/overlay_equivalence_tests.rs",
@@ -2771,8 +2774,7 @@
     "crates/hopper-native/src/log.rs (test module)",
     "crates/hopper-runtime/src/log.rs (test module)",
     "crates/hopper-runtime/src/pda.rs (test module)",
-    "crates/hopper-runtime/src/remaining.rs (test module)",
-    "crates/hopper-runtime/src/tail.rs (test module)"
+    "crates/hopper-runtime/src/remaining.rs (test module)"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -2825,6 +2827,7 @@
    "justification": "`ProgramManifestHeader` is `Pod`, size `SIZE`, alignment 1.",
    "justification_class": "specific",
    "tests": [
+    "bench/framework-comparison/verifier/tests/function_lab_sbf.rs",
     "bench/framework-comparison/verifier/tests/governance_sbf.rs",
     "crates/hopper-core/src/manifest.rs (test module)",
     "crates/hopper-core/tests/overlay_equivalence_tests.rs",
@@ -2835,8 +2838,7 @@
     "crates/hopper-native/src/log.rs (test module)",
     "crates/hopper-runtime/src/log.rs (test module)",
     "crates/hopper-runtime/src/pda.rs (test module)",
-    "crates/hopper-runtime/src/remaining.rs (test module)",
-    "crates/hopper-runtime/src/tail.rs (test module)"
+    "crates/hopper-runtime/src/remaining.rs (test module)"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -2958,7 +2960,7 @@
   {
    "id": "crates/hopper-macros-proc/src/args.rs::parse#1",
    "file": "crates/hopper-macros-proc/src/args.rs",
-   "line": 272,
+   "line": 260,
    "kind": "block",
    "function": "parse",
    "type": null,
@@ -3119,6 +3121,7 @@
    "justification": "the compile-time fence above proves Self is #[repr(C)], alignment-1, padding-free, and Pod in every field, so the byte view covers exactly the initialized wire representation.",
    "justification_class": "specific",
    "tests": [
+    "bench/framework-comparison/verifier/tests/function_lab_sbf.rs",
     "bench/framework-comparison/verifier/tests/governance_sbf.rs",
     "crates/hopper-core/src/manifest.rs (test module)",
     "crates/hopper-core/tests/overlay_equivalence_tests.rs",
@@ -3129,8 +3132,7 @@
     "crates/hopper-native/src/log.rs (test module)",
     "crates/hopper-runtime/src/log.rs (test module)",
     "crates/hopper-runtime/src/pda.rs (test module)",
-    "crates/hopper-runtime/src/remaining.rs (test module)",
-    "crates/hopper-runtime/src/tail.rs (test module)"
+    "crates/hopper-runtime/src/remaining.rs (test module)"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -3141,7 +3143,7 @@
   {
    "id": "crates/hopper-macros-proc/src/pod.rs::expand#1",
    "file": "crates/hopper-macros-proc/src/pod.rs",
-   "line": 134,
+   "line": 144,
    "kind": "impl",
    "function": "expand",
    "type": null,
@@ -3158,7 +3160,7 @@
   {
    "id": "crates/hopper-macros-proc/src/pod.rs::expand#2",
    "file": "crates/hopper-macros-proc/src/pod.rs",
-   "line": 140,
+   "line": 150,
    "kind": "impl",
    "function": "expand",
    "type": null,
@@ -3169,13 +3171,13 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "7e762832fb205fb0bb25c37fd9f076a8ac8bc9128adc7683f8f74b8339b8be76"
+   "lines_of_code": 7,
+   "sha256": "c0ba31be4253dfad3269960be543b82769d0d59d4201fd2bc189af9c1e552463"
   },
   {
    "id": "crates/hopper-macros-proc/src/pod.rs::expand#3",
    "file": "crates/hopper-macros-proc/src/pod.rs",
-   "line": 151,
+   "line": 167,
    "kind": "impl",
    "function": "expand",
    "type": null,
@@ -3192,7 +3194,7 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand#1",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 813,
+   "line": 815,
    "kind": "impl",
    "function": "expand",
    "type": null,
@@ -3209,30 +3211,30 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand#2",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 814,
-   "kind": "impl",
-   "function": "expand",
-   "type": null,
-   "public": false,
-   "justification": "the struct is `#[repr(C)]` (checked at expansion), every field is proven `Pod` by the assertions emitted above, and the size assertion rules out padding. All-zero bytes and every other bit pattern are therefore valid, at alignment 1, with no pointer inside. The seal below repeats that contract. Audit final-API Step 5 seal. `#[hopper::state]` stamps the framework-defined marker so the `ZeroCopy` blanket picks up the type. Bare `unsafe impl Pod` outside this macro path is not automatically `ZeroCopy`.",
-   "justification_class": "shared",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "58c463ffc58cbcae5ba2f51b3efb910a08c2f4d151366c1a1c308327d2735a26"
-  },
-  {
-   "id": "crates/hopper-macros-proc/src/state.rs::expand#3",
-   "file": "crates/hopper-macros-proc/src/state.rs",
    "line": 819,
    "kind": "impl",
    "function": "expand",
    "type": null,
    "public": false,
-   "justification": "the struct is `#[repr(C)]` (checked at expansion), every field is proven `Pod` by the assertions emitted above, and the size assertion rules out padding. All-zero bytes and every other bit pattern are therefore valid, at alignment 1, with no pointer inside. The seal below repeats that contract. Audit final-API Step 5 seal. `#[hopper::state]` stamps the framework-defined marker so the `ZeroCopy` blanket picks up the type. Bare `unsafe impl Pod` outside this macro path is not automatically `ZeroCopy`.",
-   "justification_class": "shared",
+   "justification": "each field is Pod and the layout assertions establish alignment 1 and no padding. Value validation adds no Rust validity restriction: all byte patterns remain safe to overlay.",
+   "justification_class": "specific",
+   "tests": [],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "not attributable",
+   "lines_of_code": 7,
+   "sha256": "5ffcb5f0dc431c6b0b539b1f7d4400da434bfd4789da7df12d513a5d8e966a18"
+  },
+  {
+   "id": "crates/hopper-macros-proc/src/state.rs::expand#3",
+   "file": "crates/hopper-macros-proc/src/state.rs",
+   "line": 829,
+   "kind": "impl",
+   "function": "expand",
+   "type": null,
+   "public": false,
+   "justification": "the field-level Pod proofs and layout assertions above establish the seal's fixed-size, alignment-1, no-padding, no-pointer, all-bits-valid contract.",
+   "justification_class": "specific",
    "tests": [],
    "reached_through": null,
    "on_chain_only": false,
@@ -3243,7 +3245,7 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand_compact#1",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 1582,
+   "line": 1594,
    "kind": "impl",
    "function": "expand_compact",
    "type": null,
@@ -3260,30 +3262,30 @@
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand_compact#2",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 1583,
+   "line": 1598,
    "kind": "impl",
    "function": "expand_compact",
    "type": null,
    "public": false,
-   "justification": "as on the headered path. The struct is `#[repr(C)]`, every field is proven `Pod`, and the size assertion rules out padding, so every bit pattern is valid at alignment 1 with no pointer inside. The seal below repeats that contract. Audit final-API Step 5 seal, same as the headered path: compact layouts are macro-authored with the identical field-level Pod proofs, so they participate in the `ZeroCopy` blanket too.",
-   "justification_class": "shared",
+   "justification": "each compact field is Pod and the layout assertions establish alignment 1 and no padding. Every byte pattern remains a valid Rust value independently of representation validation.",
+   "justification_class": "specific",
    "tests": [],
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "58c463ffc58cbcae5ba2f51b3efb910a08c2f4d151366c1a1c308327d2735a26"
+   "lines_of_code": 7,
+   "sha256": "5ffcb5f0dc431c6b0b539b1f7d4400da434bfd4789da7df12d513a5d8e966a18"
   },
   {
    "id": "crates/hopper-macros-proc/src/state.rs::expand_compact#3",
    "file": "crates/hopper-macros-proc/src/state.rs",
-   "line": 1587,
+   "line": 1608,
    "kind": "impl",
    "function": "expand_compact",
    "type": null,
    "public": false,
-   "justification": "as on the headered path. The struct is `#[repr(C)]`, every field is proven `Pod`, and the size assertion rules out padding, so every bit pattern is valid at alignment 1 with no pointer inside. The seal below repeats that contract. Audit final-API Step 5 seal, same as the headered path: compact layouts are macro-authored with the identical field-level Pod proofs, so they participate in the `ZeroCopy` blanket too.",
-   "justification_class": "shared",
+   "justification": "the compact layout's Pod field proofs and size/alignment assertions establish the seal's no-padding, no-pointer, fixed-size, all-bits-valid contract.",
+   "justification_class": "specific",
    "tests": [],
    "reached_through": null,
    "on_chain_only": false,
@@ -3322,13 +3324,13 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "de252c9ad82760a55c71904b5ff10a8fb3091e36349ee1bb91f8a6aa10d324e7"
+   "lines_of_code": 7,
+   "sha256": "25fe7d9f961577b1079bada27455de8233f0fe403c71a4c2290aea4d808b4c6e"
   },
   {
    "id": "crates/hopper-macros/src/lib.rs::hopper_layout!#3",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 119,
+   "line": 125,
    "kind": "impl",
    "function": "hopper_layout!",
    "type": null,
@@ -3345,7 +3347,7 @@
   {
    "id": "crates/hopper-macros/src/lib.rs::load_unchecked#1",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 418,
+   "line": 424,
    "kind": "fn",
    "function": "load_unchecked",
    "type": null,
@@ -3364,7 +3366,7 @@
   {
    "id": "crates/hopper-macros/src/lib.rs::load_unverified#1",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 507,
+   "line": 513,
    "kind": "block",
    "function": "load_unverified",
    "type": null,
@@ -3383,7 +3385,7 @@
   {
    "id": "crates/hopper-macros/src/lib.rs::hopper_interface!#1",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 1470,
+   "line": 1476,
    "kind": "impl",
    "function": "hopper_interface!",
    "type": null,
@@ -3400,7 +3402,7 @@
   {
    "id": "crates/hopper-macros/src/lib.rs::hopper_interface!#2",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 1473,
+   "line": 1479,
    "kind": "impl",
    "function": "hopper_interface!",
    "type": null,
@@ -3411,13 +3413,13 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "de252c9ad82760a55c71904b5ff10a8fb3091e36349ee1bb91f8a6aa10d324e7"
+   "lines_of_code": 7,
+   "sha256": "25fe7d9f961577b1079bada27455de8233f0fe403c71a4c2290aea4d808b4c6e"
   },
   {
    "id": "crates/hopper-macros/src/lib.rs::hopper_interface!#3",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 1480,
+   "line": 1492,
    "kind": "impl",
    "function": "hopper_interface!",
    "type": null,
@@ -3434,7 +3436,7 @@
   {
    "id": "crates/hopper-macros/src/lib.rs::load_unverified#2",
    "file": "crates/hopper-macros/src/lib.rs",
-   "line": 1688,
+   "line": 1700,
    "kind": "block",
    "function": "load_unverified",
    "type": null,
@@ -3600,6 +3602,8 @@
    "justification": "raw is valid.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/checked-cpi/program/src/lib.rs",
     "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs",
     "bench/framework-comparison/reference/counter/src/lib.rs",
@@ -3609,8 +3613,7 @@
     "crates/hopper-native/tests/unsafe_accessors.rs",
     "crates/hopper-runtime/src/cpi.rs (test module)",
     "crates/hopper-runtime/src/instruction.rs (test module)",
-    "crates/hopper-runtime/src/lazy.rs (test module)",
-    "tests/instructions_sysvar.rs"
+    "crates/hopper-runtime/src/lazy.rs (test module)"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -3629,6 +3632,8 @@
    "justification": "`raw` points at a live `RuntimeAccount` for `'info`: the contract of `new_unchecked`, which the entrypoint parsers establish. The field is copied out; no reference to the header is formed.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "crates/hopper-core/tests/trust_tests.rs",
     "crates/hopper-native/tests/unsafe_accessors.rs",
     "crates/hopper-runtime/src/cpi.rs (test module)",
@@ -3676,6 +3681,7 @@
    "justification": "`raw` points at a live `RuntimeAccount` for `'info`: the contract of `new_unchecked`, which the entrypoint parsers establish. The field is copied out; no reference to the header is formed.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/lifecycle/runtime/src/lib.rs",
     "crates/hopper-core/src/account/lifecycle.rs (test module)",
@@ -3686,8 +3692,7 @@
     "crates/hopper-native/tests/cpi_borrow_preflight.rs",
     "crates/hopper-native/tests/lifecycle_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
-    "crates/hopper-native/tests/unsafe_accessors.rs",
-    "crates/hopper-runtime/src/account.rs (test module)"
+    "crates/hopper-native/tests/unsafe_accessors.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4085,6 +4090,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/lifecycle/runtime/src/lib.rs",
     "crates/hopper-core/src/account/lifecycle.rs (test module)",
@@ -4094,8 +4100,7 @@
     "crates/hopper-native/tests/lifecycle_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
     "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-native/tests/unsafe_accessors.rs"
+    "crates/hopper-native/tests/projection_and_lenses.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4115,6 +4120,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/lifecycle/runtime/src/lib.rs",
     "crates/hopper-core/src/account/lifecycle.rs (test module)",
@@ -4124,8 +4130,7 @@
     "crates/hopper-native/tests/lifecycle_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
     "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-native/tests/unsafe_accessors.rs"
+    "crates/hopper-native/tests/projection_and_lenses.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4145,6 +4150,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/lifecycle/runtime/src/lib.rs",
     "crates/hopper-core/src/account/lifecycle.rs (test module)",
@@ -4154,8 +4160,7 @@
     "crates/hopper-native/tests/lifecycle_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
     "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-native/tests/unsafe_accessors.rs"
+    "crates/hopper-native/tests/projection_and_lenses.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4175,6 +4180,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/lifecycle/runtime/src/lib.rs",
     "crates/hopper-core/src/account/lifecycle.rs (test module)",
@@ -4184,8 +4190,7 @@
     "crates/hopper-native/tests/lifecycle_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
     "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-native/tests/unsafe_accessors.rs"
+    "crates/hopper-native/tests/projection_and_lenses.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4204,7 +4209,10 @@
    "justification": "`self.raw` is a valid `RuntimeAccount`; `borrow_state` is its first byte. The `*mut u8` does not create an aliasing reference.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/runtime-gate/program/src/lib.rs",
     "crates/hopper-core/src/frame/mod.rs (test module)",
@@ -4212,10 +4220,7 @@
     "crates/hopper-native/tests/borrow_aware_readers.rs",
     "crates/hopper-native/tests/cpi_borrow_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
-    "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-runtime/src/account.rs (test module)",
-    "crates/hopper-runtime/src/account_wrappers.rs (test module)"
+    "crates/hopper-native/tests/mapped_borrows.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4234,7 +4239,10 @@
    "justification": "`check_borrow_mut()` confirmed the account was NOT_BORROWED, so writing the exclusive sentinel (0) cannot stomp a live borrow.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/runtime-gate/program/src/lib.rs",
     "crates/hopper-core/src/frame/mod.rs (test module)",
@@ -4242,10 +4250,7 @@
     "crates/hopper-native/tests/borrow_aware_readers.rs",
     "crates/hopper-native/tests/cpi_borrow_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
-    "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-runtime/src/account.rs (test module)",
-    "crates/hopper-runtime/src/account_wrappers.rs (test module)"
+    "crates/hopper-native/tests/mapped_borrows.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4264,7 +4269,10 @@
    "justification": "state is now exclusive, so no other borrow is live; the returned `RefMut` restores NOT_BORROWED on drop.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/framework-comparison/reference/counter/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/runtime-gate/program/src/lib.rs",
     "crates/hopper-core/src/frame/mod.rs (test module)",
@@ -4272,10 +4280,7 @@
     "crates/hopper-native/tests/borrow_aware_readers.rs",
     "crates/hopper-native/tests/cpi_borrow_preflight.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
-    "crates/hopper-native/tests/mapped_borrows.rs",
-    "crates/hopper-native/tests/projection_and_lenses.rs",
-    "crates/hopper-runtime/src/account.rs (test module)",
-    "crates/hopper-runtime/src/account_wrappers.rs (test module)"
+    "crates/hopper-native/tests/mapped_borrows.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -4700,6 +4705,8 @@
    "justification": "`data_ptr_unchecked()` is the account data base; the loader guarantees `[old_len, new_len)` is within the realloc-reserve capacity once the `InvalidRealloc` bound above has passed.",
    "justification_class": "specific",
    "tests": [
+    "bench/framework-comparison/verifier/tests/borrowed_args_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_slices_sbf.rs",
     "bench/framework-comparison/verifier/tests/lifecycle_sbf.rs",
     "bench/framework-comparison/verifier/tests/pda_boundaries_sbf.rs",
     "bench/lifecycle/runtime/src/lib.rs",
@@ -4968,6 +4975,8 @@
    "justification": "`raw` points at a live `RuntimeAccount` for `'info`: the contract of `new_unchecked`, which the entrypoint parsers establish. The field is copied out; no reference to the header is formed.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "crates/hopper-native/tests/loader_input_conformance.rs",
     "crates/hopper-runtime/src/unsafe_site_tests.rs"
    ],
@@ -5418,6 +5427,8 @@
    "justification": "The pointer and the length come from one live slice, which outlives the synchronous syscall.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/checked-cpi/program/src/lib.rs",
     "bench/return-provenance/program/src/lib.rs",
     "bench/token-outcomes/program/src/lib.rs"
@@ -6039,7 +6050,7 @@
   {
    "id": "crates/hopper-native/src/hash.rs::hash_syscall!#1",
    "file": "crates/hopper-native/src/hash.rs",
-   "line": 55,
+   "line": 54,
    "kind": "block",
    "function": "hash_syscall!",
    "type": null,
@@ -6056,7 +6067,7 @@
   {
    "id": "crates/hopper-native/src/hash.rs::sha256#1",
    "file": "crates/hopper-native/src/hash.rs",
-   "line": 87,
+   "line": 86,
    "kind": "block",
    "function": "sha256",
    "type": null,
@@ -6064,6 +6075,7 @@
    "justification": "the syscall wrote all 32 bytes (see `hash_syscall!`).",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/grillo-manifest/src/sha256.rs (test module)",
     "crates/hopper-native/src/hash.rs (test module)",
     "crates/hopper-native/src/sha256.rs (test module)",
@@ -6080,7 +6092,7 @@
   {
    "id": "crates/hopper-native/src/hash.rs::keccak256#1",
    "file": "crates/hopper-native/src/hash.rs",
-   "line": 124,
+   "line": 123,
    "kind": "block",
    "function": "keccak256",
    "type": null,
@@ -6088,6 +6100,7 @@
    "justification": "the syscall wrote all 32 bytes (see `hash_syscall!`).",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/src/hash.rs (test module)",
     "crates/hopper-runtime/src/crypto.rs (test module)"
    ],
@@ -6100,7 +6113,7 @@
   {
    "id": "crates/hopper-native/src/hash.rs::blake3#1",
    "file": "crates/hopper-native/src/hash.rs",
-   "line": 153,
+   "line": 152,
    "kind": "block",
    "function": "blake3",
    "type": null,
@@ -6108,6 +6121,7 @@
    "justification": "the syscall wrote all 32 bytes (see `hash_syscall!`).",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/src/hash.rs (test module)",
     "crates/hopper-runtime/src/crypto.rs (test module)"
    ],
@@ -6120,14 +6134,16 @@
   {
    "id": "crates/hopper-native/src/hash.rs::sha512#1",
    "file": "crates/hopper-native/src/hash.rs",
-   "line": 189,
+   "line": 188,
    "kind": "block",
    "function": "sha512",
    "type": null,
    "public": null,
    "justification": "the syscall wrote all 64 bytes (see `hash_syscall!`).",
    "justification_class": "specific",
-   "tests": [],
+   "tests": [
+    "bench/function-lab/program/src/lib.rs"
+   ],
    "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
@@ -6267,8 +6283,10 @@
    "public": null,
    "justification": "The syscall takes no pointer and has no memory precondition.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "require_top_level",
+   "tests": [
+    "bench/function-lab/program/src/lib.rs"
+   ],
+   "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 1,
@@ -6353,12 +6371,15 @@
    "justification": "`tail` points at the 8-byte instruction-data length prefix in the BPF input buffer, immediately followed by that many data bytes. `read_unaligned` avoids assuming pointer alignment (the tail is in fact 8-aligned). The buffer outlives the whole instruction.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "crates/hopper-core/src/dispatch/mod.rs (test module)",
     "crates/hopper-core/tests/trust_tests.rs",
     "crates/hopper-native/src/lazy.rs (test module)",
     "crates/hopper-runtime/src/lazy.rs (test module)",
     "crates/hopper-runtime/src/token_differential_tests.rs",
-    "crates/hopper-spl/hopper-token-2022/tests/mint_plan.rs"
+    "crates/hopper-spl/hopper-token-2022/tests/mint_plan.rs",
+    "tests/borrowed_dispatch.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -6624,6 +6645,7 @@
    "justification": "bounds checked above; the sum stays within the data region.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/tests/projection_and_lenses.rs"
    ],
    "reached_through": null,
@@ -6643,6 +6665,7 @@
    "justification": "`ptr` is within account data bounds, `T: Pod` guarantees alignment-1 + any-bit-pattern validity, and the returned guard's lifetime is tied to `account`.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/tests/projection_and_lenses.rs"
    ],
    "reached_through": null,
@@ -6926,7 +6949,7 @@
    "justification": "`segments` is a live `&[&[u8]]`; on SBF each element is the 16-byte (pointer, length) pair the syscall reads, and every inner slice outlives the synchronous call.",
    "justification_class": "specific",
    "tests": [],
-   "reached_through": "emit_touch_map",
+   "reached_through": "emit_receipt",
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -6943,7 +6966,9 @@
    "justification": "every byte in `buf[..pos]` was copied from a `&str` by `write_str`, which copies whole strings or cuts on a character boundary and then accepts nothing more, so the prefix is a concatenation of valid UTF-8 strings.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/framework-comparison/verifier/src/main.rs",
+    "bench/framework-comparison/verifier/tests/function_lab_sbf.rs",
     "crates/grillo-manifest/tests/effect_v2_contract.rs",
     "crates/grillo-manifest/tests/parse_real_cicada_manifest.rs",
     "crates/hopper-core/src/manifest.rs (test module)",
@@ -6952,9 +6977,7 @@
     "crates/hopper-runtime/src/tail.rs (test module)",
     "crates/hopper-schema/src/accounts.rs (test module)",
     "src/__macro_support.rs (test module)",
-    "tests/dynamic_account_integration.rs",
-    "tests/hybrid_tail_integration.rs",
-    "tests/wrapper_context_integration.rs"
+    "tests/borrowed_slices.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -7220,6 +7243,7 @@
    "justification": "The pointer and the length come from one `&mut [u8]`.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/tests/mem_primitives.rs"
    ],
    "reached_through": null,
@@ -7239,6 +7263,7 @@
    "justification": "`dst.len() >= src.len()` was checked above, and a `&mut` slice cannot overlap a shared one.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/tests/mem_primitives.rs",
     "crates/hopper-runtime/src/memory.rs (test module)"
    ],
@@ -7259,6 +7284,7 @@
    "justification": "The lengths were checked equal above, so both slices are valid for `a.len()` bytes.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/tests/mem_primitives.rs",
     "crates/hopper-runtime/src/memory.rs (test module)"
    ],
@@ -7714,13 +7740,13 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "73f6b8f10b88c060c92e700e4436f25c9fe7442c1e7b8140f8c9792f5d48af06"
+   "lines_of_code": 16,
+   "sha256": "43df2fc948654602390044638003d4295c1efb48a9a7dd2ded188f7fbc79608c"
   },
   {
    "id": "crates/hopper-native/src/pod.rs::ValuePod#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 83,
+   "line": 98,
    "kind": "trait",
    "function": "ValuePod",
    "type": null,
@@ -7737,7 +7763,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u8#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 94,
+   "line": 109,
    "kind": "impl",
    "function": "u8",
    "type": null,
@@ -7754,7 +7780,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u8#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 95,
+   "line": 110,
    "kind": "impl",
    "function": "u8",
    "type": null,
@@ -7771,7 +7797,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u16#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 96,
+   "line": 111,
    "kind": "impl",
    "function": "u16",
    "type": null,
@@ -7788,7 +7814,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u32#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 97,
+   "line": 112,
    "kind": "impl",
    "function": "u32",
    "type": null,
@@ -7805,7 +7831,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u64#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 98,
+   "line": 113,
    "kind": "impl",
    "function": "u64",
    "type": null,
@@ -7822,7 +7848,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u128#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 99,
+   "line": 114,
    "kind": "impl",
    "function": "u128",
    "type": null,
@@ -7839,7 +7865,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i8#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 100,
+   "line": 115,
    "kind": "impl",
    "function": "i8",
    "type": null,
@@ -7856,7 +7882,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i8#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 101,
+   "line": 116,
    "kind": "impl",
    "function": "i8",
    "type": null,
@@ -7873,7 +7899,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i16#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 102,
+   "line": 117,
    "kind": "impl",
    "function": "i16",
    "type": null,
@@ -7890,7 +7916,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i32#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 103,
+   "line": 118,
    "kind": "impl",
    "function": "i32",
    "type": null,
@@ -7907,7 +7933,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i64#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 104,
+   "line": 119,
    "kind": "impl",
    "function": "i64",
    "type": null,
@@ -7924,7 +7950,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i128#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 105,
+   "line": 120,
    "kind": "impl",
    "function": "i128",
    "type": null,
@@ -7941,7 +7967,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::T#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 106,
+   "line": 121,
    "kind": "impl",
    "function": "T",
    "type": null,
@@ -7956,26 +7982,9 @@
    "sha256": "31a492c9ffa086c5f7821a2765984cd38701f60c85c06bfa3b0ce2115c1c0b25"
   },
   {
-   "id": "crates/hopper-native/src/pod.rs::T#2",
-   "file": "crates/hopper-native/src/pod.rs",
-   "line": 107,
-   "kind": "impl",
-   "function": "T",
-   "type": null,
-   "public": false,
-   "justification": "integers, arrays of them, and `()` have no padding, hold no pointers, and accept every bit pattern, all-zero included. `Pod` is implemented for the alignment-1 types only (`u8`, `i8`, arrays of `Pod`, `()`), so a reference overlaid on account bytes is never misaligned. `Zeroable` / `ValuePod`: every native integer is a valid by-value POD. `Pod`: only alignment-1 types (so `&T` overlays are never misaligned).",
-   "justification_class": "shared",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "6824a9e075cf5d542a4add95e2616588668ee330d475eed9daf7d74546ef8e9c"
-  },
-  {
    "id": "crates/hopper-native/src/pod.rs::Zeroable#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 108,
+   "line": 122,
    "kind": "impl",
    "function": "Zeroable",
    "type": null,
@@ -7992,7 +8001,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::Pod#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 109,
+   "line": 123,
    "kind": "impl",
    "function": "Pod",
    "type": null,
@@ -8007,9 +8016,26 @@
    "sha256": "03a17171cb1441be1d36534e85b82332dfb85f9c382f6764728287aa6eeda1b7"
   },
   {
+   "id": "crates/hopper-native/src/pod.rs::T#2",
+   "file": "crates/hopper-native/src/pod.rs",
+   "line": 128,
+   "kind": "impl",
+   "function": "T",
+   "type": null,
+   "public": false,
+   "justification": "an array of Pod elements is alignment-1, has no padding or pointers, and admits every bit pattern. Validation only checks values; it does not relax any of those memory-layout requirements.",
+   "justification_class": "specific",
+   "tests": [],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "not attributable",
+   "lines_of_code": 9,
+   "sha256": "ba73a51e2e42b4de863ab38dbf8762bf7da12f5869e78d6609fadbc6a5c16524"
+  },
+  {
    "id": "crates/hopper-native/src/pod.rs::u8#3",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 116,
+   "line": 143,
    "kind": "impl",
    "function": "u8",
    "type": null,
@@ -8026,7 +8052,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u16#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 117,
+   "line": 144,
    "kind": "impl",
    "function": "u16",
    "type": null,
@@ -8043,7 +8069,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u32#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 118,
+   "line": 145,
    "kind": "impl",
    "function": "u32",
    "type": null,
@@ -8060,7 +8086,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u64#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 119,
+   "line": 146,
    "kind": "impl",
    "function": "u64",
    "type": null,
@@ -8077,7 +8103,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::u128#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 120,
+   "line": 147,
    "kind": "impl",
    "function": "u128",
    "type": null,
@@ -8094,7 +8120,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i8#3",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 121,
+   "line": 148,
    "kind": "impl",
    "function": "i8",
    "type": null,
@@ -8111,7 +8137,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i16#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 122,
+   "line": 149,
    "kind": "impl",
    "function": "i16",
    "type": null,
@@ -8128,7 +8154,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i32#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 123,
+   "line": 150,
    "kind": "impl",
    "function": "i32",
    "type": null,
@@ -8145,7 +8171,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i64#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 124,
+   "line": 151,
    "kind": "impl",
    "function": "i64",
    "type": null,
@@ -8162,7 +8188,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::i128#2",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 125,
+   "line": 152,
    "kind": "impl",
    "function": "i128",
    "type": null,
@@ -8179,7 +8205,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::T#3",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 126,
+   "line": 153,
    "kind": "impl",
    "function": "T",
    "type": null,
@@ -8196,7 +8222,7 @@
   {
    "id": "crates/hopper-native/src/pod.rs::read_unaligned_value#1",
    "file": "crates/hopper-native/src/pod.rs",
-   "line": 147,
+   "line": 174,
    "kind": "block",
    "function": "read_unaligned_value",
    "type": null,
@@ -10148,6 +10174,7 @@
    "justification": "`Clock` is repr(C) with size 40, every bit pattern of its integer fields is valid, and the view covers exactly the struct.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "tests/sysvar_prelude.rs"
    ],
    "reached_through": null,
@@ -10167,6 +10194,7 @@
    "justification": "`RENT_ID` is a 32-byte address and the destination is the first `RENT_IMAGE_LEN` bytes of `rent` (the offsets are pinned below); the syscall writes exactly that many bytes or none.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "tests/sysvar_prelude.rs"
    ],
    "reached_through": null,
@@ -10186,6 +10214,7 @@
    "justification": "the syscall succeeded, so it wrote all three fields (the rate, the threshold, and the burn percent), every bit pattern of which is valid; only padding is left uninitialized.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "tests/sysvar_prelude.rs"
    ],
    "reached_through": null,
@@ -10197,15 +10226,17 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_sysvar_into#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 483,
+   "line": 491,
    "kind": "block",
    "function": "get_sysvar_into",
    "type": null,
    "public": null,
    "justification": "`sysvar_id` is a 32-byte address; `dst` is valid for its own length; the syscall copies exactly `dst.len()` bytes or none.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "get_clock",
+   "tests": [
+    "bench/function-lab/program/src/lib.rs"
+   ],
+   "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 8,
@@ -10214,7 +10245,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_sysvar_prefix_at#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 522,
+   "line": 530,
    "kind": "block",
    "function": "get_sysvar_prefix_at",
    "type": null,
@@ -10231,7 +10262,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_epoch_stake#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 551,
+   "line": 559,
    "kind": "block",
    "function": "get_epoch_stake",
    "type": null,
@@ -10248,7 +10279,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_total_epoch_stake#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 567,
+   "line": 575,
    "kind": "block",
    "function": "get_total_epoch_stake",
    "type": null,
@@ -10265,7 +10296,7 @@
   {
    "id": "crates/hopper-native/src/sysvar.rs::get_last_restart_slot#1",
    "file": "crates/hopper-native/src/sysvar.rs",
-   "line": 597,
+   "line": 605,
    "kind": "block",
    "function": "get_last_restart_slot",
    "type": null,
@@ -12101,6 +12132,26 @@
    "sha256": "56b0e9c0beeca749fd21bdcf4ee260a8c60f9ad9cccb1f96e64d4af8fb62ec16"
   },
   {
+   "id": "crates/hopper-runtime/src/bounded_slice.rs::parse_prefix#1",
+   "file": "crates/hopper-runtime/src/bounded_slice.rs",
+   "line": 61,
+   "kind": "block",
+   "function": "parse_prefix",
+   "type": "BoundedSlice",
+   "public": null,
+   "justification": "Pod guarantees alignment 1, no padding/pointers, and valid Rust values for every bit pattern. `bytes` is a live, non-null slice of exactly count * size_of::<T>() initialized bytes in one allocation. The shared result retains input's lifetime and cannot mutate it.",
+   "justification_class": "specific",
+   "tests": [
+    "bench/borrowed-slices/program/src/lib.rs",
+    "crates/hopper-runtime/src/bounded_slice.rs (test module)"
+   ],
+   "reached_through": null,
+   "on_chain_only": false,
+   "test_attribution": "by name",
+   "lines_of_code": 1,
+   "sha256": "cce9a7622a2417c3ac83ec8d4b7ee02a25b089e45567b09f1d6d546ed59d77ec"
+  },
+  {
    "id": "crates/hopper-runtime/src/context.rs::parametric_write_args#1",
    "file": "crates/hopper-runtime/src/context.rs",
    "line": 108,
@@ -12700,73 +12751,9 @@
    "sha256": "f515fc0e5099739f278a3b1d7bc767738e6aab8fd1dfbc785a43e200e0bfc09c"
   },
   {
-   "id": "crates/hopper-runtime/src/crypto.rs::sha256#1",
-   "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 139,
-   "kind": "block",
-   "function": "sha256",
-   "type": null,
-   "public": null,
-   "justification": "`inputs` is a valid slice of slice descriptors and `result` points to exactly 32 writable output bytes.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/grillo-manifest/src/sha256.rs (test module)",
-    "crates/hopper-native/src/hash.rs (test module)",
-    "crates/hopper-native/src/sha256.rs (test module)",
-    "crates/hopper-runtime/src/crypto.rs (test module)",
-    "crates/hopper-runtime/src/token_metadata_ix.rs (test module)",
-    "examples/hopper-compact-vault/tests/devnet.rs"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 7,
-   "sha256": "79848d0a2e8a84f4b0dc94114ce84b05673eaa48a91b17a9d8fd8ee2422b98ed"
-  },
-  {
-   "id": "crates/hopper-runtime/src/crypto.rs::keccak256#1",
-   "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 163,
-   "kind": "block",
-   "function": "keccak256",
-   "type": null,
-   "public": null,
-   "justification": "`inputs` is a valid slice of slice descriptors and `result` points to exactly 32 writable output bytes.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/hash.rs (test module)",
-    "crates/hopper-runtime/src/crypto.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 7,
-   "sha256": "07d3e21b9af2c645fa7a147eac01635d9f34fc3353544367941b33472a0f9015"
-  },
-  {
-   "id": "crates/hopper-runtime/src/crypto.rs::blake3#1",
-   "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 187,
-   "kind": "block",
-   "function": "blake3",
-   "type": null,
-   "public": null,
-   "justification": "`inputs` is a valid slice of slice descriptors and `result` points to exactly 32 writable output bytes.",
-   "justification_class": "specific",
-   "tests": [
-    "crates/hopper-native/src/hash.rs (test module)",
-    "crates/hopper-runtime/src/crypto.rs (test module)"
-   ],
-   "reached_through": null,
-   "on_chain_only": false,
-   "test_attribution": "by name",
-   "lines_of_code": 7,
-   "sha256": "3ec47d1b30f6953116670522d7d08bb79ecbadb4530ef0c9bd65e75de360807e"
-  },
-  {
    "id": "crates/hopper-runtime/src/crypto.rs::secp256k1_recover#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 214,
+   "line": 173,
    "kind": "block",
    "function": "secp256k1_recover",
    "type": null,
@@ -12785,7 +12772,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::curve_validate_point#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 255,
+   "line": 214,
    "kind": "block",
    "function": "curve_validate_point",
    "type": null,
@@ -12793,6 +12780,7 @@
    "justification": "`point` points to exactly 32 bytes; null output pointer requests validation-only behavior from Solana's curve syscall.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-runtime/src/unsafe_site_tests.rs"
    ],
    "reached_through": null,
@@ -12804,7 +12792,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::curve_group_op#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 276,
+   "line": 235,
    "kind": "block",
    "function": "curve_group_op",
    "type": null,
@@ -12821,7 +12809,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::curve_group_mul#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 321,
+   "line": 280,
    "kind": "block",
    "function": "curve_group_mul",
    "type": null,
@@ -12829,6 +12817,7 @@
    "justification": "Solana's multiply op expects scalar left, point right, and a fixed-width 32-byte result buffer.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-runtime/src/unsafe_site_tests.rs"
    ],
    "reached_through": null,
@@ -12840,7 +12829,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::curve_multiscalar_mul#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 350,
+   "line": 309,
    "kind": "block",
    "function": "curve_multiscalar_mul",
    "type": null,
@@ -12859,7 +12848,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::poseidon_hashv#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 382,
+   "line": 341,
    "kind": "block",
    "function": "poseidon_hashv",
    "type": null,
@@ -12878,7 +12867,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::alt_bn128_group_op#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 421,
+   "line": 380,
    "kind": "block",
    "function": "alt_bn128_group_op",
    "type": null,
@@ -12895,7 +12884,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::alt_bn128_compression_op#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 443,
+   "line": 402,
    "kind": "block",
    "function": "alt_bn128_compression_op",
    "type": null,
@@ -12912,7 +12901,7 @@
   {
    "id": "crates/hopper-runtime/src/crypto.rs::big_mod_exp#1",
    "file": "crates/hopper-runtime/src/crypto.rs",
-   "line": 552,
+   "line": 525,
    "kind": "block",
    "function": "big_mod_exp",
    "type": null,
@@ -12920,6 +12909,7 @@
    "justification": "params has Solana's C layout and `output` has exactly modulus.len() writable bytes, which is the syscall's output size contract.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-runtime/src/crypto.rs (test module)"
    ],
    "reached_through": null,
@@ -13108,8 +13098,8 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "f464d063df378862b55bcdd34a9486b9de49667cd1a46547c6a79bee92d56903"
+   "lines_of_code": 6,
+   "sha256": "df728d1e23a0df2d79d806c2f091a0b10d1117f360f30e55b3790b4e5f9f0bd1"
   },
   {
    "id": "crates/hopper-runtime/src/error.rs::from#1",
@@ -13512,7 +13502,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::hopper_unsafe_region!#1",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 499,
+   "line": 501,
    "kind": "block",
    "function": "hopper_unsafe_region!",
    "type": null,
@@ -13531,7 +13521,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#1",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 673,
+   "line": 675,
    "kind": "fn",
    "function": "entrypoint",
    "type": null,
@@ -13548,7 +13538,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#2",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 681,
+   "line": 683,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13565,7 +13555,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#3",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 690,
+   "line": 692,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13582,7 +13572,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#4",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 696,
+   "line": 698,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13599,7 +13589,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#5",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 753,
+   "line": 755,
    "kind": "fn",
    "function": "entrypoint",
    "type": null,
@@ -13616,7 +13606,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#6",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 763,
+   "line": 765,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13633,7 +13623,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#7",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 774,
+   "line": 776,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13650,7 +13640,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#8",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 776,
+   "line": 778,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13667,7 +13657,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#9",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 782,
+   "line": 784,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13684,7 +13674,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#10",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 796,
+   "line": 798,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13701,7 +13691,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#11",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 807,
+   "line": 809,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13718,7 +13708,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#12",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 820,
+   "line": 822,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13735,7 +13725,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#13",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 825,
+   "line": 827,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13752,7 +13742,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#14",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 888,
+   "line": 890,
    "kind": "fn",
    "function": "entrypoint",
    "type": null,
@@ -13769,7 +13759,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#15",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 894,
+   "line": 896,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13786,7 +13776,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#16",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 898,
+   "line": 900,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13803,7 +13793,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#17",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 902,
+   "line": 904,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13820,7 +13810,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#18",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 927,
+   "line": 929,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13837,7 +13827,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#19",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 938,
+   "line": 940,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13854,7 +13844,7 @@
   {
    "id": "crates/hopper-runtime/src/lib.rs::entrypoint#20",
    "file": "crates/hopper-runtime/src/lib.rs",
-   "line": 947,
+   "line": 949,
    "kind": "block",
    "function": "entrypoint",
    "type": null,
@@ -13913,7 +13903,9 @@
    "justification": "every byte in `buf[..pos]` was copied from a `&str` by `write_str`, which copies whole strings or cuts on a character boundary and then accepts nothing more, so the prefix is a concatenation of valid UTF-8 strings.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/framework-comparison/verifier/src/main.rs",
+    "bench/framework-comparison/verifier/tests/function_lab_sbf.rs",
     "crates/grillo-manifest/tests/effect_v2_contract.rs",
     "crates/grillo-manifest/tests/parse_real_cicada_manifest.rs",
     "crates/hopper-core/src/manifest.rs (test module)",
@@ -13922,9 +13914,7 @@
     "crates/hopper-runtime/src/tail.rs (test module)",
     "crates/hopper-schema/src/accounts.rs (test module)",
     "src/__macro_support.rs (test module)",
-    "tests/dynamic_account_integration.rs",
-    "tests/hybrid_tail_integration.rs",
-    "tests/wrapper_context_integration.rs"
+    "tests/borrowed_slices.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -14036,17 +14026,17 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/verifier/tests/ambient_gate_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_args_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_slices_sbf.rs",
     "bench/framework-comparison/verifier/tests/governance_sbf.rs",
     "bench/framework-comparison/verifier/tests/lifecycle_sbf.rs",
     "bench/framework-comparison/verifier/tests/orderbook_sbf.rs",
     "bench/framework-comparison/verifier/tests/token_escrow_sbf.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/runtime-gate/program/src/lib.rs",
     "crates/hopper-native/tests/borrow_aware_readers.rs",
-    "crates/hopper-solana/src/token2022_ext.rs (test module)",
-    "crates/hopper-solana/tests/transfer.rs",
-    "crates/hopper-spl/hopper-token-2022/src/hook.rs (test module)",
-    "examples/hopper-cicada/tests/lifecycle_sbf_e2e.rs"
+    "crates/hopper-solana/src/token2022_ext.rs (test module)"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -14066,17 +14056,17 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/verifier/tests/ambient_gate_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_args_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_slices_sbf.rs",
     "bench/framework-comparison/verifier/tests/governance_sbf.rs",
     "bench/framework-comparison/verifier/tests/lifecycle_sbf.rs",
     "bench/framework-comparison/verifier/tests/orderbook_sbf.rs",
     "bench/framework-comparison/verifier/tests/token_escrow_sbf.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/lifecycle/native/src/lib.rs",
     "bench/runtime-gate/program/src/lib.rs",
     "crates/hopper-native/tests/borrow_aware_readers.rs",
-    "crates/hopper-solana/src/token2022_ext.rs (test module)",
-    "crates/hopper-solana/tests/transfer.rs",
-    "crates/hopper-spl/hopper-token-2022/src/hook.rs (test module)",
-    "examples/hopper-cicada/tests/lifecycle_sbf_e2e.rs"
+    "crates/hopper-solana/src/token2022_ext.rs (test module)"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -14135,6 +14125,7 @@
    "justification": "Slices are valid and distinct borrows, so they do not overlap.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-native/tests/mem_primitives.rs",
     "crates/hopper-runtime/src/memory.rs (test module)"
    ],
@@ -14155,6 +14146,7 @@
    "justification": "Bounds are checked above; memmove supports overlap.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-runtime/src/memory.rs (test module)"
    ],
    "reached_through": null,
@@ -14173,8 +14165,10 @@
    "public": null,
    "justification": "The mutable slice is valid for its full length.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "zero_bytes",
+   "tests": [
+    "bench/function-lab/program/src/lib.rs"
+   ],
+   "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -14191,6 +14185,7 @@
    "justification": "Slices are readable for `prefix_len` bytes.",
    "justification_class": "specific",
    "tests": [
+    "bench/function-lab/program/src/lib.rs",
     "crates/hopper-runtime/src/memory.rs (test module)"
    ],
    "reached_through": null,
@@ -14534,8 +14529,8 @@
    "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "not attributable",
-   "lines_of_code": 1,
-   "sha256": "269bc8f1fef85063d39dd9d1fb944677c205189e9eabd0b17780c0c34ff8699c"
+   "lines_of_code": 9,
+   "sha256": "2ed4d95c47f3d66e900d9168752b01c091ed052d0f5d12dae8aaf624ed3bb082"
   },
   {
    "id": "crates/hopper-runtime/src/pda.rs::find_and_verify_pda#1",
@@ -14639,6 +14634,8 @@
    "justification": "`data` is a valid byte slice for its full length.",
    "justification_class": "specific",
    "tests": [
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/checked-cpi/program/src/lib.rs",
     "bench/return-provenance/program/src/lib.rs",
     "bench/token-outcomes/program/src/lib.rs"
@@ -14956,7 +14953,8 @@
    "justification_class": "specific",
    "tests": [
     "crates/hopper-core/src/account/reader.rs (test module)",
-    "crates/hopper-runtime/src/enum_byte.rs (test module)"
+    "crates/hopper-runtime/src/enum_byte.rs (test module)",
+    "tests/checked_args.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -14993,6 +14991,7 @@
    "justification_class": "specific",
    "tests": [
     "bench/framework-comparison/programs/counter/hopper/src/lib.rs",
+    "bench/function-lab/program/src/lib.rs",
     "bench/pda-boundaries/program/src/lib.rs",
     "crates/hopper-core/src/collections/mod.rs (test module)",
     "crates/hopper-core/tests/unsafe_boundary_tests.rs",
@@ -15131,8 +15130,10 @@
    "public": true,
    "justification": "`vals` must point to a valid array of slice descriptors and `result` must point to writable storage for 32 output bytes.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "based_try_find_program_address",
+   "tests": [
+    "crates/hopper-runtime/src/syscalls.rs (test module)"
+   ],
+   "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 13,
@@ -15148,8 +15149,10 @@
    "public": null,
    "justification": "This function's `# Safety` contract is the callee's, forwarded unchanged.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "based_try_find_program_address",
+   "tests": [
+    "crates/hopper-runtime/src/syscalls.rs (test module)"
+   ],
+   "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -15165,8 +15168,10 @@
    "public": true,
    "justification": "`vals` must point to a valid array of slice descriptors and `result` must point to writable storage for 32 output bytes.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "keccak256",
+   "tests": [
+    "crates/hopper-runtime/src/syscalls.rs (test module)"
+   ],
+   "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 13,
@@ -15182,8 +15187,10 @@
    "public": null,
    "justification": "This function's `# Safety` contract is the callee's, forwarded unchanged.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "keccak256",
+   "tests": [
+    "crates/hopper-runtime/src/syscalls.rs (test module)"
+   ],
+   "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -15199,8 +15206,10 @@
    "public": true,
    "justification": "`vals` must point to a valid array of slice descriptors and `result` must point to writable storage for 32 output bytes.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "blake3",
+   "tests": [
+    "crates/hopper-runtime/src/syscalls.rs (test module)"
+   ],
+   "reached_through": null,
    "on_chain_only": false,
    "test_attribution": "by name",
    "lines_of_code": 13,
@@ -15216,8 +15225,10 @@
    "public": null,
    "justification": "Caller supplies the Solana hash syscall descriptors and output buffer.",
    "justification_class": "specific",
-   "tests": [],
-   "reached_through": "blake3",
+   "tests": [
+    "crates/hopper-runtime/src/syscalls.rs (test module)"
+   ],
+   "reached_through": null,
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -15506,7 +15517,7 @@
    "justification": "The syscall takes no pointer and has no memory precondition.",
    "justification_class": "specific",
    "tests": [],
-   "reached_through": "require_top_level",
+   "reached_through": "get_stack_height",
    "on_chain_only": true,
    "test_attribution": "by name",
    "lines_of_code": 3,
@@ -15842,7 +15853,7 @@
   {
    "id": "crates/hopper-runtime/src/tail.rs::borrow_address_slice#1",
    "file": "crates/hopper-runtime/src/tail.rs",
-   "line": 1253,
+   "line": 1265,
    "kind": "block",
    "function": "borrow_address_slice",
    "type": null,
@@ -16295,6 +16306,9 @@
    "justification": "Each `BackingAccount` begins with an initialized, u64-aligned `RuntimeAccount` followed by its data and realloc headroom. The distinct mutable iteration keeps the views disjoint, and `backing` outlives every view.",
    "justification_class": "specific",
    "tests": [
+    "audit/full-devnet-2026-10-07/source-delta/bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs",
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/checked-cpi/program/src/lib.rs",
     "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs",
     "bench/framework-comparison/programs/hello/hopper-substrate/src/lib.rs",
@@ -16302,11 +16316,8 @@
     "bench/framework-comparison/reference/hello/src/lib.rs",
     "bench/framework-comparison/verifier/src/main.rs",
     "bench/framework-comparison/verifier/tests/ambient_gate_sbf.rs",
-    "bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs",
-    "bench/framework-comparison/verifier/tests/canonical_pda_sbf.rs",
-    "bench/framework-comparison/verifier/tests/checked_cpi_sbf.rs",
-    "bench/framework-comparison/verifier/tests/governance_sbf.rs",
-    "bench/framework-comparison/verifier/tests/lifecycle_sbf.rs"
+    "bench/framework-comparison/verifier/tests/borrowed_args_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_slices_sbf.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -16325,6 +16336,9 @@
    "justification": "Hopper's runtime `AccountView` is layout-checked as transparent over `NativeAccountView`. The source slice remains alive and unchanged for the complete dispatcher call.",
    "justification_class": "specific",
    "tests": [
+    "audit/full-devnet-2026-10-07/source-delta/bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs",
+    "bench/borrowed-args/program/src/lib.rs",
+    "bench/borrowed-slices/program/src/lib.rs",
     "bench/checked-cpi/program/src/lib.rs",
     "bench/framework-comparison/programs/counter/hopper-substrate/src/lib.rs",
     "bench/framework-comparison/programs/hello/hopper-substrate/src/lib.rs",
@@ -16332,11 +16346,8 @@
     "bench/framework-comparison/reference/hello/src/lib.rs",
     "bench/framework-comparison/verifier/src/main.rs",
     "bench/framework-comparison/verifier/tests/ambient_gate_sbf.rs",
-    "bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs",
-    "bench/framework-comparison/verifier/tests/canonical_pda_sbf.rs",
-    "bench/framework-comparison/verifier/tests/checked_cpi_sbf.rs",
-    "bench/framework-comparison/verifier/tests/governance_sbf.rs",
-    "bench/framework-comparison/verifier/tests/lifecycle_sbf.rs"
+    "bench/framework-comparison/verifier/tests/borrowed_args_sbf.rs",
+    "bench/framework-comparison/verifier/tests/borrowed_slices_sbf.rs"
    ],
    "reached_through": null,
    "on_chain_only": false,
@@ -16394,41 +16405,7 @@
    "test_attribution": "by name",
    "lines_of_code": 1,
    "sha256": "b2be3fe13ad7863c60b09b58bb7484622b3f79da474339544241017fa130553f"
-  },
-  {
-   "id": "src/receipts.rs::emit_receipt#1",
-   "file": "src/receipts.rs",
-   "line": 51,
-   "kind": "block",
-   "function": "emit_receipt",
-   "type": null,
-   "public": null,
-   "justification": "`field` matches the runtime `SolBytes` ABI, and both the descriptor and its borrowed byte slice remain valid for the duration of this synchronous syscall. The descriptor count is exactly one.",
-   "justification_class": "specific",
-   "tests": [],
-   "reached_through": "expand",
-   "on_chain_only": true,
-   "test_attribution": "by name",
-   "lines_of_code": 3,
-   "sha256": "c0ab28eac59ae98412cd6e6838fb5689fc5b9fd4e564f70e199fd45fa6b094f4"
-  },
-  {
-   "id": "src/receipts.rs::emit_tagged_receipt#1",
-   "file": "src/receipts.rs",
-   "line": 84,
-   "kind": "block",
-   "function": "emit_tagged_receipt",
-   "type": null,
-   "public": null,
-   "justification": "Both descriptors match the runtime `SolBytes` ABI and point to live slices for the duration of this synchronous syscall. The descriptor count matches the two-element `fields` array.",
-   "justification_class": "specific",
-   "tests": [],
-   "reached_through": null,
-   "on_chain_only": true,
-   "test_attribution": "by name",
-   "lines_of_code": 3,
-   "sha256": "4395cf1b1f3776c6bd36db962648ede420f57b9434080aaca69b836c8ce30971"
   }
  ],
- "test_code_sites": 267
+ "test_code_sites": 268
 }

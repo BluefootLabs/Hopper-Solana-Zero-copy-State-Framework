@@ -1,0 +1,9 @@
+{
+  "paths": [
+    "crates/hopper-macros-proc/src/program.rs",
+    "tests/borrowed_slices.rs"
+  ],
+  "description": "After live execution, the macro expansion unit test changed from literal size expectations to decoder-trait metadata expectations, and two unnecessary fixture clones were removed. The final full SBF matrix rebuild produces the exact same borrowed-batch ELF executed on devnet. The later clone cleanup touches only an integration test, with its exact reversible delta recorded separately.",
+  "liveElfSha256": "56c5d135c10c1b7d2b6ea03bf9555343ed412f51800227ce411e65bc176a4878",
+  "finalElfSha256": "56c5d135c10c1b7d2b6ea03bf9555343ed412f51800227ce411e65bc176a4878"
+}

@@ -1,0 +1,143 @@
+[
+  {
+    "name": "epoch-boundaries",
+    "command": [
+      "cargo",
+      "test",
+      "-j",
+      "1",
+      "-p",
+      "hopper-native",
+      "--locked",
+      "--offline",
+      "epoch_schedule"
+    ],
+    "exitCode": 0,
+    "logSha256": "7d3fb69b2302307c67753c46bfef5aedf024adb64503aa00c7d6a16a11ebae8c"
+  },
+  {
+    "name": "big-mod-exp-shapes",
+    "command": [
+      "cargo",
+      "test",
+      "-j",
+      "1",
+      "-p",
+      "hopper-runtime",
+      "--features",
+      "crypto-big-mod-exp",
+      "--locked",
+      "--offline",
+      "big_mod_exp"
+    ],
+    "exitCode": 0,
+    "logSha256": "ecc89527d0cc2679c4b675f13e8c8a07e2f74b5b3e2b631864cc2e1b8e3214fa"
+  },
+  {
+    "name": "blake3-build",
+    "command": [
+      "cargo",
+      "build-sbf",
+      "--manifest-path",
+      "bench/function-lab/program/Cargo.toml",
+      "--features",
+      "blake3-syscall",
+      "--arch",
+      "v3",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\additional-checks-clean\\blake3",
+      "--",
+      "--locked",
+      "--offline",
+      "-j",
+      "1"
+    ],
+    "exitCode": 0,
+    "logSha256": "46d5009f34ae15dad58b80f177d0f3502964db8e78b95e57bb34fbeb11075e54"
+  },
+  {
+    "name": "default-v0-build",
+    "command": [
+      "cargo",
+      "build-sbf",
+      "--manifest-path",
+      "bench/function-lab/program/Cargo.toml",
+      "--arch",
+      "v0",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\additional-checks-clean\\v0",
+      "--",
+      "--locked",
+      "--offline",
+      "-j",
+      "1"
+    ],
+    "exitCode": 0,
+    "logSha256": "f094b4e7ffe70fdf16c4d1f7f1329ca28753662861380e904164112f0fddf471"
+  },
+  {
+    "name": "default-v0-cases",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "scripts/function-lab-cases.py",
+      "--out",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\additional-checks-clean\\default-v0-cases.json"
+    ],
+    "exitCode": 0,
+    "logSha256": "a7fe99e992d48304a503bb0dfe476f1e85d88b62cccbcdb1c4536645cbbe11ad"
+  },
+  {
+    "name": "default-v0-vm",
+    "command": [
+      "cargo",
+      "test",
+      "-j",
+      "1",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "function_lab_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "logSha256": "45b2512a4a7f279a2cda0f996c352709a807efa7010cb293bd9cb08ed5c5cf96",
+    "elfSha256": "220fce6565ad6b26058ee8f8fbab44164171ae6dd5a7fe350c9a95aa5f30384f"
+  },
+  {
+    "name": "blake3-v3-cases",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "scripts/function-lab-cases.py",
+      "--out",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\additional-checks-clean\\blake3-v3-cases.json",
+      "--blake3"
+    ],
+    "exitCode": 0,
+    "logSha256": "2d7e8d741f1bf32f18144c8df77e7030aee1ff5a9907de9e8995070ff77f3c5d"
+  },
+  {
+    "name": "blake3-v3-vm",
+    "command": [
+      "cargo",
+      "test",
+      "-j",
+      "1",
+      "-p",
+      "hopper-framework-verifier",
+      "--test",
+      "function_lab_sbf",
+      "--locked",
+      "--offline",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "exitCode": 0,
+    "logSha256": "f10377d25da45c9c14f7b4bae99374bd9554e2ff20b8217785cb9606b6b3a27a",
+    "elfSha256": "f65462ffdc6a6f6c58fca140722f43efcf3317190f6cc7857c5ee40a8a78b913"
+  }
+]

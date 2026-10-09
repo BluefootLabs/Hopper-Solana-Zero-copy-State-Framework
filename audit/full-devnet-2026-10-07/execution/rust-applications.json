@@ -1,0 +1,103 @@
+[
+  {
+    "package": "hopper-compact-vault",
+    "exitCode": 0,
+    "receiptPresent": true,
+    "deployment": {
+      "label": "hopper-compact-vault",
+      "programId": "VM3WYZTssfdLxFSHL9wPbQuYyLd8WgcChrZNQLB93VP",
+      "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-compact-vault\\hopper_compact_vault.so",
+      "elfBytes": 4192,
+      "elfSha256": "0531cff2bb3562765d21836eb847a6fc4518258e872994f38131bf1856faad17",
+      "source": null,
+      "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+      "freshAtSlot": 508565823,
+      "localFeatureSelectionOverride": false,
+      "transactionPreflightEnabled": true,
+      "exitCode": 0,
+      "observedAt": "2026-10-07T19:50:44.971853+00:00"
+    }
+  },
+  {
+    "package": "hopper-migration",
+    "exitCode": 0,
+    "receiptPresent": true,
+    "deployment": {
+      "label": "hopper-migration",
+      "programId": "GKAYqEMgjECoHoy7ruupaM5oBbB6Gs2NS69Fp6GUut9v",
+      "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-migration\\hopper_migration.so",
+      "elfBytes": 24048,
+      "elfSha256": "a385f3b09cc056b7962ba6903c9c5f643a3f27ac0f719332b4d160bbdf41baeb",
+      "source": null,
+      "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+      "freshAtSlot": 508566363,
+      "localFeatureSelectionOverride": false,
+      "transactionPreflightEnabled": true,
+      "exitCode": 0,
+      "observedAt": "2026-10-07T19:54:22.301229+00:00",
+      "recoveredFromExistingBuffer": true,
+      "recoveryReceipt": "rpc-write-recovery/complete-buffer.json",
+      "recoveryDriverSha256": "c4f6cb63fe3ceb5fc4f65c7c1335268f09e4b0b23a213dff99b6698fd431ea88"
+    }
+  },
+  {
+    "package": "hopper-orderbook",
+    "exitCode": 0,
+    "receiptPresent": true,
+    "deployment": {
+      "label": "hopper-orderbook",
+      "programId": "6T6pF9tqtbsHb1nDEqPs6MQQQSLm3Fzk9wzthn6gBjNb",
+      "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-orderbook\\hopper_orderbook.so",
+      "elfBytes": 17336,
+      "elfSha256": "d0ba8c54ee0fdfdb67321041513d263d1173a2978d7d54aebbc9882ad0e67557",
+      "source": null,
+      "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+      "freshAtSlot": 508567703,
+      "localFeatureSelectionOverride": false,
+      "transactionPreflightEnabled": true,
+      "exitCode": 0,
+      "observedAt": "2026-10-07T19:58:42.880515+00:00"
+    }
+  },
+  {
+    "package": "hopper-token-2022-vault",
+    "exitCode": 0,
+    "receiptPresent": true,
+    "deployment": {
+      "label": "hopper-token-2022-vault",
+      "programId": "En1wsXHdhvdQSVXBpAXRA8mjrUi8Lwod5xGvsgjYsScD",
+      "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-token-2022-vault\\hopper_token_2022_vault.so",
+      "elfBytes": 28552,
+      "elfSha256": "55617cbdef6c14862fcdcfd88a72a65a515fa83a1665ef37539babb3408b3e38",
+      "source": null,
+      "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+      "freshAtSlot": 508568001,
+      "localFeatureSelectionOverride": false,
+      "transactionPreflightEnabled": true,
+      "exitCode": 0,
+      "observedAt": "2026-10-07T19:59:43.671372+00:00"
+    }
+  },
+  {
+    "package": "hopper-devnet-audit",
+    "exitCode": 0,
+    "receiptPresent": true,
+    "deployment": {
+      "label": "hopper-devnet-audit",
+      "programId": "ATmRZ8iwfjv32NQWj5GsDKRExdgb5MH4PFduskvT1w1F",
+      "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-devnet-audit\\hopper_devnet_audit.so",
+      "elfBytes": 27888,
+      "elfSha256": "44974789a0af29b7e9b35bcd3292c2c272ffcf1a9f987d3fe5857b0b2b19e5ca",
+      "source": null,
+      "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+      "freshAtSlot": 508568481,
+      "localFeatureSelectionOverride": false,
+      "transactionPreflightEnabled": true,
+      "exitCode": 0,
+      "observedAt": "2026-10-07T20:02:49.078542+00:00",
+      "recoveredFromExistingBuffer": true,
+      "recoveryReceipt": "rpc-write-recovery/complete-buffer.json",
+      "recoveryDriverSha256": "c4f6cb63fe3ceb5fc4f65c7c1335268f09e4b0b23a213dff99b6698fd431ea88"
+    }
+  }
+]

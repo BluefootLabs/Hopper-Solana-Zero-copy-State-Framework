@@ -1,0 +1,14 @@
+{
+  "label": "hopper-confidential-lab",
+  "programId": "8H576aysyJW3skKmFN4zbmae56R2iPSRK86yNJ5uGdRc",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-confidential-lab\\hopper_confidential_lab.so",
+  "elfBytes": 49080,
+  "elfSha256": "7a84a9a7d3c3f739493eb18071c19379c0db19da816373af8ba3004dd3a9f2e7",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508544583,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:27:52.942302+00:00"
+}

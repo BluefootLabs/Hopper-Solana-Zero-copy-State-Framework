@@ -10,10 +10,10 @@ offline; deployment and live account or transaction queries use RPC.
 
 ## Install
 
-Install the 0.4.0 release:
+Install the 0.5.0 release:
 
 ```bash
-cargo install hopper-cli --version 0.4.0 --locked
+cargo install hopper-cli --version 0.5.0 --locked
 ```
 
 Registry availability is tracked on the [release status page](https://hopperzero.dev/docs/release-status).
@@ -25,6 +25,20 @@ cargo install --path tools/hopper-cli --locked
 ```
 
 ## Commands
+
+The unreleased audit schema 2 binds required quality gates to execution
+receipts. `audit-check` verifies the recorded command, date, exit code, output
+log, and current source inventory (including Markdown used by documentation
+tests), so editing, adding, or removing these inputs invalidates the
+old result. Record a run with `scripts/record-quality-gate.py` from the
+repository. Receipts are local evidence, not independent review or signed CI
+attestations. See the [self-audit guide](https://hopperzero.dev/docs/self-audit).
+
+In the next release, `audit-check` refuses empty required-evidence or
+required-gate sets, ambiguous identifiers, empty commands, and malformed dates.
+Its current-gate count includes only fresh successful attestations. Run
+`hopper audit-check --strict --json` to use the readiness report as a CI gate;
+this verifies the supplied evidence and does not run its listed commands.
 
 ```
 Compile

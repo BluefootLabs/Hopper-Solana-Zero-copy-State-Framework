@@ -1,0 +1,81 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
+     Running tests\function_lab_sbf.rs (target\debug\deps\function_lab_sbf-5691ceafb0af41fb.exe)
+
+running 1 test
+hash-0-0-0: 384 CU
+hash-0-0-1: 400 CU
+hash-0-0-2: 422 CU
+hash-0-0-16: 562 CU
+hash-0-0-17: 572 CU
+hash-0-0-32: 722 CU
+hash-0-0-64: 1042 CU
+hash-0-1-0: 387 CU
+hash-0-1-1: 403 CU
+hash-0-1-2: 425 CU
+hash-0-1-16: 565 CU
+hash-0-1-17: 575 CU
+hash-0-1-32: 725 CU
+hash-0-1-64: 1045 CU
+hash-1-0-0: 389 CU
+hash-1-0-1: 405 CU
+hash-1-0-2: 427 CU
+hash-1-0-16: 567 CU
+hash-1-0-17: 577 CU
+hash-1-0-32: 727 CU
+hash-1-0-64: 1047 CU
+hash-1-1-0: 392 CU
+hash-1-1-1: 408 CU
+hash-1-1-2: 430 CU
+hash-1-1-16: 570 CU
+hash-1-1-17: 580 CU
+hash-1-1-32: 730 CU
+hash-1-1-64: 1050 CU
+hash-0-empty-17: 572 CU
+hash-1-empty-17: 577 CU
+empty: 24 CU
+unknown: 34 CU
+hash-truncated: 42 CU
+hash-fixture-cap: 44 CU
+hash-zero-surplus: 49 CU
+copy-0-64-13: 199 CU
+copy-0-8-8: 199 CU
+copy-0-0-0: 199 CU
+copy-0-7-8: 90 CU
+copy-1-64-13: 200 CU
+copy-1-8-8: 200 CU
+copy-1-0-0: 185 CU
+copy-1-7-8: 90 CU
+move-0-63-1: 196 CU
+move-1-63-0: 196 CU
+move-0-64-0: 177 CU
+move-64-0-64: 176 CU
+move-63-2-0: 79 CU
+move-0-2-63: 82 CU
+fill-3: 184 CU
+fill-4: 181 CU
+fill-5: 182 CU
+compare-8-0-8: 283 CU
+compare-8-1-9: 276 CU
+compare-8-0-7: 217 CU
+compare-0-64-64: 221 CU
+epoch-arithmetic-0: 154 CU
+epoch-arithmetic-1: 162 CU
+epoch-arithmetic-2: 171 CU
+epoch-arithmetic-3: 171 CU
+epoch-arithmetic-4: 172 CU
+
+thread 'function_lab_known_answers_on_the_vm' (44804) panicked at bench\framework-comparison\verifier\tests\function_lab_sbf.rs:41:13:
+assertion `left == right` failed: epoch-arithmetic-5
+  left: [13, 0, 0, 0, 0, 0, 0, 0, 96, 31, 165, 255, 255, 255, 255, 255]
+ right: [13, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test function_lab_known_answers_on_the_vm ... FAILED
+
+failures:
+
+failures:
+    function_lab_known_answers_on_the_vm
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+error: test failed, to rerun pass `-p hopper-framework-verifier --test function_lab_sbf`

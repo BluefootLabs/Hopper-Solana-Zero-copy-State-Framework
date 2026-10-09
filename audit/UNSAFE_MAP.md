@@ -11,15 +11,15 @@ one, with a SHA-256 of its code.
 
 ## Totals
 
-- Sites: 855 (267 more inside test and proof modules are not listed)
-- `specific`: a `SAFETY` comment or `# Safety` section written for the site: 776
-- `shared`: the `SAFETY` comment of a neighbouring site within three lines: 79
+- Sites: 851 (268 more inside test and proof modules are not listed)
+- `specific`: a `SAFETY` comment or `# Safety` section written for the site: 777
+- `shared`: the `SAFETY` comment of a neighbouring site within three lines: 74
 - `unlabelled`: a comment directly above with no `SAFETY` label: 0
 - `boilerplate`: the sentence every unreasoned site carries: 0
 - `none`: no comment next to the site: 0
-- Enclosing function called by name from a test, proof, or fuzz target: 466 of 661 attributable
-- Not called by name, reached through a function a test calls: 176
-- Compiled for the VM only, so covered by the compiled-program suites and devnet, not by host tests: 31
+- Enclosing function called by name from a test, proof, or fuzz target: 474 of 657 attributable
+- Not called by name, reached through a function a test calls: 166
+- Compiled for the VM only, so covered by the compiled-program suites and devnet, not by host tests: 29
 - Attributable, on the host, and not reached from any test: 0
 
 "Reached through" follows calls by name inside the audited sources,
@@ -39,17 +39,17 @@ names too common to attribute (`new`, `get`, `load`).
 
 | Crate | Sites | Specific | Shared | Unlabelled | Boilerplate | None | Public unsafe fn | Called from a test |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `hopper-native` | 362 | 307 | 55 | 0 | 0 | 0 | 39 | 230 |
-| `hopper-runtime` | 297 | 288 | 9 | 0 | 0 | 0 | 58 | 139 |
+| `hopper-native` | 362 | 308 | 54 | 0 | 0 | 0 | 39 | 233 |
+| `hopper-runtime` | 295 | 286 | 9 | 0 | 0 | 0 | 58 | 144 |
 | `hopper-core` | 127 | 118 | 9 | 0 | 0 | 0 | 6 | 62 |
 | `hopper-builtins` | 25 | 25 | 0 | 0 | 0 | 0 | 8 | 22 |
-| `hopper-macros-proc` | 19 | 15 | 4 | 0 | 0 | 0 | 0 | 1 |
+| `hopper-macros-proc` | 19 | 19 | 0 | 0 | 0 | 0 | 0 | 1 |
 | `hopper-macros` | 9 | 7 | 2 | 0 | 0 | 0 | 1 | 3 |
 | `hopper-solana` | 7 | 7 | 0 | 0 | 0 | 0 | 0 | 5 |
 | `hopper-svm` | 4 | 4 | 0 | 0 | 0 | 0 | 0 | 2 |
-| `hopper-lang (facade)` | 3 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `hopper-memo` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 |
 | `hopper-sdk` | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 1 |
+| `hopper-lang (facade)` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## Per file
 
@@ -58,7 +58,7 @@ names too common to attribute (`new`, `get`, `load`).
 | `crates/hopper-native/src/account_view.rs` | 69 | 0 | 15 |
 | `crates/hopper-native/src/raw_input.rs` | 68 | 0 | 4 |
 | `crates/hopper-runtime/src/account.rs` | 50 | 0 | 18 |
-| `crates/hopper-runtime/src/syscalls.rs` | 44 | 0 | 42 |
+| `crates/hopper-runtime/src/syscalls.rs` | 44 | 0 | 36 |
 | `crates/hopper-native/src/entrypoint.rs` | 32 | 0 | 19 |
 | `crates/hopper-native/src/pod.rs` | 31 | 0 | 30 |
 | `crates/hopper-native/src/project.rs` | 27 | 0 | 15 |
@@ -74,19 +74,19 @@ names too common to attribute (`new`, `get`, `load`).
 | `crates/hopper-runtime/src/segment_borrow.rs` | 13 | 0 | 3 |
 | `crates/hopper-native/src/cpi.rs` | 12 | 0 | 5 |
 | `crates/hopper-native/src/wire.rs` | 12 | 0 | 12 |
-| `crates/hopper-runtime/src/crypto.rs` | 12 | 0 | 3 |
-| `crates/hopper-runtime/src/memory.rs` | 12 | 0 | 3 |
+| `crates/hopper-runtime/src/memory.rs` | 12 | 0 | 2 |
 | `crates/hopper-runtime/src/context.rs` | 11 | 0 | 4 |
 | `crates/hopper-core/src/account/segment.rs` | 9 | 0 | 7 |
 | `crates/hopper-core/src/frame/mod.rs` | 9 | 0 | 0 |
 | `crates/hopper-macros/src/lib.rs` | 9 | 0 | 6 |
+| `crates/hopper-runtime/src/crypto.rs` | 9 | 0 | 3 |
 | `crates/hopper-core/src/abi/typed_address.rs` | 8 | 0 | 6 |
 | `crates/hopper-core/src/account/pod.rs` | 8 | 0 | 0 |
 | `crates/hopper-core/src/account/registry.rs` | 8 | 0 | 3 |
 | `crates/hopper-core/src/cpi/mod.rs` | 8 | 0 | 2 |
 | `crates/hopper-core/src/manifest.rs` | 8 | 0 | 5 |
 | `crates/hopper-macros-proc/src/context.rs` | 8 | 0 | 8 |
-| `crates/hopper-native/src/sysvar.rs` | 8 | 0 | 4 |
+| `crates/hopper-native/src/sysvar.rs` | 8 | 0 | 3 |
 | `crates/hopper-native/src/borrow.rs` | 7 | 0 | 4 |
 | `crates/hopper-runtime/src/account_wrappers.rs` | 7 | 0 | 0 |
 | `crates/hopper-runtime/src/dyn_cpi.rs` | 7 | 0 | 1 |
@@ -99,7 +99,7 @@ names too common to attribute (`new`, `get`, `load`).
 | `crates/hopper-runtime/src/address.rs` | 6 | 0 | 3 |
 | `crates/hopper-core/src/collections/slab.rs` | 5 | 0 | 2 |
 | `crates/hopper-core/src/collections/sorted_vec.rs` | 5 | 0 | 2 |
-| `crates/hopper-native/src/hash.rs` | 5 | 0 | 2 |
+| `crates/hopper-native/src/hash.rs` | 5 | 0 | 1 |
 | `crates/hopper-native/src/instruction.rs` | 5 | 0 | 5 |
 | `crates/hopper-native/src/log.rs` | 5 | 0 | 4 |
 | `crates/hopper-runtime/src/interop.rs` | 5 | 0 | 3 |
@@ -129,7 +129,7 @@ names too common to attribute (`new`, `get`, `load`).
 | `crates/hopper-core/src/virtual_state/mod.rs` | 2 | 0 | 0 |
 | `crates/hopper-native/src/budget.rs` | 2 | 0 | 1 |
 | `crates/hopper-native/src/heap.rs` | 2 | 0 | 0 |
-| `crates/hopper-native/src/introspect.rs` | 2 | 0 | 2 |
+| `crates/hopper-native/src/introspect.rs` | 2 | 0 | 1 |
 | `crates/hopper-native/src/syscalls.rs` | 2 | 0 | 1 |
 | `crates/hopper-native/src/system.rs` | 2 | 0 | 0 |
 | `crates/hopper-runtime/src/borrow_registry.rs` | 2 | 0 | 1 |
@@ -143,7 +143,6 @@ names too common to attribute (`new`, `get`, `load`).
 | `crates/hopper-solana/src/crypto/merkle.rs` | 2 | 0 | 2 |
 | `crates/hopper-solana/src/mint.rs` | 2 | 0 | 0 |
 | `crates/hopper-solana/src/token.rs` | 2 | 0 | 0 |
-| `src/receipts.rs` | 2 | 0 | 2 |
 | `crates/hopper-core/src/abi/field_ref.rs` | 1 | 0 | 0 |
 | `crates/hopper-core/src/abi/mod.rs` | 1 | 0 | 1 |
 | `crates/hopper-core/src/account/cursor.rs` | 1 | 0 | 0 |
@@ -154,6 +153,7 @@ names too common to attribute (`new`, `get`, `load`).
 | `crates/hopper-memo/src/lib.rs` | 1 | 0 | 0 |
 | `crates/hopper-native/src/address.rs` | 1 | 0 | 0 |
 | `crates/hopper-native/src/error.rs` | 1 | 0 | 1 |
+| `crates/hopper-runtime/src/bounded_slice.rs` | 1 | 0 | 0 |
 | `crates/hopper-runtime/src/rent.rs` | 1 | 0 | 1 |
 | `crates/hopper-runtime/src/syscall.rs` | 1 | 0 | 1 |
 | `crates/hopper-runtime/src/tail.rs` | 1 | 0 | 1 |
@@ -174,18 +174,16 @@ with its code.
 | `crates/hopper-native/src/cpi.rs::invoke_signed_unchecked#1` | 190 | pub unsafe fn | specific | through `invoke_signed` |
 | `crates/hopper-native/src/entrypoint.rs::entrypoint#1` | 101 | pub unsafe fn | specific | through `expand` |
 | `crates/hopper-native/src/entrypoint.rs::entrypoint#4` | 213 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-native/src/pod.rs::Pod#1` | 71 | pub unsafe trait | specific | none |
 | `crates/hopper-native/src/raw_input.rs::deserialize_accounts_0449_into#1` | 789 | pub unsafe fn | specific | through `expand` |
 | `crates/hopper-runtime/src/context.rs::as_mut_ptr#1` | 952 | pub unsafe fn | specific | none |
 | `crates/hopper-runtime/src/cpi.rs::invoke_unchecked#1` | 69 | pub unsafe fn | specific | through `invoke_signed` |
 | `crates/hopper-runtime/src/cpi.rs::invoke_signed_unchecked#1` | 87 | pub unsafe fn | specific | through `invoke_signed` |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#1` | 673 | pub unsafe fn | specific | through `expand` |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#5` | 753 | pub unsafe fn | specific | through `expand` |
-| `crates/hopper-runtime/src/lib.rs::entrypoint#14` | 888 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/lib.rs::entrypoint#1` | 675 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/lib.rs::entrypoint#5` | 755 | pub unsafe fn | specific | through `expand` |
+| `crates/hopper-runtime/src/lib.rs::entrypoint#14` | 890 | pub unsafe fn | specific | through `expand` |
 | `crates/hopper-runtime/src/native_boundary.rs::entrypoint#1` | 227 | pub unsafe fn | specific | through `expand` |
 | `crates/hopper-runtime/src/syscalls.rs::sol_log_data#1` | 69 | pub unsafe fn | specific | through `emit_event` |
-| `crates/hopper-runtime/src/syscalls.rs::sol_sha256#1` | 90 | pub unsafe fn | specific | through `based_try_find_program_address` |
-| `crates/hopper-runtime/src/syscalls.rs::sol_keccak256#1` | 111 | pub unsafe fn | specific | through `keccak256` |
-| `crates/hopper-runtime/src/syscalls.rs::sol_blake3#1` | 134 | pub unsafe fn | specific | through `blake3` |
 | `crates/hopper-runtime/src/syscalls.rs::sol_secp256k1_recover#1` | 158 | pub unsafe fn | specific | through `secp256k1_recover` |
 | `crates/hopper-runtime/src/syscalls.rs::sol_curve_validate_point#1` | 192 | pub unsafe fn | specific | through `based_try_find_program_address` |
 | `crates/hopper-runtime/src/syscalls.rs::sol_curve_group_op#1` | 225 | pub unsafe fn | specific | through `curve_group_mul` |
@@ -226,9 +224,11 @@ with its code.
 | `crates/hopper-native/src/mem.rs::memset#1` | 64 | pub unsafe fn | specific | 1 |
 | `crates/hopper-native/src/mem.rs::memcmp#1` | 88 | pub unsafe fn | specific | 1 |
 | `crates/hopper-native/src/pod.rs::Zeroable#1` | 42 | pub unsafe trait | specific | none |
-| `crates/hopper-native/src/pod.rs::Pod#1` | 71 | pub unsafe trait | specific | none |
-| `crates/hopper-native/src/pod.rs::ValuePod#1` | 83 | pub unsafe trait | specific | none |
+| `crates/hopper-native/src/pod.rs::ValuePod#1` | 98 | pub unsafe trait | specific | none |
 | `crates/hopper-native/src/project.rs::Projectable#1` | 84 | pub unsafe trait | specific | none |
+| `crates/hopper-native/src/project.rs::SafeProjectable#1` | 130 | pub unsafe trait | specific | none |
+| `crates/hopper-native/src/project.rs::project_safe_mut#1` | 176 | pub unsafe fn | specific | 1 |
+| `crates/hopper-native/src/project.rs::project_mut#1` | 270 | pub unsafe fn | specific | 1 |
 
 ## Review ledger
 

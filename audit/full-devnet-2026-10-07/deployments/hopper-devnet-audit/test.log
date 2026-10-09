@@ -1,0 +1,14 @@
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source)
+   Compiling hopper-devnet-audit v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\hopper-devnet-audit)
+warning: use of deprecated unit variant `solana_transaction::InstructionError::NotEnoughAccountKeys`: Use InstructionError::MissingAccount instead
+   --> examples\hopper-devnet-audit\src\bin\devnet_audit.rs:231:27
+    |
+231 |         InstructionError::NotEnoughAccountKeys,
+    |                           ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: `hopper-devnet-audit` (bin "devnet_audit") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.26s
+     Running `D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\debug\devnet_audit.exe --program-id ATmRZ8iwfjv32NQWj5GsDKRExdgb5MH4PFduskvT1w1F --keypair D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\devnet-release\payer.json --rpc https://api.devnet.solana.com`
+wrote hopper.devnet-evidence.v1 receipt

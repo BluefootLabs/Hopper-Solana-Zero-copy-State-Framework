@@ -1,0 +1,14 @@
+{
+  "label": "hopper-native-lifecycle-fixture",
+  "programId": "93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-native-lifecycle-fixture\\hopper_native_lifecycle_fixture.so",
+  "elfBytes": 8376,
+  "elfSha256": "60e7a388966c5b888f099b28c3d8a50deddb8c53783597eddbe213af644f2a59",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508562209,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:36:21.614710+00:00"
+}

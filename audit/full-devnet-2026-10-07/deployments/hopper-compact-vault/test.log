@@ -1,0 +1,35 @@
+   Compiling hopper-runtime v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-runtime)
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-core)
+   Compiling hopper-system v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-system)
+   Compiling solana-rpc-client-api v4.2.1
+   Compiling hopper-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token)
+   Compiling solana-account-decoder v4.2.1
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-solana)
+   Compiling solana-perf v4.2.1
+   Compiling solana-streamer v4.2.1
+   Compiling solana-rpc-client v4.2.1
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-schema)
+   Compiling solana-pubsub-client v4.2.1
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros)
+   Compiling hopper-derive v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros-proc)
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-memo v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-memo)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source)
+   Compiling solana-tpu-client v4.2.1
+   Compiling solana-quic-client v4.2.1
+   Compiling solana-rpc-client-nonce-utils v4.2.1
+   Compiling solana-udp-client v4.2.1
+   Compiling solana-client v4.2.1
+   Compiling hopper-compact-vault v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\hopper-compact-vault)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 27s
+     Running tests\devnet.rs (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\debug\deps\devnet-a9a6b86227212139.exe)
+
+running 3 tests
+test devnet_genesis_pin_is_complete ... ok
+test evidence_helpers_redact_urls_and_escape_json ... ok
+wrote hopper.devnet-evidence.v1 receipt
+test compact_vault_finalized_devnet_evidence ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.53s
+

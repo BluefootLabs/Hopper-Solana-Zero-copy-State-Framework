@@ -1,0 +1,29 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : 2xZf72jBuBdUtPfeBqbmuAACHPudAiuWcNRykUyfpyj4
+data      : 17 bytes (0x01e803000000000000d007000000000000)
+accounts  : 12 slots
+  [0] CvLjnLDkqM2cpD2uBoKk4yMrpmQoyzaSwJ4RarhQ7NmA s-
+  [1] 4nfXya8NhnJDPARuesLbf8jMueknM6MhcF4YmqDCmNaW -w
+  [2] Cq4XTpqyNZiLoFCEp7cYZVtsq1haL9NPmYjSGdxdyyod -w
+  [3] Epm84NC6ERnBT17br73dqxzTAmAAHAsvgpexG8FzdALs --
+  [4] EYLDjmuLS5MHAGVfoVt82B75eHF8qvdgBbhbfihaeb5E -w
+  [5] E5VuFq8Vei2nTKpp9Fo4GJYj5adr5JcaNEDbUGuHgab5 --
+  [6] Hp8V59M63es4XNK2uMQbhiACXRYxTTfCCEJw68dSyWwY --
+  [7] 8VLp1QtGJeRkCKEkspqghe5H9TL8tQKUFnJ822QQDXYN -w
+  [8] 47CBJYGJ4GNkk1W5D8K5R8v4YxPRqiuPugrjy8c3QyKS -w
+  [9] 7GNSji1xmigQioYWLB9UXbXk22RVZDmojEkyBNUwX1eA -w
+  [10] Gb8HZ2hTu7aEM7VirGx5XtrS97ZSJVnFot28PbX2ED7N -w
+  [11] TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA --
+signers   : payer 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4, CvLjnLDkqM2cpD2uBoKk4yMrpmQoyzaSwJ4RarhQ7NmA
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 646/1232 bytes (legacy)
+
+signature : 3WZNpiNXLctBcyivDi5VDP1kPwQeNkKuSbayy7vTeS4GfMAJH7vXqsCfLTP2a6WBL9C9eejB439dSvvcTAQedseJ
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidSeeds"]}
+compute   : 895 CU
+fee       : 10000 lamports
+
+explain it: hopper tx explain 3WZNpiNXLctBcyivDi5VDP1kPwQeNkKuSbayy7vTeS4GfMAJH7vXqsCfLTP2a6WBL9C9eejB439dSvvcTAQedseJ --rpc https://api.devnet.solana.com

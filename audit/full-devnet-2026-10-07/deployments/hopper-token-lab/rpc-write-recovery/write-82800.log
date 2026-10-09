@@ -1,0 +1,18 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : BPFLoaderUpgradeab1e11111111111111111111111
+data      : 120 bytes (0x010000007043010068000000000000007807000000000000403b010000000000000000000000000008000000000000000000000000000000070000000300000000000000000000000000000000000000b8420100000000001900000000000000000000000000000001000000000000000000000000000000)
+accounts  : 2 slots
+  [0] AWwwcWQycii78RVdets38S4GZgAh17CrYW16X4hUN7Xv -w
+  [1] 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4 s-
+signers   : payer 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4
+envelope  : legacy
+wire      : 323/1232 bytes (legacy)
+
+signature : 3tg74QaLpLvmFLBzmCtEYfrtodQ5cytsyN2sg7x5oaaxLGcX7CEMieSzGrkjNRE3ShhVr3HngARryCftz2FVyEdA
+confirmed : yes
+program   : Ok
+compute   : 2370 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 3tg74QaLpLvmFLBzmCtEYfrtodQ5cytsyN2sg7x5oaaxLGcX7CEMieSzGrkjNRE3ShhVr3HngARryCftz2FVyEdA --rpc https://api.devnet.solana.com

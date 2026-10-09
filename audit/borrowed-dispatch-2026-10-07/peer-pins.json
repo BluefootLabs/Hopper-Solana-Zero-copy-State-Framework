@@ -1,0 +1,90 @@
+{
+  "asOf": "2026-10-07",
+  "observedAt": "2026-10-07T15:20:01.464646+00:00",
+  "sources": [
+    {
+      "name": "pinocchio",
+      "repository": "anza-xyz/pinocchio",
+      "branch": "main",
+      "commit": "ac1d511699116abf5ac444f2345f77c4286ae955",
+      "committedAt": "2026-10-06T14:08:09Z",
+      "files": [
+        {
+          "path": "sdk/src/lib.rs",
+          "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/ac1d511699116abf5ac444f2345f77c4286ae955/sdk/src/lib.rs",
+          "sha256": "426a753ccce3f0770e2e3227fc162b98618d62a6c482e5930fb1601ba39bd421",
+          "local": "pinocchio-sdk_src_lib.rs"
+        },
+        {
+          "path": "sdk/src/entrypoint/mod.rs",
+          "url": "https://raw.githubusercontent.com/anza-xyz/pinocchio/ac1d511699116abf5ac444f2345f77c4286ae955/sdk/src/entrypoint/mod.rs",
+          "sha256": "ff5e8dcb9e7a5a469b9397218b6e2aa146cef5bcfed73613cc45d4af4326e5c1",
+          "local": "pinocchio-sdk_src_entrypoint_mod.rs"
+        }
+      ]
+    },
+    {
+      "name": "pina",
+      "repository": "pina-rs/pina",
+      "branch": "main",
+      "commit": "d05f1462ef20bb4c9df76187b5533b755796baa3",
+      "committedAt": "2026-10-07T13:18:24Z",
+      "files": [
+        {
+          "path": "crates/pina/src/traits.rs",
+          "url": "https://raw.githubusercontent.com/pina-rs/pina/d05f1462ef20bb4c9df76187b5533b755796baa3/crates/pina/src/traits.rs",
+          "sha256": "1582eedcd4d53c0e09964289a5bcd5989571891ec0037554a8e6c89f443b24ef",
+          "local": "pina-crates_pina_src_traits.rs"
+        },
+        {
+          "path": "readme.md",
+          "url": "https://raw.githubusercontent.com/pina-rs/pina/d05f1462ef20bb4c9df76187b5533b755796baa3/readme.md",
+          "sha256": "d9f24b1215379267903917f84808af4c77797ba4dc51a5f2cb8d2e92e3052f44",
+          "local": "pina-readme.md"
+        }
+      ]
+    },
+    {
+      "name": "quasar",
+      "repository": "blueshift-gg/quasar",
+      "branch": "master",
+      "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "committedAt": "2026-07-13T06:20:59Z",
+      "files": [
+        {
+          "path": "README.md",
+          "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/b0de7db4cd271654a2dcf78807dd865e98e0b339/README.md",
+          "sha256": "9015ecc716101ab6d875a505a7c1025cf20efecb71218b30d3ca78e24d59d534",
+          "local": "quasar-README.md"
+        },
+        {
+          "path": "lang/src/account_load.rs",
+          "url": "https://raw.githubusercontent.com/blueshift-gg/quasar/b0de7db4cd271654a2dcf78807dd865e98e0b339/lang/src/account_load.rs",
+          "sha256": "09e13c71c91429e3116784cc7cfb70aa90e25eb721e00b5508d3c9edbabad303",
+          "local": "quasar-lang_src_account_load.rs"
+        }
+      ]
+    },
+    {
+      "name": "anchor-v2",
+      "repository": "otter-sec/anchor",
+      "branch": "anchor-next",
+      "commit": "3c4052b4b466ed93fd2087e07d8297fd70bb967d",
+      "committedAt": "2026-10-06T16:19:19Z",
+      "files": [
+        {
+          "path": "lang-v2/README.md",
+          "url": "https://raw.githubusercontent.com/otter-sec/anchor/3c4052b4b466ed93fd2087e07d8297fd70bb967d/lang-v2/README.md",
+          "sha256": "31c1ac02527c223093966dc7d1e7c43ac9a8c8a427c86319d3006016bc0f90f8",
+          "local": "anchor-v2-lang-v2_README.md"
+        },
+        {
+          "path": "lang-v2/src/cursor.rs",
+          "url": "https://raw.githubusercontent.com/otter-sec/anchor/3c4052b4b466ed93fd2087e07d8297fd70bb967d/lang-v2/src/cursor.rs",
+          "sha256": "4148ef351ee0cbc7353008640e369b4f2138b6c2cfc32002e44ad3e9bf76c451",
+          "local": "anchor-v2-lang-v2_src_cursor.rs"
+        }
+      ]
+    }
+  ]
+}

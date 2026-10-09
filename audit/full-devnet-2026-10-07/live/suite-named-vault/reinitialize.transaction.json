@@ -1,0 +1,86 @@
+{
+  "blockTime": 1791399221,
+  "meta": {
+    "computeUnitsConsumed": 260,
+    "costUnits": 3328,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountAlreadyInitialized"
+      ]
+    },
+    "fee": 15000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw invoke [1]",
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw consumed 260 of 200000 compute units",
+      "Program J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw failed: instruction requires an uninitialized account"
+    ],
+    "postBalances": [
+      1986143956,
+      939800,
+      9060200,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1986158956,
+      939800,
+      9060200,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountAlreadyInitialized"
+        ]
+      }
+    }
+  },
+  "slot": 508551551,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "5teZQTm6nmJ8tztgqGe34kmXo3zqd6ESDuFDgXpsAdPi",
+        "9tMNVoXGoLJUDaU1bGX4n6fXjVUZcPWp8BmZ8U1tHHUN",
+        "11111111111111111111111111111111",
+        "J5WvgeMw2DC8Gg3NXHQF8L1Fv4n96RicvzsLt97J54jw"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 3
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1,
+            3
+          ],
+          "data": "1",
+          "programIdIndex": 4,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "5nNKSBzhHBpZCdvgbyU7Nc1tpQJ1kwvpxXpME5PUxCdc"
+    },
+    "signatures": [
+      "3wEDNGL8dJUYYURnEKLHVddeefqQA9ikcYMhKjFEby8zp5zcw8y3RMgEzy5KKLxSmCGCYhy1UP33g1PTWUVHtGhe",
+      "54QuoxzYfnhnyengcWGYD9c1qZ2PZf7W53SK8mASnJ7fJX2NXFEG6UVsmqWaT8gwqEKC5bzweeMHQBYedN926575",
+      "fwFTFNkxeUnDFmAmQrs6aeC8Rk7pMLpJqwKgzwAewFnQ2i5oBZd9YGrvZxtHheY6A5FXoRVio61mZeJa7Rs327W"
+    ]
+  },
+  "transactionIndex": 8,
+  "version": "legacy"
+}

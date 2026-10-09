@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running tests\borrowed_slices.rs (target/borrowed-slices-client-host-check\debug\deps\borrowed_slices-18fefb1c56646f04.exe)
+
+running 1 test
+test aliased_owned_arguments_follow_the_same_dispatch_contract ... FAILED
+
+failures:
+
+---- aliased_owned_arguments_follow_the_same_dispatch_contract stdout ----
+
+thread 'aliased_owned_arguments_follow_the_same_dispatch_contract' (15676) panicked at tests\borrowed_slices.rs:244:5:
+assertion `left == right` failed
+  left: Err(MissingRequiredSignature)
+ right: Err(InvalidInstructionData)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    aliased_owned_arguments_follow_the_same_dispatch_contract
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p hopper-lang --test borrowed_slices`

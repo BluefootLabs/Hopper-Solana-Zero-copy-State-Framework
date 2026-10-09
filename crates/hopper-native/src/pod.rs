@@ -68,7 +68,22 @@ pub unsafe trait Zeroable: Copy + Sized {}
 ///
 /// Hopper macros mechanically enforce the field-level proof before
 /// emitting this impl. Hand-written impls carry the same unsafe contract.
-pub unsafe trait Pod: Zeroable {}
+pub unsafe trait Pod: Zeroable {
+    /// Check the value's protocol-level representation without copying it.
+    ///
+    /// This is separate from the unsafe memory-layout contract: every byte
+    /// pattern must still be a valid Rust value, even when this returns an
+    /// error. Raw overlays do not call this method automatically.
+    ///
+    /// The default accepts every value, preserving hand-written marker impls.
+    /// Types with tagged fields should override it; generated Hopper layouts
+    /// delegate to each field in declaration order. This checks representation,
+    /// not account ownership, authorization, or application `#[check]` rules.
+    #[inline(always)]
+    fn validate_value(&self) -> Result<(), crate::error::ProgramError> {
+        Ok(())
+    }
+}
 
 /// Marker for `Copy + Sized` scalars/arrays that may be read **by value**
 /// from raw bytes with [`read_unaligned_value`] (alignment-independent).
@@ -104,9 +119,21 @@ unsafe impl Zeroable for i32 {}
 unsafe impl Zeroable for i64 {}
 unsafe impl Zeroable for i128 {}
 unsafe impl<T: Zeroable, const N: usize> Zeroable for [T; N] {}
-unsafe impl<T: Pod, const N: usize> Pod for [T; N] {}
 unsafe impl Zeroable for () {}
 unsafe impl Pod for () {}
+
+// SAFETY: an array of Pod elements is alignment-1, has no padding or
+// pointers, and admits every bit pattern. Validation only checks values;
+// it does not relax any of those memory-layout requirements.
+unsafe impl<T: Pod, const N: usize> Pod for [T; N] {
+    #[inline]
+    fn validate_value(&self) -> Result<(), crate::error::ProgramError> {
+        for value in self {
+            T::validate_value(value)?;
+        }
+        Ok(())
+    }
+}
 
 // SAFETY: `ValuePod` values are only ever copied out of bytes by value
 // (`read_unaligned`), never referenced in place, so alignment does not

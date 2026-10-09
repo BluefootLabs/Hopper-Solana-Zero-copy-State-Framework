@@ -1,0 +1,14 @@
+{
+  "label": "runtime-reporting",
+  "programId": "7JDXFFEgazVZR4nif6rwueRAespVAacejbwgMohgkBAL",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\runtime-reporting\\hopper_runtime_lab.so",
+  "elfBytes": 26616,
+  "elfSha256": "24d9a3e63b10337715664e6680d000d815bf1eaab0799ab5bcbd2e1b4a5c01f4",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508549608,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:47:07.235846+00:00"
+}

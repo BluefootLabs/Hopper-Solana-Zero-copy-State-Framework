@@ -1,0 +1,226 @@
+{
+  "schema": "hopper.borrowed-args.devnet.v1",
+  "network": "devnet",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programId": "CYybStqY8MAmiV2CyaUBU2WSKGd7CPA2yKPPnVw1jamN",
+  "baseCommit": "52b70b8ae009004f951b5db784d99d9bcf284812",
+  "sourceSnapshotSha256": "2ad93a93ca7e947224da32602efeff359653087407ecdec8fc1f7fd1a5c270c6",
+  "elfSha256": "3482129694cfd2ae201fde43d89ee8969953de7b79565d0626fa53f72cfa226d",
+  "elfBytes": 3656,
+  "state": "6SkpX3DiHnzi4kR779YZQEpdcnHgUzCQLWJWAAFRexmA",
+  "finalCount": 5,
+  "finalTotal": 55,
+  "transactions": [
+    {
+      "name": "create-state",
+      "signature": "3eySK9SLosvkahSRevLM2P3SmjXC6PEcknBQotcErAEpnTm9fiFe8xtqn1SM5WHhUrp17DLCMAL6zqcNWgBCA2BE",
+      "slot": 506571931,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "exact",
+      "signature": "DuwA64kkxacGfXiSbpoNTevS16cpCXjrh8sScCo2C2Qz1FTsJL3pX4ESseajYHjTdffatcRYqtvff5CiAFFg2eE",
+      "slot": 506571938,
+      "error": null,
+      "computeUnits": 219
+    },
+    {
+      "name": "absent-payload",
+      "signature": "3PYZ6gFXKVz7ZrxRSCFjmVHyx3r2DemHCC1FtvxXrET6JaobeC4RKiHLnQNTshyvipyZE2LcxLYftEJBdXBUnZ5d",
+      "slot": 506571947,
+      "error": null,
+      "computeUnits": 220
+    },
+    {
+      "name": "tail-memo",
+      "signature": "3BkVNHMkuBnXc321pR3HtHM74amtpkhgwRvnyXwh7dY6edLthQEZM2wRubLfTyH9WFwGBpBatX8K2qfBykV9TZ8e",
+      "slot": 506571956,
+      "error": null,
+      "computeUnits": 291
+    },
+    {
+      "name": "tail-empty",
+      "signature": "2iRcRTSdAxgC6ZeYakvJBc6axE4KeViYX5ALigoi9eps9iy2w18mN15r96jkSTfp1mRQq72Ffk7xvtBffQyUcZW8",
+      "slot": 506572008,
+      "error": null,
+      "computeUnits": 218
+    },
+    {
+      "name": "tail-bound",
+      "signature": "38bgScYqZyW8tWdFYDWJCertanKVfb7CmVhLPGcb6yyX7bHMJusw4krjZCjJAvdwAxb8UmPuqjTQnrihHcSXT8SS",
+      "slot": 506572016,
+      "error": null,
+      "computeUnits": 397
+    },
+    {
+      "name": "bad-option",
+      "signature": "385vaSqkppAtBEDqxfHUr146aVLVuMcLUhC24cxbS8M2fpKKY3XpNim62qrGRfPDq21QS35yTB9zhrWPMMKFAzGT",
+      "slot": 506572024,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 42
+    },
+    {
+      "name": "bad-first-enum",
+      "signature": "2TFpzGgnbE1y9ezJ1sF39qT5eAdurAwX5MHPMhDG6BrBjDyye8BWhZtihRrphoQLjbWLnYX2U8BStHiYK5RYR4Z",
+      "slot": 506572038,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 45
+    },
+    {
+      "name": "bad-second-enum",
+      "signature": "3q6bVXaYppHF32SBftg1vKZEAhzoX3zfa3gGy9emtUoSGopU3CiR3VbmKmu4HiyJpHcdTtVqhkaAwFm2hMpvK13L",
+      "slot": 506572051,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 54
+    },
+    {
+      "name": "bad-second-option",
+      "signature": "5zXFmbFJeP6WYaufPurepmTRkUYKh1sA7B2YnuwBGjG56onZpR21hDyX6mvszCaoXKsy3VRqHr2HHsnFcb9gtrbA",
+      "slot": 506572062,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 47
+    },
+    {
+      "name": "exact-surplus",
+      "signature": "29dHTFceDD78LsmxvMmoBUpmpydAygUZprw6H6WEkzBYpGxmEt3mGUu9E69VY2V2inxiRRXkBVquR7G8Coy8qkcd",
+      "slot": 506572074,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 39
+    },
+    {
+      "name": "tail-too-long",
+      "signature": "3uwcJJqx3MNsmzP2t8v7ZvQwK5iSQshcE8d6gVkLUvmM52PFVoWUAztx9pppmDCpGYjz7gnHorEovNaK39tW82rA",
+      "slot": 506572086,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 47
+    },
+    {
+      "name": "tail-invalid-utf8",
+      "signature": "2i5rDRAiprbFah2D5uZaT9hGqP4zUCj7ZEHaVqRGdXvU3ZT5RHeGrWUqo2CQ1grTZMHMTa2o1keNdZbuW8SfCHNG",
+      "slot": 506572098,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 80
+    },
+    {
+      "name": "overflow",
+      "signature": "4U8x8tdHjDxtaaGHtqRzEvgVJ5nw9weVEuPVvBFnAHVrBQPVcaqYNEBffoFJHobL1kSqh4Wr8FnPG6UejksannRf",
+      "slot": 506572110,
+      "error": {
+        "InstructionError": [
+          0,
+          "ArithmeticOverflow"
+        ]
+      },
+      "computeUnits": 113
+    },
+    {
+      "name": "unsigned",
+      "signature": "3ZFMQPYdZmshsf7mityENp35SG2YedrGZhobHCFLwdH2AMJdoCQmQExgEJ9kNSre3yJv5xexPK4orLKUba6CtJtM",
+      "slot": 506572124,
+      "error": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      },
+      "computeUnits": 66
+    },
+    {
+      "name": "readonly",
+      "signature": "3hULzZTnjLdcYw62WCmwCCJtBmvSe2RGrqBH2uiw4VbzTZ791jV9Y5TwzBuxp7UYV8rWKBu9Azs4AGxadosPbBrL",
+      "slot": 506572137,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 85
+    },
+    {
+      "name": "foreign-owner",
+      "signature": "3dMvhpWMMay1sMcvWfYFCqkM8n5vjuFnF4GS8pGcPzobaH6cguguyM51JYG9yax8SRP8EgMwCUvjRcuk6XoYCWaB",
+      "slot": 506572148,
+      "error": {
+        "InstructionError": [
+          0,
+          "IllegalOwner"
+        ]
+      },
+      "computeUnits": 71
+    },
+    {
+      "name": "truncated-0",
+      "signature": "UXZd3mjGdSV64JrxkAVQwrNToSEiQYQsCBUbHGUSWJLX5a8tNec7fBxofoHobzGZ6C9ieN91yze1DTmMEAXEnXS",
+      "slot": 506572163,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 33
+    },
+    {
+      "name": "truncated-1",
+      "signature": "NbM1RC5dbVs7U1Af4cAr6FchUbgtxozHdy3JwDrTqoePaRi5XHx4jrMJtcdo8ETweRJRXJhvPnbFZPdouUAgzeL",
+      "slot": 506572176,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 39
+    },
+    {
+      "name": "truncated-12",
+      "signature": "fCQ1qdPLZBNasmAUdo4K28Vgqe1UgXRX5RgTwyZqRiu3dH1G2QxqMem1Vr9jDudKv7epEQxfYZ8bU85vh4pz7uu",
+      "slot": 506572188,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidInstructionData"
+        ]
+      },
+      "computeUnits": 39
+    }
+  ],
+  "deploymentMatchedBeforeAndAfter": true
+}

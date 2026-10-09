@@ -1,0 +1,17 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac
+data      : 193 bytes (0x05080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+accounts  : 0 slots
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 363/1232 bytes (legacy)
+
+signature : 2EiKp4idYraXLq9wTE5bGMfi6bfq5txkQBrra8n49fNiiRH3QCLZjcEwuiXA17Hw7GYxJeJsG5P24VdDf6UqmHWo
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidArgument"]}
+compute   : 58 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 2EiKp4idYraXLq9wTE5bGMfi6bfq5txkQBrra8n49fNiiRH3QCLZjcEwuiXA17Hw7GYxJeJsG5P24VdDf6UqmHWo --rpc https://api.devnet.solana.com

@@ -1,0 +1,71 @@
+{
+  "blockTime": 1791397880,
+  "meta": {
+    "computeUnitsConsumed": 173,
+    "costUnits": 1201,
+    "err": {
+      "InstructionError": [
+        0,
+        "UnsupportedSysvar"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h invoke [1]",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h consumed 173 of 200000 compute units",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h failed: Unsupported sysvar"
+    ],
+    "postBalances": [
+      2790098380,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2790103380,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "UnsupportedSysvar"
+        ]
+      }
+    }
+  },
+  "slot": 508545912,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "EG",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "ANXvWcGdXKr8okKS2EeEmR5Gk4ZXN9pao2NFB5yWFha3"
+    },
+    "signatures": [
+      "3ntAdLoeyZ3ZExK2W4U4tT8BvnyVkYmwAZrVjbhnVTsBdq6kjYEEMMJBYs8XYVu1XbB8CPVxD7HCyQvwUnHVKdMc"
+    ]
+  },
+  "transactionIndex": 27,
+  "version": "legacy"
+}

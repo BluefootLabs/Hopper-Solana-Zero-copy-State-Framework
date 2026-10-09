@@ -1,6 +1,7 @@
 # Public API of hopper-native, rendered from rustdoc JSON by
 # scripts/api-lock.py with default features. Do not edit by hand: run the
 # script. A line that changes or disappears is a breaking change.
+fn hopper_native::Pod::validate_value(&self) -> core::result::Result<(), hopper_native::ProgramError> { .. }
 fn hopper_native::arith::LeanMul::checked_mul_lean(self, rhs: Self) -> core::option::Option<Self>;
 hopper_native::ProgramError::AccountAlreadyInitialized = 8
 hopper_native::ProgramError::AccountBorrowFailed = 11

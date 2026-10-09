@@ -1,0 +1,20 @@
+{
+  "grillo-manifest": {
+    "version": "0.1.1",
+    "downloadSha256": "d1e9137da46eec101d7b22da710fd8fbb048dcefd31fb2bf7a015c3a95fdb5ed",
+    "sourceFilesCompared": 7,
+    "differences": []
+  },
+  "grillo-verifier": {
+    "version": "0.1.1",
+    "downloadSha256": "e7746041f0a318214c69b91e91bcf3597480e82ca27c497a32282c113cbc3453",
+    "sourceFilesCompared": 7,
+    "differences": []
+  },
+  "hopper-topology": {
+    "version": "0.1.1",
+    "downloadSha256": "1e645a7610a3d8abf36e3ebade26bbc1c786d33202c1d944f2178400f9e6878a",
+    "sourceFilesCompared": 5,
+    "differences": []
+  }
+}

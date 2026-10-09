@@ -1,0 +1,20 @@
+test_allows_external_anchor_and_packaged_targets (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_allows_external_anchor_and_packaged_targets) ... ok
+test_command_evidence_binds_both_streams_and_exit_code (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_command_evidence_binds_both_streams_and_exit_code) ... ok
+test_package_archive_evidence_hashes_exact_bytes (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_package_archive_evidence_hashes_exact_bytes) ... ok
+test_package_train_selects_every_package_in_one_locked_command (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_package_train_selects_every_package_in_one_locked_command) ... ok
+test_registry_dry_run_pins_crates_io_in_exact_argv (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_registry_dry_run_pins_crates_io_in_exact_argv) ... ok
+test_registry_dry_run_refuses_old_package_when_publish_output_missing (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_registry_dry_run_refuses_old_package_when_publish_output_missing) ... ok
+test_registry_dry_run_requires_fresh_publish_archive (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_registry_dry_run_requires_fresh_publish_archive) ... ok
+test_rejects_parent_relative_inline_image_angle_and_reference (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_rejects_parent_relative_inline_image_angle_and_reference) ... ok
+test_rejects_unpacked_local_target (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_rejects_unpacked_local_target) ... ok
+test_source_includes_must_stay_inside_the_package (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_source_includes_must_stay_inside_the_package) ... ok
+test_source_includes_reject_computed_or_unparsed_arguments (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_source_includes_reject_computed_or_unparsed_arguments) ... ok
+test_worktree_fingerprint_binds_dirty_file_contents (__main__.run_self_tests.<locals>.PackagedReadmeLinkTests.test_worktree_fingerprint_binds_dirty_file_contents) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.909s
+
+OK
+registry dry-run: hopper-runtime
+registry dry-run: hopper-runtime
+OK: publish-train self-tests passed

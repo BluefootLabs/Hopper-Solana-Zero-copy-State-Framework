@@ -1,0 +1,14 @@
+{
+  "label": "return-nested",
+  "programId": "G8NPwohfgyQPRQXwsNincbpXan2jEoMKU9nfVvhiXZXv",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-return-provenance-fixture\\hopper_return_provenance_fixture.so",
+  "elfBytes": 3280,
+  "elfSha256": "4dffa3a0f8cdb792e14a53eb26744891235d8e59d7bb382ab0eb780b87c594ae",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508563077,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:39:48.340806+00:00"
+}

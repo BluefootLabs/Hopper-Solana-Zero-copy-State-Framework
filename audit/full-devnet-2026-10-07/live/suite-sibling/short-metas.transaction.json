@@ -1,0 +1,104 @@
+{
+  "blockTime": 1791397436,
+  "meta": {
+    "computeUnitsConsumed": 2326,
+    "costUnits": 3354,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountDataTooSmall"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "1j",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [
+              0,
+              1
+            ],
+            "data": "C",
+            "programIdIndex": 1,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt invoke [1]",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt invoke [2]",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt consumed 40 of 198937 compute units",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt success",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt invoke [2]",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt consumed 197 of 197871 compute units",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt failed: account data too small for instruction",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt consumed 2326 of 200000 compute units",
+      "Program FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt failed: account data too small for instruction"
+    ],
+    "postBalances": [
+      2335887515,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2335892515,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountDataTooSmall"
+        ]
+      }
+    }
+  },
+  "slot": 508544047,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "2XU",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "91ut1GDDodQVwFQV1qu9Ji7SiipJwCLB7wbFQd9LdMCc"
+    },
+    "signatures": [
+      "3shXGyFTbMQFYEkGHQte7rPjc62obFz3u9NCPv7DsMYT3UqD7yyrPDtn9kZk3yxXt5FGySSKVEoPgraadGs6Jmbo"
+    ]
+  },
+  "transactionIndex": 9,
+  "version": "legacy"
+}

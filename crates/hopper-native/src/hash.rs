@@ -1,11 +1,6 @@
 //! Cryptographic hash functions via Solana syscalls.
 //!
-//! No existing Solana framework wraps `sol_sha256` or `sol_keccak256`
-//! with ergonomic APIs at the raw substrate level. Programs that need
-//! hashing either pull in heavy crates or write unsafe syscall glue
-//! every time.
-//!
-//! Hopper wraps these syscalls with safe, zero-alloc APIs. Each wrapper
+//! Hopper wraps Solana's hash syscalls with safe, zero-alloc APIs. Each wrapper
 //! hands the `&[&[u8]]` straight to the syscall (its in-memory shape is
 //! the `(ptr, len)` array the runtime reads), writes the digest into an
 //! uninitialized output buffer, and returns without inspecting a result
@@ -14,6 +9,10 @@
 //! branch on. Off-chain, `sha256` runs the const implementation in
 //! [`crate::sha256`]; the other digests return all zeros, as documented on
 //! each function.
+//!
+//! Availability depends on the target cluster. In the 2026-10-07 devnet
+//! function probe, BLAKE3 calls failed at runtime despite successful deployment;
+//! SHA-256 and Keccak calls executed. Host stubs cannot establish availability.
 
 use crate::error::ProgramError;
 #[cfg(target_os = "solana")]

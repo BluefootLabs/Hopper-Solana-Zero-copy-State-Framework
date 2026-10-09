@@ -1,5 +1,5 @@
 schema = "hopper.publish-train.v1"
-default_version = "0.5.0"
+default_version = "0.6.0"
 
 # This is the machine-readable crates.io publication order.  The validation
 # script rejects missing public workspace packages, non-public packages, and

@@ -1,0 +1,50 @@
+[
+  {
+    "arch": "v0",
+    "argv": [
+      "cargo",
+      "build-sbf",
+      "--manifest-path",
+      "bench/borrowed-slices/program/Cargo.toml",
+      "--arch",
+      "v0",
+      "--tools-version",
+      "v1.57",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\release-0-6-checks\\live-batch-final\\v0",
+      "--",
+      "--locked",
+      "--offline",
+      "-j",
+      "1"
+    ],
+    "exitCode": 0,
+    "elfBytes": 7472,
+    "sha256": "3248025cd521c360586386695f8d27dad9816c4a5755adf5dd7cd203a9e6e635",
+    "freshCargoTarget": true
+  },
+  {
+    "arch": "v3",
+    "argv": [
+      "cargo",
+      "build-sbf",
+      "--manifest-path",
+      "bench/borrowed-slices/program/Cargo.toml",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.57",
+      "--sbf-out-dir",
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\release-0-6-checks\\live-batch-final\\v3",
+      "--",
+      "--locked",
+      "--offline",
+      "-j",
+      "1"
+    ],
+    "exitCode": 0,
+    "elfBytes": 6592,
+    "sha256": "56c5d135c10c1b7d2b6ea03bf9555343ed412f51800227ce411e65bc176a4878",
+    "freshCargoTarget": true
+  }
+]

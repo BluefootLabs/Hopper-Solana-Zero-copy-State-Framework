@@ -49,7 +49,7 @@ help: the trait `Zeroable` is not implemented for `MissingCopy`
 note: required by a bound in `Pod`
  --> $WORKSPACE/crates/hopper-native/src/pod.rs
   |
-  | pub unsafe trait Pod: Zeroable {}
+  | pub unsafe trait Pod: Zeroable {
   |                       ^^^^^^^^ required by this bound in `Pod`
   = note: this error originates in the attribute macro `hopper::state` (in Nightly builds, run with -Z macro-backtrace for more info)
 help: consider annotating `MissingCopy` with `#[derive(Copy)]`

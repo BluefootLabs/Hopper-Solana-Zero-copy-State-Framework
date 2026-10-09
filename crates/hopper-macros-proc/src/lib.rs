@@ -497,6 +497,12 @@ pub fn error(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// declare a compute-unit budget clients can inspect via the manifest before
 /// submission.
 ///
+/// In the unreleased source, the macro also generates a checked decoder for
+/// `&MyArgs` handler parameters. It borrows exactly `PACKED_SIZE` bytes and
+/// validates nested representations before account binding. Subsequent
+/// parameters consume subsequent bytes; the program dispatcher rejects any
+/// unconsumed suffix. Use an explicit `&[u8]` parameter to accept a byte tail.
+///
 /// # Example
 /// ```ignore
 /// #[hopper::args(cu = 1200)]

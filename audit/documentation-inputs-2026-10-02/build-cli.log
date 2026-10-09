@@ -1,0 +1,7 @@
+    Blocking waiting for file lock on build directory
+   Compiling hopper-runtime v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-runtime)
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-core)
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-schema)
+   Compiling hopper-manager v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-manager)
+   Compiling hopper-cli v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\tools\hopper-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 82m 45s

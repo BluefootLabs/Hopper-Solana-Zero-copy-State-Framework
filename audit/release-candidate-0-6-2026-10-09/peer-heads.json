@@ -1,0 +1,42 @@
+[
+  {
+    "name": "pinocchio",
+    "repository": "anza-xyz/pinocchio",
+    "branch": "main",
+    "result": {
+      "date": "2026-10-08T20:33:31Z",
+      "sha": "d81610e9dafefe978c09a92aaa157686fd62d0fd",
+      "url": "https://github.com/anza-xyz/pinocchio/commit/d81610e9dafefe978c09a92aaa157686fd62d0fd"
+    }
+  },
+  {
+    "name": "pina",
+    "repository": "pina-rs/pina",
+    "branch": "main",
+    "result": {
+      "date": "2026-10-08T08:36:56Z",
+      "sha": "901ffbe5f651d23a1c922c349453f15c50585e32",
+      "url": "https://github.com/pina-rs/pina/commit/901ffbe5f651d23a1c922c349453f15c50585e32"
+    }
+  },
+  {
+    "name": "quasar",
+    "repository": "blueshift-gg/quasar",
+    "branch": "master",
+    "result": {
+      "date": "2026-07-13T06:20:59Z",
+      "sha": "b0de7db4cd271654a2dcf78807dd865e98e0b339",
+      "url": "https://github.com/blueshift-gg/quasar/commit/b0de7db4cd271654a2dcf78807dd865e98e0b339"
+    }
+  },
+  {
+    "name": "anchor-v2",
+    "repository": "otter-sec/anchor",
+    "branch": "anchor-next",
+    "result": {
+      "date": "2026-10-07T18:03:13Z",
+      "sha": "7fa5b11408ae73e3669635d13610f2207e3dfce9",
+      "url": "https://github.com/otter-sec/anchor/commit/7fa5b11408ae73e3669635d13610f2207e3dfce9"
+    }
+  }
+]

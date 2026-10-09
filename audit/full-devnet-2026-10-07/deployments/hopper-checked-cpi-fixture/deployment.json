@@ -1,0 +1,14 @@
+{
+  "label": "hopper-checked-cpi-fixture",
+  "programId": "63iTaErzb6mCw9Cbbn5RaptL34ah7G468QEYfz4TULCa",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-checked-cpi-fixture\\hopper_checked_cpi_fixture.so",
+  "elfBytes": 3376,
+  "elfSha256": "ef065bc6b8c52dd3d14db45f7217782e6b3023c08d9470d419a668d44d57ced0",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508564615,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:45:56.836066+00:00"
+}

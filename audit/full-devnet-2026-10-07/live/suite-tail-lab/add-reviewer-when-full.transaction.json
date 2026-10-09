@@ -1,0 +1,77 @@
+{
+  "blockTime": 1791400281,
+  "meta": {
+    "computeUnitsConsumed": 573,
+    "costUnits": 1909,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountDataTooSmall"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN invoke [1]",
+      "Program DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN consumed 573 of 200000 compute units",
+      "Program DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN failed: account data too small for instruction"
+    ],
+    "postBalances": [
+      1725454188,
+      2600960,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1725459188,
+      2600960,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountDataTooSmall"
+        ]
+      }
+    }
+  },
+  "slot": 508555991,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "3e8LK4coRv3sWZDc3Fw88bLYAQvKZ7XHn4neDpR1GFkf",
+        "DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "s5Ri34X74HbGZbTVfjswyZA9Ye8wCMywhVzoNtH9NFkA",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "FeoxyV95pwx4aaHfj8dhiqZgg2bHqJ4LRUS4SVjdmez9"
+    },
+    "signatures": [
+      "5cVcQehiSTFrfujRAtpG7cnRjYZ44ddmFZgbkKyqCk8fWGpq3WQ33TD7ixmpbunZx9Sgic32tJ1fEeNF3VXpd4hu"
+    ]
+  },
+  "transactionIndex": 7,
+  "version": "legacy"
+}

@@ -1,0 +1,19 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H
+data      : 18 bytes (0x010000030000000000000001000000000000)
+accounts  : 2 slots
+  [0] CsdsNZFm5hci4Wc1vdA3iQkbFfQ6qsi6fPxtSKEBweZK s-
+  [1] 7tTVNxnC3ohogF72iK47HHMXdWZpSFv97eQdwRFCyvTc -w
+signers   : payer 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4, CsdsNZFm5hci4Wc1vdA3iQkbFfQ6qsi6fPxtSKEBweZK
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 317/1232 bytes (legacy)
+
+signature : 2gRHdoZA9sY5s7Pun8xde3S65uXfirVCFGuMhauRB9tiwmkuRTB2R6AmZnWK7q2UzHP5HCBgqcnBqWvA84pTYNcL
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"InvalidInstructionData"]}
+compute   : 67 CU
+fee       : 10000 lamports
+
+explain it: hopper tx explain 2gRHdoZA9sY5s7Pun8xde3S65uXfirVCFGuMhauRB9tiwmkuRTB2R6AmZnWK7q2UzHP5HCBgqcnBqWvA84pTYNcL --rpc https://api.devnet.solana.com

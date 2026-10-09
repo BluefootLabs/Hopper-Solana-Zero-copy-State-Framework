@@ -605,3 +605,32 @@ pub unsafe fn sol_memset_(dst: *mut u8, byte: u8, n: u64) {
         core::ptr::write_bytes(dst, byte, n as usize);
     }
 }
+
+#[cfg(all(test, not(target_os = "solana")))]
+mod tests {
+    #[test]
+    fn raw_hash_host_stubs_do_not_produce_digests() {
+        #[repr(C)]
+        struct SliceDescriptor {
+            address: *const u8,
+            length: u64,
+        }
+        let input = b"abc";
+        let descriptors = [SliceDescriptor {
+            address: input.as_ptr(),
+            length: input.len() as u64,
+        }];
+        let descriptors = descriptors.as_ptr().cast();
+        let mut output = [173; 32];
+        // SAFETY: One C-layout descriptor points to three live input bytes;
+        // the nonoverlapping output buffer holds all 32 writable digest bytes.
+        unsafe {
+            super::sol_sha256(descriptors, 1, output.as_mut_ptr());
+            assert_eq!(output, [173; 32]);
+            super::sol_keccak256(descriptors, 1, output.as_mut_ptr());
+            assert_eq!(output, [173; 32]);
+            assert_eq!(super::sol_blake3(descriptors, 1, output.as_mut_ptr()), 0);
+        }
+        assert_eq!(output, [173; 32]);
+    }
+}

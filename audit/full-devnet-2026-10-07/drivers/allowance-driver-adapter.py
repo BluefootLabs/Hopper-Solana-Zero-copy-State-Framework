@@ -1,0 +1,2 @@
+from pathlib import Path
+exec(compile(Path('D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\allowance-driver-corrected.py').read_bytes(), 'D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\scripts\\test-byte-allowance-devnet.py', "exec"), {"__file__": 'D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\scripts\\test-byte-allowance-devnet.py', "__name__": "__main__"})

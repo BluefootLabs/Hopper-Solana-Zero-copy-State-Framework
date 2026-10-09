@@ -73,8 +73,13 @@ def main() -> int:
     parser.add_argument("--index", action="store_true", help="check the staged blobs instead of the files")
     args = parser.parse_args()
     read = reader(args.index)
-    listed = git("ls-files", "audit").stdout.decode().splitlines()
-    sums_paths = sorted(path for path in listed if path.endswith("/SHA256SUMS"))
+    options = [] if args.index else ["--cached", "--others", "--exclude-standard"]
+    listing = git("ls-files", "-z", *options, "--", "audit")
+    if listing.returncode:
+        print("cannot enumerate audit bundles", file=sys.stderr)
+        return 1
+    listed = listing.stdout.decode("utf-8").split("\0")
+    sums_paths = sorted(set(path for path in listed if path.endswith("/SHA256SUMS")))
     problems: list[str] = []
     files = 0
     gaps = 0

@@ -6,10 +6,10 @@
 //! happened. Functions that need a signer take `SignerView` -- zero
 //! runtime cost after the single boundary check.
 //!
-//! This pattern has no equivalent in pinocchio, Anchor, Steel, or any
-//! other Solana framework. Anchor's `Signer<'info>` is a macro-generated
-//! wrapper that re-checks at runtime. Hopper's capability types are
-//! zero-size wrappers that PROVE the check already happened.
+//! These transparent wrappers store an `AccountView` after validation.
+//! They add no fields to the view. A capability records the checked account
+//! property; application-specific authority and relationship checks remain
+//! the caller's responsibility.
 //!
 //! # Usage
 //!
@@ -238,8 +238,8 @@ impl<'info> core::ops::Deref for OwnedView<'info> {
 
 // ── ReadonlyView ─────────────────────────────────────────────────────
 
-/// An `AccountView` proven to be a non-signer, non-writable read-only
-/// account. Useful for cross-program reads where you explicitly want
+/// An `AccountView` proven to be non-writable, whether or not it is a signer.
+/// Useful for cross-program reads where you explicitly want
 /// to prevent accidental mutation attempts.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
@@ -248,7 +248,7 @@ pub struct ReadonlyView<'info> {
 }
 
 impl<'info> ReadonlyView<'info> {
-    /// Validate that the account is neither a signer nor writable.
+    /// Validate that the account is not writable.
     #[inline(always)]
     pub fn validate(view: AccountView<'info>) -> Result<Self, ProgramError> {
         // A "readonly" account in Solana's model is one that the

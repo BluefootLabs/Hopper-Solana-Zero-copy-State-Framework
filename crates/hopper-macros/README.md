@@ -5,6 +5,14 @@
 
 Declarative macros for the Hopper zero-copy state framework. All macro_rules!, no proc macros. You can build a full Hopper program without ever touching a derive or attribute macro.
 
+## Value validation (unreleased)
+
+`hopper_layout!` and `hopper_interface!` implement `Pod::validate_value` by
+checking each declared field. Nested arrays, enums, options, and layouts compose
+through the same representation checks as the proc-macro authoring path. This
+does not change account loading, layout fingerprints, header checks, or
+application authorization.
+
 ## Core macros
 
 hopper_layout!: Define a zero-copy account layout with auto-generated header, SHA-256 fingerprint, and tiered load methods.

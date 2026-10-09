@@ -1,0 +1,3 @@
+[2026-10-09T01:47:59.569310800Z WARN  cargo_build_sbf] Package 'hopper-xp-program-a' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+   Compiling hopper-xp-program-a v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\cross-program-read\program-a)
+    Finished `release` profile [optimized] target(s) in 0.76s

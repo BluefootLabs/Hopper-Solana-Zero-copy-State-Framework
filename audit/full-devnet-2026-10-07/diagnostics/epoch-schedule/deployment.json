@@ -1,0 +1,18 @@
+{
+  "label": "sysvar-consistency",
+  "programId": "73p6XK1RDPtjpugRjAYhqd8Fi4hgZQ18aqAbbWwpHFmp",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\sysvar-probe-sbf\\hopper_sysvar_consistency_probe.so",
+  "elfBytes": 1480,
+  "elfSha256": "b99b2a25b413aa4f06c0441b95d3d42e7d9ef2cfe0806bc6a5bb0090aedb71a1",
+  "source": {
+    "Cargo.toml": "69e587f9c6eb005a303dc9a46067c42ffe26dd1fd6b91204d9acfd3c3cc4aa14",
+    "Cargo.lock": "6323234e9a2ba87b897f3ba2c84c05312dd6aa9b9e02dd1e04c4463138227dad",
+    "src\\lib.rs": "a35afb5a24d57047847d770c8f195024c2c5584c1a68b4a80f1517559c6f5e86"
+  },
+  "sourceCommit": null,
+  "freshAtSlot": 508529977,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T17:28:03.343350+00:00"
+}

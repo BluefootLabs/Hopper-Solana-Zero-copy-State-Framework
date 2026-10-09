@@ -19,6 +19,22 @@ note: required by a bound in `__FieldPodProof`
   | ^^^^^^ required by this bound in `__FieldPodProof`
   = note: this error originates in the attribute macro `pod` (in Nightly builds, run with -Z macro-backtrace for more info)
 
+error[E0277]: `&u8` cannot be overlaid on account bytes
+ --> tests/compile_fail/pod_reference_field.rs:6:1
+  |
+6 | #[pod]
+  | ^^^^^^ not `Pod`: some byte pattern or byte offset is invalid for this type
+  |
+  = help: the trait `Pod` is not implemented for `&u8`
+  = note: use the alignment-1 wire form instead: `WireU64` for `u64` (and `WireU16`, `WireU32`, `WireU128`, `WireI16` to `WireI128`), `WireBool` for `bool`, `EnumByte<E>` for a `#[hopper::unit_enum]` enum, `OptionByte<T>` for an optional value, `Address` for a key
+  = note: a nested struct must itself be declared with `#[hopper::state]` or `#[hopper::pod]`; references, `Vec`, `String`, and `char` have no zero-copy form (see bounded `String<'a, N>` / `Vec<'a, T, N>` tail fields)
+help: the trait `Pod` is implemented for `u8`
+ --> crates/hopper-native/src/pod.rs
+  |
+  | unsafe impl Pod for u8 {}
+  | ^^^^^^^^^^^^^^^^^^^^^^
+  = note: this error originates in the attribute macro `pod` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0080]: evaluation panicked: #[hopper::pod] struct `BadRef` must be alignment-1 (use Hopper wire types such as WireU64, WireI32, or TypedAddress<T> instead of raw u64/i32/Pubkey).
  --> tests/compile_fail/pod_reference_field.rs:6:1
   |

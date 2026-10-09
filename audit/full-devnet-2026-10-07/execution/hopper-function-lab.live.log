@@ -1,0 +1,91 @@
+hash-0-0-0: finalized, 384 CU
+hash-0-0-1: finalized, 400 CU
+hash-0-0-2: finalized, 422 CU
+hash-0-0-16: finalized, 562 CU
+hash-0-0-17: finalized, 572 CU
+hash-0-0-32: finalized, 722 CU
+hash-0-0-64: finalized, 1042 CU
+hash-0-1-0: finalized, 387 CU
+hash-0-1-1: finalized, 403 CU
+hash-0-1-2: finalized, 425 CU
+hash-0-1-16: finalized, 565 CU
+hash-0-1-17: finalized, 575 CU
+hash-0-1-32: finalized, 725 CU
+hash-0-1-64: finalized, 1045 CU
+hash-1-0-0: finalized, 389 CU
+hash-1-0-1: finalized, 405 CU
+hash-1-0-2: finalized, 427 CU
+hash-1-0-16: finalized, 567 CU
+hash-1-0-17: finalized, 577 CU
+hash-1-0-32: finalized, 727 CU
+hash-1-0-64: finalized, 1047 CU
+hash-1-1-0: finalized, 392 CU
+hash-1-1-1: finalized, 408 CU
+hash-1-1-2: finalized, 430 CU
+hash-1-1-16: finalized, 570 CU
+hash-1-1-17: finalized, 580 CU
+hash-1-1-32: finalized, 730 CU
+hash-1-1-64: finalized, 1050 CU
+hash-0-empty-17: finalized, 572 CU
+hash-1-empty-17: finalized, 577 CU
+empty: finalized, 24 CU
+unknown: finalized, 34 CU
+hash-truncated: finalized, 42 CU
+hash-fixture-cap: finalized, 44 CU
+hash-zero-surplus: finalized, 49 CU
+copy-0-64-13: finalized, 198 CU
+copy-0-8-8: finalized, 198 CU
+copy-0-0-0: finalized, 198 CU
+copy-0-7-8: finalized, 90 CU
+copy-1-64-13: finalized, 199 CU
+copy-1-8-8: finalized, 199 CU
+copy-1-0-0: finalized, 185 CU
+copy-1-7-8: finalized, 90 CU
+move-0-63-1: finalized, 194 CU
+move-1-63-0: finalized, 194 CU
+move-0-64-0: finalized, 177 CU
+move-64-0-64: finalized, 176 CU
+move-63-2-0: finalized, 79 CU
+move-0-2-63: finalized, 82 CU
+fill-3: finalized, 184 CU
+fill-4: finalized, 181 CU
+fill-5: finalized, 182 CU
+compare-8-0-8: finalized, 272 CU
+compare-8-1-9: finalized, 268 CU
+compare-8-0-7: finalized, 220 CU
+compare-0-64-64: finalized, 204 CU
+epoch-arithmetic-0: finalized, 154 CU
+epoch-arithmetic-1: finalized, 161 CU
+epoch-arithmetic-2: finalized, 170 CU
+epoch-arithmetic-3: finalized, 170 CU
+epoch-arithmetic-4: finalized, 229 CU
+epoch-arithmetic-5: finalized, 304 CU
+epoch-arithmetic-6: finalized, 171 CU
+epoch-arithmetic-7: finalized, 221 CU
+epoch-arithmetic-8: finalized, 164 CU
+epoch-arithmetic-9: finalized, 223 CU
+epoch-arithmetic-10: finalized, 213 CU
+epoch-arithmetic-11: finalized, 221 CU
+arithmetic-0: finalized, 749 CU
+Traceback (most recent call last):
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-function-lab-devnet.py", line 201, in <module>
+    main()
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-function-lab-devnet.py", line 94, in main
+    tx = send(case["name"], bytes.fromhex(case["data"]), case["error"],
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-function-lab-devnet.py", line 71, in send
+    tx = finalize(match[1])
+         ^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 69, in finalize
+    tx = rpc("getTransaction", [signature, {"commitment": "finalized", "maxSupportedTransactionVersion": 1}])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\scripts\test-runtime-gate-devnet.py", line 55, in rpc
+    with urllib.request.urlopen(request, timeout=45) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "urllib\request.py", line 215, in urlopen
+  File "urllib\request.py", line 521, in open
+  File "urllib\request.py", line 630, in http_response
+  File "urllib\request.py", line 559, in error
+  File "urllib\request.py", line 492, in _call_chain
+  File "urllib\request.py", line 639, in http_error_default
+urllib.error.HTTPError: HTTP Error 429: Too Many Requests

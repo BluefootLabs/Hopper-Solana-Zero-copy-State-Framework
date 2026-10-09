@@ -1,0 +1,74 @@
+{
+  "blockTime": 1791398876,
+  "meta": {
+    "computeUnitsConsumed": 561,
+    "costUnits": 1589,
+    "err": {
+      "InstructionError": [
+        0,
+        "ProgramFailedToComplete"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 7JDXFFEgazVZR4nif6rwueRAespVAacejbwgMohgkBAL invoke [1]",
+      "Program log: runtime lab panic, code 7",
+      "Program 7JDXFFEgazVZR4nif6rwueRAespVAacejbwgMohgkBAL consumed 561 of 200000 compute units",
+      "Program 7JDXFFEgazVZR4nif6rwueRAespVAacejbwgMohgkBAL failed: SBF program Panicked in examples\\hopper-runtime-lab\\src\\lib.rs at 168:9"
+    ],
+    "postBalances": [
+      2445246169,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2445251169,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "ProgramFailedToComplete"
+        ]
+      }
+    }
+  },
+  "slot": 508550098,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "7JDXFFEgazVZR4nif6rwueRAespVAacejbwgMohgkBAL"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0
+          ],
+          "data": "EN",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "43brFkGb8nFvB8NhyWy8TenwyJsEzYQW537isVhjsxhr"
+    },
+    "signatures": [
+      "YPDHf5qmX8bRBE86DSvtNeLex4NqLPtJhLz5uiAFXzHEjpogNcDZhbYmQyghPYb5kSeXBv7QPRTY6gdBxt4x7X3"
+    ]
+  },
+  "transactionIndex": 14,
+  "version": "legacy"
+}

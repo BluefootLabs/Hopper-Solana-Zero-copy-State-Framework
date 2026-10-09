@@ -1,0 +1,33 @@
+{
+  "allPassed": true,
+  "sourceUnchanged": true,
+  "checks": [
+    {
+      "command": [
+        "npm.cmd",
+        "run",
+        "lint"
+      ],
+      "exitCode": 0,
+      "log": "website-lint.log"
+    },
+    {
+      "command": [
+        "npm.cmd",
+        "run",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "log": "website-typecheck.log"
+    },
+    {
+      "command": [
+        "npm.cmd",
+        "run",
+        "build"
+      ],
+      "exitCode": 0,
+      "log": "website-build.log"
+    }
+  ]
+}

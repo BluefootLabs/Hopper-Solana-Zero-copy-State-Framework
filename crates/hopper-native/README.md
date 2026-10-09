@@ -10,7 +10,28 @@ Hopper's hash wrappers reject too many segments instead of silently dropping
 bytes. The public crypto matrix is maintained in
 [`docs/CRYPTO_CAPABILITIES.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/CRYPTO_CAPABILITIES.md).
 
+The [function lab](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/function-lab)
+exercises native and runtime APIs inside compiled programs. Known-answer hashes,
+memory bounds, arithmetic overflow and alias borrowing are checked separately
+from host syscall stubs. Cluster-dependent syscall and entrypoint features
+remain opt-in and must match the deployment network.
+
 Part of the **[Hopper](https://hopperzero.dev)** framework.
+
+This crate is a dependency-free Rust library for Solana programs. Zero-copy
+describes access to the instruction's supplied memory, not validator storage,
+transaction encoding, or the absence of all copies. Raw views do not establish
+application authority. Use `hopper-lang` for generated typed account admission,
+or implement the required checks in your native handler.
+
+## Value validation (unreleased)
+
+`Pod::validate_value` provides an allocation-free hook for protocol representation
+checks. Arrays delegate to their elements; the default accepts every value,
+preserving existing hand-written marker implementations. Hopper's typed runtime
+and layout macros supply the tagged-value checks. The unsafe memory-layout
+contract still requires every bit pattern to be a valid Rust value, and raw
+overlays do not call this hook automatically.
 
 ## Entrypoints
 
@@ -43,7 +64,7 @@ inside a loop; `heap::used()` says how much is taken.
 
 The `panic-location` feature makes a panic report `file:line:column`
 through `sol_panic_`, and `panic-message` logs the message. Without them a
-panic aborts silently, which is what a production build wants.
+panic aborts silently. Choose the logging behavior needed for your deployment.
 
 `slot_hashes::slot_hash_lookup(slot)` finds a slot's hash with partial reads
 of the 20 KB SlotHashes sysvar, one read for a recent slot and two for most
@@ -145,3 +166,12 @@ absence because host stubs have no instruction trace. Program-ID inspection does
 not authorize a transfer or validate a signature payload.
 
 [Instruction inspection guide](https://hopperzero.dev/docs/instruction-introspection).
+
+## Epoch arithmetic (unreleased)
+
+Epoch helpers saturate results outside the slot range and avoid dividing by
+zero for an invalid zero-length schedule, matching the SDK's defensive normal-epoch
+behavior. This is arithmetic, not schedule validation. The
+[function lab](https://hopperzero.dev/docs/function-lab) exercises warmup and
+extreme-input boundaries; the [network baseline](https://hopperzero.dev/docs/network-baseline)
+records the separate October 7 devnet schedule inconsistency.

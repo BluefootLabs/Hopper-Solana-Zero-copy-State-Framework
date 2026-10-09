@@ -1,0 +1,26 @@
+[package]
+name = "hopper-function-lab"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+simd-0321 = ["hopper-native/simd-0321", "hopper-runtime/simd-0321"]
+simd-0449 = ["hopper-native/simd-0449", "hopper-runtime/simd-0449"]
+static-syscalls = ["hopper-native/static-syscalls", "hopper-runtime/static-syscalls"]
+sha512-syscall = ["hopper-native/sha512-syscall", "hopper-runtime/sha512-syscall"]
+big-mod-exp = ["hopper-runtime/crypto-big-mod-exp"]
+blake3-syscall = []
+
+[dependencies]
+hopper = { package = "hopper-lang", path = "../../..", default-features = false }
+hopper-native = { path = "../../../crates/hopper-native" }
+hopper-runtime = { path = "../../../crates/hopper-runtime", features = ["crypto-curve", "crypto-poseidon", "crypto-bn254"] }
+
+[lints]
+workspace = true

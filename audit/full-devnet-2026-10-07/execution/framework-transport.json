@@ -1,0 +1,6 @@
+{
+  "driverSha256": "de6a60a019bffb29025b52ecf25114218315b65005305d6306d927bae9b5d46e",
+  "adapterSha256": "bd5e31722855dff9b0561a974e552679ec4c9f1be70d19e9f35279e40ac19766",
+  "addedDeploymentFlag": "--use-rpc",
+  "transactionPreflightEnabled": true
+}

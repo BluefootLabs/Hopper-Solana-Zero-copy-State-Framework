@@ -1,0 +1,405 @@
+{
+  "adapterSha256": "d01b3c03cc1d4f73ca5cd6a0792cbaebb79a25be189fb6efb35fc87cf1015821",
+  "originalDriverSha256": "f81fa002358e6683a322bf234c628ec652f40c792f7a010ad1acaaaa0c1f78e8",
+  "replayedReadOnlyCases": [
+    {
+      "name": "hash-0-0-0",
+      "signature": "5vaQuRfycHeRnQ7ppu8srBhoodD6deK25AY2iMcS7duxJ9wdqJEP4vaZEqExhm7j52DpwSLz17h6dSEjD8tTaiDd",
+      "slot": 508542103
+    },
+    {
+      "name": "hash-0-0-1",
+      "signature": "t99yNitJeXbi1cDC7FDjSTaD8s1vtH5aBLotfFGoTFucwcJdrvZbLUBSi9Go2CJzjnciZJN75ua2vRFocfXBsgy",
+      "slot": 508542108
+    },
+    {
+      "name": "hash-0-0-2",
+      "signature": "5JWbZeDk39BbnCWRyyuRWevn6gqq3orw1VJmV5UPT8w4TRkKw8hEnyHucTVGXKAMLb4RWQRneSy597M8a3PexbxZ",
+      "slot": 508542164
+    },
+    {
+      "name": "hash-0-0-16",
+      "signature": "Joz9YnMPmrkqujTYRyhcocwj8SiFQjEnoVBY4jdZbwACKnkGcmEPxR8bHSyeg1DPZ69tBKr7FnwmCDSkQ2ccCNr",
+      "slot": 508542170
+    },
+    {
+      "name": "hash-0-0-17",
+      "signature": "bLTKkyR8zWtFDgyWshTJviVpGqBhfBsfwuhFw4DB1nWJ8WCHUTz4Z2UZLVYBXdGqS7cj6xXb694FzQdbyrdwMXV",
+      "slot": 508542219
+    },
+    {
+      "name": "hash-0-0-32",
+      "signature": "5CXt1zapYZHD9cRB4AmvBSjh9yJ2fqYn9SdfaM5rfYUpJ4KGeRGhaLcSy7MYtT6dw5JJrDWa4FgoVnCmqprpgmwx",
+      "slot": 508542225
+    },
+    {
+      "name": "hash-0-0-64",
+      "signature": "43nV4rYuhG8C6WbCWXEwK4fKtYDYE2Y3438VWJa3NQLZAJexWmiLZwWShKAsvqSisVeFgmb3oVKjE5HEtJpkEyFf",
+      "slot": 508542273
+    },
+    {
+      "name": "hash-0-1-0",
+      "signature": "4qwrBc1NFEia4GuDimuWqGGi5bsrCvqPrCZJNvUR7RKFnP859HBi1RJEZtQ43wzneSDRBUBeTQv8XCTYZaXdoqpn",
+      "slot": 508542323
+    },
+    {
+      "name": "hash-0-1-1",
+      "signature": "4BJDFsb8Pt2Ff58ctbGy7EMYUUae4WnVGYbRDdPXWZ7z5V7W8tMTLCXPhTVTw3USSnQc4qGnCArM1iTvR2pkqM2m",
+      "slot": 508542329
+    },
+    {
+      "name": "hash-0-1-2",
+      "signature": "3NTQ3Jn8cQhx8R1Q8SEm3Ak6wvk8gM1DXMLPxgRubjyV98rCDCbrAmErp9kXvpfZhHA2GusAmYJYssEDZNGfCYkt",
+      "slot": 508542399
+    },
+    {
+      "name": "hash-0-1-16",
+      "signature": "2gd4cEdHB1jCVi1xgGkwJfhiRKyWLpq1QFavYabUVkUqD8otyPnJuEwdBnhdHCv3YVWCpdEnY3YACuhAxZYY9k4y",
+      "slot": 508542448
+    },
+    {
+      "name": "hash-0-1-17",
+      "signature": "2tTxB9haNpTsGyuhhNCvCQNn66BwV4G8xmHRtGoRSjf75evGPeJQeT4idvKBm8ukWzFqcJHx2Tjxvv18vXTkJnEm",
+      "slot": 508542453
+    },
+    {
+      "name": "hash-0-1-32",
+      "signature": "36abtH5YpCVH2RTHdCctTqXrLsmniu6kXP7JefytPZ4ESepMAmjY3b8uWh5pLM6b2nzb4fUm8CQDdXWkTjsfscAc",
+      "slot": 508542469
+    },
+    {
+      "name": "hash-0-1-64",
+      "signature": "45nPgaGddMH3QXR3NTYJZprQjwfReh7ZDSRPNAzMwc4viAs9ehmtg2KVcu6jTrJpTNEYmNen8sXN4gZ3QyRvZXgq",
+      "slot": 508542531
+    },
+    {
+      "name": "hash-1-0-0",
+      "signature": "42d7R7LSpLMgJtJKRL4Pd5P1mYjvnStisxDaA7zjKj7b8PYnyjCv51S9XtTSxTxkrGjUGNqYkPxU9q6DKmUZvrqP",
+      "slot": 508542540
+    },
+    {
+      "name": "hash-1-0-1",
+      "signature": "pK2XCvB9hpoueFmaxRhycu3rRo6T1YRmks5K6Q32Yqt5ExbsKWy7JixwRWzDPgrY47BTdAxVLH64p64jkpG3Ubd",
+      "slot": 508542587
+    },
+    {
+      "name": "hash-1-0-2",
+      "signature": "4xv76TCEX2rEoLdXUTn4FBVU7NuAa4xPwyY1xMpirsiCtJxUthkALgWnh8Ha83ZJ4sz3bhjenS9ggL4oQLFBd4nh",
+      "slot": 508542593
+    },
+    {
+      "name": "hash-1-0-16",
+      "signature": "5JmMX71gRfmPeJZAraqnTgEjwuFtkLaCYD1xiY4C2q25uVqeJDEX77utEG3smCm62RUNZthmgkWzzfw6LJ7jEVTH",
+      "slot": 508542631
+    },
+    {
+      "name": "hash-1-0-17",
+      "signature": "zfvAKFcCpugeGZpGBVoig2Juz8nyHgQ3BmHAs4YxNStHffXXRJQNDQLwkPvSxZN4pZ54J1YSYueSxxaK4ZtjGBm",
+      "slot": 508542639
+    },
+    {
+      "name": "hash-1-0-32",
+      "signature": "54c6BVoyYZyndTrSVuzgYbrx2YD29qcP9z6wqf3UhYdF12GaqdZiJBqtem8AHmxxMz9vebXBfxEEuPVFXrXpVnFt",
+      "slot": 508542654
+    },
+    {
+      "name": "hash-1-0-64",
+      "signature": "53SgBreQrDoTPM4jWUMfvFXAWPEymsLsCj5YWw1pQeJSxQcH6K2nBHPnS8macSsQ7H6NCyJayBVtMrAQ5kS3j347",
+      "slot": 508542663
+    },
+    {
+      "name": "hash-1-1-0",
+      "signature": "5ip4SNsyx3GmU84ynf6JDPaTYHKFMQKnbNtwMyqDC29Zok5SwSuZDGmK5gvvXdDmsBgzHBsA3LRDHkeFu9BLL3L7",
+      "slot": 508542709
+    },
+    {
+      "name": "hash-1-1-1",
+      "signature": "4jcqA3r9EXWoeu8VkgwsaGfRYgFm5hEh7JJTVCabcLecTKWfDd78EDmffERZJCngMXFq5AceLBdFQ8LtVZdG43XB",
+      "slot": 508542717
+    },
+    {
+      "name": "hash-1-1-2",
+      "signature": "4mzy76AzfVMTNHmQ78uCCV2qcTYfUzD5uoweGtiU4vKXP1uyGDtN1W9ALabzLQJn8aANQA9Eh6y1Ud4ojaXSfQQN",
+      "slot": 508542750
+    },
+    {
+      "name": "hash-1-1-16",
+      "signature": "A1PhA3SueUyL2ZWfgkUZWNdUFWyaip8ocBcHmCDJgWKQWd8ugyLKj65YwiqXLvLHZHX1FmAvtacwJnW97f87qH3",
+      "slot": 508542758
+    },
+    {
+      "name": "hash-1-1-17",
+      "signature": "3ZrctaLaJvijpyyvRJbxhfvQkBamj9nYAGyqpxaQWPK36EirvRYFoeFkjyhQS1k3LqxMwajSrNGXhLUVpsdnUwkb",
+      "slot": 508542766
+    },
+    {
+      "name": "hash-1-1-32",
+      "signature": "4Kk5Wds2WxoGePXUTaL6ndRV2kAFWWfJR7Eo9Xj4hrJDhPji5zD4su3RWtbCTyzGxWeUBZGWK2U2vjd4JLTNp9SH",
+      "slot": 508542812
+    },
+    {
+      "name": "hash-1-1-64",
+      "signature": "3iRbM4piZHvCx9fFJAfVsEJoAhg8Yeu5VC2uR46N8YQVfdNf8p7uzDTuv5CXWT1tG1Qoi4SEeUmFcXn1TzJnc1NS",
+      "slot": 508542820
+    },
+    {
+      "name": "hash-0-empty-17",
+      "signature": "4WBMnAKvuwrPQ7aWkNQxn2urWXVjdjvL9WEetBP5kThDMCypkeW9voAEnLuMnGio7d3mwcnBKMyerLFnoSu97prT",
+      "slot": 508542864
+    },
+    {
+      "name": "hash-1-empty-17",
+      "signature": "2iWYq3ZFK1NQHZUQqxpSgtY9udsMqv2ahhYFjdfxWDppZVXuAqwXdUwDw1LGSXSTRC1PaUmpavwv7hqMem6KuZH4",
+      "slot": 508542882
+    },
+    {
+      "name": "empty",
+      "signature": "FqPgGkzZraPv1BuKUc4hE1VqT3ejVMZCERK2YGj78iCVv9TnWzpPouKAVLwbnUWea9xTsh1rm5wr23XB78VYabs",
+      "slot": 508542919
+    },
+    {
+      "name": "unknown",
+      "signature": "49LqL66dQBHqx41JGub2odmCMDeri7DqdJdRmSwThFTtD5bSPje7yGZgtMwVev8VbGNF2ZRC37sXJMw3o2xr8Yke",
+      "slot": 508542931
+    },
+    {
+      "name": "hash-truncated",
+      "signature": "Ra496WCXMmH4kTdbA2ptTrxB5pFYAANCeiv6Ra92zbgEtNUycQsvN8wZh6SWpbWchjorXAyVaYJ62rH8GWbhKfh",
+      "slot": 508542969
+    },
+    {
+      "name": "hash-fixture-cap",
+      "signature": "hcn6RdedbGWLQfAj317EamfLDo5ccELGyMQX4YpXy8roAoyxtQhZc2YitBNzwPVmgjbkQVLfoyiwvRji8NfeEMf",
+      "slot": 508542980
+    },
+    {
+      "name": "hash-zero-surplus",
+      "signature": "5DoCf4EYHo42GrWft2DYEJvBkq3u8XAmYu2WBfGETxftyXt6uqkSuQkEwAqtCHsZbnmP7HbtgpBhAdJZcoCbdJ9z",
+      "slot": 508542992
+    },
+    {
+      "name": "copy-0-64-13",
+      "signature": "236rcNMCi8APwfpfrCtuNUJ5bNGM128uH9mrXGNB7eFEk5TvFfBUdw1aYsPqr5jAsCfCjbKbpKLpAUNJ7rkc3VeU",
+      "slot": 508543002
+    },
+    {
+      "name": "copy-0-8-8",
+      "signature": "5zAnwsmscoUAZjLcSBc8SJaX7TMDfJU3475Pdf5KrPfxZDxQpqjL7VNrYN1Sx1q62VC53DCjQDMbdbUwAGRBUq67",
+      "slot": 508543078
+    },
+    {
+      "name": "copy-0-0-0",
+      "signature": "CUBkSTNj6AQiZCb3dSYhy2PE76bGMmWBiZa7hq4AqtjKPmpSn4GLumc47K9cLNobY4UkXcddPy9b3PcuBVR1bk9",
+      "slot": 508543112
+    },
+    {
+      "name": "copy-0-7-8",
+      "signature": "4CpHF4dUG9RUSBdgGJUVmxuSF7HEXZRxmNaFBRwpmpjQy5swtLXuEXa9J1vGd1HCZ2pNNpd4N273SmLoyXg24f6n",
+      "slot": 508543147
+    },
+    {
+      "name": "copy-1-64-13",
+      "signature": "2TefujgdCnAeMvr8dtGEkuq39YM2FreogeGjzUS4HqUtDwZJ8tEN25uWJyizvTMSNx44vtRgsmaP21S84EpBQKYX",
+      "slot": 508543169
+    },
+    {
+      "name": "copy-1-8-8",
+      "signature": "hgpFvfzGCmymttGFLoUr4xmVC3zDMnw9FgXG4oBLwAA5pouvUJtgDdgDTsKt8whZm9FaFDobgoEzM6wuR1DpaL6",
+      "slot": 508543220
+    },
+    {
+      "name": "copy-1-0-0",
+      "signature": "2jaSiUYbj3qgDu7NgHd91fNo1pjvmUexZSPQHmVCmCRaHiWeNNtCL7oMeX6RtEMM5tu1JfhvAxXpghUYwpsFvqU5",
+      "slot": 508543227
+    },
+    {
+      "name": "copy-1-7-8",
+      "signature": "3fq13vgFKyDkY6Ce8SoXBbW6yfQQG9npuC2kmiL69nQXF2JcHVqdDDdAcx4s3bpaVFXUNfy2ASvhqNb1JHSW9zSb",
+      "slot": 508543260
+    },
+    {
+      "name": "move-0-63-1",
+      "signature": "27mqVA9yJR59NiM5cFj9LszVouhV4CFLduq8NMVjJ17dgeGMW6yYG8vt44znmB7oAHGPAV5crManFnkE184VwjZP",
+      "slot": 508543331
+    },
+    {
+      "name": "move-1-63-0",
+      "signature": "59ap2czggdn1KA9nx8kiJg1n6JamjkHoajWb7GxT4eFFfU6zJwpx7TiipycB3csTr8bpyeXZrRc3YLp8CHvo85Sv",
+      "slot": 508543397
+    },
+    {
+      "name": "move-0-64-0",
+      "signature": "25aip73tnEQkYepi8YuvQkMubdPPZjNxmDa8HoHa4azJW5KEGqNtCoyLm8EDnDJzLpxKCb7rhzbwBEj7fQdZF8W8",
+      "slot": 508543405
+    },
+    {
+      "name": "move-64-0-64",
+      "signature": "3kN7t7nYp5d4BnUbxb7HKeZbbuCKcLu1vgfD58p465DNuQJ5PRGCNjDGNjnqHDdZX4WwjCm37TZKc8svQeAqMLbn",
+      "slot": 508543413
+    },
+    {
+      "name": "move-63-2-0",
+      "signature": "2wL8R2177wU4vgyUf25JXGm2kaRwEHRGTxHpnS9K3iJ6F2566FW9FHqTk1c3kDjXQWWcyXKVvrnZn9BjfrcB8BSQ",
+      "slot": 508543461
+    },
+    {
+      "name": "move-0-2-63",
+      "signature": "tvCdDuVUj5ZRG1ASxRv8DNt3PY5787XEGpyBq1WpgwY9FpdTA7wLDragN1Ub83mdd4VxsqBjyGVsjQEKGAhc8ta",
+      "slot": 508543481
+    },
+    {
+      "name": "fill-3",
+      "signature": "526EnR1E5yCyyQr4kgaSbh1SFQcBAaNLRGFzeqe5ZPxpGX9E2dJ68dugWymYkWGtCs4VywCsr4FMhA8zF1LabNX3",
+      "slot": 508543523
+    },
+    {
+      "name": "fill-4",
+      "signature": "3vBZCXqhd17GgWMKsVdjtrn5uJJ9w9JBs4JXpHrdtUBvV5iPLEUL4pvy4DzCf1hxPKHHvatitzgE6c61npVHQX37",
+      "slot": 508543528
+    },
+    {
+      "name": "fill-5",
+      "signature": "2GL5xrkUNY3eTRtXw3saSU3cEkmsB28iPjHnUNNw7Zm2HqASJhmtGam3rCkeep5C33mY3HbFNC74K42GBktQJwb8",
+      "slot": 508543703
+    },
+    {
+      "name": "compare-8-0-8",
+      "signature": "2fegYAKYme73tMy1xnqUjYBkYzXGqF6v6dZB2echviSxJqUT7WBgC7pZjcKUikRgwwAvBizzwVntyS3TU69pddf5",
+      "slot": 508543771
+    },
+    {
+      "name": "compare-8-1-9",
+      "signature": "5yiNV5zgcEU1jjET6hB7YwKcHMbWZ53Kn6aSy9SMmYdYqJtaQk6LcwFXaJc3dYFgeXegeUwXtS3Br1vgrmZ3DkoC",
+      "slot": 508543824
+    },
+    {
+      "name": "compare-8-0-7",
+      "signature": "4RQKXppmSB7qHzjkFfYbqoew88wy4nGx7N5YGvi6uJEzMqijvQ2DCoYFQ6kjwzNT7p9a6sneiVXZ6tCJBgER6CnY",
+      "slot": 508543865
+    },
+    {
+      "name": "compare-0-64-64",
+      "signature": "579jvQos7fyfkEPqzNSigsiBNtE6irKi4Fhw351edXFbHPKXLUqETQfhTDNBNfy7ip1cABd3eaMLLBqC8U67rsor",
+      "slot": 508543916
+    },
+    {
+      "name": "epoch-arithmetic-0",
+      "signature": "3TFZL3hzPXVphiho5rcwC6TKDz9XbEQSRu4dqAAVVexHAtMvgFScPqEb3pz2c4kmoYWB1HmXbacFxtz3TvKpX4G",
+      "slot": 508543984
+    },
+    {
+      "name": "epoch-arithmetic-1",
+      "signature": "7foCYm4NsdjS29dybQdxREZmVpmTDUpapfXp15EFcBaXVYjjoQV6puvGsqXDWt3SsGtbfp4N1wV4efkiHn9cpuE",
+      "slot": 508543992
+    },
+    {
+      "name": "epoch-arithmetic-2",
+      "signature": "35Xckuk6d6k5uLTh3p5ra1YYARp4apLUoDtXi4WJqNfx3qQ9aEANxWPPskg3nMoZX3MWD9WrGvq6TpytDFLfxgvn",
+      "slot": 508544058
+    },
+    {
+      "name": "epoch-arithmetic-3",
+      "signature": "2bX2hHwFaPj4ahAoqFtxGJt9eAA41f24d4MRv5DK8U1e4Wugx1dvvG1eSv1QFkvPKCte1p2wGAGwnwd6FpGw7LXR",
+      "slot": 508544117
+    },
+    {
+      "name": "epoch-arithmetic-4",
+      "signature": "ictgKEvRCUvwTGNyTm7UBxcaBrExsCQWJ6mbLepFWtadg7JhS4y4HUzbqP1foHsERBQsLMYokRfPZmh4cF9hDxf",
+      "slot": 508544236
+    },
+    {
+      "name": "epoch-arithmetic-5",
+      "signature": "5gWaaF6EX6qpHRV8YxiAzMTt6qdYeJexuzWEuM62Hrktqr4oqDFG35Njf41AdKXf1nur2rWXxhuqMfuq1RMYmv6g",
+      "slot": 508544244
+    },
+    {
+      "name": "epoch-arithmetic-6",
+      "signature": "5uVee2qioRtNRFZcihutGfUPcRZa1ZktByEhdCa6Whmw7NjuVyLoh6q91hke3Sf5WjRDVUmZfovTT4FDqW8HaGct",
+      "slot": 508544292
+    },
+    {
+      "name": "epoch-arithmetic-7",
+      "signature": "gv5qv9yFVcMHpqeDuo15KfgUUfME2qwXi4RcZrz29DUDoeBykcpP6kpzFLpAtpqp9PtrFxA4BcxA5A8Jf1xkLmz",
+      "slot": 508544348
+    },
+    {
+      "name": "epoch-arithmetic-8",
+      "signature": "4GzcJhQHPAt7WaaWfTQbqANm2mT5NUttosbc9Z412wY9QAFzgtg1r2ZMg5fvbyTrFBfZRXZWLaenc15UnLdeHWnx",
+      "slot": 508544394
+    },
+    {
+      "name": "epoch-arithmetic-9",
+      "signature": "XUaFhVjgWDewKcnZNJgFjP19Z5xi2b6SLj4YE2hKwHF6fPKZzyQAJFEMksDrt1LANHsqJ4WBRieZ4YGbWNyBZqz",
+      "slot": 508544444
+    },
+    {
+      "name": "epoch-arithmetic-10",
+      "signature": "5edXDr7ZmUXBscRfT6SRKvYfB54QPTCFtQQLgjYY6XSD3iMzfHHXyYWggSge1szzhPM5pXGLqb1nn89KFtWfqxxS",
+      "slot": 508544530
+    },
+    {
+      "name": "epoch-arithmetic-11",
+      "signature": "4WQ8nsa5DWyeztCoNjCdJSbooCMdNKozvAQyEG855K1Ccq6f9qKtWdWxsfj7WB2t6uC5bUCheHfcrghJZ3DDPuRR",
+      "slot": 508544578
+    },
+    {
+      "name": "arithmetic-0",
+      "signature": "2bJUuZugssAjtEgsa5eKK7SgBqvj5GJKhXg5eX8zBUX4g1D4YES95VDtdHW4dDqmKEB9v24F8Bff6Lzub5xodFUH",
+      "slot": 508544625
+    },
+    {
+      "name": "arithmetic-1",
+      "signature": "54nBJV3aT2WJFCEk5HoAMfWmyZvku3uCVQoBAvbPybL9bgN9rvX5bX8nqoyb266YpzpzJRpvTVqTwPxhdrvUSbQF",
+      "slot": 508544640
+    }
+  ],
+  "newlySubmittedCases": [
+    "arithmetic-2",
+    "arithmetic-3",
+    "arithmetic-4",
+    "arithmetic-5",
+    "arithmetic-6",
+    "arithmetic-7",
+    "arithmetic-8",
+    "arithmetic-9",
+    "arithmetic-10",
+    "arithmetic-11",
+    "arithmetic-12",
+    "return-0",
+    "return-1",
+    "return-1023",
+    "return-1024",
+    "return-1025",
+    "edwards-valid",
+    "edwards-add-identity",
+    "edwards-multiply-one",
+    "edwards-multiply-zero",
+    "ristretto-identity",
+    "ristretto-add-identity",
+    "poseidon-ones-twos",
+    "bn254-add-identity",
+    "bn254-multiply-one",
+    "bn254-empty-pairing",
+    "bn254-compress-identity",
+    "bn254-decompress-identity",
+    "bn254-reject-length-6",
+    "bn254-reject-length-7",
+    "bn254-reject-length-8",
+    "stack-top-level",
+    "receipt-0-0",
+    "receipt-0-16",
+    "receipt-1-0",
+    "receipt-1-16",
+    "live-sysvars",
+    "sysvar-past-end",
+    "create-state",
+    "state-write-alias",
+    "state-held-borrow",
+    "state-lens-past-end",
+    "state-fingerprint-unchanged",
+    "state-unsigned",
+    "state-readonly",
+    "state-foreign-owner"
+  ],
+  "scope": "Only stateless known-answer calls are replayed from verified finalized transactions; none is resubmitted. State checks use fresh accounts."
+}

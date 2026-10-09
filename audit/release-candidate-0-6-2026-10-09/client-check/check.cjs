@@ -1,0 +1,22 @@
+
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const {createRequire} = require('node:module');
+const ts = require(process.argv[2]), sdkRequire = createRequire(path.join(process.argv[3], 'package.json'));
+const sdk = sdkRequire(process.argv[3]);
+const source = fs.readFileSync(path.join(__dirname, 'instructions.ts'), 'utf8');
+const compiled = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS},reportDiagnostics:true});
+assert.equal(compiled.diagnostics.filter(d=>d.category === ts.DiagnosticCategory.Error).length,0);
+const m = {exports:{}}; new Function('require','module','exports',compiled.outputText)(sdkRequire,m,m.exports);
+const {createSubmitInstruction, createBytesInstruction} = m.exports;
+const authority = new sdk.PublicKey(new Uint8Array(32).fill(8)), program = new sdk.PublicKey(new Uint8Array(32).fill(9));
+const first = Uint8Array.from([1,1,42,0,0,0,0,0,0,0]), second = Uint8Array.from([1,7,99,0,0,0,0,0,0,0]);
+const ix = createSubmitInstruction({orders:[first,second],nonce:513},{authority},program);
+assert.deepEqual([...ix.data],[0,2,0,...first,...second,1,2]);
+assert(ix.programId.equals(program)); assert(ix.keys[0].pubkey.equals(authority)); assert.deepEqual(ix.keys.map(k=>[k.isSigner,k.isWritable]),[[true,false]]);
+for (const count of [0,1,4]) assert.equal(createSubmitInstruction({orders:Array(count).fill(first),nonce:513},{authority},program).data.length, 5+count*10);
+assert.throws(()=>createSubmitInstruction({orders:Array(5).fill(first),nonce:513},{authority},program),/capacity/);
+for (const size of [0,9,11]) assert.throws(()=>createSubmitInstruction({orders:[new Uint8Array(size)],nonce:513},{authority},program),/size/);
+assert.deepEqual([...createBytesInstruction({bytes:Uint8Array.from([42,99]),note:'ok'},{authority},program).data],[1,2,0,42,99,2,0,111,107]);
+assert.throws(()=>createBytesInstruction({bytes:new Uint8Array(9),note:''},{authority},program),/capacity/);
+assert.throws(()=>createBytesInstruction({bytes:new Uint8Array(0),note:'é'.repeat(9)},{authority},program),/UTF-8/);
+console.log('Generated TypeScript client wire, capacity, element width, UTF-8, and privilege checks passed.');

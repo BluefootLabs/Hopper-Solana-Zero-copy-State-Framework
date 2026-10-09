@@ -1,0 +1,17 @@
+allocate-default-heap: finalized, 329 CU, ok
+allocate-past-default-heap: finalized, 200000 CU, refused {"InstructionError": [0, "ProgramFailedToComplete"]}
+allocate-200k-with-frame: finalized, 2057 CU, ok
+allocate-200k-without-frame: finalized, 910 CU, refused {"InstructionError": [0, "ProgramFailedToComplete"]}
+allocate-whole-frame: finalized, 2348 CU, ok
+allocate-past-declared-heap: finalized, 294 CU, refused {"InstructionError": [1, {"Custom": 6800}]}
+grow-to-200k: finalized, 15623 CU, ok
+checkpoint-loop: finalized, 9206 CU, ok
+slot-hash-1-back: finalized, 524 CU, ok
+slot-hash-100-back: finalized, 950 CU, ok
+slot-hash-300-back: finalized, 950 CU, ok
+slot-hash-skipped: finalized, 952 CU, ok
+slot-hash-too-old: finalized, 1054 CU, ok
+slot-hash-ahead: finalized, 483 CU, ok
+panic-silent: finalized, 79 CU, refused {"InstructionError": [0, "ProgramFailedToComplete"]}
+panic-reported: finalized, 561 CU, refused {"InstructionError": [0, "ProgramFailedToComplete"]}
+All runtime-lab devnet cases passed.

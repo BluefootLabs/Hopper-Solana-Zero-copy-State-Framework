@@ -12,6 +12,20 @@ planning between layout versions.
 `no_std`. Manifest types do not require `std`; client generators use `alloc`
 for their output buffers and strings.
 
+In 0.6, borrowed `#[hopper::args]` handler parameters carry
+their fixed byte width into the manifest. Client generators represent the
+layout as opaque bytes; they do not infer a nested client-side struct from its
+Rust name. TypeScript instruction builders check fixed byte argument lengths
+before encoding, preventing short inputs from being padded or long inputs
+from overlapping another argument. Rust's generated argument is `[u8; N]`.
+
+Bounded instruction arguments have checked Rust, TypeScript and Python encoders.
+Rust also generates checked decoders and returns `Result` from bounded builders;
+Python represents elements as exact-width `bytes` and counts string capacity in
+UTF-8 bytes. C, Go and Kotlin builders refuse these encodings explicitly before
+producing data. Scalar and container aliases retain their manifest widths and
+encodings. See the [migration guide](https://hopperzero.dev/docs/migration-0-6).
+
 ## What's in here
 
 - **Layout manifests** - Account and field wire schema for each layout.
@@ -65,3 +79,12 @@ Public-goods support and donations can be sent to `solanadevdao.sol` /
 ## License
 
 Apache-2.0
+
+## Bounded instruction clients (unreleased)
+
+Borrowed batches retain a u16 count, capacity, and fixed element width in the
+manifest. TypeScript clients check element lengths; generated Rust clients
+use explicit `Vec<[u8; WIDTH]>` wire elements and fallible builders. Rust
+dynamic decoders check offsets, capacity, UTF-8, and complete consumption.
+Regenerate affected clients and handle `Result` when upgrading. Nested
+application encoders are not inferred. See [the wire contract](https://hopperzero.dev/docs/borrowed-slices).

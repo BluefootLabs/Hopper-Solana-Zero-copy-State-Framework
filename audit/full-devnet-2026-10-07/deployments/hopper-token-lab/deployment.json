@@ -1,0 +1,17 @@
+{
+  "label": "hopper-token-lab",
+  "programId": "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-token-lab\\hopper_token_lab.so",
+  "elfBytes": 82904,
+  "elfSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508557032,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:25:30.944091+00:00",
+  "recoveredFromExistingBuffer": true,
+  "recoveryReceipt": "rpc-write-recovery/complete-buffer.json",
+  "recoveryDriverSha256": "68912220c5d74e29b52cd6e29e15c0707656bb212e2d675597ce2894218c6aa6"
+}

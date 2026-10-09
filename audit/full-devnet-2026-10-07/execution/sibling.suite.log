@@ -1,0 +1,11 @@
+native-owned: finalized; 2486 CU; expected result and full snapshots verified
+runtime-owned: finalized; 2487 CU; expected result and full snapshots verified
+runtime-bounded: finalized; 2466 CU; expected result and full snapshots verified
+caller-buffers: finalized; 2543 CU; expected result and full snapshots verified
+short-data: finalized; 2324 CU; expected result and full snapshots verified
+missing: finalized; 1712 CU; expected result and full snapshots verified
+empty: finalized; 2363 CU; expected result and full snapshots verified
+exclude-child: finalized; 3531 CU; expected result and full snapshots verified
+large-cpi-data: finalized; 11912 CU; expected result and full snapshots verified
+reverse-order: finalized; 4037 CU; expected result and full snapshots verified
+short-metas: finalized; 2326 CU; expected result and full snapshots verified

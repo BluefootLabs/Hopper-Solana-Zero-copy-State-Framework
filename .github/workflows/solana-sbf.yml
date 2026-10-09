@@ -82,6 +82,11 @@ jobs:
             echo "hopper-counter exceeded ${HOPPER_COUNTER_MAX_BYTES} byte SBF budget"
             exit 1
           fi
+      - name: Verify checked borrowed arguments on SBF
+        run: |
+          cargo build-sbf --manifest-path bench/borrowed-args/program/Cargo.toml -- --locked
+          HOPPER_BORROWED_ARGS_SBF="$PWD/target/deploy/hopper_borrowed_args_fixture.so" \
+            cargo test -p hopper-framework-verifier --test borrowed_args_sbf --locked -- --ignored
       - name: Build vault SBF
         run: |
           cargo build-sbf \
@@ -318,6 +323,21 @@ jobs:
             --manifest-path examples/hopper-counter/Cargo.toml \
             --sbf-out-dir "${SBF_RELEASE_DIR}/counter-sbpf-v3" \
             -- --locked
+      - name: Compile every deployable package and execute function probes
+        run: |
+          set -euo pipefail
+          python3 scripts/function-lab-cases.py --out target/function-lab-cases.json
+          for arch in v0 v3; do
+            python3 scripts/build-programs-sbf.py \
+              --builder "$HOME/.cargo/bin/cargo-build-sbf" \
+              --tools-version v1.54 --arch "$arch" \
+              --out "target/hopper/all-programs-$arch"
+            HOPPER_FUNCTION_LAB_SBF="$PWD/target/hopper/all-programs-$arch/hopper-function-lab/hopper_function_lab.so" \
+            HOPPER_FUNCTION_LAB_CASES="$PWD/target/function-lab-cases.json" \
+              cargo test -p hopper-framework-verifier --test function_lab_sbf --locked -- --ignored --nocapture
+              HOPPER_BORROWED_SLICES_SBF="$PWD/target/hopper/all-programs-$arch/hopper-borrowed-slices-fixture/hopper_borrowed_slices_fixture.so" \
+                cargo test -p hopper-framework-verifier --test borrowed_slices_sbf --locked -- --ignored --nocapture
+          done
       - name: Execute ambient gate regressions in Mollusk on SBF v0 and v3
         run: |
           for arch in v0 v3; do
@@ -477,4 +497,8 @@ jobs:
             target/hopper/release/agave-v4.2.1/named-vault-v*/tests.log
             target/hopper/release/agave-v4.2.1/orderbook-v0/*.so
             target/hopper/release/agave-v4.2.1/orderbook-v0/tests.log
+            target/hopper/all-programs-v*/report.json
+            target/hopper/all-programs-v*/*/build.log
+            target/hopper/all-programs-v*/*/*.so
+            target/function-lab-cases.json
           retention-days: 90

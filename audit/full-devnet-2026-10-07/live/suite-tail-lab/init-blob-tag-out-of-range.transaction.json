@@ -1,0 +1,103 @@
+{
+  "blockTime": 1791400323,
+  "meta": {
+    "computeUnitsConsumed": 1644,
+    "costUnits": 3693,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6702
+        }
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [
+              1,
+              0
+            ],
+            "data": "47zJymm5EvkE5tmCUtuQ3vqpU3dz8XuDBsf8NxtUHnLmtpRG1WCLjJxHRhVTEkqA3qhfVVC",
+            "programIdIndex": 2,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN invoke [1]",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN consumed 1644 of 200000 compute units",
+      "Program DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN failed: custom program error: 0x1a2e"
+    ],
+    "postBalances": [
+      1723941388,
+      0,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1723951388,
+      0,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6702
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508556164,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "7Px5Bk4kUj8RUJQNCN5he1iFunfxbJL9oTWQ6Lz33Z6f",
+        "11111111111111111111111111111111",
+        "DPGGcvUuWAFQv75FZYF9t5N7D5JsEs32yKBNvXXsdQEN"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1,
+            2
+          ],
+          "data": "Rk7MGk",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "z4Nok3gp1B13bPD6fXBk5kZkLfZrY8fUfCYt1w6KMuA"
+    },
+    "signatures": [
+      "2GGjoUfLRyLyKG5qEiHdkWzGFKdRgshz2hCDre9xQt8gPv8A8nfiUSUCvRhcTLbazKH7WgT9SyYpBYBfcqh4odco",
+      "JGuWqkLLexsnwdoBPBqcskobi5ZbJJGwMGzkaXt75Tky24G1khHedzwqZsjccUx9aeqkoNHZBQZXkhV3qp3LwTF"
+    ]
+  },
+  "transactionIndex": 14,
+  "version": "legacy"
+}

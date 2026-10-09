@@ -1,0 +1,46 @@
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.12.28
+   Compiling solana-metrics v4.2.1
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-core)
+   Compiling rustls-platform-verifier v0.6.2
+   Compiling quinn-proto v0.11.15
+   Compiling reqwest-middleware v0.4.2
+   Compiling quinn-udp v0.5.14
+   Compiling solana-rpc-client-api v4.2.1
+   Compiling quinn v0.11.11
+   Compiling tungstenite v0.28.0
+   Compiling solana-account-decoder v4.2.1
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-solana)
+   Compiling solana-tls-utils v4.2.1
+   Compiling solana-perf v4.2.1
+   Compiling solana-connection-cache v4.2.1
+   Compiling solana-streamer v4.2.1
+   Compiling env_logger v0.11.10
+   Compiling solana-rpc-client v4.2.1
+   Compiling tokio-tungstenite v0.28.0
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-schema)
+   Compiling solana-pubsub-client v4.2.1
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros)
+   Compiling solana-logger v3.0.0
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-associated-token)
+   Compiling mollusk-svm v0.15.1
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source)
+   Compiling solana-tpu-client v4.2.1
+   Compiling solana-quic-client v4.2.1
+   Compiling solana-rpc-client-nonce-utils v4.2.1
+   Compiling solana-udp-client v4.2.1
+   Compiling solana-client v4.2.1
+   Compiling hopper-migration v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\hopper-migration)
+   Compiling hopper-test v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-test)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 15s
+     Running tests\devnet.rs (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\debug\deps\devnet-8c5cf5d3f18bbeac.exe)
+
+running 2 tests
+test rpc_redaction_removes_credentials_and_query_values ... ok
+wrote hopper.devnet-evidence.v1 receipt
+test migration_v1_to_v2_and_deposit_v2_roundtrip ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.61s
+

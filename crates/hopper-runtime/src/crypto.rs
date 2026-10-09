@@ -16,7 +16,11 @@ pub type AltBn128G2 = [u8; 128];
 pub type AltBn128G2Compressed = [u8; 64];
 pub type AltBn128PairingResult = [u8; 32];
 
-pub const MAX_HASH_SEGMENTS: usize = 16;
+/// Maximum slice count accepted by the native hash boundary.
+/// Compute and memory budgets can impose lower practical limits.
+pub const MAX_HASH_SEGMENTS: usize = hopper_native::hash::MAX_HASH_SEGMENTS;
+/// Maximum byte length of each modular-exponentiation operand.
+pub const MAX_BIG_MOD_EXP_BYTES: usize = 512;
 pub const CURVE25519_EDWARDS: u64 = 0;
 pub const CURVE25519_RISTRETTO: u64 = 1;
 pub const CURVE_GROUP_ADD: u64 = 0;
@@ -129,21 +133,7 @@ fn syscall_error(status: u64) -> ProgramError {
 
 #[inline]
 pub fn sha256(inputs: &[&[u8]]) -> Result<Sha256Hash, ProgramError> {
-    if inputs.len() > MAX_HASH_SEGMENTS {
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    let mut result = [0u8; 32];
-    // SAFETY: `inputs` is a valid slice of slice descriptors and `result`
-    // points to exactly 32 writable output bytes.
-    unsafe {
-        crate::syscalls::sol_sha256(
-            inputs as *const _ as *const u8,
-            inputs.len() as u64,
-            result.as_mut_ptr(),
-        );
-    }
-    Ok(result)
+    hopper_native::hash::sha256(inputs).map_err(ProgramError::from)
 }
 
 #[inline]
@@ -153,21 +143,7 @@ pub fn sha256_single(input: &[u8]) -> Result<Sha256Hash, ProgramError> {
 
 #[inline]
 pub fn keccak256(inputs: &[&[u8]]) -> Result<Keccak256Hash, ProgramError> {
-    if inputs.len() > MAX_HASH_SEGMENTS {
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    let mut result = [0u8; 32];
-    // SAFETY: `inputs` is a valid slice of slice descriptors and `result`
-    // points to exactly 32 writable output bytes.
-    unsafe {
-        crate::syscalls::sol_keccak256(
-            inputs as *const _ as *const u8,
-            inputs.len() as u64,
-            result.as_mut_ptr(),
-        );
-    }
-    Ok(result)
+    hopper_native::hash::keccak256(inputs).map_err(ProgramError::from)
 }
 
 #[inline]
@@ -177,24 +153,7 @@ pub fn keccak256_single(input: &[u8]) -> Result<Keccak256Hash, ProgramError> {
 
 #[inline]
 pub fn blake3(inputs: &[&[u8]]) -> Result<Blake3Hash, ProgramError> {
-    if inputs.len() > MAX_HASH_SEGMENTS {
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    let mut result = [0u8; 32];
-    // SAFETY: `inputs` is a valid slice of slice descriptors and `result`
-    // points to exactly 32 writable output bytes.
-    let rc = unsafe {
-        crate::syscalls::sol_blake3(
-            inputs as *const _ as *const u8,
-            inputs.len() as u64,
-            result.as_mut_ptr(),
-        )
-    };
-    if rc != 0 {
-        return Err(ProgramError::InvalidArgument);
-    }
-    Ok(result)
+    hopper_native::hash::blake3(inputs).map_err(ProgramError::from)
 }
 
 #[inline]
@@ -529,13 +488,27 @@ pub fn alt_bn128_g2_decompress_be(
 
 #[cfg(feature = "crypto-big-mod-exp")]
 #[inline]
+/// Compute `base.pow(exponent) % modulus` using little-endian integers.
+///
+/// Each operand may contain at most 512 bytes. The modulus must be odd and
+/// greater than one; `output` must have exactly `modulus.len()` bytes. Invalid
+/// shapes are rejected before the syscall and leave `output` untouched.
+/// Host syscall stubs do not compute a modular exponentiation result.
+/// The SIMD-0529 gate must be active on the target cluster. It was absent
+/// on public devnet on 2026-10-07; Agave 4.2's VM returns an error stub.
 pub fn big_mod_exp(
     base: &[u8],
     exponent: &[u8],
     modulus: &[u8],
     output: &mut [u8],
 ) -> Result<(), ProgramError> {
-    if modulus.is_empty() || output.len() != modulus.len() {
+    if base.len() > MAX_BIG_MOD_EXP_BYTES
+        || exponent.len() > MAX_BIG_MOD_EXP_BYTES
+        || modulus.len() > MAX_BIG_MOD_EXP_BYTES
+        || output.len() != modulus.len()
+        || !modulus.first().is_some_and(|byte| byte & 1 == 1)
+        || (modulus[0] == 1 && modulus[1..].iter().all(|byte| *byte == 0))
+    {
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -729,8 +702,8 @@ mod tests {
     }
 
     #[test]
-    fn hash_helpers_accept_sixteen_segments() {
-        let inputs = [EMPTY; MAX_HASH_SEGMENTS];
+    fn hash_helpers_accept_the_native_slice_limit() {
+        let inputs = std::vec![EMPTY; MAX_HASH_SEGMENTS];
 
         assert!(sha256(&inputs).is_ok());
         assert!(keccak256(&inputs).is_ok());
@@ -738,12 +711,25 @@ mod tests {
     }
 
     #[test]
-    fn hash_helpers_reject_more_than_sixteen_segments() {
-        let inputs = [EMPTY; MAX_HASH_SEGMENTS + 1];
+    fn hash_helpers_reject_more_than_the_native_slice_limit() {
+        let inputs = std::vec![EMPTY; MAX_HASH_SEGMENTS + 1];
 
         assert_eq!(sha256(&inputs), Err(ProgramError::InvalidArgument));
         assert_eq!(keccak256(&inputs), Err(ProgramError::InvalidArgument));
         assert_eq!(blake3(&inputs), Err(ProgramError::InvalidArgument));
+    }
+
+    #[test]
+    fn sha256_matches_the_native_digest_with_more_than_sixteen_parts() {
+        let mut inputs = [EMPTY; 17];
+        inputs[0] = b"a";
+        inputs[16] = b"bc";
+        assert_eq!(sha256(&inputs), sha256_single(b"abc"));
+        assert_eq!(
+            sha256(&inputs).unwrap(),
+            hopper_native::hash::sha256_single(b"abc").unwrap()
+        );
+        assert_ne!(sha256(&inputs).unwrap(), [0; 32]);
     }
 
     #[cfg(feature = "crypto-curve")]
@@ -813,5 +799,31 @@ mod tests {
             big_mod_exp(&[1], &[1], &[], &mut empty_output),
             Err(ProgramError::InvalidArgument)
         );
+    }
+
+    #[cfg(feature = "crypto-big-mod-exp")]
+    #[test]
+    fn big_mod_exp_rejects_invalid_moduli_and_oversized_operands_without_writing() {
+        for modulus in [&[0u8][..], &[1], &[2], &[1, 0], &[18, 0]] {
+            let mut output = std::vec![0xa5; modulus.len()];
+            assert_eq!(
+                big_mod_exp(&[2], &[10], modulus, &mut output),
+                Err(ProgramError::InvalidArgument)
+            );
+            assert!(output.iter().all(|byte| *byte == 0xa5));
+        }
+        let oversized = [3u8; MAX_BIG_MOD_EXP_BYTES + 1];
+        for (base, exponent, modulus) in [
+            (&oversized[..], &[1][..], &[3][..]),
+            (&[1][..], &oversized[..], &[3][..]),
+            (&[1][..], &[1][..], &oversized[..]),
+        ] {
+            let mut output = std::vec![0xa5; modulus.len()];
+            assert_eq!(
+                big_mod_exp(base, exponent, modulus, &mut output),
+                Err(ProgramError::InvalidArgument)
+            );
+            assert!(output.iter().all(|byte| *byte == 0xa5));
+        }
     }
 }

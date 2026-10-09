@@ -1,0 +1,82 @@
+{
+  "blockTime": 1791400215,
+  "meta": {
+    "computeUnitsConsumed": 434,
+    "costUnits": 2486,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 7800
+        }
+      ]
+    },
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H invoke [1]",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H consumed 434 of 200000 compute units",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H failed: custom program error: 0x1e78"
+    ],
+    "postBalances": [
+      1848767909,
+      2032000,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1848777909,
+      2032000,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 7800
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508555716,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "7tTVNxnC3ohogF72iK47HHMXdWZpSFv97eQdwRFCyvTc",
+        "DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            1
+          ],
+          "data": "BcrMXaed5JZZuajv2ooP69fg3",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "5RTTiXvJp6g2BegxTXZju5rVWZtZJAKPFoZ47UB4E5K3"
+    },
+    "signatures": [
+      "4L8xMVsznrweEAPnXnBe8uQSLESMcqNmgB7CF8mGbZX8PnEX7Br6crFZKsVe87QN2TXYVT4bJb5Sh1LqirxZmfte",
+      "Ko2DzoC7oeXqYmfLVLmzGPWuSw18z3pUE5XCLxE3YjJL52eWrSwkffB3M8iYsHhWjWcM71DAddXzna6Uq3eVn2H"
+    ]
+  },
+  "transactionIndex": 3,
+  "version": "legacy"
+}

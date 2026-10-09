@@ -1,0 +1,9 @@
+{
+  "staleDefaultSha256": "e1f7da2ab4ac042eadfe4052bd71bddf10b284249319f7410081582d2427c548",
+  "previousVerifiedSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+  "freshSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+  "freshMatchesPreviousVerified": true,
+  "testExecutable": "lab-7c9f512402a0fec4.exe",
+  "testExecutableSha256": "6f01d9fb0ae779adc7275f77880b9f53b562b4e499a2e09ccc8fc21fdef9bf24",
+  "testExitCode": 0
+}

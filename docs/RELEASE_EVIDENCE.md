@@ -135,7 +135,9 @@ before release.
 
 Cicada's corrected C3 plan contains 698 cases across 17 structural contract
 families with commitment
-`d3ada6a2a6559b0dc7722c328fa57138c9e060727fe568784495d5fc2e77f9d2`.
+`6f659e700e565b95b1ff83eef4600331da8dfdabd348e17abdfd20140b8849d2`
+at the October 2 source check. The fresh manifest and host semantic report are
+retained in the [readiness archive](../audit/readiness-2026-10-02/README.md).
 The prior 814-case plan included 114 one-byte probes that left one declared
 range but entered an adjacent or overlapping authorized range, plus 2 duplicate
 union-boundary probes. The generator now emits an escape only when the byte is
@@ -159,6 +161,14 @@ lane. The doc-hidden host probe module is excluded from Solana builds. C3 does
 not require an alternate feature-built program.
 
 ## Publication train evidence
+
+The current [0.5 validation](RELEASE_0_5_VALIDATION.md) and
+[publication receipt](../audit/token-boundaries-2026-09-30/publication/publish-train.json)
+supersede the old 0.3 publication requirement. The October 1 archive records
+28 new versions from clean commit `0a8827e177f225574f2285a58875d50e8059ffe7`,
+registry archive checksums, and a registry-only consumer. Unchanged
+`hopper-builtins` remains 0.4.0 in the 29-package train. Unreleased working-tree
+changes still need their own version plan and final release evidence.
 
 The [September 23 publication archive](../audit/registry-publication-2026-09-23/README.md)
 records all 29 indexed packages, downloaded archive checksums, per-package

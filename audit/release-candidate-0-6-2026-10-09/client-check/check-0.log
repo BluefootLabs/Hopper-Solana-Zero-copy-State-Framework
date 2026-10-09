@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.55s
+     Running tests\borrowed_slices.rs (target\borrowed-slices-client-host-check\debug\deps\borrowed_slices-18fefb1c56646f04.exe)
+
+running 4 tests
+test aliased_owned_arguments_follow_the_same_dispatch_contract ... ok
+test borrowed_sequences_compose_and_validate_before_account_binding ... ok
+test __hopper_manifest_export::__hopper_print_manifest ... ok
+test sequence_metadata_follows_aliases_and_clients_keep_variable_width ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

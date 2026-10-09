@@ -47,7 +47,8 @@ impl<'a> fmt::Display for CClientGen<'a> {
         writeln!(f, "    HOPPER_CLIENT_OK = 0,")?;
         writeln!(f, "    HOPPER_CLIENT_BUFFER_TOO_SMALL = 1,")?;
         writeln!(f, "    HOPPER_CLIENT_LAYOUT_MISMATCH = 2,")?;
-        writeln!(f, "    HOPPER_CLIENT_TAG_MISMATCH = 3")?;
+        writeln!(f, "    HOPPER_CLIENT_TAG_MISMATCH = 3,")?;
+        writeln!(f, "    HOPPER_CLIENT_UNSUPPORTED_ENCODING = 4")?;
         writeln!(f, "}} HopperClientError;")?;
         writeln!(f)?;
         write_helpers(f)?;
@@ -283,6 +284,20 @@ fn write_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> 
         write!(f, "const Hopper{}Args *args, ", pascal)?;
     }
     writeln!(f, "uint8_t *out, size_t out_len, size_t *written) {{")?;
+    if ix
+        .args
+        .iter()
+        .any(|arg| arg.encoding != crate::ArgEncoding::Fixed)
+    {
+        writeln!(
+            f,
+            "    (void)args; (void)out; (void)out_len; (void)written;"
+        )?;
+        writeln!(f, "    return HOPPER_CLIENT_UNSUPPORTED_ENCODING;")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+        return Ok(());
+    }
     writeln!(
         f,
         "    if (out_len < HOPPER_{}_DATA_LEN) return HOPPER_CLIENT_BUFFER_TOO_SMALL;",

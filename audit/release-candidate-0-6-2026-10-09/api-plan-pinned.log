@@ -1,0 +1,34 @@
+package                    crates.io  manifest   needs      why
+grillo-manifest            0.1.1      0.1.1      -          no public API change
+grillo-verifier            0.1.1      0.1.1      -          no public API change
+hopper-anchor              0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-associated-token    0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-builtins            0.4.0      0.4.0      -          no public API change
+hopper-derive              0.5.0      0.6.0      -          no public API change
+hopper-distribute          0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-finance             0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-lang                0.5.0      0.6.0      0.6.0      2 added, exposes hopper-associated-token types
+hopper-lending             0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-macros              0.5.0      0.6.0      -          no public API change
+hopper-manager             0.5.0      0.6.0      0.6.0      exposes hopper-schema types
+hopper-memo                0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-metaplex            0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-multisig            0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-native              0.5.0      0.6.0      0.5.1      1 added
+hopper-runtime             0.5.0      0.6.0      0.6.0      1 breaking change, 20 added
+hopper-schema              0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-sdk                 0.5.0      0.6.0      0.6.0      exposes hopper-schema types
+hopper-solana              0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-staking             0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-svm                 0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-system              0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-systems             0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-token               0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-token-2022          0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+hopper-topology            0.1.1      0.1.1      -          no public API change
+hopper-vesting             0.5.0      0.6.0      0.6.0      exposes hopper-runtime types
+
+hopper-runtime 0.5.0 -> tree
+  breaking: signature or value changed
+    was pub const hopper_runtime::crypto::MAX_HASH_SEGMENTS: usize = 16usize
+    now pub const hopper_runtime::crypto::MAX_HASH_SEGMENTS: usize = 20_000usize

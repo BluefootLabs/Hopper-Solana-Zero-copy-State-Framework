@@ -1,0 +1,78 @@
+{
+  "blockTime": 1791401620,
+  "meta": {
+    "computeUnitsConsumed": 327,
+    "costUnits": 1560,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 327 of 200000 compute units",
+      "Program return: EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP uwSljc5ztpR7SVYwXdg5vZsdaKEss1/Xe6mnyQqfRLA=",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP success"
+    ],
+    "postBalances": [
+      1047987957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1047992957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "returnData": {
+      "data": [
+        "uwSljc5ztpR7SVYwXdg5vZsdaKEss1/Xe6mnyQqfRLA=",
+        "base64"
+      ],
+      "programId": "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+    },
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508561600,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "Db3MFBHUXGEKy1dusetAd1YcaobUCHHA9pvu7bJagx8P",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1ERycVmbgmMbMnHB16kfB72rsTHti3jsxP6sCwux7HF6393E",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "38TjArpSoRK9uVw7vNdTSVJtF11rFuwmBDy9cCTXScdr"
+    },
+    "signatures": [
+      "2Y6bdBFsMmJPVkmQYn195728Wj6gaBkVWiGmPoPDZySk1yJRzGJhNDrnZ7jVxiaZugr4KtxKvSSJ3kH7B4TGRpWg"
+    ]
+  },
+  "transactionIndex": 8,
+  "version": "legacy"
+}

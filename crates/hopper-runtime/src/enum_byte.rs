@@ -159,7 +159,12 @@ impl<E: UnitEnum + core::fmt::Debug> core::fmt::Debug for EnumByte<E> {
 // validates. `Copy + Sized` holds through the manual impls above.
 unsafe impl<E: UnitEnum> Zeroable for EnumByte<E> {}
 // SAFETY: as above.
-unsafe impl<E: UnitEnum> Pod for EnumByte<E> {}
+unsafe impl<E: UnitEnum> Pod for EnumByte<E> {
+    #[inline(always)]
+    fn validate_value(&self) -> hopper_native::ProgramResult {
+        self.validate().map_err(Into::into)
+    }
+}
 
 #[cfg(test)]
 mod tests {

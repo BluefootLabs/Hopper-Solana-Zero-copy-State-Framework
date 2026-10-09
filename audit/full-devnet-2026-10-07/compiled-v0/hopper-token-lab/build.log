@@ -1,0 +1,3 @@
+[2026-10-07T18:07:39.734977000Z WARN  cargo_build_sbf] Package 'hopper-token-lab' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+   Compiling hopper-token-lab v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-token-lab)
+    Finished `release` profile [optimized] target(s) in 1.32s

@@ -1,5 +1,9 @@
 # Solana network compatibility
 
+For the October 7 devnet/mainnet feature and rent refresh, see the
+[current compatibility baseline](SOLANA_NETWORK_BASELINE.md). The broader
+September 30 capture below remains dated historical evidence.
+
 Alpenglow was rechecked **2026-10-01 01:28 UTC (September 30 locally)** through finalized public RPC,
 with expected genesis, Feature ownership, and activation encoding checks.
 These are observations, not authenticated ledger proofs or permanent constants.

@@ -1,0 +1,9 @@
+{
+  "command": "cargo test -j 4 --workspace --locked --offline --no-fail-fast --target-dir target/borrowed-slices-host-check",
+  "groups": 250,
+  "reportedPassed": 2507,
+  "failed": 0,
+  "ignored": 281,
+  "logSha256": "8b7473a26497a42d790c2ac592bc6bb5c6fe49bd6d89b8471c96f447f9797894",
+  "scope": "Reported Rust test-harness totals, including documentation tests. Ignored tests are not executions; explicit SBF instruction matrices are recorded separately."
+}

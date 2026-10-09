@@ -1,0 +1,14 @@
+{
+  "label": "hopper-compact-vault",
+  "programId": "VM3WYZTssfdLxFSHL9wPbQuYyLd8WgcChrZNQLB93VP",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-compact-vault\\hopper_compact_vault.so",
+  "elfBytes": 4192,
+  "elfSha256": "0531cff2bb3562765d21836eb847a6fc4518258e872994f38131bf1856faad17",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508565823,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:50:44.971853+00:00"
+}

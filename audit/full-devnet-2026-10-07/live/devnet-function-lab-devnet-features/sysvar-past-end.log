@@ -1,0 +1,17 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h
+data      : 2 bytes (0x0301)
+accounts  : 0 slots
+signers   : payer 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 171/1232 bytes (legacy)
+
+signature : 3ntAdLoeyZ3ZExK2W4U4tT8BvnyVkYmwAZrVjbhnVTsBdq6kjYEEMMJBYs8XYVu1XbB8CPVxD7HCyQvwUnHVKdMc
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"UnsupportedSysvar"]}
+compute   : 173 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 3ntAdLoeyZ3ZExK2W4U4tT8BvnyVkYmwAZrVjbhnVTsBdq6kjYEEMMJBYs8XYVu1XbB8CPVxD7HCyQvwUnHVKdMc --rpc https://api.devnet.solana.com

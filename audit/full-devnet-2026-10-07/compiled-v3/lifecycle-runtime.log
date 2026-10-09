@@ -1,0 +1,13 @@
+
+running 1 test
+runtime [0] signer=true: 416 CU
+runtime [1] signer=true: 448 CU
+runtime [2] signer=true: 475 CU
+runtime [3] signer=true: 136 CU
+runtime [4] signer=true: 135 CU
+runtime [5] signer=true: 162 CU
+runtime [6] signer=true: 466 CU
+test lifecycle_and_segment_guards_preserve_complete_account_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

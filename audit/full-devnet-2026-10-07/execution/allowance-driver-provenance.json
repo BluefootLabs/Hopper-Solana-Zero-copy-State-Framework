@@ -1,0 +1,7 @@
+{
+  "programSourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "originalDriverSha256": "7e7ffe1566980a52de497abc37dc416293c72dc02ef42027f1c342ed7b42fcaa",
+  "correctedDriverSha256": "123cb13028b4b4661d54ae7bd40fc466ed3caed084a4c73d44fad35e66fd7b4e",
+  "adapterSha256": "77ada7c2c82e10a6456ebea3069ec149876327d81a523996b886650d1c29a8e8",
+  "change": "Expect PrivilegeEscalation for an unsigned new account rejected at the System CPI boundary. All program source and state assertions unchanged."
+}

@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\borrowed-slices-host-check\\debug\\hopper.exe",
+    "audit-check",
+    "--json"
+  ],
+  "exitCode": 0,
+  "runnerSha256": "d92905dcf4c632153ea12f82a159077655677e5ec29cb64d5f2d77e6068d8242"
+}

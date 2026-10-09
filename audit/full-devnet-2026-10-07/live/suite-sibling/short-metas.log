@@ -1,0 +1,19 @@
+-- hopper tx send --
+rpc       : https://api.devnet.solana.com
+program   : FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt
+data      : 2 bytes (0x140b)
+accounts  : 2 slots
+  [0] 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4 sw
+  [1] FuZopLvJECNpd3Z3hmxziG9uNqw6B7ALGGMEGktKi4nt --
+signers   : payer 4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4
+envelope  : legacy
+preflight : skipped (--allow-failure; an on-chain refusal will land)
+wire      : 173/1232 bytes (legacy)
+
+signature : 3shXGyFTbMQFYEkGHQte7rPjc62obFz3u9NCPv7DsMYT3UqD7yyrPDtn9kZk3yxXt5FGySSKVEoPgraadGs6Jmbo
+confirmed : yes
+program   : REFUSED: {"InstructionError":[0,"AccountDataTooSmall"]}
+compute   : 2326 CU
+fee       : 5000 lamports
+
+explain it: hopper tx explain 3shXGyFTbMQFYEkGHQte7rPjc62obFz3u9NCPv7DsMYT3UqD7yyrPDtn9kZk3yxXt5FGySSKVEoPgraadGs6Jmbo --rpc https://api.devnet.solana.com

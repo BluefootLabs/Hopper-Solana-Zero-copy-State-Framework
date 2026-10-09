@@ -56,13 +56,20 @@ fn ts_type(canonical: &str) -> &str {
 
 fn bounded_vec_element_type(canonical: &str) -> Option<&str> {
     let start = canonical.find('<')? + 1;
-    let rest = &canonical[start..];
+    // A borrowed slice has an optional leading lifetime. Type aliases may
+    // hide the element spelling entirely; callers must then use opaque bytes.
+    let rest = canonical[start..].trim_start();
+    let rest = if rest.starts_with('\'') {
+        rest.split_once(',')?.1.trim_start()
+    } else {
+        rest
+    };
     let mut depth = 0usize;
     for (index, byte) in rest.bytes().enumerate() {
         match byte {
             b'<' | b'[' | b'(' => depth += 1,
             b'>' | b']' | b')' => depth = depth.saturating_sub(1),
-            b',' if depth == 0 => return Some(&rest[..index]),
+            b',' if depth == 0 => return Some(rest[..index].trim()),
             _ => {}
         }
     }
@@ -73,7 +80,7 @@ fn write_ts_arg_type(f: &mut fmt::Formatter<'_>, arg: &ArgDescriptor) -> fmt::Re
     match arg.encoding {
         ArgEncoding::BoundedString { .. } => write!(f, "string"),
         ArgEncoding::BoundedVec { .. } => {
-            let element = bounded_vec_element_type(arg.canonical_type).unwrap_or("u8");
+            let element = bounded_vec_element_type(arg.canonical_type).unwrap_or("");
             if element == "u8" {
                 write!(f, "Uint8Array")
             } else {
@@ -610,6 +617,22 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                 writeln!(f)?;
             }
 
+            // Fixed opaque layouts and byte arrays must occupy their declared
+            // width. A short value would otherwise be silently zero-padded;
+            // a long value could overwrite a following argument.
+            for arg in ix.args.iter() {
+                if arg.encoding == ArgEncoding::Fixed && ts_type(arg.canonical_type) == "Uint8Array"
+                {
+                    write!(f, "  if (args.")?;
+                    write_camel(f, arg.name)?;
+                    writeln!(
+                        f,
+                        ".length !== {}) throw new Error(\"{} must encode exactly {} bytes\");",
+                        arg.size, arg.name, arg.size
+                    )?;
+                }
+            }
+
             // Build instruction data
             if ix.args.iter().any(|arg| arg.fixed_size().is_none()) {
                 for arg in ix.args.iter() {
@@ -621,8 +644,7 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                             write!(f, "  if (args.")?;
                             write_camel(f, arg.name)?;
                             writeln!(f, ".length > {}) throw new Error(\"{} exceeds its bounded capacity of {}\");", max_len, arg.name, max_len)?;
-                            if bounded_vec_element_type(arg.canonical_type).unwrap_or("u8") != "u8"
-                            {
+                            if bounded_vec_element_type(arg.canonical_type).unwrap_or("") != "u8" {
                                 write!(f, "  for (const value of args.")?;
                                 write_camel(f, arg.name)?;
                                 writeln!(f, ") {{")?;
@@ -630,7 +652,7 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                                     bounded_vec_element_type(arg.canonical_type).unwrap_or("");
                                 if !matches!(
                                     element,
-                                    "u16"
+                                    "i8" | "u16"
                                         | "i16"
                                         | "u32"
                                         | "i32"
@@ -1315,7 +1337,7 @@ fn write_encode_dynamic_expr(f: &mut fmt::Formatter<'_>, arg: &ArgDescriptor) ->
             writeln!(f, "  offset += {}Bytes.length;", bytes)
         }
         ArgEncoding::BoundedVec { element_size, .. } => {
-            let element = bounded_vec_element_type(arg.canonical_type).unwrap_or("u8");
+            let element = bounded_vec_element_type(arg.canonical_type).unwrap_or("");
             writeln!(f, "  view.setUint16(offset, {}.length, true);", arg_ref)?;
             writeln!(f, "  offset += 2;")?;
             if element == "u8" {
@@ -1324,6 +1346,7 @@ fn write_encode_dynamic_expr(f: &mut fmt::Formatter<'_>, arg: &ArgDescriptor) ->
             }
             writeln!(f, "  for (const value of {}) {{", arg_ref)?;
             match element {
+                "i8" => writeln!(f, "    view.setInt8(offset, value);")?,
                 "u16" => writeln!(f, "    view.setUint16(offset, value, true);")?,
                 "i16" => writeln!(f, "    view.setInt16(offset, value, true);")?,
                 "u32" => writeln!(f, "    view.setUint32(offset, value, true);")?,
@@ -1950,6 +1973,17 @@ impl<'a> fmt::Display for KtInstructions<'a> {
             writeln!(f, "Accounts,")?;
             writeln!(f, "    programId: PublicKey,")?;
             writeln!(f, "): Instruction {{")?;
+
+            if ix
+                .args
+                .iter()
+                .any(|arg| arg.encoding != crate::ArgEncoding::Fixed)
+            {
+                writeln!(f, "    throw UnsupportedOperationException(\"Bounded instruction arguments require the Rust, TypeScript, or Python client\")")?;
+                writeln!(f, "}}")?;
+                writeln!(f)?;
+                continue;
+            }
 
             // Resolve program-derived addresses from their on-chain seeds.
             if ix.accounts.iter().any(account_is_auto_pda) {

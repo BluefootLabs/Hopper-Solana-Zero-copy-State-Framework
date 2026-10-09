@@ -1,0 +1,80 @@
+{
+  "blockTime": 1791400208,
+  "meta": {
+    "computeUnitsConsumed": 79,
+    "costUnits": 1411,
+    "err": {
+      "InstructionError": [
+        0,
+        "MissingRequiredSignature"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H invoke [1]",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H consumed 79 of 200000 compute units",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H failed: missing required signature for instruction"
+    ],
+    "postBalances": [
+      1848787909,
+      2032000,
+      1000000,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1848792909,
+      2032000,
+      1000000,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      }
+    }
+  },
+  "slot": 508555687,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "7tTVNxnC3ohogF72iK47HHMXdWZpSFv97eQdwRFCyvTc",
+        "CsdsNZFm5hci4Wc1vdA3iQkbFfQ6qsi6fPxtSKEBweZK",
+        "DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "BcrMXaed5JZZuajv2ooP69fg3",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "BtgSkpMkUg5bkQgLcgthBZFd4KdP4WoWp2C6Kw2Pzo6w"
+    },
+    "signatures": [
+      "3pAgkYCohrvbZkKmEQ3qekDq1k6WQ4DXNosZBLzEokw9N5f3WS3oBGNTW3XjuzKBSrya5hpkSC7kijZowq5KfZqQ"
+    ]
+  },
+  "transactionIndex": 4,
+  "version": "legacy"
+}

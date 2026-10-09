@@ -1,0 +1,73 @@
+{
+  "blockTime": 1791398873,
+  "meta": {
+    "computeUnitsConsumed": 79,
+    "costUnits": 1107,
+    "err": {
+      "InstructionError": [
+        0,
+        "ProgramFailedToComplete"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 4LnpHoDxjY9cZCt3SPbgp3zMJZf6Guf8iqfsNtEcBHih invoke [1]",
+      "Program 4LnpHoDxjY9cZCt3SPbgp3zMJZf6Guf8iqfsNtEcBHih consumed 79 of 200000 compute units",
+      "Program 4LnpHoDxjY9cZCt3SPbgp3zMJZf6Guf8iqfsNtEcBHih failed: SBF program panicked"
+    ],
+    "postBalances": [
+      2445251169,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2445256169,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "ProgramFailedToComplete"
+        ]
+      }
+    }
+  },
+  "slot": 508550087,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "4LnpHoDxjY9cZCt3SPbgp3zMJZf6Guf8iqfsNtEcBHih"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            0
+          ],
+          "data": "EN",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "ALkGaRxN5uJE5vwDPxj3WnWUKPBzq4Skc8pxJpAy3eFD"
+    },
+    "signatures": [
+      "4cEvKUcqmhxmpDrgTvPz7GevM2LorSdh4wkQHwFAg2ENSiPWh5TRAE2Uz1vTexCzSR8vNknZgME17GKMJaB9HEKU"
+    ]
+  },
+  "transactionIndex": 1,
+  "version": "legacy"
+}

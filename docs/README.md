@@ -2,12 +2,17 @@
 
 Start here for the current Hopper framework surface:
 
+- [Preparing for 0.6](MIGRATION_0_6.md) - checked wire metadata and generated-client compatibility.
+
 - [Hopper 0.5 validation](RELEASE_0_5_VALIDATION.md) - tested source, token operations, on-chain evidence, and release status.
 - [Moving to 0.5](MIGRATION_0_5.md) - upgrade the framework, runtime, and native crates together.
+- [Release readiness](RELEASE_READINESS.md) - current gates, receipts, and remaining release requirements.
+- [Framework boundaries](FRAMEWORK_BOUNDARIES.md) - source-pinned comparisons with Pinocchio, Pina, Quasar, and Anchor v2.
 
 - [FIRST_FIVE_MINUTES.md](FIRST_FIVE_MINUTES.md) - the shortest path through `#[account]`, `#[derive(Accounts)]`, `#[program]`, `Ctx<T>`, and `ctx.accounts.*`.
 - [GETTING_STARTED_SERIOUS.md](GETTING_STARTED_SERIOUS.md) - a source-first walkthrough for a real program shape.
 - [WRITING_HOPPER_PROGRAMS.md](WRITING_HOPPER_PROGRAMS.md) - handler, account, initialization, and wrapper patterns.
+- [BORROWED_ARGUMENTS.md](BORROWED_ARGUMENTS.md) - unreleased recursive value validation, exact payloads, and checked borrowed tails.
 - [HOPPER_LAYERS.md](HOPPER_LAYERS.md) - when to stay in framework mode and when to reach for systems mode.
 - [DYNAMIC_TAILS.md](DYNAMIC_TAILS.md) - bounded dynamic fields, generated tail helpers, and explicit tail wiring.
 - [BOUNDED_FIELDS.md](BOUNDED_FIELDS.md) - bounded dynamic account fields and Hopper's compact-tail contract.
@@ -24,3 +29,5 @@ Start here for the current Hopper framework surface:
 - [PROTOCOL_GRADE_EXAMPLES.md](PROTOCOL_GRADE_EXAMPLES.md) - receipt indexing, compatibility reports, migration plans, typed cross-program reads, and segment leases.
 - [EFFECT_ABI_V0_1.md](EFFECT_ABI_V0_1.md) - framework-neutral static and invocation-parametric write effects, Grillo verification, and the exact v0.1 nonclaims.
 - [EFFECT_ABI_V0_2.md](EFFECT_ABI_V0_2.md) - full account-state transition contracts, deployment binding, CPI envelopes, the fail-closed invocation-frame binding, and the shared manifest-commitment that threads runtime containment, verification, and placement.
+
+- [Borrow bounded batches](BORROWED_SLICES.md): checked variable-length instruction views, client encoding, and Solana tests (unreleased).

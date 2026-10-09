@@ -1,0 +1,21 @@
+created state: 2LRKbXCbxHg4tCDd2M2hNrHdL2z73MdEkGgFuDncU7nJ
+created foreign: wNNd24PdJXhZ6ezeVaE2dChV4bMwfSutF8STkyZZvwi
+case-16: finalized, 184 CU, exact state verified
+case-16-reinit: finalized, 90 CU, exact state verified
+case-10: finalized, 606 CU, exact state verified
+case-11: finalized, 445 CU, exact state verified
+case-12: finalized, 437 CU, exact state verified
+case-13: finalized, 441 CU, exact state verified
+case-14: finalized, 487 CU, exact state verified
+case-15: finalized, 400 CU, exact state verified
+case 1: finalized, 388 CU, exact state verified
+case 2: finalized, 384 CU, exact state verified
+case 3: finalized, 360 CU, exact state verified
+case 4: finalized, 1029 CU, exact state verified
+case 5: finalized, 420 CU, exact state verified
+case 6: finalized, 408 CU, exact state verified
+case 7: finalized, 309 CU, exact state verified
+case 8: finalized, 358 CU, exact state verified
+case 9: finalized, 326 CU, exact state verified
+case 0: finalized, 99 CU, exact state verified
+all runtime gate devnet cases passed

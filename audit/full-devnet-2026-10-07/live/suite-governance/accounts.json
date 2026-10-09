@@ -1,0 +1,17 @@
+{
+  "payer": "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+  "system": "11111111111111111111111111111111",
+  "alice": "5EUcndk7i1Jzkj5zFh96vXTHoWv2TJJM6f7DcefKrSsb",
+  "bob": "BjEnYY5UhJJQMSJMgC1t6LgEPp5Rh6MUtsBmuVyCpXe7",
+  "carol": "6qY91HJ6SZ9XY7xiL1gmoGxHhH3SanPxSAoYoT5dNGLi",
+  "outsider": "5HbDSsgkTYEwHvaX52MwqpqRo47X37oWZFkRpRsJEa6j",
+  "destination": "BDBmPQxYPQuhzJDMsddA42VJ6TSjamEVByEXXgenoVJh",
+  "multisig": "EZd4jq14F16ixCRvy1HeVRkHxXYtDFokpiG5vZd9KsJU",
+  "treasury": "5kDb8gnKuoQiSbSY1NkkqBgZSeeacrkmBtwT4u6EQUwC",
+  "cooldown": "c6iJZVgb6WTg3sqwo9pNRCEjWVCJVejqyw3GYYdgAHX",
+  "payout": "77K249F7r8hyYouniZvqyatDwSTvSEzgaGB694A6FrPr",
+  "stale": "8hi529S9eiZyjqfSocaf9q8wxqDtdeSRiL8fpqS343Zg",
+  "revoked": "AARAphf47xUNy3sdYGwwbenXGWNRnoo54s5aytWXZjVf",
+  "future": "DAmMhnLoFPQDEujJJY1X1mFFBvR4TssFFUioZsuxm1sA",
+  "expired": "7yjahPbYXFxpbKfkehqGzpkJjSXpX5RXzLi3u7B6iCcR"
+}

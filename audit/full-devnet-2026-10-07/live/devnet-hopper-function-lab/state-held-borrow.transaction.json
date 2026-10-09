@@ -1,0 +1,78 @@
+{
+  "blockTime": 1791398388,
+  "meta": {
+    "computeUnitsConsumed": 283,
+    "costUnits": 1613,
+    "err": {
+      "InstructionError": [
+        0,
+        "AccountBorrowFailed"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac invoke [1]",
+      "Program DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac consumed 283 of 200000 compute units",
+      "Program DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac failed: instruction tries to borrow reference for an account which is already borrowed"
+    ],
+    "postBalances": [
+      2788380340,
+      731520,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2788385340,
+      731520,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "AccountBorrowFailed"
+        ]
+      }
+    }
+  },
+  "slot": 508548045,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "A6wztqoznnHb7dFRSiJ5MJ6gZm3d7CvHLpC5YDhxfd4T",
+        "DpV3M2wsqCFxRKqDZYkddiyyCRBbAqieETcgaLsh4oac"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0,
+            1
+          ],
+          "data": "LZqKjfmyYoXCj",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "BSQVknZ83FwZUD5nkpvCyFwDHEVTg7FmX9A4cksGGGdE"
+    },
+    "signatures": [
+      "5ZMzJXmX2qMDrfuMwS5x7XW3RaLZTC4FsgCyz1bkVpTyWv1Cif5ZQPHMh8VYEAh666nBGSghsUWo8oVCDYAGAeK2"
+    ]
+  },
+  "transactionIndex": 18,
+  "version": "legacy"
+}

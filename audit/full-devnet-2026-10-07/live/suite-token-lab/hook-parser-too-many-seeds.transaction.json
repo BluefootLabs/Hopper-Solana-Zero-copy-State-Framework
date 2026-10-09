@@ -1,0 +1,84 @@
+{
+  "blockTime": 1791401637,
+  "meta": {
+    "computeUnitsConsumed": 513,
+    "costUnits": 1746,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6704
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 513 of 200000 compute units",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP failed: custom program error: 0x1a30"
+    ],
+    "postBalances": [
+      1047957957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1047962957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6704
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508561673,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "Db3MFBHUXGEKy1dusetAd1YcaobUCHHA9pvu7bJagx8P",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1G4Mgc24RxrvenM4FyDJDJxUvsbBbVrap7sd6Zq4dH4MK7rY",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "9HqezKFezGYuTq627YQwxNM8vbXwwWkBz3b5NfBFv1bb"
+    },
+    "signatures": [
+      "2enU7vhCpCTc9o9kZz7Qx4BiLpMHwvx5DtuMWgb5h3YjiqJr2hGegSftW6iANNTNFMXfBpjB4DTUz4hA584b9S3N"
+    ]
+  },
+  "transactionIndex": 7,
+  "version": "legacy"
+}

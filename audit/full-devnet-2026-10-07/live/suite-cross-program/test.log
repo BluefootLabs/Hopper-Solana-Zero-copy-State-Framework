@@ -1,0 +1,47 @@
+   Compiling hopper-runtime v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-runtime)
+   Compiling solana-metrics v4.2.1
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-core)
+   Compiling quinn-udp v0.5.14
+   Compiling hopper-system v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-system)
+   Compiling solana-rpc-client-api v4.2.1
+   Compiling quinn v0.11.11
+   Compiling hopper-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token)
+   Compiling tungstenite v0.28.0
+   Compiling solana-account-decoder v4.2.1
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-solana)
+   Compiling solana-tls-utils v4.2.1
+   Compiling solana-perf v4.2.1
+   Compiling solana-connection-cache v4.2.1
+   Compiling solana-streamer v4.2.1
+   Compiling solana-rpc-client v4.2.1
+   Compiling tokio-tungstenite v0.28.0
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-schema)
+   Compiling solana-pubsub-client v4.2.1
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-memo v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-memo)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source)
+   Compiling solana-tpu-client v4.2.1
+   Compiling solana-quic-client v4.2.1
+   Compiling solana-rpc-client-nonce-utils v4.2.1
+   Compiling solana-udp-client v4.2.1
+   Compiling solana-client v4.2.1
+   Compiling hopper-xp-program-a v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\cross-program-read\program-a)
+   Compiling hopper-xp-devnet-runner v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\cross-program-read\runner)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 28s
+     Running `D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\debug\hopper-xp-devnet-runner.exe --program-a 8xgH1LUN6bwPtFT2zQFzpHECj3GLa56Bmt74ejf8q7NW --program-b 2bArokL4ehD2eGN4hk2J6gXbMt29ykF1KZr2T38EzLwn --keypair D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\private-workers\advanced-applications.json --rpc https://api.devnet.solana.com`
+rpc           : https://api.devnet.solana.com
+program a     : 8xgH1LUN6bwPtFT2zQFzpHECj3GLa56Bmt74ejf8q7NW
+program b     : 2bArokL4ehD2eGN4hk2J6gXbMt29ykF1KZr2T38EzLwn
+authority     : GDcVmHNoc5oe7N6ZfHEKrhWRN6TEojcppqyRomVEb8tP
+vault         : 9noFBANqUVXSVTrWKdEcwUW5hsCebgp4mCYCQMf7FQeD
+vault len     : 57
+amount        : 42
+balance       : 952635478 lamports
+program_a:init    : 4QZ9kMvnEnL6MhcB8QtGGvVHn8dpHrVHEFRZJSZKDnGbMMwmA8M8H6yuEjMB9U7NyzgtRUwsLB9W25dy2xo2YQT2
+program_a:deposit : 2PAEfNG47ZCgL11ohg35HbRW1JBshAcE76T1uGY8MTebLtNyynoNAUznu8a67Sbm2cLAksEmCjiLDpUEkDzAsCuz
+program_b:read    : 41efXAVNZH5j6qzo213YXrQNMXDAsCNyY1DhDgQmynWzeDjHGRPCymnZx39DpFem6wPg7co2K9k3AHdXHtsrCcLD
+program_b:min     : GWkZ4n5WfTKevmnYTFQWmS94eKMSypZ5rSHjFbuYbajzs9V2thodkSXbvq8VsCtCfKkyAKvXVoCsHZojEFqay5H
+verified      : owner=76452996.., balance=42, layout=[ce, 31, 47, c3, d0, 05, 06, 83]
+wrote hopper.devnet-evidence.v1 receipt

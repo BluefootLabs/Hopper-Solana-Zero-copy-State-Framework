@@ -1,0 +1,12 @@
+[
+  {
+    "repository": "framework",
+    "exitCode": 0,
+    "log": "framework-diff-check.log"
+  },
+  {
+    "repository": "website",
+    "exitCode": 0,
+    "log": "website-diff-check.log"
+  }
+]

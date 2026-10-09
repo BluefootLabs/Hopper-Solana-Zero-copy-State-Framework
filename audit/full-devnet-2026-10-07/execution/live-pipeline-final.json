@@ -1,0 +1,10 @@
+[
+  {
+    "name": "entrypoint-runtime-suites",
+    "exitCode": 0
+  },
+  {
+    "name": "application-suites-retry",
+    "exitCode": 1
+  }
+]

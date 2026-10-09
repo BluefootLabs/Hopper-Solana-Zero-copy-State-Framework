@@ -1,0 +1,138 @@
+{
+  "schema": "hopper.mint-plan-devnet.v1",
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "rpcEndpoint": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "commitment": "finalized",
+  "programId": "FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn",
+  "elfSha256": "3c14e5f1ce077d584b993b44dca0eb308b631fb9c6e107b7351c003bef7c0222",
+  "deployedElfMatchesBeforeAndAfter": true,
+  "transactions": [
+    {
+      "name": "legacy",
+      "signature": "59UonhmXy1Je7Rzy8TRyxj2eECETGH49sQ1BiBG9GnrtdK6U6Gy67mXPyYhPUz9Bp4kaBsrA7N6wNRS4Am7VaUA7",
+      "slot": 508550524,
+      "error": null,
+      "computeUnits": 3471,
+      "mintBytes": 82,
+      "rentMinimum": 1066800,
+      "payerFunding": 1066800,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "token2022-base",
+      "signature": "GwR3RAvNydiztYHqWbkhg1YyFCXpzg1v9Khkvt1u1A2YYfaCu61shTYeJG46EUCA774wdigxE36Z26rV3QQ81jR",
+      "slot": 508550536,
+      "error": null,
+      "computeUnits": 4507,
+      "mintBytes": 82,
+      "rentMinimum": 1066800,
+      "payerFunding": 1066800,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "close-and-pointer",
+      "signature": "5Fg7KUFjoTje6HU1hzD1Np9D7o9NpmFqgyMwS6XnCvAYr9b3rHokUKryGoz7xi4A6FQHXrFAd1fU1mwNtSsaQeYn",
+      "slot": 508550546,
+      "error": null,
+      "computeUnits": 11770,
+      "mintBytes": 270,
+      "rentMinimum": 2021840,
+      "payerFunding": 2021840,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "all-six",
+      "signature": "Wx3FcJhqvtMRrsEb5tS23u4FvbnawnPFZqLN35Q42t5yUExKHCdFEwhNryK4324QcgN9A9qurdEjik6RevgJqNA",
+      "slot": 508550602,
+      "error": null,
+      "computeUnits": 24816,
+      "mintBytes": 490,
+      "rentMinimum": 3139440,
+      "payerFunding": 3139440,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "reinitialize",
+      "signature": "2MiBUbKQzXnULGGDcDd2PZiKZ6HsdRDvzp4LjakgVZoxTpmV4YRXFNEHJGjSbPBNrAeTsWFWd9U8LwT23CGeBAN9",
+      "slot": 508550612,
+      "error": {
+        "InstructionError": [
+          0,
+          "AccountAlreadyInitialized"
+        ]
+      },
+      "computeUnits": 650,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "prefund",
+      "signature": "uurtCM2rYmtDBLh4W6NDHHnKHYrCruvAWs2QApSykahXW3cFTXNra34319ZiP8WobxP9DbgrW2JDLJ6mGCxzirj",
+      "slot": 508550627,
+      "error": null,
+      "computeUnits": 150
+    },
+    {
+      "name": "prefunded",
+      "signature": "46t2Nuo1XdnPK3tMyJh9cvBsQS1RJ3wQVw5Uwe8SqWUcCZvX1BGwiupvyvZDFBtVJosB2bQuzhwPhPgvCuZhiH2n",
+      "slot": 508550633,
+      "error": null,
+      "computeUnits": 24814,
+      "mintBytes": 490,
+      "rentMinimum": 3139440,
+      "payerFunding": 0,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "pda",
+      "signature": "21pfUbGsYgtKvuWZJTN7wA5rkT2Z1PNgkm5U7qwSvJsZXvbJNek7rnn8T5hyUA8Tcq8W74xDDrRHoQNfTn8Hy5mU",
+      "slot": 508550640,
+      "error": null,
+      "computeUnits": 24833,
+      "mintBytes": 490,
+      "rentMinimum": 3139440,
+      "payerFunding": 3139440,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "undersized",
+      "signature": "36gjn9as7kG8qDD8PvGK7zMhLKDmLMWo4XyxvmrBzQK4HsP21A1BZJ2yHPttibNHdAfDNqL5TTBuxzyFLspLeavE",
+      "slot": 508550657,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 447,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "oversized",
+      "signature": "3Ef12GL97HWQLpPRAJ4EZvPW7jwaAdXDaKg3KGVPpr377iAi5mkrtDREvhhf6ffSx7xsk2E7urSgrgNqMrbgeeAJ",
+      "slot": 508550680,
+      "error": {
+        "InstructionError": [
+          0,
+          "InvalidAccountData"
+        ]
+      },
+      "computeUnits": 449,
+      "expectedFullSnapshotsVerified": true
+    },
+    {
+      "name": "nested-cpi-rollback",
+      "signature": "2cQbALx2nqxkmmp7ekg6fUwghY5SuMExKGtyDQfAc4tjHt6H37cFgudRbn2uPvm5GCjjUMEUdp6tZ7zfJsub4xYq",
+      "slot": 508550700,
+      "error": {
+        "InstructionError": [
+          1,
+          "ProgramFailedToComplete"
+        ]
+      },
+      "computeUnits": 10000,
+      "rollbackAfterSuccessfulNestedCpis": true,
+      "expectedFullSnapshotsVerified": true
+    }
+  ]
+}

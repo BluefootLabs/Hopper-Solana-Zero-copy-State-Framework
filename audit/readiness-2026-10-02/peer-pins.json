@@ -1,0 +1,26 @@
+[
+  {
+    "name": "pinocchio",
+    "repository": "anza-xyz/pinocchio",
+    "branch": "main",
+    "commit": "0dace48f3d798a3355ac2d8374c3920933edd6fd"
+  },
+  {
+    "name": "pina",
+    "repository": "pina-rs/pina",
+    "branch": "main",
+    "commit": "059702e85b56a7f8025cc3743be2242ee22e80a5"
+  },
+  {
+    "name": "quasar",
+    "repository": "blueshift-gg/quasar",
+    "branch": "master",
+    "commit": "b0de7db4cd271654a2dcf78807dd865e98e0b339"
+  },
+  {
+    "name": "anchor-v2",
+    "repository": "otter-sec/anchor",
+    "branch": "anchor-next",
+    "commit": "ff0514b6042e3cf7345bf0cd58eb442542c93172"
+  }
+]

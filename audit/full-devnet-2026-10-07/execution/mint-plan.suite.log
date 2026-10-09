@@ -1,0 +1,12 @@
+legacy: finalized, 3471 CU
+token2022-base: finalized, 4507 CU
+close-and-pointer: finalized, 11770 CU
+all-six: finalized, 24816 CU
+reinitialize: finalized, 650 CU
+prefund: finalized, 150 CU
+prefunded: finalized, 24814 CU
+pda: finalized, 24833 CU
+undersized: finalized, 447 CU
+oversized: finalized, 449 CU
+nested-cpi-rollback: finalized, 10000 CU
+All mint-plan devnet cases and exact state checks passed.

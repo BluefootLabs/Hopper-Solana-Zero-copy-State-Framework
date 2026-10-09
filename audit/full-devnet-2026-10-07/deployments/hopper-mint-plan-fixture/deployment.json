@@ -1,0 +1,14 @@
+{
+  "label": "hopper-mint-plan-fixture",
+  "programId": "FyDk47u26HDVWiyWJPeywxDTw7m6Be9gcumSdVrJ2Tmn",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-mint-plan-fixture\\hopper_mint_plan_fixture.so",
+  "elfBytes": 17896,
+  "elfSha256": "3c14e5f1ce077d584b993b44dca0eb308b631fb9c6e107b7351c003bef7c0222",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508550395,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:49:35.253665+00:00"
+}

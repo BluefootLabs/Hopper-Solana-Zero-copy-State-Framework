@@ -1,6 +1,6 @@
 //! # Hopper
 //!
-//! Fast zero-copy Solana framework. Start with the familiar account/context
+//! A Rust framework for Solana with zero-copy account state. Start with the account/context
 //! facade, then opt into layout, segment, receipt, policy, migration, and
 //! schema modules only when the program needs them. Unsafe is available when
 //! you need it, and it is spelled `unsafe` so you can find it again.
@@ -23,6 +23,14 @@
 //!    instructions, events, and errors can be emitted as compile-time metadata.
 //!    Off-chain SDKs, IDLs, client generators, and diff tools consume that
 //!    declared surface without parsing source.
+//!
+//! In the unreleased source, `#[hopper::args]` layouts can be accepted as
+//! `&MyArgs` parameters in `#[hopper::program]` handlers. The dispatcher borrows
+//! the original instruction bytes, validates nested representations, and then
+//! binds the account context. Scalars remain decoded values; account admission
+//! and application rules are separate checks.
+//! `BoundedSlice<'_, T, N>` extends that borrowed path to u16-counted batches:
+//! every element is checked before admission, with no capacity-sized copy.
 //!
 //! ## Layers
 //!
@@ -443,13 +451,13 @@ pub mod systems {
     pub use hopper_runtime::{
         default_allocator, fast_entrypoint, hopper_entrypoint, hopper_exact_entrypoint,
         hopper_fast_entrypoint, hopper_lazy_entrypoint, lazy_entrypoint, no_allocator,
-        nostd_panic_handler, program_entrypoint, AccountProof, BoundedString, BoundedVec,
-        ExecutableChecked, ExplainExternal, ExternalBytes, ExternalChecked, ExternalExplainSink,
-        ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve, HasOneChecked,
-        HopperString, HopperVec, InstructionAccount, InstructionView, LayoutChecked, OwnerChecked,
-        RemainingExternalAccounts, RemainingGroup, RemainingLazy, RemainingLazySlot, Seed,
-        SeedsChecked, SignerChecked, StoredAccountMeta, StoredInstruction, TailCodec, TailElement,
-        TokenExtensionsChecked, Unchecked, WritableChecked,
+        nostd_panic_handler, program_entrypoint, AccountProof, BoundedSlice, BoundedString,
+        BoundedVec, ExecutableChecked, ExplainExternal, ExternalBytes, ExternalChecked,
+        ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve,
+        HasOneChecked, HopperString, HopperVec, InstructionAccount, InstructionView, LayoutChecked,
+        OwnerChecked, RemainingExternalAccounts, RemainingGroup, RemainingLazy, RemainingLazySlot,
+        Seed, SeedsChecked, SignerChecked, StoredAccountMeta, StoredInstruction, TailCodec,
+        TailElement, TokenExtensionsChecked, Unchecked, WritableChecked,
     };
 
     pub use crate::{
@@ -1119,7 +1127,7 @@ pub mod __runtime {
         ProgramError, ProgramId, Ref, RefMut, Seed, SegRef, SegRefMut, SegmentLease, SegmentsMut,
         SeqElement, SeqTailRead, SeqTailWrite, Signer, SystemAccount, SystemId, TailBytes,
         TailCodec, TailElement, TailSeq, TailSeqIter, TailSeqMut, TailStr, UncheckedAccount,
-        Zeroable, SEQ_LEN_PREFIX,
+        Zeroable, MAX_TX_ACCOUNTS, SEQ_LEN_PREFIX,
     };
     pub use hopper_runtime::{EnumByte, OptionByte, UnitEnum};
 

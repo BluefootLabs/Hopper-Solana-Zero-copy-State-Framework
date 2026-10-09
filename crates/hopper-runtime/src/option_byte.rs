@@ -108,7 +108,15 @@ impl<T: Copy> OptionByte<T> {
 // behaviour.
 unsafe impl<T: crate::pod::Pod> crate::pod::Zeroable for OptionByte<T> {}
 // SAFETY: as above.
-unsafe impl<T: crate::pod::Pod> crate::pod::Pod for OptionByte<T> {}
+unsafe impl<T: crate::pod::Pod> crate::pod::Pod for OptionByte<T> {
+    #[inline]
+    fn validate_value(&self) -> hopper_native::ProgramResult {
+        if let Some(value) = self.get()? {
+            T::validate_value(value)?;
+        }
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {

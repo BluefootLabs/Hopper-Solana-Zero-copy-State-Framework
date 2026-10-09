@@ -1,0 +1,11 @@
+   Compiling hopper-token-2022-transfer-hook v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-token-2022-transfer-hook)
+warning: unused import: `super::*`
+  --> examples\hopper-token-2022-transfer-hook\src\lib.rs:62:9
+   |
+62 |     use super::*;
+   |         ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `hopper-token-2022-transfer-hook` (lib) generated 1 warning (run `cargo fix --lib -p hopper-token-2022-transfer-hook` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 0.95s

@@ -224,6 +224,8 @@ function that became `const`, and new items are not. A crate whose own
 signatures name a dependency that breaks needs a new minor version as
 well, and the plan follows that through the whole graph. `--strict` fails
 when a manifest version is lower than the plan requires.
+The next release fails planning when registry metadata cannot be fetched or
+decoded. Only an actual registry 404 is treated as an unpublished package.
 
 cargo-semver-checks 0.50 passes the tree that changed
 `AccountView::layout_id` from `Option<&[u8; 8]>` to `Option<[u8; 8]>` and
@@ -247,6 +249,18 @@ variants. It names 0.5.0 for every crate that exposes the runtime's types.
   size grew against the results committed at HEAD.
 - `hopper audit-check` verifies the hashes of the audit evidence, the age
   of each quality-gate attestation, and the list of open blockers.
+  The next release also rejects manifests without required evidence or required
+  gates, blank or duplicate identifiers, empty gate commands, and malformed
+  dates. Failed or stale gates do not count as current. These are manifest
+  integrity checks; the command does not execute the declared test commands.
+  Schema 2 requires execution receipts for required gates, verifies their
+  command, completion date, successful exit code, and log digest, and checks
+  that the recorded source inventory still matches the checkout. The inventory
+  includes Markdown, which can be a compiler/test input through `include_str!`,
+  alongside Rust, configuration, scripts, and diagnostic snapshots. Adding,
+  editing, or removing these inputs invalidates the receipt; the recorder also
+  rejects a command that changes them while running. Historical `audit/` bundles
+  are excluded from this inventory and checked separately as evidence.
 - `scripts/verify-evidence.py` checks every evidence bundle under `audit/`
   against its `SHA256SUMS` in the checkout, so a devnet run's receipts,
   transaction logs, and program dumps can be checked from a clone;
@@ -263,6 +277,36 @@ prove a handler does what its manifest says. `grillo verify` checks the
 evidence it is given and does not authenticate where that evidence came
 from. Raw and unchecked access paths are outside the tracked write model,
 which is why the lint can turn them into errors.
+
+## Record a reproducible quality gate
+
+Unreleased readiness schema 2 requires schema 1 execution receipts. These bind
+a local check to the Rust, TOML, Python,
+YAML, JSON, Markdown, compiler-diagnostic snapshots, and root lockfile inputs present
+before and after it ran.
+Tracked and untracked non-ignored inputs are included; historical `audit/`
+artifacts are excluded. Added, removed, or edited inputs invalidate the receipt.
+Source digests normalize CRLF to LF so Git's Windows checkout conversion does
+not create false drift. Logs and receipts use exact bytes. Text evidence may
+explicitly set `normalizeLineEndings: true`; binary evidence never should.
+Other input formats and external environment inputs need their own evidence entries.
+
+```sh
+python scripts/record-quality-gate.py --out target/fmt.json -- cargo fmt --all -- --check
+```
+
+The runner executes the argument vector without a shell, records combined
+output in `target/fmt.log`, and refuses to overwrite existing evidence. A source
+change during execution produces an unsuccessful receipt. Add the receipt's
+relative path and SHA-256 as the gate's `receipt` object. When archiving a run,
+copy its log, update the receipt's log path, and hash the finalized receipt.
+`audit-check --strict` then verifies the receipt and current inputs without
+rerunning its command. Schema 1 remains readable for older dossiers.
+
+These receipts detect drift and inconsistent declarations. They are not signed
+CI attestations and cannot authenticate who ran a command. Runtime fixtures,
+advisory database revisions, compiler versions, and external services remain
+separate provenance requirements. See [release readiness](RELEASE_READINESS.md).
 
 Hopper has not had an independent security audit. These checks shrink
 what a reviewer has to read. They do not replace the reviewer.

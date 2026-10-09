@@ -1,0 +1,41 @@
+{
+  "schema": "hopper.devnet-evidence.v1",
+  "example": "hopper-migration",
+  "commitment": "finalized",
+  "rpc_endpoint": "redacted",
+  "cluster": {
+    "genesis_hash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+    "node_version": "4.4.0-beta.0",
+    "feature_set": 1855282951
+  },
+  "program_id": "GKAYqEMgjECoHoy7ruupaM5oBbB6Gs2NS69Fp6GUut9v",
+  "authority": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "vault": "4U7EB58vzXSbUsLMzbY6p7BYk8hC2eFHmHtue4Mh8ayY",
+  "v1_size": 56,
+  "v2_size": 65,
+  "deposit_amount": 1000000,
+  "recorded_balance": 1000000,
+  "last_deposit": 1000000,
+  "vault_lamports_before_deposit": 980440,
+  "vault_lamports_after_deposit": 1980440,
+  "transactions": [
+    {
+      "label": "initV1",
+      "signature": "pYqxu2yfB8VQckL2UkpVq4V9GWkBzqzpm2kxeZsKm7bQRUwLn9ojBXJ7LK22o749efztDrEP6ooHNrP4UbzGVWZ",
+      "finalized_slot": 508567594,
+      "outcome": "succeeded"
+    },
+    {
+      "label": "migrateV1ToV2",
+      "signature": "4AS25ghPArsxNvqJBAtMXri23xvo2dV2kVBX4xDfgPdww9ZmKtpM8GdXR33mGxjd5TxtChSwh2Cs6niq7HzVXntH",
+      "finalized_slot": 508567601,
+      "outcome": "succeeded"
+    },
+    {
+      "label": "depositV2",
+      "signature": "4pk9pcaEJHVCj8fWgbFijrf9tGriTXLB98B4tv1PeJR4S2KxdvtC5LLnicxrfRu6z5zHbmbnUD9WEgB2WVKfFBnd",
+      "finalized_slot": 508567648,
+      "outcome": "succeeded"
+    }
+  ]
+}

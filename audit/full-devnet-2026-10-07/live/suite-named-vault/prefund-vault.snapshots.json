@@ -1,0 +1,174 @@
+{
+  "addresses": [
+    "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+    "9tMNVoXGoLJUDaU1bGX4n6fXjVUZcPWp8BmZ8U1tHHUN",
+    "5teZQTm6nmJ8tztgqGe34kmXo3zqd6ESDuFDgXpsAdPi",
+    "HZ1sMhRe1dUZ728Rjhg97DpvC9Ec1qB2368r6KZo46kv",
+    "3hk67HYXyjzosBsEFSbnGPbKo1eZv3L2zdQov9APMQZP",
+    "11111111111111111111111111111111"
+  ],
+  "before": [
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1987193956,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 10000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    null,
+    null,
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  ],
+  "expected": [
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1986188956,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 10000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    null,
+    {
+      "owner": "11111111111111111111111111111111",
+      "lamports": 1000000,
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  ],
+  "after": [
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1986188956,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 10000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    null,
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  ]
+}

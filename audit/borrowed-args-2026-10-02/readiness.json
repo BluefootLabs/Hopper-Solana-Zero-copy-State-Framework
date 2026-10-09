@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "ready": false,
+  "reviewedOn": "2026-08-16",
+  "evidenceVerified": 3,
+  "qualityGatesCurrent": 0,
+  "findings": [
+    {
+      "level": "blocker",
+      "id": "readiness-review",
+      "message": "attestation is 47 days old (maximum 30)"
+    },
+    {
+      "level": "blocker",
+      "id": "external-audit",
+      "message": "external-audit preparation is in progress at phase 'scope-and-evidence-preparation'; no independent reviewer is engaged and no independent review has started"
+    },
+    {
+      "level": "blocker",
+      "id": "security-policy",
+      "message": "digest mismatch for SECURITY.md (vulnerability reporting and support policy)"
+    },
+    {
+      "level": "blocker",
+      "id": "unsafe-invariants",
+      "message": "digest mismatch for docs/UNSAFE_INVARIANTS.md (unsafe-code inventory and proof obligations)"
+    },
+    {
+      "level": "blocker",
+      "id": "dependency-audit",
+      "message": "digest mismatch for docs/DEPENDENCY_AUDIT.md (dependency advisory snapshot and disposition)"
+    },
+    {
+      "level": "blocker",
+      "id": "architecture",
+      "message": "digest mismatch for docs/ARCHITECTURE.md (trust boundaries and component architecture)"
+    },
+    {
+      "level": "blocker",
+      "id": "release-evidence",
+      "message": "digest mismatch for docs/RELEASE_EVIDENCE.md (binary, fuzz, publication-train, and benchmark evidence boundaries)"
+    },
+    {
+      "level": "blocker",
+      "id": "benchmark-method",
+      "message": "digest mismatch for BENCHMARKS.md (benchmark method, clean pinned measurements, and claim boundaries)"
+    },
+    {
+      "level": "blocker",
+      "id": "network-baseline",
+      "message": "digest mismatch for docs/SOLANA_NETWORK_BASELINE_2026-08-15.md (dated Mainnet and upcoming protocol assumptions)"
+    },
+    {
+      "level": "blocker",
+      "id": "readiness-dossier",
+      "message": "missing evidence docs/AUDIT_READINESS_DOSSIER_2026-08-15.md: The system cannot find the file specified. (os error 2)"
+    },
+    {
+      "level": "blocker",
+      "id": "zero-copy-peer-audit",
+      "message": "missing evidence docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md: The system cannot find the file specified. (os error 2)"
+    },
+    {
+      "level": "blocker",
+      "id": "cicada-manifest",
+      "message": "digest mismatch for crates/grillo-manifest/tests/fixtures/hopper-cicada.manifest.json (checked-in Cicada contract manifest used by independent parser and verifier tests)"
+    },
+    {
+      "level": "blocker",
+      "id": "cicada-fuzz-plan",
+      "message": "digest mismatch for fuzz/plans/hopper-cicada.plan.json (manifest-derived no-skip Cicada host-semantic plan and commitment)"
+    },
+    {
+      "level": "blocker",
+      "id": "publish-order",
+      "message": "digest mismatch for release/publish-order.toml (dependency-ordered public crate publication train)"
+    },
+    {
+      "level": "blocker",
+      "id": "sbf-attestation-tool",
+      "message": "digest mismatch for scripts/attest-sbf-release.py (clean-tree binary, manifest, and publish-check attestation generator)"
+    },
+    {
+      "level": "blocker",
+      "id": "publish-train-tool",
+      "message": "digest mismatch for scripts/check-publish-train.py (package-order and crates.io index readiness verifier)"
+    },
+    {
+      "level": "blocker",
+      "id": "dependency-lock",
+      "message": "digest mismatch for Cargo.lock (resolved Rust dependency graph)"
+    },
+    {
+      "level": "blocker",
+      "id": "toolchain",
+      "message": "digest mismatch for rust-toolchain.toml (reproducible Rust toolchain)"
+    },
+    {
+      "level": "blocker",
+      "id": "rust-ci",
+      "message": "digest mismatch for .github/workflows/rust-ci.yml (host checks, tests, fuzz smoke and Kani lanes)"
+    },
+    {
+      "level": "blocker",
+      "id": "sbf-ci",
+      "message": "digest mismatch for .github/workflows/solana-sbf.yml (Solana SBF build and test lane)"
+    },
+    {
+      "level": "blocker",
+      "id": "unsafe-ci",
+      "message": "digest mismatch for .github/workflows/unsafe-safety.yml (unsafe inventory drift gate)"
+    },
+    {
+      "level": "blocker",
+      "id": "fmt",
+      "message": "attestation is 47 days old (maximum 14); rerun `cargo fmt --all -- --check`"
+    },
+    {
+      "level": "blocker",
+      "id": "clippy",
+      "message": "attestation is 47 days old (maximum 14); rerun `cargo clippy --workspace --all-targets --locked -- -D warnings`"
+    },
+    {
+      "level": "blocker",
+      "id": "workspace-tests",
+      "message": "attestation is 47 days old (maximum 14); rerun `cargo test --workspace --locked --no-fail-fast`"
+    },
+    {
+      "level": "blocker",
+      "id": "dependency-audit-gate",
+      "message": "attestation is 47 days old (maximum 30); rerun `cargo audit --no-fetch`"
+    },
+    {
+      "level": "blocker",
+      "id": "sbf-clean-attestation",
+      "message": "medium release-blocking item is open: current Cicada source has a clean committed local 4.1.0/v1.54 full binary attestation; the implemented pinned Agave v2.3.13 and Agave v4.2.1-forward CI lanes still need exact runs with their artifacts and attestations archived"
+    },
+    {
+      "level": "blocker",
+      "id": "publication-train",
+      "message": "high release-blocking item is open: the 29 public packages in the 0.3 release train (26 at 0.3.0 and three tools at 0.1.0) must be published in dependency order and each dependency allowed to index before dependent package verification"
+    },
+    {
+      "level": "warning",
+      "id": "transaction-v1",
+      "message": "medium tracked item is tracked: Hopper emits legacy transactions and must add finalized v1 support after the Mainnet feature is active"
+    }
+  ]
+}

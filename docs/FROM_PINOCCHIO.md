@@ -63,6 +63,13 @@ also creates the account and dispatches instructions.
 
 ## Boundaries to preserve
 
+For instruction bytes, the unreleased `#[hopper::args]` path lets you reuse one
+fixed wire type across a manual entrypoint and a generated handler. Start with
+`MyArgs::parse_exact_checked(payload)`; a `#[hopper::program]` handler can instead
+accept `args: &MyArgs` and receive the same checked borrowed representation.
+This does not select an account layout or grant access to account state. See
+[borrowed arguments](BORROWED_ARGUMENTS.md).
+
 - Checked borrows track live references. Release incompatible data borrows
   before CPI; unsafe access requires satisfying its safety contract.
 - Safe resize checks the runtime growth limit relative to entry length.
@@ -73,6 +80,7 @@ also creates the account and dispatches instructions.
 - Optional write policies constrain tracked writes and CPI delegation within
   their documented coverage. Raw and unchecked operations need separate review.
 
-The current branch's additions target 0.5; see [migration](MIGRATION_0_5.md).
+For the published 0.5 API, see [migration](MIGRATION_0_5.md).
+The [readiness guide](RELEASE_READINESS.md) identifies unreleased additions.
 Run your program's successful and rejected transactions in an SVM and on
 devnet, then measure the complete workload.

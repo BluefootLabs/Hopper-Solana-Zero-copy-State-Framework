@@ -1,0 +1,71 @@
+{
+  "blockTime": 1791400148,
+  "meta": {
+    "computeUnitsConsumed": 862,
+    "costUnits": 2914,
+    "err": null,
+    "fee": 10000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H invoke [1]",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H consumed 862 of 200000 compute units",
+      "Program DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H success"
+    ],
+    "postBalances": [
+      1848937909,
+      1000000,
+      2032000,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1848947909,
+      1000000,
+      2032000,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508555434,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "AWuRrKoU3MfQFXWdamcmM24T1E3kDmPZACcRWKGBwG9F",
+        "7tTVNxnC3ohogF72iK47HHMXdWZpSFv97eQdwRFCyvTc",
+        "DZLh7Vc6Wz2ywLTjZUqK7BnKmPD6U21nxuo8gWCgZv5H"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 1,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 2
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            2
+          ],
+          "data": "BfFt4yDRVW9rUn7zazQs9KrB9",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "CLTR5sC24bgN76a87H3ATYpJ9qw4ZFcY1Focw531rYi"
+    },
+    "signatures": [
+      "3yBhXjpAUTCk1DCpwtpwKdkFpMCs1fVLLGoUb4iDkHX4ii1CAuLau5qUwxAPf3VR688W16deXjF9HTnj3cZQm2Hz",
+      "SYCXn2fxV1K9t3mF6Un3UnAe8XcNBr7zfJsr2ujxuMP4FqHqNfgose7fdjBGEUefFfRikRMkXsUbdvvqJreVWFy"
+    ]
+  },
+  "transactionIndex": 17,
+  "version": "legacy"
+}

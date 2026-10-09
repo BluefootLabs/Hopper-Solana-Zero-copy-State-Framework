@@ -76,7 +76,7 @@ state contracts and predictable upgrade paths.
 Use this when the program needs field leases, segmented layouts, policy receipts,
 explicit migrations, or foreign layout contracts.
 
-- `hopper::systems::*` is the branded one-import path for protocol-grade work.
+- `hopper::systems::*` is an import path for explicit state, policy, and migration APIs.
 - `hopper::segment` exposes segment registries, segment roles, field-level borrow
   tracking, and typed segment references.
 - `hopper::receipt` exposes execution receipts and tagged event receipts.
@@ -102,7 +102,7 @@ control.
 - With the Hopper Native backend, it also exports raw account views, raw input
   parsing, syscall modules, hashes, PDA helpers, memory helpers, CU budget
   probes, return data, and CPI verification primitives.
-- This is the place for audited hot paths. It is not the first-contact import
+- Review and measure handlers that use this surface. It is not the first-contact import
   path for normal application code.
 
 ## Mental Mapping
@@ -124,7 +124,7 @@ Prefer the smallest import surface that matches the job:
 
 ```rust
 use hopper::prelude::*;              // main app framework surface
-use hopper::systems::*;              // protocol-grade state architecture
+use hopper::systems::*;              // state, policy, and migration APIs
 use hopper::substrate::*;            // raw Hopper Native substrate surface
 use hopper::{layout, segment};       // explicit systems modules
 use hopper::{schema, cpi, token};     // tooling, CPI, and token facades

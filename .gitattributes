@@ -4,3 +4,11 @@
 audit/devnet-evidence-*/** -text
 audit/network-features-2026-09-23/** -text
 audit/token-boundaries-2026-09-30/** -text
+audit/borrowed-args-2026-10-02/** -text
+audit/readiness-2026-10-02/** -text
+audit/documentation-inputs-2026-10-02/** -text
+audit/borrowed-dispatch-2026-10-07/** -text
+audit/full-devnet-2026-10-07/** -text
+audit/borrowed-slices-2026-10-08/** -text
+audit/release-candidate-0-6-2026-10-09/** -text
+audit/release-status-0-6-2026-10-09/** -text

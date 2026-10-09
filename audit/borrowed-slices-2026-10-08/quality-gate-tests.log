@@ -1,0 +1,18 @@
+..1 bundles, 1 files verified, 0 recorded as never archived, 0 problems
+audit/new/result.log: bytes differ from SHA256SUMS
+1 bundles, 1 files verified, 0 recorded as never archived, 1 problems
+exit=0 receipt=audit/pass.json
+exit=7 receipt=audit/fail.json
+exit=125 receipt=audit/mutate.json
+source changed during execution; receipt cannot attest a passing gate
+exit=125 receipt=audit/edit-doc.json
+source changed during execution; receipt cannot attest a passing gate
+exit=125 receipt=audit/add-doc.json
+source changed during execution; receipt cannot attest a passing gate
+exit=125 receipt=audit/remove-doc.json
+source changed during execution; receipt cannot attest a passing gate
+.
+----------------------------------------------------------------------
+Ran 3 tests in 1.144s
+
+OK

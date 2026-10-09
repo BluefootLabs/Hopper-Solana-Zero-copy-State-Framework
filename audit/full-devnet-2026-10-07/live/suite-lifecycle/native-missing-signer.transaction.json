@@ -1,0 +1,88 @@
+{
+  "blockTime": 1791401909,
+  "meta": {
+    "computeUnitsConsumed": 363,
+    "costUnits": 2291,
+    "err": {
+      "InstructionError": [
+        0,
+        "MissingRequiredSignature"
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT invoke [1]",
+      "Program 93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT consumed 363 of 200000 compute units",
+      "Program 93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT failed: missing required signature for instruction"
+    ],
+    "postBalances": [
+      836205289,
+      731520,
+      1731520,
+      10000000,
+      1,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      836210289,
+      731520,
+      1731520,
+      10000000,
+      1,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          "MissingRequiredSignature"
+        ]
+      }
+    }
+  },
+  "slot": 508562814,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "6QhbMhjNnVuidYBAGQeqJfXmGxHYgyMnXMjeBXNkJ5g5",
+        "9zhaLnDTqLy6LFNa8ZjMrEmHtRCEdqeqwzAiSahSv3jz",
+        "Ff7oSq1SiGTyGybu1pyDh6kNCi7UDu5xYTUi8eFfQDEJ",
+        "11111111111111111111111111111111",
+        "93KrJUNznguViEwjBdUbzePmfuwf1Wi2c57vzUAS7VmT"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "data": "2iqu",
+          "programIdIndex": 5,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "7mcGxYx8KiJiY9TurR9ZwMsuFNXpb6NmwePeN9u9Qv7N"
+    },
+    "signatures": [
+      "4xxFNRSqf5Vp7XUJ3om4Ro1tFR8rKR1cbiYq1W2PnUpsZAYU1ABxLHj4k5CL5F9btGBphCsMwHJHtWg1m2i3N42Q"
+    ]
+  },
+  "transactionIndex": 15,
+  "version": "legacy"
+}

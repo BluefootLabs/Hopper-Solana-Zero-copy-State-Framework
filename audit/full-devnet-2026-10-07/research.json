@@ -1,0 +1,6 @@
+{
+  "epochScheduleSdk": "https://github.com/anza-xyz/solana-sdk/blob/master/epoch-schedule/src/lib.rs",
+  "observedOn": "2026-10-07",
+  "savedContentSha256": "17e0e53a47331a5dac67b20abf08ca5f8720da12431176919fb00f57065b4361",
+  "comparison": "SDK normal-epoch arithmetic saturates and guards division by zero; Hopper now does the same."
+}

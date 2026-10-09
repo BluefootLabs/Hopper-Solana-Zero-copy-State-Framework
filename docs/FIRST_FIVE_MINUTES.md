@@ -43,6 +43,10 @@ mod counter_program {
 
 This is the default mental model: validated accounts enter through `#[derive(Accounts)]`, then the handler mutates typed zero-copy state through `ctx.accounts`.
 
+The counter excerpt assumes an already initialized account. It does not create
+one or accept a zero-filled account as valid state. The vault below includes
+the account-creation path; use its complete example for an end-to-end program.
+
 ## 2. Vault
 
 A SOL deposit must transfer lamports as well as update its recorded balance.

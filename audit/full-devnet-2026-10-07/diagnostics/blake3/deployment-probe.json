@@ -1,0 +1,20 @@
+{
+  "exitCode": 0,
+  "programId": "97sx5Qn3E2gzxVMBypx1LTxHWTaZkU4AmtPJRNFcfwpF",
+  "bufferId": "DwCmgsVYiWTpvoyKDsHJQkmFACSJkgYM3Wf5NmxZe7UH",
+  "localFeatureSelectionOverride": true,
+  "transactionPreflightEnabled": true,
+  "slot": 508525311,
+  "accounts": [
+    {
+      "exists": true,
+      "executable": true,
+      "lamports": 833120
+    },
+    {
+      "exists": false,
+      "executable": false,
+      "lamports": 0
+    }
+  ]
+}

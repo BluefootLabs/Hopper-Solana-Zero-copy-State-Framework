@@ -1,0 +1,10 @@
+{
+  "base": "http://127.0.0.1:3190",
+  "pages": 61,
+  "internalLinksChecked": 5402,
+  "errors": [],
+  "sourceUnchangedDuringHttpCheck": true,
+  "borrowedDispatchSectionPresent": true,
+  "browserInteractionTested": false,
+  "visualQa": "No apps or browsers exposed by the browser tool"
+}

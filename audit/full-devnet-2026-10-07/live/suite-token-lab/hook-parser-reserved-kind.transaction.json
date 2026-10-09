@@ -1,0 +1,84 @@
+{
+  "blockTime": 1791401635,
+  "meta": {
+    "computeUnitsConsumed": 185,
+    "costUnits": 1418,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6703
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 185 of 200000 compute units",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP failed: custom program error: 0x1a2f"
+    ],
+    "postBalances": [
+      1047962957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1047967957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6703
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508561662,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "Db3MFBHUXGEKy1dusetAd1YcaobUCHHA9pvu7bJagx8P",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1TZk448zTNv5CMudBbpWkZvEg2eeRGBY9XZvsDF2dgtXc99S",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "77zKd1QG8rPMZquV1pwotAmcuZ4cAE5QcHjiuuaWNuak"
+    },
+    "signatures": [
+      "2K49WD2VQpbm9UkMcyasLWUheuzaaSaVaRdUAjLUAxPmcfWAgBKzoaRB1im9gHQBQ5bK6kRZd4uWjsceQJGTnGcp"
+    ]
+  },
+  "transactionIndex": 3,
+  "version": "legacy"
+}

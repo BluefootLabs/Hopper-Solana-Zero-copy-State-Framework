@@ -1,0 +1,20 @@
+{
+  "payer": "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+  "maker": "Cq4XTpqyNZiLoFCEp7cYZVtsq1haL9NPmYjSGdxdyyod",
+  "taker": "CvLjnLDkqM2cpD2uBoKk4yMrpmQoyzaSwJ4RarhQ7NmA",
+  "outsider": "HnGEsdYu59yuAHYXwBAdjutKC9oi7fz9X78DJSzZXNHu",
+  "mint_a": "E5VuFq8Vei2nTKpp9Fo4GJYj5adr5JcaNEDbUGuHgab5",
+  "mint_b": "Hp8V59M63es4XNK2uMQbhiACXRYxTTfCCEJw68dSyWwY",
+  "maker_a": "Gb8HZ2hTu7aEM7VirGx5XtrS97ZSJVnFot28PbX2ED7N",
+  "maker_b": "7GNSji1xmigQioYWLB9UXbXk22RVZDmojEkyBNUwX1eA",
+  "taker_a": "8VLp1QtGJeRkCKEkspqghe5H9TL8tQKUFnJ822QQDXYN",
+  "taker_b": "47CBJYGJ4GNkk1W5D8K5R8v4YxPRqiuPugrjy8c3QyKS",
+  "escrow_take": "4nfXya8NhnJDPARuesLbf8jMueknM6MhcF4YmqDCmNaW",
+  "vault_take": "EYLDjmuLS5MHAGVfoVt82B75eHF8qvdgBbhbfihaeb5E",
+  "escrow_cancel": "DN1SUT2JH5cYgTVG3CsSsFGgnjS4BDf15fzLDuX32QQ6",
+  "vault_cancel": "CrMbgidVxJBXeFi1aizPMjcphg4o19N1nviDcazPkUQ9",
+  "authority_take": "3RqCzHDmknzCZkHQsbc5yYGWT6JnprfU6rMs3mdErRUn",
+  "authority_cancel": "Epm84NC6ERnBT17br73dqxzTAmAAHAsvgpexG8FzdALs",
+  "token": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "system": "11111111111111111111111111111111"
+}

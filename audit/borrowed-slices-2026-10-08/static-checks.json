@@ -1,0 +1,59 @@
+{
+  "allPassed": true,
+  "sourceUnchanged": true,
+  "checks": [
+    {
+      "check": "unsafe-map",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+        "scripts/audit-map.py",
+        "--verify"
+      ],
+      "exitCode": 0,
+      "log": "unsafe-map.log"
+    },
+    {
+      "check": "unsafe-review-drift",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+        "scripts/audit-map.py",
+        "--check"
+      ],
+      "exitCode": 0,
+      "log": "unsafe-review-drift.log"
+    },
+    {
+      "check": "unsafe-comments",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+        "scripts/check-unsafe-safety-comments.py"
+      ],
+      "exitCode": 0,
+      "log": "unsafe-comments.log"
+    },
+    {
+      "check": "doc-citations",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+        "scripts/check-doc-citations.py"
+      ],
+      "exitCode": 0,
+      "log": "doc-citations.log"
+    },
+    {
+      "check": "quality-gate-tests",
+      "argv": [
+        "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/tests",
+        "-p",
+        "test_quality_gate.py"
+      ],
+      "exitCode": 0,
+      "log": "quality-gate-tests.log"
+    }
+  ]
+}

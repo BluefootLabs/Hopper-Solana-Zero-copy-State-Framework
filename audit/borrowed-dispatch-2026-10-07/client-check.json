@@ -1,0 +1,19 @@
+{
+  "sdk": "@solana/web3.js@1.98.4",
+  "expectedWireHex": "00010100ff2a000000000000000102",
+  "exactPayloadPassed": true,
+  "rejectedLengths": [
+    0,
+    1,
+    11,
+    13,
+    14,
+    65535
+  ],
+  "zeroWidthPayloadPassed": true,
+  "zeroWidthRejectedLengths": [
+    1,
+    2
+  ],
+  "accountPrivilegesPassed": true
+}

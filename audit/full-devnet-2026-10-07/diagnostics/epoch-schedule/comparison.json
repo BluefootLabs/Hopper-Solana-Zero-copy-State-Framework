@@ -1,0 +1,28 @@
+{
+  "slot": 508530057,
+  "clockSlot": 508530057,
+  "clockEpoch": 1177,
+  "accountSchedule": [
+    8192,
+    8192,
+    0,
+    0
+  ],
+  "dedicatedSchedule": [
+    8192,
+    8192,
+    0,
+    0
+  ],
+  "warmup": [
+    0,
+    0
+  ],
+  "rpcSchedule": {
+    "firstNormalEpoch": 0,
+    "firstNormalSlot": 0,
+    "leaderScheduleSlotOffset": 432000,
+    "slotsPerEpoch": 432000,
+    "warmup": false
+  }
+}

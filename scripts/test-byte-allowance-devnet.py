@@ -125,7 +125,8 @@ def main():
     # All of these must leave the absent book absent and refund any attempted
     # rent debit, with the network transaction fee as the sole state change.
     refuse("init-unsigned-authority", [f"{delegate0}:w", f"{book}:sw", SYSTEM], init_data, [book_key], "MissingRequiredSignature")
-    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", SYSTEM], init_data, error="MissingRequiredSignature")
+    # The new account's signer privilege is enforced at the System CPI boundary.
+    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", SYSTEM], init_data, error="PrivilegeEscalation")
     refuse("init-readonly-book", ["payer:sw", f"{book}:s", SYSTEM], init_data, [book_key])
     refuse("init-wrong-system", ["payer:sw", f"{book}:sw", delegate1], init_data, [book_key])
     refuse("init-payer-book-alias", ["payer:sw", "payer:sw", SYSTEM], init_data)

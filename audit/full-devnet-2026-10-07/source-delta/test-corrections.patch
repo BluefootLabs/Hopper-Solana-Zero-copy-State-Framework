@@ -1,0 +1,38 @@
+--- a/bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs
++++ b/bench/framework-comparison/verifier/tests/byte_allowance_sbf.rs
+@@ -405,7 +405,8 @@
+             "insufficient rent payer" => accounts[0].1.lamports = 1,
+             _ => unreachable!(),
+         }
+-        h.rejected(name, &ix, &accounts, None);
++        let error = (name == "unsigned book").then_some(InstructionError::PrivilegeEscalation);
++        h.rejected(name, &ix, &accounts, error);
+     }
+     let extra = Pubkey::new_unique();
+     let mut accounts = h.initial.clone();
+--- a/scripts/test-byte-allowance-devnet.py
++++ b/scripts/test-byte-allowance-devnet.py
+@@ -125,7 +125,8 @@
+     # All of these must leave the absent book absent and refund any attempted
+     # rent debit, with the network transaction fee as the sole state change.
+     refuse("init-unsigned-authority", [f"{delegate0}:w", f"{book}:sw", SYSTEM], init_data, [book_key], "MissingRequiredSignature")
+-    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", SYSTEM], init_data, error="MissingRequiredSignature")
++    # The new account's signer privilege is enforced at the System CPI boundary.
++    refuse("init-unsigned-book", ["payer:sw", f"{book}:w", SYSTEM], init_data, error="PrivilegeEscalation")
+     refuse("init-readonly-book", ["payer:sw", f"{book}:s", SYSTEM], init_data, [book_key])
+     refuse("init-wrong-system", ["payer:sw", f"{book}:sw", delegate1], init_data, [book_key])
+     refuse("init-payer-book-alias", ["payer:sw", "payer:sw", SYSTEM], init_data)
+--- a/.gitignore
++++ b/.gitignore
+@@ -20,8 +20,10 @@
+ test-ledger/
+ test-output.txt
+ *.log
+-# Transaction logs are part of a devnet evidence bundle's hashed contents.
++# Verification logs are part of these bundles' hashed contents.
+ !audit/devnet-evidence-*/**/*.log
++!audit/borrowed-dispatch-2026-10-07/**/*.log
++!audit/full-devnet-2026-10-07/**/*.log
+ 
+ # Bench artefacts
+ bench/results/

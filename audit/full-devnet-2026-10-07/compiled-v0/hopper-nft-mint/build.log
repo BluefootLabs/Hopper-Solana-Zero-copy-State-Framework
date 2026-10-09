@@ -1,0 +1,13 @@
+   Compiling hopper-metaplex v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\crates\hopper-spl\hopper-metaplex)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework)
+   Compiling hopper-nft-mint v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\examples\hopper-nft-mint)
+warning: unused import: `super::*`
+  --> examples\hopper-nft-mint\src\lib.rs:53:9
+   |
+53 |     use super::*;
+   |         ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `hopper-nft-mint` (lib) generated 1 warning (run `cargo fix --lib -p hopper-nft-mint` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 1.36s

@@ -40,8 +40,8 @@ use alloc::string::String;
 use core::fmt;
 
 use crate::{
-    clientgen::layout_is_compact, EventDescriptor, InstructionDescriptor, LayoutManifest,
-    ProgramManifest,
+    clientgen::layout_is_compact, ArgEncoding, EventDescriptor, InstructionDescriptor,
+    LayoutManifest, ProgramManifest,
 };
 
 /// Full Rust client emitter.
@@ -152,6 +152,11 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "pub enum ClientError {{")?;
         writeln!(
             f,
+            "    /// Invalid length, UTF-8, or bounded instruction argument."
+        )?;
+        writeln!(f, "    InvalidInstructionData,")?;
+        writeln!(
+            f,
             "    /// Buffer smaller than the bytes required by the selected decoder."
         )?;
         writeln!(f, "    BufferTooSmall {{ need: usize, got: usize }},")?;
@@ -204,6 +209,7 @@ impl<'a> fmt::Display for RsClientGen<'a> {
             "    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {{"
         )?;
         writeln!(f, "        match self {{")?;
+        writeln!(f, "            Self::InvalidInstructionData => write!(f, \"hopper client: invalid instruction data\"),")?;
         writeln!(f, "            Self::BufferTooSmall {{ need, got }} => {{")?;
         writeln!(
             f,
@@ -610,8 +616,16 @@ fn write_instruction_builder(
     let snake = snake_case(ix.name);
     let upper = upper_snake_case(ix.name);
 
+    let dynamic = ix.args.iter().any(|arg| arg.fixed_size().is_none());
+
     writeln!(f, "// {} instruction (discriminator = {})", pascal, ix.tag)?;
     writeln!(f, "pub const {}_DISC: u8 = {};", upper, ix.tag)?;
+    if dynamic {
+        writeln!(
+            f,
+            "/// Maximum encoded byte length; actual batches may be shorter."
+        )?;
+    }
     writeln!(
         f,
         "pub const {}_DATA_LEN: usize = {};",
@@ -629,7 +643,12 @@ fn write_instruction_builder(
                 f,
                 "    pub {}: {},",
                 snake_case(arg.name),
-                rust_field_type(arg.canonical_type, arg.size as usize)
+                match arg.encoding {
+                    ArgEncoding::Fixed => rust_field_type(arg.canonical_type, arg.size as usize),
+                    ArgEncoding::BoundedVec { element_size, .. } =>
+                        format!("Vec<[u8; {}]>", element_size),
+                    ArgEncoding::BoundedString { .. } => "String".into(),
+                }
             )?;
         }
         writeln!(f, "}}")?;
@@ -672,11 +691,24 @@ fn write_instruction_builder(
     if !ix.args.is_empty() {
         writeln!(f, "    args: &{}Args,", pascal)?;
     }
-    writeln!(f, ") -> Instruction {{")?;
+    writeln!(
+        f,
+        ") -> {} {{",
+        if dynamic {
+            "Result<Instruction, ClientError>"
+        } else {
+            "Instruction"
+        }
+    )?;
     if ix.args.is_empty() {
         writeln!(f, "    let data = encode_{}_data();", snake)?;
     } else {
-        writeln!(f, "    let data = encode_{}_data(args);", snake)?;
+        writeln!(
+            f,
+            "    let data = encode_{}_data(args){};",
+            snake,
+            if dynamic { "?" } else { "" }
+        )?;
     }
     // Resolve program-derived addresses from their on-chain seeds, so the
     // caller passes only the accounts it actually owns.
@@ -753,11 +785,11 @@ fn write_instruction_builder(
         )?;
     }
     writeln!(f, "    ];")?;
-    writeln!(f, "    Instruction {{")?;
+    writeln!(f, "    {}Instruction {{", if dynamic { "Ok(" } else { "" })?;
     writeln!(f, "        program_id: *program_id,")?;
     writeln!(f, "        accounts: account_metas,")?;
     writeln!(f, "        data,")?;
-    writeln!(f, "    }}")?;
+    writeln!(f, "    }}{}", if dynamic { ")" } else { "" })?;
     writeln!(f, "}}")?;
     writeln!(f)?;
 
@@ -794,15 +826,28 @@ fn write_instruction_builder(
         if !ix.args.is_empty() {
             writeln!(f, "    args: &{}Args,", pascal)?;
         }
-        writeln!(f, ") -> [Instruction; 2] {{")?;
-        writeln!(f, "    [")?;
+        writeln!(
+            f,
+            ") -> {} {{",
+            if dynamic {
+                "Result<[Instruction; 2], ClientError>"
+            } else {
+                "[Instruction; 2]"
+            }
+        )?;
+        writeln!(f, "    {}[", if dynamic { "Ok(" } else { "" })?;
         writeln!(f, "        set_compute_unit_limit_ix({}),", budget)?;
         if ix.args.is_empty() {
             writeln!(f, "        {}_ix(program_id, accounts),", snake)?;
         } else {
-            writeln!(f, "        {}_ix(program_id, accounts, args),", snake)?;
+            writeln!(
+                f,
+                "        {}_ix(program_id, accounts, args){},",
+                snake,
+                if dynamic { "?" } else { "" }
+            )?;
         }
-        writeln!(f, "    ]")?;
+        writeln!(f, "    ]{}", if dynamic { ")" } else { "" })?;
         writeln!(f, "}}")?;
         writeln!(f)?;
     }
@@ -813,6 +858,9 @@ fn write_instruction_data_codec(
     f: &mut fmt::Formatter<'_>,
     ix: &InstructionDescriptor,
 ) -> fmt::Result {
+    if ix.args.iter().any(|arg| arg.fixed_size().is_none()) {
+        return write_dynamic_instruction_data_codec(f, ix);
+    }
     let pascal = pascal_case(ix.name);
     let snake = snake_case(ix.name);
     let upper = upper_snake_case(ix.name);
@@ -906,6 +954,130 @@ fn write_instruction_data_codec(
     }
 
     Ok(())
+}
+
+/// Variable-width instructions use fallible builders and a checked cursor.
+/// Sequence elements stay explicit wire byte arrays: the descriptor does not
+/// carry a recursive element schema, so inventing a nested encoder is unsafe.
+fn write_dynamic_instruction_data_codec(
+    f: &mut fmt::Formatter<'_>,
+    ix: &InstructionDescriptor,
+) -> fmt::Result {
+    let pascal = pascal_case(ix.name);
+    let snake = snake_case(ix.name);
+    let upper = upper_snake_case(ix.name);
+    writeln!(
+        f,
+        "/// Encode bounded arguments; refuse excessive counts or byte lengths."
+    )?;
+    writeln!(
+        f,
+        "pub fn encode_{snake}_data(args: &{pascal}Args) -> Result<Vec<u8>, ClientError> {{"
+    )?;
+    // Validate capacities before allocating or copying any payload.
+    for arg in ix.args {
+        let max = match arg.encoding {
+            ArgEncoding::Fixed => continue,
+            ArgEncoding::BoundedVec { max_len, .. } | ArgEncoding::BoundedString { max_len } => {
+                max_len
+            }
+        };
+        let name = snake_case(arg.name);
+        writeln!(f, "    if args.{name}.len() > {max} {{ return Err(ClientError::InvalidInstructionData); }}")?;
+    }
+    writeln!(f, "    let mut data = Vec::new();")?;
+    writeln!(f, "    data.push({upper}_DISC);")?;
+    for arg in ix.args {
+        let name = snake_case(arg.name);
+        match arg.encoding {
+            ArgEncoding::Fixed => write_arg_encode(f, arg.canonical_type, &name)?,
+            ArgEncoding::BoundedVec { .. } => {
+                writeln!(
+                    f,
+                    "    data.extend_from_slice(&(args.{name}.len() as u16).to_le_bytes());"
+                )?;
+                writeln!(
+                    f,
+                    "    for value in &args.{name} {{ data.extend_from_slice(value); }}"
+                )?;
+            }
+            ArgEncoding::BoundedString { .. } => {
+                writeln!(
+                    f,
+                    "    data.extend_from_slice(&(args.{name}.len() as u16).to_le_bytes());"
+                )?;
+                writeln!(f, "    data.extend_from_slice(args.{name}.as_bytes());")?;
+            }
+        }
+    }
+    writeln!(f, "    Ok(data)\n}}\n")?;
+    writeln!(
+        f,
+        "/// Decode the complete instruction; sequence elements remain wire bytes."
+    )?;
+    writeln!(
+        f,
+        "pub fn decode_{snake}_args(data: &[u8]) -> Result<{pascal}Args, ClientError> {{"
+    )?;
+    writeln!(
+        f,
+        "    let tag = *data.first().ok_or(ClientError::BufferTooSmall {{ need: 1, got: 0 }})?;"
+    )?;
+    writeln!(f, "    if tag != {upper}_DISC {{ return Err(ClientError::InstructionTagMismatch {{ expected: {upper}_DISC, actual: tag }}); }}")?;
+    writeln!(f, "    let mut offset = 1usize;")?;
+    for arg in ix.args {
+        let name = snake_case(arg.name);
+        writeln!(f, "    let {name} = {{")?;
+        match arg.encoding {
+            ArgEncoding::Fixed => {
+                writeln!(f, "        let end = offset.checked_add({}).ok_or(ClientError::InvalidInstructionData)?;", arg.size)?;
+                writeln!(f, "        let data = data.get(offset..end).ok_or(ClientError::BufferTooSmall {{ need: end, got: data.len() }})?;")?;
+                writeln!(f, "        offset = end;")?;
+                write_field_decode(f, arg.canonical_type, 0, arg.size as usize)?;
+            }
+            encoding => {
+                let (max, stride) = match encoding {
+                    ArgEncoding::BoundedVec {
+                        max_len,
+                        element_size,
+                    } => (max_len, element_size),
+                    ArgEncoding::BoundedString { max_len } => (max_len, 1),
+                    ArgEncoding::Fixed => unreachable!(),
+                };
+                writeln!(f, "        let prefix_end = offset.checked_add(2).ok_or(ClientError::InvalidInstructionData)?;")?;
+                writeln!(f, "        let prefix = data.get(offset..prefix_end).ok_or(ClientError::BufferTooSmall {{ need: prefix_end, got: data.len() }})?;")?;
+                writeln!(
+                    f,
+                    "        let count = u16::from_le_bytes([prefix[0], prefix[1]]) as usize;"
+                )?;
+                writeln!(f, "        if count > {max} {{ return Err(ClientError::InvalidInstructionData); }}")?;
+                writeln!(f, "        let size = count.checked_mul({stride}).ok_or(ClientError::InvalidInstructionData)?;")?;
+                writeln!(f, "        let end = prefix_end.checked_add(size).ok_or(ClientError::InvalidInstructionData)?;")?;
+                writeln!(f, "        let bytes = data.get(prefix_end..end).ok_or(ClientError::BufferTooSmall {{ need: end, got: data.len() }})?;")?;
+                writeln!(f, "        offset = end;")?;
+                if matches!(encoding, ArgEncoding::BoundedString { .. }) {
+                    writeln!(f, "        core::str::from_utf8(bytes).map_err(|_| ClientError::InvalidInstructionData)?.to_owned()")?;
+                } else if stride == 0 {
+                    writeln!(f, "        vec![[0u8; 0]; count]")?;
+                } else {
+                    writeln!(f, "        let mut values = Vec::with_capacity(count);")?;
+                    writeln!(f, "        for chunk in bytes.chunks_exact({stride}) {{")?;
+                    writeln!(f, "            let mut value = [0u8; {stride}]; value.copy_from_slice(chunk); values.push(value);")?;
+                    writeln!(f, "        }}\n        values")?;
+                }
+            }
+        }
+        writeln!(f, "    }};")?;
+    }
+    writeln!(
+        f,
+        "    if offset != data.len() {{ return Err(ClientError::InvalidInstructionData); }}"
+    )?;
+    writeln!(f, "    Ok({pascal}Args {{")?;
+    for arg in ix.args {
+        writeln!(f, "        {},", snake_case(arg.name))?;
+    }
+    writeln!(f, "    }})\n}}\n")
 }
 
 fn write_arg_encode(f: &mut fmt::Formatter<'_>, canonical: &str, name: &str) -> fmt::Result {

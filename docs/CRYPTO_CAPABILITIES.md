@@ -12,7 +12,7 @@ without losing the exact bytes your protocol depends on.
 |---|---|---|---|
 | SHA-256 | `hopper::crypto::sha256`, `sha256_single` | `sol_sha256` / backend hasher | Shipped |
 | Keccak-256 | `hopper::crypto::keccak256`, `keccak256_single` | `sol_keccak256` / backend hasher | Shipped |
-| BLAKE3 | `hopper::crypto::blake3`, `blake3_single` | `sol_blake3` | Shipped |
+| BLAKE3 | `hopper::crypto::blake3`, `blake3_single` | `sol_blake3` | Binding shipped; native and runtime calls failed on public devnet on October 7, 2026 |
 | Curve point validation | `hopper::crypto::curve_validate_point`, `curve25519_edwards_validate_point` | `sol_curve_validate_point` | Shipped |
 | Ed25519 precompile | `check_ed25519_signature`, `check_ed25519_signature_at`, `check_ed25519_signer`, `check_ed25519_signer_at` | Ed25519 program + instructions sysvar | Shipped |
 | Secp256k1 precompile | `check_secp256k1_instruction`, `check_secp256k1_instruction_at`, `check_secp256k1_instruction_at_cross_instruction`, `check_secp256k1_message_hash` | secp256k1 native program + instructions sysvar | Shipped |
@@ -21,27 +21,39 @@ without losing the exact bytes your protocol depends on.
 | Curve group operations | `curve_group_add`, `curve_group_sub`, `curve_group_mul`, `curve_multiscalar_mul` | `sol_curve_group_op`, `sol_curve_multiscalar_mul` | Shipped behind `crypto-curve` |
 | Poseidon | `poseidon_hashv`, `poseidon_hash`, `poseidon_bn254_x5` | `sol_poseidon` | Shipped behind `crypto-poseidon` |
 | alt_bn128 / BN254 | `alt_bn128_add`, `alt_bn128_mul`, `alt_bn128_pairing`, compression helpers | `sol_alt_bn128_group_op`, `sol_alt_bn128_compression` | Shipped behind `crypto-bn254` |
-| Big modular exponentiation | `big_mod_exp` | `sol_big_mod_exp` | Shipped behind `crypto-big-mod-exp` |
+| Big modular exponentiation | `big_mod_exp` | `sol_big_mod_exp` | Binding behind `crypto-big-mod-exp`; SIMD-0529 absent on devnet, October 7, 2026 |
 
 Host tests that need real digest bytes should use a software hasher in the test
 crate. Hopper's on-chain helpers stay dependency-light and route through the
 active Solana backend.
 
+A Rust binding and an accepted program deployment are not proof that a syscall
+executes on a particular cluster. The October 7 BLAKE3 probe deployed after
+overriding only the CLI's local feature selection, with transaction preflight
+retained. Both API calls then finalized with `ProgramFailedToComplete` and an
+unsupported-instruction log. The default function lab excludes BLAKE3; a
+separate opt-in build exercises it in the local VM. SHA-256 and Keccak have
+separate successful live probes.
+
 ## Hash helpers
 
 ```rust
-use hopper::crypto::{blake3, keccak256, sha256};
+use hopper::crypto::{keccak256, sha256};
 
 let domain = b"hopper:v1:auth";
 let user = user_key.as_ref();
 
 let sha = sha256(&[domain, user])?;
 let eth = keccak256(&[b"\x19Ethereum Signed Message:\n32", &sha])?;
-let compact = blake3(&[b"receipt", &eth])?;
+let receipt_digest = sha256(&[b"receipt", &eth])?;
 ```
 
-Hopper rejects more than 16 hash segments instead of silently dropping tail
-segments. That guard matters: hash APIs must never ignore bytes.
+The unreleased runtime wrappers share the native boundary's 20,000-slice limit;
+0.5.0 runtime wrappers allow 16. Excess slices are rejected, never silently
+dropped. Stack, heap and compute budgets impose lower practical bounds. The
+[function lab](../bench/function-lab/README.md) checks 0 through 64 slices on
+compiled native and runtime paths. Host SHA-256 computes a digest; host Keccak
+and BLAKE3 syscall stubs are not digest oracles.
 
 ## Ed25519 precompile checks
 
@@ -129,7 +141,12 @@ use the same operation ids and byte lengths as Solana's `solana-bn254` crate;
 Poseidon accepts 1 to 12 32-byte inputs; curve multiplication passes the scalar
 as the left operand and point as the right operand, matching Solana's syscall
 ABI. Big modular exponentiation writes into a caller-provided output buffer whose
-length must match the modulus length.
+length must match the modulus length. Its operands and output are little-endian,
+each operand is limited to 512 bytes, and the modulus must be odd and greater
+than one. These are the [Solana SDK contracts](https://github.com/anza-xyz/solana-sdk/tree/master/big-mod-exp).
 
-SBF tests remain the next hardening lane before treating the heavy crypto path as
-fully exercised across validator versions.
+The function lab exercises named curve, Poseidon and BN254 vectors. This is
+bounded test coverage, not exhaustive cryptographic validation. Modular
+exponentiation is excluded from its default build: the public devnet feature
+account was absent on October 7, and the pinned Agave 4.2.1 VM's implementation
+returns a failure stub. A declared Rust API does not establish cluster support.

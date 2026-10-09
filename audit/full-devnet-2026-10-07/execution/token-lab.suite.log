@@ -1,0 +1,61 @@
+create-mint-legacy: finalized, 3493 CU, ok
+immutable-a-legacy: finalized, 5249 CU, ok
+immutable-b-legacy: finalized, 5249 CU, ok
+mint-to-legacy: finalized, 1363 CU, ok
+batch-legacy: finalized, 2638 CU, ok
+batch-self-transfer-legacy: finalized, 130 CU, refused {'InstructionError': [0, 'AccountBorrowFailed']}
+ui-amount-legacy: finalized, 3859 CU, ok
+prefund-legacy: finalized, 150 CU, ok
+withdraw-excess-legacy: finalized, 1494 CU, ok
+multisig-legacy: finalized, 3051 CU, ok
+create-mint-token-2022: finalized, 4531 CU, ok
+immutable-a-token-2022: finalized, 7945 CU, ok
+immutable-b-token-2022: finalized, 7945 CU, ok
+mint-to-token-2022: finalized, 2505 CU, ok
+batch-token-2022: finalized, 5741 CU, ok
+batch-self-transfer-token-2022: finalized, 131 CU, refused {'InstructionError': [0, 'AccountBorrowFailed']}
+ui-amount-token-2022: finalized, 5469 CU, ok
+prefund-token-2022: finalized, 150 CU, ok
+withdraw-excess-token-2022: finalized, 2742 CU, ok
+multisig-token-2022: finalized, 4235 CU, ok
+hook-parser-literal: finalized, 327 CU, ok
+hook-parser-account-key-pda: finalized, 1073 CU, ok
+hook-parser-wrong-type: finalized, 118 CU, refused {'InstructionError': [0, {'Custom': 6700}]}
+hook-parser-count-past-tlv: finalized, 120 CU, refused {'InstructionError': [0, {'Custom': 6702}]}
+hook-parser-truncated-tlv: finalized, 112 CU, refused {'InstructionError': [0, {'Custom': 6701}]}
+hook-parser-reserved-kind: finalized, 185 CU, refused {'InstructionError': [0, {'Custom': 6703}]}
+hook-parser-too-many-seeds: finalized, 513 CU, refused {'InstructionError': [0, {'Custom': 6704}]}
+hook-parser-oversized-seed: finalized, 234 CU, refused {'InstructionError': [0, {'Custom': 6703}]}
+wrap-and-unwrap: finalized, 3929 CU, ok
+extended-mint-01: finalized, 8481 CU, ok
+extended-mint-02: finalized, 8816 CU, ok
+extended-mint-04: finalized, 8980 CU, ok
+extended-mint-08: finalized, 8979 CU, ok
+extended-mint-10: finalized, 8915 CU, ok
+extended-mint-20: finalized, 8812 CU, ok
+extended-mint-40: finalized, 8858 CU, ok
+extended-mint-80: finalized, 8914 CU, ok
+extended-mint-grow-01: finalized, 8481 CU, ok
+extended-mint-grow-03: finalized, 11525 CU, ok
+extended-mint-grow-07: finalized, 14791 CU, ok
+extended-mint-grow-0f: finalized, 421 CU, refused {'InstructionError': [0, 'InvalidArgument']}
+extended-mint-grow-17: finalized, 18043 CU, ok
+extended-mint-grow-37: finalized, 21351 CU, ok
+extended-mint-grow-77: finalized, 24654 CU, ok
+extended-mint-grow-f7: finalized, 28075 CU, ok
+extended-mint-final: finalized, 28075 CU, ok
+immutable-a-extended: finalized, 11750 CU, ok
+mint-to-extended: finalized, 3898 CU, ok
+ui-amount-extended: finalized, 10049 CU, ok
+pause-resume: finalized, 5528 CU, ok
+update-multiplier: finalized, 3076 CU, ok
+ui-amount-extended-x3: finalized, 10028 CU, ok
+create-metadata-mint: finalized, 16732 CU, ok
+set-metadata-key: finalized, 11568 CU, ok
+replace-metadata-key: finalized, 12348 CU, ok
+finalize-metadata: finalized, 31905 CU, ok
+set-metadata-key-without-authority: finalized, 4929 CU, refused {'InstructionError': [0, {'Custom': 901952961}]}
+create-group: finalized, 14527 CU, ok
+create-group-member: finalized, 15665 CU, ok
+findings: {"batch-legacy": "accepted", "batch-token-2022": "accepted", "unwrap-lamports": "accepted", "extended-mint-grow-0f": "refused: {'InstructionError': [0, 'InvalidArgument']}", "extension-10-with-07": "refused in combination", "extended-mint-mask": 247, "metadata": "accepted", "token-group": "accepted", "token-group-member": "accepted"}
+All token-lab devnet cases and exact state checks passed.

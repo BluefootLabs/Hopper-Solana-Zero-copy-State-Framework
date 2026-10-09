@@ -1,0 +1,126 @@
+{
+  "observedAt": "2026-10-07T17:05:02.861600+00:00",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "version": {
+    "feature-set": 1855282951,
+    "solana-core": "4.4.0-beta.0"
+  },
+  "sourceCommit": "fbcd44cc9e76144ec6285b79d7a480184d5ea84d",
+  "sourceSha256": "591aaa187ed1304424d65b8e544f4f9b0310c3aa876be9289fec95e919f4aac7",
+  "accounts": {
+    "context": {
+      "apiVersion": "4.4.0-beta.0",
+      "slot": 508524213
+    },
+    "value": [
+      null,
+      null,
+      {
+        "data": [
+          "AQA+HhwAAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 953520,
+        "owner": "Feature111111111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 9
+      },
+      null,
+      {
+        "data": [
+          "AYBiTBwAAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 953520,
+        "owner": "Feature111111111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 9
+      },
+      {
+        "data": [
+          "AQDrnxoAAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 953520,
+        "owner": "Feature111111111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 9
+      },
+      {
+        "data": [
+          "AQQKUQ4AAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1000953520,
+        "owner": "Feature111111111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 9
+      },
+      {
+        "data": [
+          "AYCAgxIAAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 953520,
+        "owner": "Feature111111111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 9
+      }
+    ]
+  },
+  "features": [
+    {
+      "name": "blake3_syscall_enabled",
+      "key": "HTW2pSyErTj4BV6KBM9NZ9VBUJVxt7sacNWcf76wtzb3",
+      "status": "absent",
+      "activationSlot": null
+    },
+    {
+      "name": "enable_big_mod_exp_syscall",
+      "key": "expH2ppKPW2ANEdEmAjfhSEcnBQJfmoX4FjuNpe9ttg",
+      "status": "absent",
+      "activationSlot": null
+    },
+    {
+      "name": "enable_sha512_syscall",
+      "key": "s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh",
+      "status": "active",
+      "activationSlot": 471744000
+    },
+    {
+      "name": "remaining_compute_units_syscall_enabled",
+      "key": "5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP",
+      "status": "absent",
+      "activationSlot": null
+    },
+    {
+      "name": "direct_account_pointers_in_program_input",
+      "key": "ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK",
+      "status": "active",
+      "activationSlot": 474768000
+    },
+    {
+      "name": "provide_instruction_data_offset_in_vm_r2",
+      "key": "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL",
+      "status": "active",
+      "activationSlot": 446688000
+    },
+    {
+      "name": "curve25519_syscall_enabled",
+      "key": "7rcw5UtqgDTBBv2EcynNfYckgdAaH1MAsCjKgXMkN7Ri",
+      "status": "active",
+      "activationSlot": 240192004
+    },
+    {
+      "name": "enable_poseidon_syscall",
+      "key": "FL9RsQA6TVUoh5xJQ9d936RHSebA1NLQqe3Zv9sXZRpr",
+      "status": "active",
+      "activationSlot": 310608000
+    }
+  ]
+}

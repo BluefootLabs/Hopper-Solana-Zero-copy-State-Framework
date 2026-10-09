@@ -1,0 +1,50 @@
+[
+  {
+    "name": "unsafe-contracts",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "scripts/check-unsafe-safety-comments.py"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "unsafe-map",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "scripts/audit-map.py",
+      "--verify"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "api-lock",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "scripts/api-lock.py",
+      "--verify"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "doc-citations",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "scripts/check-doc-citations.py"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "quality-gate-tests",
+    "command": [
+      "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\python-3.12.10\\python.exe",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/tests",
+      "-p",
+      "test_quality_gate.py"
+    ],
+    "exitCode": 0
+  }
+]

@@ -301,8 +301,8 @@ fn ceil_years(bits: u64) -> u64 {
 
 /// Epoch schedule sysvar data.
 ///
-/// Nobody wraps this at the native level. Useful for programs that
-/// need to reason about epoch boundaries (staking, vesting, time locks).
+/// Programs can use this to reason about epoch boundaries, including
+/// staking, vesting, and time locks.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EpochSchedule {
@@ -390,6 +390,8 @@ pub fn decode_epoch_schedule(image: &[u8; EPOCH_SCHEDULE_IMAGE_LEN]) -> EpochSch
 
 impl EpochSchedule {
     /// Get the epoch for a given slot.
+    /// Saturates on overflow; a zero-length normal epoch contributes no offset,
+    /// matching the SDK's defensive arithmetic. This does not validate a schedule.
     #[inline]
     pub fn get_epoch(&self, slot: u64) -> u64 {
         if slot < self.first_normal_slot {
@@ -410,11 +412,16 @@ impl EpochSchedule {
             epoch
         } else {
             let normal_slot_index = slot - self.first_normal_slot;
-            self.first_normal_epoch + normal_slot_index / self.slots_per_epoch
+            self.first_normal_epoch.saturating_add(
+                normal_slot_index
+                    .checked_div(self.slots_per_epoch)
+                    .unwrap_or(0),
+            )
         }
     }
 
     /// Get the first slot in the given epoch.
+    /// Results beyond the slot range saturate at `u64::MAX`.
     #[inline]
     pub fn get_first_slot_in_epoch(&self, epoch: u64) -> u64 {
         if epoch <= self.first_normal_epoch {
@@ -428,7 +435,8 @@ impl EpochSchedule {
             32_u64.saturating_mul((1_u64 << shift).saturating_sub(1))
         } else {
             let normal_epoch_index = epoch - self.first_normal_epoch;
-            self.first_normal_slot + normal_epoch_index * self.slots_per_epoch
+            self.first_normal_slot
+                .saturating_add(normal_epoch_index.saturating_mul(self.slots_per_epoch))
         }
     }
 }
@@ -792,7 +800,7 @@ mod abi_tests {
     /// proves the read side, not just the struct shape.
     #[test]
     fn epoch_schedule_reads_canonical_byte_image() {
-        // Devnet/mainnet default: 432_000 slots/epoch, no warmup.
+        // Representative schedule: 432_000 slots/epoch, no warmup.
         let mut buf = [0u8; 40];
         buf[0..8].copy_from_slice(&432_000u64.to_le_bytes()); // slots_per_epoch
         buf[8..16].copy_from_slice(&432_000u64.to_le_bytes()); // leader_schedule_slot_offset
@@ -848,6 +856,54 @@ mod abi_tests {
         assert!(sched.warmup);
         assert_eq!(sched.first_normal_epoch, 14);
         assert_eq!(sched.first_normal_slot, 524_256);
+    }
+
+    #[test]
+    fn epoch_schedule_warmup_boundaries() {
+        let schedule = EpochSchedule {
+            slots_per_epoch: 432_000,
+            leader_schedule_slot_offset: 432_000,
+            warmup: true,
+            first_normal_epoch: 14,
+            first_normal_slot: 524_256,
+        };
+        for (slot, epoch) in [
+            (0, 0),
+            (31, 0),
+            (32, 1),
+            (95, 1),
+            (96, 2),
+            (524_255, 13),
+            (524_256, 14),
+            (956_255, 14),
+            (956_256, 15),
+        ] {
+            assert_eq!(schedule.get_epoch(slot), epoch, "slot {slot}");
+        }
+        for (epoch, slot) in [(0, 0), (1, 32), (2, 96), (14, 524_256), (15, 956_256)] {
+            assert_eq!(schedule.get_first_slot_in_epoch(epoch), slot);
+        }
+        assert_eq!(schedule.get_first_slot_in_epoch(u64::MAX), u64::MAX);
+    }
+
+    #[test]
+    fn epoch_schedule_extreme_inputs_do_not_wrap_or_panic() {
+        let mut schedule = EpochSchedule {
+            slots_per_epoch: 2,
+            leader_schedule_slot_offset: 0,
+            warmup: false,
+            first_normal_epoch: 0,
+            first_normal_slot: 0,
+        };
+        assert_eq!(schedule.get_first_slot_in_epoch(u64::MAX), u64::MAX);
+        schedule.first_normal_slot = u64::MAX - 1;
+        assert_eq!(schedule.get_first_slot_in_epoch(1), u64::MAX);
+        schedule.first_normal_slot = 0;
+        schedule.first_normal_epoch = u64::MAX - 2;
+        schedule.slots_per_epoch = 1;
+        assert_eq!(schedule.get_epoch(u64::MAX), u64::MAX);
+        schedule.slots_per_epoch = 0;
+        assert_eq!(schedule.get_epoch(u64::MAX), u64::MAX - 2);
     }
 
     #[test]

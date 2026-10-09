@@ -1,0 +1,325 @@
+{
+  "baseline": "audit/borrowed-slices-2026-10-08/all-programs-v3/report.json",
+  "identical": 39,
+  "changed": 14,
+  "programs": [
+    {
+      "package": "counter-hopper",
+      "previousSha256": "e0dcbd6b69c4fa975842aa83592438b80f59b247795d630056670d6a180c29db",
+      "currentSha256": "e0dcbd6b69c4fa975842aa83592438b80f59b247795d630056670d6a180c29db",
+      "identical": true
+    },
+    {
+      "package": "counter-hopper-substrate",
+      "previousSha256": "3205962319c1c238af262bf96476e78cc1ccf9b9445068550d6f77c1bc6039bf",
+      "currentSha256": "3205962319c1c238af262bf96476e78cc1ccf9b9445068550d6f77c1bc6039bf",
+      "identical": true
+    },
+    {
+      "package": "hello-hopper",
+      "previousSha256": "1c3500e7354d26c7ea01793f6061b681e71d9179fe109305684b777fa7f9b0e2",
+      "currentSha256": "1c3500e7354d26c7ea01793f6061b681e71d9179fe109305684b777fa7f9b0e2",
+      "identical": true
+    },
+    {
+      "package": "hello-hopper-substrate",
+      "previousSha256": "785200738eff2407b4e1ebc94b25a01e3e2cdd98d05c7f85eca1e20e3ff1187a",
+      "currentSha256": "785200738eff2407b4e1ebc94b25a01e3e2cdd98d05c7f85eca1e20e3ff1187a",
+      "identical": true
+    },
+    {
+      "package": "hopper-argus-guard",
+      "previousSha256": "36c273af9c803fda5012ff57ceb93d025bdfc89af76a5144ecb05003d2d7e5cd",
+      "currentSha256": "36c273af9c803fda5012ff57ceb93d025bdfc89af76a5144ecb05003d2d7e5cd",
+      "identical": true
+    },
+    {
+      "package": "hopper-borrowed-args-fixture",
+      "previousSha256": "6cee2923ab9891bf3a476a61555af74fa3eba895d9271caa49296f147d3c126a",
+      "currentSha256": "6cee2923ab9891bf3a476a61555af74fa3eba895d9271caa49296f147d3c126a",
+      "identical": true
+    },
+    {
+      "package": "hopper-borrowed-slices-fixture",
+      "previousSha256": "34175ba3c45bea3797dafb067bc8dcd81bc2713331fec1c7d19c66ed8486b283",
+      "currentSha256": "56c5d135c10c1b7d2b6ea03bf9555343ed412f51800227ce411e65bc176a4878",
+      "identical": false
+    },
+    {
+      "package": "hopper-bounded-multisig",
+      "previousSha256": "539f39dbca678ee8c60a20143a90b373996bb9e11d76e614cc5193c6784dbc70",
+      "currentSha256": "165ca3ccbb10de1cfcb03ede099cf5406865ff23afe94063b66266484ec96755",
+      "identical": false
+    },
+    {
+      "package": "hopper-byte-allowance",
+      "previousSha256": "f0cfafe7c3abca830286888262441fffefac2a3b9e65eec04a2c3d75311e2ef4",
+      "currentSha256": "6573b7809ed6c89783141f5f644e01d9a1adc54b43ca827aa59f515fe881a49d",
+      "identical": false
+    },
+    {
+      "package": "hopper-canonical-pda-fixture",
+      "previousSha256": "d5a1d19456f879c66812eb24716c58475b45214dc58602565ed616ff1b07ac21",
+      "currentSha256": "d5a1d19456f879c66812eb24716c58475b45214dc58602565ed616ff1b07ac21",
+      "identical": true
+    },
+    {
+      "package": "hopper-checked-cpi-fixture",
+      "previousSha256": "ef065bc6b8c52dd3d14db45f7217782e6b3023c08d9470d419a668d44d57ced0",
+      "currentSha256": "ef065bc6b8c52dd3d14db45f7217782e6b3023c08d9470d419a668d44d57ced0",
+      "identical": true
+    },
+    {
+      "package": "hopper-cicada",
+      "previousSha256": "030a22ec36c6a8dfe6b61582f65e329dcfad2144f33dd01bc03b27565d283016",
+      "currentSha256": "ed948374a8e773923b0c5e1ae133c9ac35001659347289fe97781cea85834b74",
+      "identical": false
+    },
+    {
+      "package": "hopper-cicada-canonical-route-fixture",
+      "previousSha256": "76d580f6e70535b01059eba3e619c6e57b7c696660c502aa2861bd469a34f068",
+      "currentSha256": "76d580f6e70535b01059eba3e619c6e57b7c696660c502aa2861bd469a34f068",
+      "identical": true
+    },
+    {
+      "package": "hopper-cicada-route-fixture",
+      "previousSha256": "fac2a79da64da88917f0869a23a028e1844f851f5ef112223c21afef90f8df03",
+      "currentSha256": "fac2a79da64da88917f0869a23a028e1844f851f5ef112223c21afef90f8df03",
+      "identical": true
+    },
+    {
+      "package": "hopper-compact-vault",
+      "previousSha256": "0531cff2bb3562765d21836eb847a6fc4518258e872994f38131bf1856faad17",
+      "currentSha256": "0531cff2bb3562765d21836eb847a6fc4518258e872994f38131bf1856faad17",
+      "identical": true
+    },
+    {
+      "package": "hopper-confidential-lab",
+      "previousSha256": "7a84a9a7d3c3f739493eb18071c19379c0db19da816373af8ba3004dd3a9f2e7",
+      "currentSha256": "7a84a9a7d3c3f739493eb18071c19379c0db19da816373af8ba3004dd3a9f2e7",
+      "identical": true
+    },
+    {
+      "package": "hopper-counter",
+      "previousSha256": "ae7bf56a2e5c30fbadaecb3b88225772372de0f38c89a08914f553acb7acca8a",
+      "currentSha256": "ae7bf56a2e5c30fbadaecb3b88225772372de0f38c89a08914f553acb7acca8a",
+      "identical": true
+    },
+    {
+      "package": "hopper-devnet-audit",
+      "previousSha256": "44974789a0af29b7e9b35bcd3292c2c272ffcf1a9f987d3fe5857b0b2b19e5ca",
+      "currentSha256": "40976ae621669f50f40491aea9dcfedffcee25d5d7713a63e9a4dfbecfccc5fb",
+      "identical": false
+    },
+    {
+      "package": "hopper-escrow",
+      "previousSha256": "6e41ca5b25fb5d741120c8ba61c5bf6906bd6609b542412c585d6f92ed32378c",
+      "currentSha256": "6e41ca5b25fb5d741120c8ba61c5bf6906bd6609b542412c585d6f92ed32378c",
+      "identical": true
+    },
+    {
+      "package": "hopper-external-oracle",
+      "previousSha256": "1875eb6d7b7a6361c303adbad22dd094b226167e3dd46861ee704d9579db13f5",
+      "currentSha256": "1875eb6d7b7a6361c303adbad22dd094b226167e3dd46861ee704d9579db13f5",
+      "identical": true
+    },
+    {
+      "package": "hopper-function-lab",
+      "previousSha256": "2eb309d90348bbe6cd3a0e1c27a7da753b31e95b5eab101457eaeb7c49700895",
+      "currentSha256": "2eb309d90348bbe6cd3a0e1c27a7da753b31e95b5eab101457eaeb7c49700895",
+      "identical": true
+    },
+    {
+      "package": "hopper-migration",
+      "previousSha256": "a385f3b09cc056b7962ba6903c9c5f643a3f27ac0f719332b4d160bbdf41baeb",
+      "currentSha256": "26042df3342624839b548e8cbd4f989962a541d6ba53f5894b25b407429b900d",
+      "identical": false
+    },
+    {
+      "package": "hopper-mint-plan-fixture",
+      "previousSha256": "3c14e5f1ce077d584b993b44dca0eb308b631fb9c6e107b7351c003bef7c0222",
+      "currentSha256": "3c14e5f1ce077d584b993b44dca0eb308b631fb9c6e107b7351c003bef7c0222",
+      "identical": true
+    },
+    {
+      "package": "hopper-native-lifecycle-fixture",
+      "previousSha256": "60e7a388966c5b888f099b28c3d8a50deddb8c53783597eddbe213af644f2a59",
+      "currentSha256": "60e7a388966c5b888f099b28c3d8a50deddb8c53783597eddbe213af644f2a59",
+      "identical": true
+    },
+    {
+      "package": "hopper-nft-mint",
+      "previousSha256": "dcba84c4ec63bd3c7b39a6bc08cc830503d193b23a7313d744b4545f549d8233",
+      "currentSha256": "dcba84c4ec63bd3c7b39a6bc08cc830503d193b23a7313d744b4545f549d8233",
+      "identical": true
+    },
+    {
+      "package": "hopper-orderbook",
+      "previousSha256": "d0ba8c54ee0fdfdb67321041513d263d1173a2978d7d54aebbc9882ad0e67557",
+      "currentSha256": "d0ba8c54ee0fdfdb67321041513d263d1173a2978d7d54aebbc9882ad0e67557",
+      "identical": true
+    },
+    {
+      "package": "hopper-parity-vault",
+      "previousSha256": "f3321b6b4b3a23d383e8b2b50c551e307a25793e018e60d2b15e881dd277a240",
+      "currentSha256": "f3321b6b4b3a23d383e8b2b50c551e307a25793e018e60d2b15e881dd277a240",
+      "identical": true
+    },
+    {
+      "package": "hopper-pda-boundaries-fixture",
+      "previousSha256": "0b46fb30301dd2db42ac026d34be1d09ae22edc37ed961bae3c3c471e040cd08",
+      "currentSha256": "0b46fb30301dd2db42ac026d34be1d09ae22edc37ed961bae3c3c471e040cd08",
+      "identical": true
+    },
+    {
+      "package": "hopper-policy-vault",
+      "previousSha256": "8552264ff0476cfaaee94444b17d6e9b956b263ae2569f5f09ad4070d0071df2",
+      "currentSha256": "8552264ff0476cfaaee94444b17d6e9b956b263ae2569f5f09ad4070d0071df2",
+      "identical": true
+    },
+    {
+      "package": "hopper-proc-vault",
+      "previousSha256": "9bf7eb9d7de666857028694bebbbdedac5f948493bce76f9afb9099950b9709f",
+      "currentSha256": "9bf7eb9d7de666857028694bebbbdedac5f948493bce76f9afb9099950b9709f",
+      "identical": true
+    },
+    {
+      "package": "hopper-registry",
+      "previousSha256": "21c82b2d8b14b4af1813166036ef4211cd43b11c2247a0827ec42d3e9bad88e0",
+      "currentSha256": "21c82b2d8b14b4af1813166036ef4211cd43b11c2247a0827ec42d3e9bad88e0",
+      "identical": true
+    },
+    {
+      "package": "hopper-return-provenance-fixture",
+      "previousSha256": "4dffa3a0f8cdb792e14a53eb26744891235d8e59d7bb382ab0eb780b87c594ae",
+      "currentSha256": "4dffa3a0f8cdb792e14a53eb26744891235d8e59d7bb382ab0eb780b87c594ae",
+      "identical": true
+    },
+    {
+      "package": "hopper-router",
+      "previousSha256": "16a75c8acf0c55728dc7a241aa99c8f8bb7a65803458d4315fd42f4801dec816",
+      "currentSha256": "16a75c8acf0c55728dc7a241aa99c8f8bb7a65803458d4315fd42f4801dec816",
+      "identical": true
+    },
+    {
+      "package": "hopper-runtime-gate-fixture",
+      "previousSha256": "12f118a5f5924448c28232bf50ce8cd5e17eb838fb6cd8277634045a22bbc84d",
+      "currentSha256": "12f118a5f5924448c28232bf50ce8cd5e17eb838fb6cd8277634045a22bbc84d",
+      "identical": true
+    },
+    {
+      "package": "hopper-runtime-lab",
+      "previousSha256": "582f77106100cabdb6e855d1ae7d18349b59009e7e744f47ca941b1cbf7cc330",
+      "currentSha256": "70550e99ef3410d528b4f6476f0c3bb847409a8d9572761ac23563ab9eb9cf22",
+      "identical": false
+    },
+    {
+      "package": "hopper-runtime-lifecycle-fixture",
+      "previousSha256": "d7eff9bfa2551d85711310adabaca3e61e561b9123035d1a97ccc7eb9c32cddf",
+      "currentSha256": "d7eff9bfa2551d85711310adabaca3e61e561b9123035d1a97ccc7eb9c32cddf",
+      "identical": true
+    },
+    {
+      "package": "hopper-sentinel",
+      "previousSha256": "54ce070d00fee120dbdf6cbb6a767fa22b5f60b111e5bf4e37130605a47ec17b",
+      "currentSha256": "a39bae81762f1bb29a2ca9d669bc8b500cbefddaa9d311118b7d4d1bb08b00a5",
+      "identical": false
+    },
+    {
+      "package": "hopper-showcase",
+      "previousSha256": "9da960af9ad88e1a8a1cf72891beb95f70e14f8f9f1df81b72e6155a27fd7b74",
+      "currentSha256": "9da960af9ad88e1a8a1cf72891beb95f70e14f8f9f1df81b72e6155a27fd7b74",
+      "identical": true
+    },
+    {
+      "package": "hopper-sibling-introspection-fixture",
+      "previousSha256": "fd19f6eb80bedb61f0e068b2353c415ea70f9c3ea6513191bb12b6a9f761bbb8",
+      "currentSha256": "fd19f6eb80bedb61f0e068b2353c415ea70f9c3ea6513191bb12b6a9f761bbb8",
+      "identical": true
+    },
+    {
+      "package": "hopper-smoke",
+      "previousSha256": "13877ced08a5926410deb2686067a158fccb59218ecac5eee783acdeb7f8a722",
+      "currentSha256": "13877ced08a5926410deb2686067a158fccb59218ecac5eee783acdeb7f8a722",
+      "identical": true
+    },
+    {
+      "package": "hopper-stablecoin-memo-pay",
+      "previousSha256": "6d42b54fa4f6150cdac39f95425e14e083ea8d1a4f5bd4dbd3b89592900a4721",
+      "currentSha256": "51b180307f2b776c1eeee7f187a605c1c2dbde1277a2edb851233735377be5d0",
+      "identical": false
+    },
+    {
+      "package": "hopper-styx-ferry",
+      "previousSha256": "e3747f0b5e5abb149a7114cbd13a445cd677f91fe4c9810d8484e751f77a8515",
+      "currentSha256": "e3747f0b5e5abb149a7114cbd13a445cd677f91fe4c9810d8484e751f77a8515",
+      "identical": true
+    },
+    {
+      "package": "hopper-tail-lab",
+      "previousSha256": "5f870de80df598119568f208619c648d8b9bb5046ff12c3b2cbc0f6008fb939a",
+      "currentSha256": "dbdeb910081c3a037b4ab48993eb1a578fbb2c3716c4ac3ed822e6194d6fdfa0",
+      "identical": false
+    },
+    {
+      "package": "hopper-token-2022-ata",
+      "previousSha256": "873dfee7d9e8d82160e8190df664e07888a5b018141de201c750c05f8f10bd3d",
+      "currentSha256": "19a6eb307b6ffd449dd2d34d5e69d6b8e85aad2af851c7e277e880faa9cef62a",
+      "identical": false
+    },
+    {
+      "package": "hopper-token-2022-transfer-hook",
+      "previousSha256": "421780f68214098ae7fc92ec934e7befc8a1c496c2231a27573939ed66378ce1",
+      "currentSha256": "421780f68214098ae7fc92ec934e7befc8a1c496c2231a27573939ed66378ce1",
+      "identical": true
+    },
+    {
+      "package": "hopper-token-2022-vault",
+      "previousSha256": "55617cbdef6c14862fcdcfd88a72a65a515fa83a1665ef37539babb3408b3e38",
+      "currentSha256": "3cbceb2f03d36a2dabfc04c86e8a0d50603020669602a991733f1e07f5aef8e8",
+      "identical": false
+    },
+    {
+      "package": "hopper-token-lab",
+      "previousSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488",
+      "currentSha256": "0ddeeff5aa6eb716a6c93fc3611e2d69df9ec00383005ab48c1c511b8cb9d43a",
+      "identical": false
+    },
+    {
+      "package": "hopper-token-outcomes-fixture",
+      "previousSha256": "77b8fb608cd598a2206d87c9439ef9ab5156780f87ebecb4ab15c7baf5581136",
+      "currentSha256": "77b8fb608cd598a2206d87c9439ef9ab5156780f87ebecb4ab15c7baf5581136",
+      "identical": true
+    },
+    {
+      "package": "hopper-treasury",
+      "previousSha256": "d8fc9e133e1c8743ace7f44dacc2b4d907a6f9d3b7e3ca0d8bc6c9317dde66ba",
+      "currentSha256": "d8fc9e133e1c8743ace7f44dacc2b4d907a6f9d3b7e3ca0d8bc6c9317dde66ba",
+      "identical": true
+    },
+    {
+      "package": "hopper-vault",
+      "previousSha256": "a686d2492a6503d4972074ba913a97a6fed20446ca1c14c1bc234801bdb4d7c3",
+      "currentSha256": "a686d2492a6503d4972074ba913a97a6fed20446ca1c14c1bc234801bdb4d7c3",
+      "identical": true
+    },
+    {
+      "package": "hopper-virtual-state",
+      "previousSha256": "934499bbc778caa624bfea6c29ea0bce57b7848a1c594a3f19a5e58473c721bf",
+      "currentSha256": "dd0b1c6e87e1b86ae21d7ee3fed2b3e5c89676fbcbe2dbf0a3554bcee43b6373",
+      "identical": false
+    },
+    {
+      "package": "hopper-xp-program-a",
+      "previousSha256": "a305aa1a45241fec78027ed03dc08c669947c711d9ef5e5df0c699a1ad180d9b",
+      "currentSha256": "a305aa1a45241fec78027ed03dc08c669947c711d9ef5e5df0c699a1ad180d9b",
+      "identical": true
+    },
+    {
+      "package": "hopper-xp-program-b",
+      "previousSha256": "6f3da529c922bb52a4b8c3e3a3ca24af6e8c262bf7c8fa7dc0ac1b06b6e72fc7",
+      "currentSha256": "6f3da529c922bb52a4b8c3e3a3ca24af6e8c262bf7c8fa7dc0ac1b06b6e72fc7",
+      "identical": true
+    }
+  ]
+}

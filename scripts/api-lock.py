@@ -40,6 +40,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
+import urllib.error
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
@@ -84,7 +86,11 @@ def libraries() -> list[dict]:
 
 
 def rustdoc_json(spec: str, lib: str, cwd: Path) -> dict:
-    env = dict(os.environ, RUSTC_BOOTSTRAP="1")
+    # Scratch consumers do not inherit this repository's rust-toolchain.toml.
+    # Pin both sides explicitly: compiler-added auto traits must not appear
+    # as API additions merely because the user's default toolchain differs.
+    channel = tomllib.loads((ROOT / "rust-toolchain.toml").read_text(encoding="utf-8"))["toolchain"]["channel"]
+    env = dict(os.environ, RUSTC_BOOTSTRAP="1", RUSTUP_TOOLCHAIN=channel)
     args = [
         "cargo", "rustdoc", "-p", spec, "--lib", "--target-dir", str(TARGET),
         "--", "-Z", "unstable-options", "--output-format", "json",
@@ -645,8 +651,12 @@ def published_version(name: str) -> str | None:
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.load(response)["crate"]["max_version"]
-    except Exception:
-        return None
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise RuntimeError(f"cannot read crates.io version for {name}: HTTP {error.code}") from error
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise RuntimeError(f"cannot read crates.io version for {name}: {error}") from error
 
 
 def version_tuple(version: str) -> tuple[int, int, int]:
@@ -844,8 +854,40 @@ def against_published(packages: list[dict], strict: bool) -> int:
 def self_test() -> int:
     """The classifier against the changes it exists to catch."""
     import unittest
+    from unittest.mock import patch
 
     class Classify(unittest.TestCase):
+        def test_baseline_and_workspace_use_the_pinned_toolchain(self):
+            original_read = Path.read_text
+
+            def read(path, *args, **kwargs):
+                if path == TARGET / "doc" / "fixture.json":
+                    return "{}"
+                return original_read(path, *args, **kwargs)
+
+            result = subprocess.CompletedProcess([], 0, "", "")
+            expected = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+            with patch.dict(os.environ, {"RUSTUP_TOOLCHAIN": "unrelated-default"}), patch.object(Path, "read_text", read), patch.object(subprocess, "run", return_value=result) as run:
+                for directory in (ROOT, Path(tempfile.gettempdir())):
+                    rustdoc_json("fixture", "fixture", directory)
+                    self.assertEqual(run.call_args.kwargs["env"]["RUSTUP_TOOLCHAIN"], expected)
+                    self.assertEqual(run.call_args.kwargs["cwd"], directory)
+
+        def test_registry_failures_are_not_unpublished_packages(self):
+            for error in [
+                urllib.error.HTTPError('https://crates.io', 503, 'unavailable', {}, None),
+                urllib.error.URLError('offline'),
+                TimeoutError('timed out'),
+                ValueError('invalid JSON'),
+                KeyError('crate'),
+            ]:
+                with patch.object(urllib.request, 'urlopen', side_effect=error):
+                    with self.assertRaises(RuntimeError):
+                        published_version('hopper-native')
+            missing = urllib.error.HTTPError('https://crates.io', 404, 'not found', {}, None)
+            with patch.object(urllib.request, 'urlopen', side_effect=missing):
+                self.assertIsNone(published_version('unpublished-fixture'))
+
         def test_a_changed_return_type_is_a_break(self):
             old = "pub fn a::AccountView::layout_id(&self) -> core::option::Option<&[u8; 8]>"
             new = "pub fn a::AccountView::layout_id(&self) -> core::option::Option<[u8; 8]>"
@@ -915,7 +957,11 @@ def main() -> int:
             return 1
         packages = [p for p in packages if p["name"] in args.package]
     if args.against_published:
-        return against_published(packages, args.strict)
+        try:
+            return against_published(packages, args.strict)
+        except RuntimeError as error:
+            print(f"version plan unavailable: {error}", file=sys.stderr)
+            return 1
     return write_or_verify(packages, args.verify)
 
 

@@ -1,0 +1,193 @@
+     Locking 55 packages to latest compatible versions
+      Adding solana-address v2.6.1 (available: v2.8.0)
+      Adding solana-instruction v3.4.0 (available: v3.5.1)
+      Adding solana-pubkey v4.2.1 (available: v4.3.0)
+   Compiling hopper-borrowed-slice-client-check v0.0.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\release-0-6-checks\clients-final)
+warning: constant `HOPPER_HEADER_SIZE` is never used
+  --> client.rs:17:11
+   |
+17 | pub const HOPPER_HEADER_SIZE: usize = 16;
+   |           ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LAYOUT_ID_OFFSET` is never used
+  --> client.rs:19:11
+   |
+19 | pub const LAYOUT_ID_OFFSET: usize = 4;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `LAYOUT_ID_LENGTH` is never used
+  --> client.rs:21:11
+   |
+21 | pub const LAYOUT_ID_LENGTH: usize = 8;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: enum `ClientError` is never used
+  --> client.rs:25:10
+   |
+25 | pub enum ClientError {
+   |          ^^^^^^^^^^^
+
+warning: constant `SUBMIT_DISC` is never used
+  --> client.rs:70:11
+   |
+70 | pub const SUBMIT_DISC: u8 = 0;
+   |           ^^^^^^^^^^^
+
+warning: constant `SUBMIT_DATA_LEN` is never used
+  --> client.rs:72:11
+   |
+72 | pub const SUBMIT_DATA_LEN: usize = 45;
+   |           ^^^^^^^^^^^^^^^
+
+warning: struct `SubmitArgs` is never constructed
+  --> client.rs:76:12
+   |
+76 | pub struct SubmitArgs {
+   |            ^^^^^^^^^^
+
+warning: function `encode_submit_data` is never used
+  --> client.rs:82:8
+   |
+82 | pub fn encode_submit_data(args: &SubmitArgs) -> Result<Vec<u8>, ClientError> {
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `decode_submit_args` is never used
+  --> client.rs:93:8
+   |
+93 | pub fn decode_submit_args(data: &[u8]) -> Result<SubmitArgs, ClientError> {
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: struct `SubmitAccounts` is never constructed
+   --> client.rs:127:12
+    |
+127 | pub struct SubmitAccounts {
+    |            ^^^^^^^^^^^^^^
+
+warning: function `submit_ix` is never used
+   --> client.rs:135:8
+    |
+135 | pub fn submit_ix(
+    |        ^^^^^^^^^
+
+warning: constant `BYTES_DISC` is never used
+   --> client.rs:152:11
+    |
+152 | pub const BYTES_DISC: u8 = 1;
+    |           ^^^^^^^^^^
+
+warning: constant `BYTES_DATA_LEN` is never used
+   --> client.rs:154:11
+    |
+154 | pub const BYTES_DATA_LEN: usize = 29;
+    |           ^^^^^^^^^^^^^^
+
+warning: struct `BytesArgs` is never constructed
+   --> client.rs:158:12
+    |
+158 | pub struct BytesArgs {
+    |            ^^^^^^^^^
+
+warning: function `encode_bytes_data` is never used
+   --> client.rs:164:8
+    |
+164 | pub fn encode_bytes_data(args: &BytesArgs) -> Result<Vec<u8>, ClientError> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: function `decode_bytes_args` is never used
+   --> client.rs:177:8
+    |
+177 | pub fn decode_bytes_args(data: &[u8]) -> Result<BytesArgs, ClientError> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: struct `BytesAccounts` is never constructed
+   --> client.rs:216:12
+    |
+216 | pub struct BytesAccounts {
+    |            ^^^^^^^^^^^^^
+
+warning: function `bytes_ix` is never used
+   --> client.rs:224:8
+    |
+224 | pub fn bytes_ix(
+    |        ^^^^^^^^
+
+warning: constant `ALIASES_DISC` is never used
+   --> client.rs:241:11
+    |
+241 | pub const ALIASES_DISC: u8 = 2;
+    |           ^^^^^^^^^^^^
+
+warning: constant `ALIASES_DATA_LEN` is never used
+   --> client.rs:243:11
+    |
+243 | pub const ALIASES_DATA_LEN: usize = 34;
+    |           ^^^^^^^^^^^^^^^^
+
+warning: struct `AliasesArgs` is never constructed
+   --> client.rs:247:12
+    |
+247 | pub struct AliasesArgs {
+    |            ^^^^^^^^^^^
+
+warning: function `encode_aliases_data` is never used
+   --> client.rs:255:8
+    |
+255 | pub fn encode_aliases_data(args: &AliasesArgs) -> Result<Vec<u8>, ClientError> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `decode_aliases_args` is never used
+   --> client.rs:270:8
+    |
+270 | pub fn decode_aliases_args(data: &[u8]) -> Result<AliasesArgs, ClientError> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `AliasesAccounts` is never constructed
+   --> client.rs:327:12
+    |
+327 | pub struct AliasesAccounts {
+    |            ^^^^^^^^^^^^^^^
+
+warning: function `aliases_ix` is never used
+   --> client.rs:335:8
+    |
+335 | pub fn aliases_ix(
+    |        ^^^^^^^^^^
+
+warning: `hopper-borrowed-slice-client-check` (lib) generated 25 warnings
+warning: variants `LayoutMismatch`, `AccountSizeMismatch`, `DiscriminatorMismatch`, and `EventTagMismatch` are never constructed
+  --> client.rs:32:5
+   |
+25 | pub enum ClientError {
+   |          ----------- variants in this enum
+...
+32 |     LayoutMismatch { expected: [u8; 8], actual: [u8; 8] },
+   |     ^^^^^^^^^^^^^^
+33 |     /// Compact account length differs from the manifest's exact size.
+34 |     AccountSizeMismatch { expected: usize, actual: usize },
+   |     ^^^^^^^^^^^^^^^^^^^
+35 |     /// Compact account discriminator differs from the manifest.
+36 |     DiscriminatorMismatch { expected: u8, actual: u8 },
+   |     ^^^^^^^^^^^^^^^^^^^^^
+37 |     /// Event tag byte does not match the expected event decoder.
+38 |     EventTagMismatch { expected: u8, actual: u8 },
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `ClientError` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: `hopper-borrowed-slice-client-check` (lib test) generated 15 warnings (14 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.08s
+     Running unittests check.rs (target\borrowed-slices-client-host-check\debug\deps\hopper_borrowed_slice_client_check-81fac6c1fdcdfd2d.exe)
+
+running 1 test
+test tests::wire_contract_and_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hopper_borrowed_slice_client_check
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

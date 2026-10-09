@@ -1,0 +1,69 @@
+{
+  "blockTime": 1791397422,
+  "meta": {
+    "computeUnitsConsumed": 178,
+    "costUnits": 1223,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h invoke [1]",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h consumed 178 of 200000 compute units",
+      "Program return: B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+Pw==",
+      "Program B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h success"
+    ],
+    "postBalances": [
+      2790473380,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      2790478380,
+      833120
+    ],
+    "preTokenBalances": [],
+    "returnData": {
+      "data": [
+        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+Pw==",
+        "base64"
+      ],
+      "programId": "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+    },
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508543988,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "B48qyyT8GhMt88AdYW5YBTutCyX7z73fetUYNvXCtd9h"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [],
+          "data": "3ZyzWm9tHrpMdFitTA3bV7Br5FkDpeCpkqkYZouQqp6VeUagdcKDHfUoVmD1wJF22SFMTYE5DDRUCyEBiqfm6FJeSTv8Zne",
+          "programIdIndex": 1,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "8Knehxmzz9eTELAzgKgCsjKLpduWtmCmFaEugQ7KxSCE"
+    },
+    "signatures": [
+      "3a1CkVBR8CFyXkcWXK7tir7tt2sjU5txiNxZ6Dn8Bdm1AJsLQMxrzdiB9viRK4vfRxRWj78xHQM6f7SsNRCzgDB5"
+    ]
+  },
+  "transactionIndex": 30,
+  "version": "legacy"
+}

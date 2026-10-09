@@ -1,0 +1,5 @@
+{
+  "staleSha256": "7a341af1756afa17e349504984f9736a2283a043ef7f411e30aaed0e6de4c682",
+  "freshSha256": "220fce6565ad6b26058ee8f8fbab44164171ae6dd5a7fe350c9a95aa5f30384f",
+  "resolution": "Fresh Cargo targets are required by the all-program build gate. The clean artifact passes the same boundary vectors."
+}

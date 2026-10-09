@@ -1,0 +1,66 @@
+{
+  "addresses": [
+    "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+    "FaKuftu3TLThdTAtjWcVD6xwaauKCsUqEwcPf4WrwewL"
+  ],
+  "before": {
+    "context": {
+      "apiVersion": "4.4.0-beta.0",
+      "slot": 508550629
+    },
+    "value": [
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2121802777,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      },
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 3139563,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      }
+    ]
+  },
+  "after": {
+    "context": {
+      "apiVersion": "4.4.0-beta.0",
+      "slot": 508550635
+    },
+    "value": [
+      {
+        "data": [
+          "",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2121792777,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709551615,
+        "space": 0
+      },
+      {
+        "data": [
+          "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAJAQEAAAA3fO7YA4lrQOa3uzq012oqBtG0XWdmjLUHWhhBW05C4QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAbAA3fO7YA4lrQOa3uzq012oqBtG0XWdmjLUHWhhBW05C4Td87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAACZBAAAAAAAAEBCDwAAAAAA+gCZBAAAAAAAAEBCDwAAAAAA+gADACAAN3zu2AOJa0Dmt7s6tNdqKgbRtF1nZoy1B1oYQVtOQuEJAAAADAAgADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhDgBAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhN3zu2AOJa0Dmt7s6tNdqKgbRtF1nZoy1B1oYQVtOQuESAEAAN3zu2AOJa0Dmt7s6tNdqKgbRtF1nZoy1B1oYQVtOQuHYjSnDmOhU5ZdBG0YTGE4crOnWak1yd2y9T8Eis4mv4w==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 3139563,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709551615,
+        "space": 490
+      }
+    ]
+  }
+}

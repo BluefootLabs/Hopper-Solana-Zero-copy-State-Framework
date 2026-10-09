@@ -1,0 +1,108 @@
+{
+  "schema": "hopper.framework-fixtures-devnet.v1",
+  "rpc": "https://api.devnet.solana.com",
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "payer": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "programs": {
+    "hello-raw": {
+      "id": "7gsrBGbgSGGs8hHVxRTQJbAqd6Lud2M6DAqN1qQVPoim",
+      "elf": "hello_hopper_substrate.so",
+      "bytes": 760,
+      "elfSha256": "785200738eff2407b4e1ebc94b25a01e3e2cdd98d05c7f85eca1e20e3ff1187a",
+      "deploySignature": "53byQ6C6TyjQYduCpDAdmzv7LoYJRsyvNK96XhFWE3pVg1X8VTfNQNrtXym3ZMakDe1UWrsLQfmgdU6ZXR45eWEX"
+    },
+    "hello-framework": {
+      "id": "9CnMYWeotjXF4DPgAVsn1qJvkMFaiPnrFj7KYTrrcnTr",
+      "elf": "hello_hopper.so",
+      "bytes": 1128,
+      "elfSha256": "1c3500e7354d26c7ea01793f6061b681e71d9179fe109305684b777fa7f9b0e2",
+      "deploySignature": "5P9vbypHX9BLieeBfKgJ7phEDGZyCnEnZz2g9zpwb4fNbhEMvk8YTt6MD6SveBanPjJFnNJUS1KhodZvCKELt2tH"
+    },
+    "counter-raw": {
+      "id": "9hXPqDF7S2WUVkSfon2ox8H2uHzP4F5jhAZeT4gX98nK",
+      "elf": "counter_hopper_substrate.so",
+      "bytes": 5576,
+      "elfSha256": "3205962319c1c238af262bf96476e78cc1ccf9b9445068550d6f77c1bc6039bf",
+      "deploySignature": "5zcZgrwd4QFVXK1epqfBwHfn5y2ZqbVq1s5mQYKeWPGGiEUqaCJ4Hu7tZDyvoxReGsitZRgBXZ4ZnWG6zvQSoSH1",
+      "counter": "9Kxcv35CcRTNMN9aX9iKD5ojcvyVMmBzcmVPkyFzj1NB"
+    },
+    "counter-framework": {
+      "id": "x6hob8CaTffSrkJ4B2RKmDP7hw3Qk93rxSFJNyyEQiq",
+      "elf": "counter_hopper.so",
+      "bytes": 7624,
+      "elfSha256": "e0dcbd6b69c4fa975842aa83592438b80f59b247795d630056670d6a180c29db",
+      "deploySignature": "2Vc3VFnjwMGfuUKCNUw8tWTzV48DyNgLkQvigqhVn5hzdFUiFuCTupK3cvZjDv2RwpoYdNaBWfPTYbTRB7sDdD1s",
+      "counter": "9n7qEfmckiG9CyBmzgvB5iTeQH9GXjp3Wppv2x2ijPE1"
+    }
+  },
+  "transactions": [
+    {
+      "name": "hello-raw",
+      "signature": "5gKyehrP2k3og35JZFGWnpz6jLY6gwMXPGMqbixAgWM15CFfg6FPMJUqDZePAFZp4nMWGHDnzPB2xgQe5S5jYwQ4",
+      "slot": 508549047,
+      "error": null,
+      "computeUnits": 111
+    },
+    {
+      "name": "hello-framework",
+      "signature": "4B7N7wf95b7wrCyKx6dA3d2FgshMfmkZYJQdF1UB6ZfGNcF5gR88b2x3SsAgr7mZGysLefBJ5bQ8172BSdsax1ag",
+      "slot": 508549052,
+      "error": null,
+      "computeUnits": 127
+    },
+    {
+      "name": "counter-raw-create",
+      "signature": "3QP13VFGwYbLbTPHyMBKR7CuZwLi1nqXinSQELMYGAZFEPjxaVZ9v1uouPLBa8KtqNFCgFsDXwU2nStmWxsaoxLz",
+      "slot": 508549058,
+      "error": null,
+      "computeUnits": 1517
+    },
+    {
+      "name": "counter-raw-increment-1",
+      "signature": "4U7yvZohwDPRRA7EX8M1kbwJKPRDxd7XDsLh8spMpF4v3Hzc4mAtruUZaywRDeotGWjax3eBEdH3tw2YBshNXHAz",
+      "slot": 508549068,
+      "error": null,
+      "computeUnits": 1722
+    },
+    {
+      "name": "counter-raw-increment-2",
+      "signature": "557Sj2Kun1EzUDDtffaVVHANUePgBwato4RXZuDiG8LFUGi3uxeQqHhuBNgTfdei2dr7ketx7saSq9Tz9KYz3vDR",
+      "slot": 508549116,
+      "error": null,
+      "computeUnits": 1722
+    },
+    {
+      "name": "counter-framework-create",
+      "signature": "61nF3E5J17mjuN21BGUzjJ1p5cQ3rYDYTL64YGm7vp1d22geNM1AL6P367gdEQ9zMneLGzGbr5H7v79buMfhLdfY",
+      "slot": 508549123,
+      "error": null,
+      "computeUnits": 1469
+    },
+    {
+      "name": "counter-framework-increment-1",
+      "signature": "37HL6nhbRrKqknyUX3jx6CJPNkRUM7VZwDBJUkHD43Gz3wMCSNz5L4R3ytLwCLGYtevoG3wy8f42XdDXr87QnRvj",
+      "slot": 508549129,
+      "error": null,
+      "computeUnits": 328
+    },
+    {
+      "name": "counter-framework-increment-2",
+      "signature": "46dJk5mS8cTneLFBSEsTMVycggXcq2vSftCHiFXFSGSQiuvqFjUJXsnvDhXA5Htb61ywsrRS2iAeCU3XHQFrXZnG",
+      "slot": 508549136,
+      "error": null,
+      "computeUnits": 328
+    }
+  ],
+  "checks": [
+    "before the run: every deployed program equals its local ELF byte for byte",
+    "hello-raw: logged `Hello, Solana!`",
+    "hello-framework: logged `Hello, Solana!`",
+    "counter-raw create: 10 bytes, discriminator 1, bump 253, count 0",
+    "counter-raw increment 1: 10 bytes, discriminator 1, bump 253, count 1",
+    "counter-raw increment 2: 10 bytes, discriminator 1, bump 253, count 2",
+    "counter-framework create: 25 bytes, discriminator 1, bump 254, count 0",
+    "counter-framework increment 1: 25 bytes, discriminator 1, bump 254, count 1",
+    "counter-framework increment 2: 25 bytes, discriminator 1, bump 254, count 2",
+    "after the run: every deployed program equals its local ELF byte for byte"
+  ]
+}

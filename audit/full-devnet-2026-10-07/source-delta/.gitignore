@@ -1,0 +1,106 @@
+﻿# Build output
+/target
+/target/
+**/target/
+Cargo.lock.bak
+
+*.patched.so
+*.so.dbg
+
+# Fuzz / trybuild scratch
+wip/
+/fuzz/target/
+__pycache__/
+*.py[cod]
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Local Solana state
+test-ledger/
+test-output.txt
+*.log
+# Verification logs are part of these bundles' hashed contents.
+!audit/devnet-evidence-*/**/*.log
+!audit/borrowed-dispatch-2026-10-07/**/*.log
+!audit/full-devnet-2026-10-07/**/*.log
+
+# Bench artefacts
+bench/results/
+bench/fixtures/local/
+bench/external/
+
+# Per-package local scratch
+examples/*/.local/
+examples/*/target/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Environment
+.env
+.env.*
+!.env.example
+/out/
+
+# Local notes
+planning/
+docs/_local/
+docs/archive/
+docs/_*
+docs/RELEASE_CHECKLIST.md
+docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md
+docs/COMPETITIVE_FRAMEWORK_ANALYSIS.md
+docs/FRAMEWORK_RESEARCH_2026_03.md
+docs/JIMINY_FRAMEWORK_ANALYSIS.md
+docs/PUBLISH_READINESS.md
+docs/Now we*.md
+docs/Where *
+docs/Hopper Safety Audit.docx
+docs/Hopper audit and design plan.*
+docs/Untitled-*.md
+docs/fmwk*.md
+docs/*.docx
+docs/*.pdf
+Untitled-*.md
+TODO.md
+NOTES.md
+SCRATCH.md
+
+# Local-only internal planning / audit / strategy docs (kept on disk, never shipped)
+docs/audit/
+docs/VERDICT.md
+docs/PUBLICATION_AUDIT.md
+docs/*COMPETITIVE_AUDIT*
+docs/MARKETING.md
+docs/THE_MOAT.md
+AUDIT.md
+ROADMAP.md
+
+# Third-party source drops
+quasar-master/
+quasar-master.zip
+pinocchio-main.zip
+*-main.zip
+*-master.zip
+Hopper-Solana-Zero-copy-State-Framework-main*.zip
+
+# Self
+.gitignore
+
+
+# Framework-comparison build outputs (ELFs and generated program keypairs)
+bench/framework-comparison/results/sbf/

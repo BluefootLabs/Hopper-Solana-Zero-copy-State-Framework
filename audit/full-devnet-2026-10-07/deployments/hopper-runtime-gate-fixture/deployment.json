@@ -1,0 +1,14 @@
+{
+  "label": "hopper-runtime-gate-fixture",
+  "programId": "7VSEJSeKWYx5TS4YBfJvsxMe3xY468orpHL9RsnEmMpp",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-runtime-gate-fixture\\hopper_runtime_gate_fixture.so",
+  "elfBytes": 20792,
+  "elfSha256": "12f118a5f5924448c28232bf50ce8cd5e17eb838fb6cd8277634045a22bbc84d",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508544063,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T18:24:54.726168+00:00"
+}

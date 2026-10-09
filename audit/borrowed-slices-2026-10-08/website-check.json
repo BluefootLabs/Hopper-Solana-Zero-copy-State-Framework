@@ -1,0 +1,10 @@
+{
+  "base": "http://127.0.0.1:3192",
+  "pages": 62,
+  "internalLinksChecked": 5550,
+  "errors": [],
+  "sourceUnchangedDuringHttpCheck": true,
+  "borrowedDispatchSectionPresent": true,
+  "browserInteractionTested": true,
+  "visualQa": "Batch component checked on Chromium 151 at desktop and mobile widths; see website-qa/report.json"
+}

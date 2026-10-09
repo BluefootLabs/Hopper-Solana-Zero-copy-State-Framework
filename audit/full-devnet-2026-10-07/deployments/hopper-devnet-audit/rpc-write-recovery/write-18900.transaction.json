@@ -1,0 +1,66 @@
+{
+  "blockTime": 1791403427,
+  "meta": {
+    "computeUnitsConsumed": 2370,
+    "costUnits": 3927,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program BPFLoaderUpgradeab1e11111111111111111111111 invoke [1]",
+      "Program BPFLoaderUpgradeab1e11111111111111111111111 success"
+    ],
+    "postBalances": [
+      1201715249,
+      142549880,
+      1
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1201720249,
+      142549880,
+      1
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 508569170,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+        "aw7FtvLZHLo2gsDnferFByYSiZi7QweiUCa3cPj4rtQ",
+        "BPFLoaderUpgradeab1e11111111111111111111111"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            1,
+            0
+          ],
+          "data": "BRYucyjycbnCw7mifqpeWJGK5UJ4A1w19Nus9uY9e1XKdEiLRgwfQ45yCbVNpiXFTD1fNCwv9FJJ6wW885QmdnXuvKFCUjPdjLLB5FsnzTguFDPo8qES2GBvZewekuxVR2XtHtVEv7F3HNNJdaZezK34jNLQjpXG3ZoQPn2NyKU6PC1RWP67XsQTaydC925Pc2CRa4pYB1EvdTCReKTKCtucirsf1J3KeFeWGSWpcMac1YBAn45Cdse6HtmVYpSKG4wH78Xzoese9foh7BTGb1MXzBuZxdyoTNGYQpRyPcdD34gZzi1ckg3QvEX49WGDfT5E6xTTqsGNp7VdQc3eDt9hp3wNunnzUBwKtFw4bZYjg214LvU6Zx1gMbKWe5HbQvMdXH8jabbUHSstqA9UkUr19EUDwbq7iS69KXDA87eQNqnGUochCWmaTRLXjzeHxnUtdEUmauCnd75BZpZk58tjTEb2zNHR4nVBeKqHqrouToPRaGUnBVgcMfNcxWVAB4rTrAwv3axJu5ojQe2qw7bHRXcDEpDpbVhccagqszb7hjxx3rodpvEEkhPRjAU1ZKRZmceiF92f2oe11ZWW1vvxnyarCKdLHn6B594mk9gtCqshE6Z4DYkTH4Y3JamQJPG7Dddz3ncbytExnwu8dmvPPmFZVZk4pGdG81botLrLMBg8E7BVdcUTsDyUNPWRGQrQs7wysvbGb64t7Y6J3GU3MdSZ8YCbFfZr3UmtdQZ1zfFddiSDiUYUMd858sV9vn23JJumpjfHmFxyMNrDs33q53jQNzTdvqCB6EnSEKFiARNNUBHASsYpJCZUiPeaHnUSkAbFBZe16dzsFWtmPf6hbNpNdz8337ZCc27EPCCYJXxxtnG4kDFYn3S83gGoSNLRRefsWqpYZQs9FisJH5XqRn21LpmNMWYtwPjDq9UZs9U1cPFyaSV42HZWnjdWinfP6ucWqYecoSYSUTtKCjsrXgat7bGCxUcUxyZHmC2sWyebHPjrqCJd4XD3ppubNWGuJPpZZoX7RJk6zvYafBosetXt8wXZS7n8RAaCERVxiYTzoYKPW5WuR43rimoYT8mapciMWyUspiCCnEE2QxrWZARGA4NfEQZ4HwzkM45R8LS2SwgMr49UCQ45Y3NCcgKUsg5s5gtfxf4vzHToEBNxvCzHcfysFnw9unyDA8ArChJ15kYdAt8jw96Vt8sZZsYd7kSyQ3u6JuPjV7G44cAWZftAL2T4X9",
+          "programIdIndex": 2,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "7kkvS2EXDEWacSZ6WnVnsA3Yqtqr2PRFupsHsVtMxLbu"
+    },
+    "signatures": [
+      "48HUkq9fCrHUmKdAQ5XWJZVzQReYPJb5WVmnotRKzSwv63MzH5yCSBfh2x2pkxbGH68F8YQA8i4efetCnsaWnEpW"
+    ]
+  },
+  "transactionIndex": 16,
+  "version": "legacy"
+}

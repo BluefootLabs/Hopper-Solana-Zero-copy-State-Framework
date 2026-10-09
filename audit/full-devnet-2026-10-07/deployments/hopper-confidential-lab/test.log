@@ -1,0 +1,109 @@
+   Compiling hopper-systems v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-core)
+   Compiling solana-account-decoder v4.2.1
+   Compiling hopper-solana v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-solana)
+   Compiling solana-tls-utils v4.2.1
+   Compiling solana-streamer v4.2.1
+   Compiling solana-rpc-client v4.2.1
+   Compiling hopper-schema v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-schema)
+   Compiling hopper-macros v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros)
+   Compiling hopper-derive v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-macros-proc)
+   Compiling hopper-associated-token v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-associated-token)
+   Compiling hopper-token-2022 v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\crates\hopper-spl\hopper-token-2022)
+   Compiling hopper-lang v0.5.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source)
+   Compiling solana-tpu-client v4.2.1
+   Compiling solana-quic-client v4.2.1
+   Compiling solana-rpc-client-nonce-utils v4.2.1
+   Compiling solana-udp-client v4.2.1
+   Compiling solana-client v4.2.1
+   Compiling hopper-confidential-lab v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\hopper-confidential-lab)
+   Compiling hopper-confidential-lab-runner v0.4.0 (D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\examples\hopper-confidential-lab\runner)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 53.13s
+     Running `D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\debug\hopper-confidential-lab-runner.exe --program 8H576aysyJW3skKmFN4zbmae56R2iPSRK86yNJ5uGdRc --elf D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\target\verification\sbf\hopper-confidential-lab\hopper_confidential_lab.so --payer D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\private-workers\advanced-applications.json --rpc https://api.devnet.solana.com --out D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target\hopper\full-devnet-2026-10-07\validation-v6\source\target\verification\suite-confidential`
+Token-2022 on this cluster: Some("program@v11.1.0"), 711008 bytes
+00-create-mint: finalized, 7018 CU, ok
+  checked: create-mint: a 235-byte confidential mint, approval required, auditor key stored
+01-open-alice-verify-pubkey-validity: finalized, 2900 CU, ok
+02-open-alice: finalized, 12139 CU, ok
+  checked: open-alice: configured with the holder's ElGamal key
+  checked: open-alice: not approved yet, as the mint requires
+03-approve-alice: finalized, 3002 CU, ok
+  checked: approve-alice: approved
+04-update-mint-auto-approve: finalized, 2643 CU, ok
+  checked: update-mint-auto-approve: new accounts are approved when configured
+05-create-carol-registry: finalized, 13332 CU, ok
+  checked: create-carol-registry: the registry program stored Carol's key
+06-open-carol-from-registry: finalized, 15109 CU, ok
+  checked: open-carol-from-registry: configured from the registry, grown by Token-2022, approved
+07-open-dave-with-carols-registry: finalized, 14187 CU, refused {"InstructionError":[0,{"Custom":4}]}
+  checked: open-dave-with-carols-registry: refused, no account left behind
+08-open-bob-proof-by-offset: finalized, 15216 CU, ok
+  checked: open-bob-proof-by-offset: configured and approved
+09-mint-to-alice: finalized, 1970 CU, ok
+10-deposit: finalized, 11460 CU, ok
+  checked: deposit: 300,000 left public, the pending balance decrypts to 700,000
+11-apply-pending: finalized, 9116 CU, ok
+  checked: apply-pending: the available balance is 700,000
+12-withdraw-verify-equality: finalized, 6700 CU, ok
+13-withdraw-verify-range-u64-context: finalized, 150 CU, ok
+14-withdraw-verify-range-u64: finalized, 111150 CU, ok
+15-withdraw: finalized, 7716 CU, ok
+  checked: withdraw: 200,000 back to the public balance, 500,000 confidential
+16-withdraw-replayed: finalized, 7821 CU, refused {"InstructionError":[0,{"Custom":27}]}
+  checked: withdraw-replayed: the same proofs are refused, nothing moved
+17-transfer-verify-equality: finalized, 6700 CU, ok
+18-transfer-verify-validity: finalized, 16700 CU, ok
+19-transfer-verify-range-u128-record: finalized, 696 CU, ok
+20-transfer-verify-range-u128-record-write-0: finalized, 649 CU, ok
+21-transfer-verify-range-u128-record-write-1: finalized, 649 CU, ok
+  checked: transfer-verify-range-u128: the SPL Record account holds the 1000-byte proof
+22-transfer-verify-range-u128-context: finalized, 150 CU, ok
+23-transfer-verify-range-u128: finalized, 200150 CU, ok
+24-transfer: finalized, 16979 CU, ok
+  checked: transfer: Bob and the auditor both decrypt 123,456; Alice keeps 376,544
+25-apply-pending-bob: finalized, 9116 CU, ok
+  checked: apply-pending-bob: Bob's available balance is 123,456
+26-disable-confidential-credits: finalized, 2142 CU, ok
+27-enable-confidential-credits: finalized, 2141 CU, ok
+28-disable-non-confidential-credits: finalized, 2142 CU, ok
+29-public-transfer-refused: finalized, 2887 CU, refused {"InstructionError":[0,{"Custom":49}]}
+30-enable-non-confidential-credits: finalized, 2141 CU, ok
+31-public-transfer: finalized, 2775 CU, ok
+  checked: credit toggles: each flag flips; a public transfer is refused while they are off
+32-withdraw-rest-verify-equality: finalized, 6700 CU, ok
+33-withdraw-rest-verify-range-u64-context: finalized, 150 CU, ok
+34-withdraw-rest-verify-range-u64: finalized, 111150 CU, ok
+35-withdraw-rest: finalized, 7716 CU, ok
+  checked: withdraw-rest: the whole confidential balance is public again
+36-empty-proof-by-offset: finalized, 9319 CU, ok
+  checked: empty-proof-by-offset: Token-2022 accepted the zero-ciphertext proof
+37-create-fee-mint: finalized, 7061 CU, ok
+38-open-erin-verify-pubkey-validity: finalized, 2900 CU, ok
+39-open-erin: finalized, 13564 CU, ok
+  checked: open-erin: configured with the holder's ElGamal key
+40-open-frank-verify-pubkey-validity: finalized, 2900 CU, ok
+41-open-frank: finalized, 13564 CU, ok
+  checked: open-frank: configured with the holder's ElGamal key
+42-fund-erin-mint-to: finalized, 2294 CU, ok
+43-fund-erin-deposit: finalized, 11840 CU, ok
+  checked: fund-erin: the pending balance decrypts to 500000
+44-fund-erin-apply: finalized, 9171 CU, ok
+  checked: fund-erin: the available balance is 500000
+45-fee-transfer-verify-equality: finalized, 6700 CU, ok
+46-fee-transfer-verify-amount-validity: finalized, 16700 CU, ok
+47-fee-transfer-verify-fee-sigma: finalized, 6800 CU, ok
+48-fee-transfer-verify-fee-validity: finalized, 13300 CU, ok
+49-fee-transfer-verify-range-u256-record: finalized, 696 CU, ok
+50-fee-transfer-verify-range-u256-record-write-0: finalized, 649 CU, ok
+51-fee-transfer-verify-range-u256-record-write-1: finalized, 649 CU, ok
+  checked: fee-transfer-verify-range-u256: the SPL Record account holds the 1064-byte proof
+52-fee-transfer-verify-range-u256-context: finalized, 150 CU, ok
+53-fee-transfer-verify-range-u256: finalized, 368150 CU, ok
+54-transfer-with-fee: finalized, 46767 CU, ok
+  checked: transfer-with-fee: Frank credited 99000, 1000 withheld under the withdraw authority's key
+55-close-contexts-0: finalized, 19800 CU, ok
+56-close-contexts-1: finalized, 19800 CU, ok
+57-close-contexts-2: finalized, 9900 CU, ok
+58-close-record: finalized, 699 CU, ok
+59-close-record: finalized, 699 CU, ok
+  checked: 15 context-state accounts and 2 record accounts closed, rent returned
+All confidential-flow steps passed.

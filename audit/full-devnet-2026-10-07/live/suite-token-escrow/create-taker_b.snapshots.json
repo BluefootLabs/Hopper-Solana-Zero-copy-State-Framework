@@ -1,0 +1,412 @@
+{
+  "before": {
+    "payer": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1486301213,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "maker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 20000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "taker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "outsider": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "mint_a": {
+      "data": [
+        "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1066800,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 82
+    },
+    "mint_b": {
+      "data": [
+        "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1066800,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 82
+    },
+    "maker_a": {
+      "data": [
+        "wk7ug82nIoXz+oBIYfGwZbIZTeci56tIdc1lA1wBqjSvwGvGnNUILi4tzcYFXUQ5/potm+cNmGCYOPkeTadWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "maker_b": {
+      "data": [
+        "+c3AQw2to2nVtU5NuWWfw1nmvK29WHcUqB2DTgW7H3+vwGvGnNUILi4tzcYFXUQ5/potm+cNmGCYOPkeTadWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "taker_a": {
+      "data": [
+        "wk7ug82nIoXz+oBIYfGwZbIZTeci56tIdc1lA1wBqjSxGqgN22DgDBRBXnIQWtYzg5NDkf0dhWfm/BhhyfV/FQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "taker_b": null,
+    "escrow_take": null,
+    "vault_take": null,
+    "escrow_cancel": null,
+    "vault_cancel": null,
+    "authority_take": null,
+    "authority_cancel": null,
+    "token": {
+      "data": [
+        "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 20369267856,
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 36
+    },
+    "system": {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  },
+  "expected": {
+    "payer": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1484802773,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "maker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 20000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "taker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "outsider": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "mint_a": {
+      "data": [
+        "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1066800,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 82
+    },
+    "mint_b": {
+      "data": [
+        "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1066800,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 82
+    },
+    "maker_a": {
+      "data": [
+        "wk7ug82nIoXz+oBIYfGwZbIZTeci56tIdc1lA1wBqjSvwGvGnNUILi4tzcYFXUQ5/potm+cNmGCYOPkeTadWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "maker_b": {
+      "data": [
+        "+c3AQw2to2nVtU5NuWWfw1nmvK29WHcUqB2DTgW7H3+vwGvGnNUILi4tzcYFXUQ5/potm+cNmGCYOPkeTadWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "taker_a": {
+      "data": [
+        "wk7ug82nIoXz+oBIYfGwZbIZTeci56tIdc1lA1wBqjSxGqgN22DgDBRBXnIQWtYzg5NDkf0dhWfm/BhhyfV/FQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "taker_b": {
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "lamports": 1488440,
+      "data": [
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "escrow_take": null,
+    "vault_take": null,
+    "escrow_cancel": null,
+    "vault_cancel": null,
+    "authority_take": null,
+    "authority_cancel": null,
+    "token": {
+      "data": [
+        "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 20369267856,
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 36
+    },
+    "system": {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  },
+  "after": {
+    "payer": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1484802773,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "maker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 20000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "taker": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "outsider": {
+      "data": [
+        "",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 0
+    },
+    "mint_a": {
+      "data": [
+        "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1066800,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 82
+    },
+    "mint_b": {
+      "data": [
+        "AQAAADd87tgDiWtA5re7OrTXaioG0bRdZ2aMtQdaGEFbTkLhAAAAAAAAAAAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1066800,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 82
+    },
+    "maker_a": {
+      "data": [
+        "wk7ug82nIoXz+oBIYfGwZbIZTeci56tIdc1lA1wBqjSvwGvGnNUILi4tzcYFXUQ5/potm+cNmGCYOPkeTadWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "maker_b": {
+      "data": [
+        "+c3AQw2to2nVtU5NuWWfw1nmvK29WHcUqB2DTgW7H3+vwGvGnNUILi4tzcYFXUQ5/potm+cNmGCYOPkeTadWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "taker_a": {
+      "data": [
+        "wk7ug82nIoXz+oBIYfGwZbIZTeci56tIdc1lA1wBqjSxGqgN22DgDBRBXnIQWtYzg5NDkf0dhWfm/BhhyfV/FQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "taker_b": {
+      "data": [
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 1488440,
+      "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "rentEpoch": 18446744073709551615,
+      "space": 165
+    },
+    "escrow_take": null,
+    "vault_take": null,
+    "escrow_cancel": null,
+    "vault_cancel": null,
+    "authority_take": null,
+    "authority_cancel": null,
+    "token": {
+      "data": [
+        "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 20369267856,
+      "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 36
+    },
+    "system": {
+      "data": [
+        "c3lzdGVtX3Byb2dyYW0=",
+        "base64"
+      ],
+      "executable": true,
+      "lamports": 1,
+      "owner": "NativeLoader1111111111111111111111111111111",
+      "rentEpoch": 18446744073709551615,
+      "space": 14
+    }
+  }
+}

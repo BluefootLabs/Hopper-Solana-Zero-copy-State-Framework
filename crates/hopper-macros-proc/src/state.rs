@@ -167,6 +167,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let mut field_name_literals = Vec::new();
     let mut field_type_literals = Vec::new();
     let mut field_types = Vec::new();
+    let mut value_checks = Vec::new();
     let mut field_intent_tokens: Vec<TokenStream> = Vec::new();
     let mut field_role_literals: Vec<LitStr> = Vec::new();
     let mut field_invariant_literals: Vec<LitStr> = Vec::new();
@@ -235,6 +236,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             field_name.span(),
         ));
         field_types.push(field_ty.clone());
+        value_checks.push(quote! { ::hopper::__runtime::Pod::validate_value(&self.#field_name)?; });
         field_intent_tokens.push(role_to_intent_tokens(&meta.role, field_name.span())?);
         field_role_literals.push(LitStr::new(&meta.role, field_name.span()));
         field_invariant_literals.push(LitStr::new(&meta.invariant, field_name.span()));
@@ -811,11 +813,19 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // other bit pattern are therefore valid, at alignment 1, with no
         // pointer inside. The seal below repeats that contract.
         unsafe impl ::hopper::__runtime::Zeroable for #name {}
-        unsafe impl ::hopper::hopper_core::account::Pod for #name {}
-        // Audit final-API Step 5 seal. `#[hopper::state]` stamps
-        // the framework-defined marker so the `ZeroCopy` blanket
-        // picks up the type. Bare `unsafe impl Pod` outside this
-        // macro path is not automatically `ZeroCopy`.
+        // SAFETY: each field is Pod and the layout assertions establish
+        // alignment 1 and no padding. Value validation adds no Rust validity
+        // restriction: all byte patterns remain safe to overlay.
+        unsafe impl ::hopper::hopper_core::account::Pod for #name {
+            #[inline]
+            fn validate_value(&self) -> ::hopper::__runtime::__hopper_native::ProgramResult {
+                #(#value_checks)*
+                ::core::result::Result::Ok(())
+            }
+        }
+        // SAFETY: the field-level Pod proofs and layout assertions above
+        // establish the seal's fixed-size, alignment-1, no-padding,
+        // no-pointer, all-bits-valid contract.
         unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for #name {}
 
         // Anchor the layout fingerprint in `.rodata` so `hopper verify`
@@ -970,6 +980,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     let mut field_name_literals = Vec::new();
     let mut field_type_literals = Vec::new();
     let mut field_types = Vec::new();
+    let mut value_checks = Vec::new();
     let mut field_intent_tokens: Vec<TokenStream> = Vec::new();
     let mut field_role_literals: Vec<LitStr> = Vec::new();
     let mut field_invariant_literals: Vec<LitStr> = Vec::new();
@@ -1017,6 +1028,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
             field_name.span(),
         ));
         field_types.push(field_ty.clone());
+        value_checks.push(quote! { ::hopper::__runtime::Pod::validate_value(&self.#field_name)?; });
         field_intent_tokens.push(role_to_intent_tokens(&meta.role, field_name.span())?);
         field_role_literals.push(LitStr::new(&meta.role, field_name.span()));
         field_invariant_literals.push(LitStr::new(&meta.invariant, field_name.span()));
@@ -1580,10 +1592,19 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         // padding, so every bit pattern is valid at alignment 1 with no
         // pointer inside. The seal below repeats that contract.
         unsafe impl ::hopper::__runtime::Zeroable for #name {}
-        unsafe impl ::hopper::hopper_core::account::Pod for #name {}
-        // Audit final-API Step 5 seal, same as the headered path: compact
-        // layouts are macro-authored with the identical field-level Pod
-        // proofs, so they participate in the `ZeroCopy` blanket too.
+        // SAFETY: each compact field is Pod and the layout assertions
+        // establish alignment 1 and no padding. Every byte pattern remains
+        // a valid Rust value independently of representation validation.
+        unsafe impl ::hopper::hopper_core::account::Pod for #name {
+            #[inline]
+            fn validate_value(&self) -> ::hopper::__runtime::__hopper_native::ProgramResult {
+                #(#value_checks)*
+                ::core::result::Result::Ok(())
+            }
+        }
+        // SAFETY: the compact layout's Pod field proofs and size/alignment
+        // assertions establish the seal's no-padding, no-pointer,
+        // fixed-size, all-bits-valid contract.
         unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for #name {}
 
         // Anchor the layout fingerprint in `.rodata` for `hopper verify`.

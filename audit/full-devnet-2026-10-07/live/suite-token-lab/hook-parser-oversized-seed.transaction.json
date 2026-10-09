@@ -1,0 +1,84 @@
+{
+  "blockTime": 1791401640,
+  "meta": {
+    "computeUnitsConsumed": 234,
+    "costUnits": 1467,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 6703
+        }
+      ]
+    },
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP invoke [1]",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP consumed 234 of 200000 compute units",
+      "Program EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP failed: custom program error: 0x1a2f"
+    ],
+    "postBalances": [
+      1047952957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "postTokenBalances": [],
+    "preBalances": [
+      1047957957,
+      1159846,
+      1066800,
+      833120
+    ],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 6703
+          }
+        ]
+      }
+    }
+  },
+  "slot": 508561684,
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "4jbv4BvoEzbAKLsQGdHQ7W3CJUowk7LE8QYmqFiBANN4",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "Db3MFBHUXGEKy1dusetAd1YcaobUCHHA9pvu7bJagx8P",
+        "EC8VWqQvkD2WLWXGLWYnRoEJuA8NphK7RpvKxp5FwrwP"
+      ],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [
+            2,
+            1
+          ],
+          "data": "5BPuddyJ225GavTYeKkGkiS1G33fr3QA1zYrzyhtaxV6G4tyeddo53QVYxzXYXE13aNEjWG",
+          "programIdIndex": 3,
+          "stackHeight": 1
+        }
+      ],
+      "recentBlockhash": "FkwDSnKCrcuFd8ZL74jvq92u53n2gPBxGyWepVcad6cb"
+    },
+    "signatures": [
+      "5pP4PCJ6LvnqLuxXcjPCmcPiMdXBuN68KnL1BR3sHMW9rQjRytpx2acaovbADEKxn6in4e5rsiz63JXRyN42mcTc"
+    ]
+  },
+  "transactionIndex": 36,
+  "version": "legacy"
+}

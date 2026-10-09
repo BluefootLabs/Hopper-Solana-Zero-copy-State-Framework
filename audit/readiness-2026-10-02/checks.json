@@ -1,0 +1,61 @@
+{
+  "checkedOn": "2026-10-02T11:30:29.554872+00:00",
+  "sourceScope": "working-tree local verification; not a clean release or independent audit",
+  "readiness": {
+    "exitCode": 1,
+    "manifestSha256": "98080e717156140ed822bab503aa0e421cd9a74bd8197968375a16546fb0ee3d",
+    "evidenceVerified": 31,
+    "qualityGatesCurrent": 4,
+    "startingBlockers": 27,
+    "remainingBlockers": 2,
+    "trackedWarnings": 1
+  },
+  "workspaceTests": {
+    "passed": 2486,
+    "failed": 0,
+    "ignored": 278,
+    "environment": {
+      "HOPPER_TOKEN_LAB_SBF": "audit/token-boundaries-2026-09-30/binaries/token-lab-v3"
+    },
+    "fixtureSha256": "e9c65d672d6db5d647a078fbacb6af8d29e646440c52d898d53d9f536fe24488"
+  },
+  "compiledVm": {
+    "command": "HOPPER_BORROWED_ARGS_SBF=<fixture> cargo test -j 1 -p hopper-framework-verifier --test borrowed_args_sbf --locked --offline -- --ignored",
+    "instructionsPerBinary": 1051,
+    "exitCodes": [
+      0,
+      0
+    ],
+    "binaries": {
+      "borrowed-args-v0.so": "b6fb7f1c488c50b96155ab4e0064d6a6fa4f2436f063aa383ba57f91ac1b93de",
+      "borrowed-args-v3.so": "3482129694cfd2ae201fde43d89ee8969953de7b79565d0626fa53f72cfa226d"
+    }
+  },
+  "toolchain": {
+    "rust": "1.96.0",
+    "cargoBuildSbf": "4.4.0",
+    "platformTools": "v1.57",
+    "devnetCli": "4.3.0"
+  },
+  "supplementaryTests": {
+    "readinessRust": 9,
+    "apiPlannerPython": 9,
+    "gateRunnerPython": 3
+  },
+  "packagePreflight": {
+    "command": "CARGO_NET_OFFLINE=true python scripts/check-publish-train.py --allow-dirty --out <receipt>",
+    "exitCode": 0,
+    "publicPackages": 29,
+    "registryDryRun": false,
+    "published": false
+  },
+  "website": {
+    "buildExitCode": 0,
+    "typecheckExitCode": 0,
+    "lintExitCode": 0,
+    "generatedPages": 61,
+    "servedPagesChecked": 59,
+    "internalLinksChecked": 5109,
+    "browserInteractionTested": false
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "returnedHex": "9cd34f1e000000009c43c66a0000000099040000000000009a04000000000000e891c66a0000000000ec09000000000080290b000000000000d813000000000000200000000000000020000000000000000000000000000000000000000000007ef2000000000000002093000000000000",
+  "rpcEpochSchedule": {
+    "firstNormalEpoch": 0,
+    "firstNormalSlot": 0,
+    "leaderScheduleSlotOffset": 432000,
+    "slotsPerEpoch": 432000,
+    "warmup": false
+  },
+  "epochScheduleAccount": {
+    "data": [
+      "ACAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "base64"
+    ],
+    "executable": false,
+    "lamports": 1120560,
+    "owner": "Sysvar1111111111111111111111111111111111111",
+    "rentEpoch": 18446744073709551615,
+    "space": 33
+  },
+  "decodedEpochSchedule": {
+    "slotsPerEpoch": 8192,
+    "leaderScheduleSlotOffset": 8192,
+    "warmup": false,
+    "firstNormalEpoch": 0,
+    "firstNormalSlot": 0
+  },
+  "rent": [
+    650240,
+    731520,
+    1300480
+  ],
+  "clusterConsistencyFindings": [
+    "EpochSchedule account differs from getEpochSchedule RPC",
+    "Clock epoch differs from EpochSchedule arithmetic"
+  ]
+}

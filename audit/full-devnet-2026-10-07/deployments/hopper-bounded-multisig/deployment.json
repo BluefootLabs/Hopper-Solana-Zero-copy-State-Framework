@@ -1,0 +1,17 @@
+{
+  "label": "hopper-bounded-multisig",
+  "programId": "4a6VJJH3SC9iEmWjuRWTc3gxQjApyG5VToQ5iPBTzztB",
+  "elfPath": "D:\\tmp\\Hopper-Solana-Zero-copy-State-Framework\\target\\hopper\\full-devnet-2026-10-07\\validation-v6\\source\\target\\verification\\sbf\\hopper-bounded-multisig\\hopper_bounded_multisig.so",
+  "elfBytes": 58512,
+  "elfSha256": "539f39dbca678ee8c60a20143a90b373996bb9e11d76e614cc5193c6784dbc70",
+  "source": null,
+  "sourceCommit": "a755515dc0bb33ce5dfa5c3a01159a0ba55c33b0",
+  "freshAtSlot": 508563275,
+  "localFeatureSelectionOverride": false,
+  "transactionPreflightEnabled": true,
+  "exitCode": 0,
+  "observedAt": "2026-10-07T19:42:12.083909+00:00",
+  "recoveredFromExistingBuffer": true,
+  "recoveryReceipt": "rpc-write-recovery/complete-buffer.json",
+  "recoveryDriverSha256": "c4f6cb63fe3ceb5fc4f65c7c1335268f09e4b0b23a213dff99b6698fd431ea88"
+}

@@ -5,6 +5,50 @@
 
 Canonical low-level runtime surface for [Hopper](https://hopperzero.dev). This is the runtime boundary for account memory, CPI, syscalls, validation, and zero-copy state access.
 
+These Rust APIs execute inside your Solana program. Checked account borrows
+track live references; checked CPI rejects incompatible borrows. Shared reads
+can coexist with read-only CPI, while a writable CPI requires exclusive access.
+Release a mutable guard before invoking and load the result afterward. Raw and
+unsafe paths have separate caller obligations. Validation does not replace
+Solana's ownership, signer, writable-account, or PDA rules.
+
+The unreleased framework facade can accept `&MyArgs` from a `#[hopper::args]`
+layout in a normal program handler. Argument representation checks run before
+account binding; the runtime's account and CPI checks still apply. This is a
+`hopper-lang`/`hopper-derive` authoring feature, and does not change the runtime
+account ABI. See [borrowed arguments](https://hopperzero.dev/docs/borrowed-arguments).
+
+The runtime `AccountView` wraps the native backend's view. The framework facade
+uses the runtime wrapper; native entrypoints use the backend type. Porting code
+requires reviewing its types and validation contract, not just imports. See
+[the execution model](https://hopperzero.dev/docs/model).
+
+## Runtime checks (0.6)
+
+The [function lab](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/bench/function-lab)
+checks runtime calls inside compiled SBF and on public devnet. Runtime hashes
+now share the native 20,000-slice input bound; the prior runtime-only bound was
+16. Memory and compute budgets still limit practical input sizes. Host SHA-256
+computes a real digest; host Keccak and BLAKE3 stubs are not correctness oracles.
+Modular exponentiation uses little-endian integers and requires the SIMD-0529
+cluster gate, which was absent on public devnet on October 7, 2026.
+Native and runtime BLAKE3 probes failed on that devnet despite an accepted
+deployment. EpochSchedule also disagreed with Clock and RPC; its decoded
+account bytes were correct. Consult the dated
+[network baseline](https://hopperzero.dev/docs/network-baseline) before relying
+on a cluster-dependent call. Host stubs and compilation do not prove execution.
+
+## Composable value validation (0.6)
+
+`Pod::validate_value(&value)` checks a value's protocol representation in place.
+`OptionByte<T>` validates its tag and each present payload; `EnumByte<E>` checks
+the declared variants. Arrays and macro-authored layouts delegate to their
+fields, including through aliases. This hook is separate from the unsafe `Pod`
+layout contract and from account ownership or application rules. Raw overlays
+retain their existing behavior. See
+[borrowed arguments](https://hopperzero.dev/docs/borrowed-arguments) for checked
+instruction parsing and custom-type behavior.
+
 ## Which crate should I start with?
 
 For a new application, use [`hopper-lang`](https://crates.io/crates/hopper-lang)
@@ -157,3 +201,16 @@ within one are rejected, including token self-transfers. Failed pushes leave
 the existing batch unchanged, including when a custom `TokenInstruction`
 emits data and then returns an error. Each inner payload is limited to 255
 bytes by the token batch wire format, in addition to the chosen buffer size.
+
+## Borrow checked instruction batches (0.6)
+
+`BoundedSlice<'_, T, N>` reads a u16-length-prefixed batch of alignment-1
+`Pod` values. It checks capacity, byte length, and every nested representation
+before returning a shared view of the original bytes. `parse_prefix` composes
+with later arguments; `parse_exact` refuses a suffix. No element array is
+allocated or copied. See [borrowed batches](https://hopperzero.dev/docs/borrowed-slices).
+
+Owned instruction-vector metadata requires an exact element width. Custom
+`TailCodec` implementations declare `FIXED_ENCODED_LEN = Some(width)` only when
+every value has that encoding width; the default is unknown. Variable-length
+account-tail codecs keep working. See the [0.6 migration guide](https://hopperzero.dev/docs/migration-0-6).

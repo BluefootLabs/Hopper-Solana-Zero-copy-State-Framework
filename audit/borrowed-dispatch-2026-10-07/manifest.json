@@ -1,0 +1,367 @@
+{
+  "schemaVersion": 2,
+  "reviewedOn": "2026-10-07",
+  "maxReviewAgeDays": 30,
+  "externalAudit": {
+    "status": "preparation-in-progress",
+    "phase": "scope-and-evidence-preparation",
+    "startedOn": "2026-08-16",
+    "scope": "audit/EXTERNAL_AUDIT_SCOPE.md",
+    "provider": null,
+    "report": null
+  },
+  "evidence": [
+    {
+      "id": "external-audit-scope",
+      "path": "audit/EXTERNAL_AUDIT_SCOPE.md",
+      "sha256": "b250ac117b32dd2c5e7cf966a35d561f13c1d6170b6660572cf8a6e666d05090",
+      "required": true,
+      "description": "independent review scope, objectives, invariants, and handoff requirements",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "security-policy",
+      "path": "SECURITY.md",
+      "sha256": "ba890f05611dc9d249c2ec4fb4c0403e548a5608d5ed660cf78c06a194216dca",
+      "required": true,
+      "description": "vulnerability reporting and support policy",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "unsafe-invariants",
+      "path": "docs/UNSAFE_INVARIANTS.md",
+      "sha256": "e82b33521d856c25bcdfd8b164fd8c41629590913f655aae9a88e81fbea7a34e",
+      "required": true,
+      "description": "unsafe-code inventory and proof obligations",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "dependency-audit",
+      "path": "docs/DEPENDENCY_AUDIT.md",
+      "sha256": "997fea1d1a61bd3405569239fdb6293e7d15d9c835c3e690a7c03e79a2dffc73",
+      "required": true,
+      "description": "dependency advisory snapshot and disposition",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "architecture",
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "18d8b62da7313d833d005dcce4bf748e2b9f6fa6c67ff7bf12cd413516eab941",
+      "required": true,
+      "description": "trust boundaries and component architecture",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "release-evidence",
+      "path": "docs/RELEASE_EVIDENCE.md",
+      "sha256": "965ffddd7c79215fe87f9c4c56e458a9e89d5acf0633def38b2f016b9737c19f",
+      "required": true,
+      "description": "binary, fuzz, publication-train, and benchmark evidence boundaries",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "cicada-sbf-local-attestation",
+      "path": "audit/framework-refinement-2026-09-24/cicada/attestation.json",
+      "sha256": "dc9186779f7e23b115ac4edf768703ce76676117922bc4ff87d11aae9ef48869",
+      "required": true,
+      "description": "historical clean local Cicada SBF attestation for ab955e42; does not attest the unreleased working tree",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "benchmark-method",
+      "path": "BENCHMARKS.md",
+      "sha256": "6300ad2267de59bf044256714629d05ab870a727f953176849aa5f29b02f0c27",
+      "required": true,
+      "description": "benchmark method, clean pinned measurements, and claim boundaries",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "framework-matrix-2026-08-16",
+      "path": "audit/framework-matrix-2026-08-16.json",
+      "sha256": "45537af0ae81e1700b5f23fa4dfd80f306aada4d63767f098e2fdd533579ee56",
+      "required": true,
+      "description": "historical clean five-framework archive; current fixture measurements are separately dated in BENCHMARKS.md",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "network-baseline",
+      "path": "docs/SOLANA_NETWORK_BASELINE.md",
+      "sha256": "71076a500db671c5017f80bdf70625e5c039655d941467964cc3b1bb51e8e6e9",
+      "required": true,
+      "description": "finalized October 7 network observations; explicit transaction and deployment limits",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "readiness-dossier",
+      "path": "docs/RELEASE_READINESS.md",
+      "sha256": "b81e3feef5020617382accbb7ace638976b866c481ec6cd46800859056baa516",
+      "required": true,
+      "description": "current release requirements, dossier reconciliation, and evidence boundaries",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "zero-copy-peer-audit",
+      "path": "docs/FRAMEWORK_BOUNDARIES.md",
+      "sha256": "1ea50a41c4c2700eb968c0118d6ad8a57586b751f1d2afeb31274985ddd36c6d",
+      "required": true,
+      "description": "source-pinned zero-copy boundary comparison; not an independent audit",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "cicada-manifest",
+      "path": "crates/grillo-manifest/tests/fixtures/hopper-cicada.manifest.json",
+      "sha256": "0bf633b8c790c3ca0a9359ffb67906642a25ae40e0dc1dfb79215eb16785127f",
+      "required": true,
+      "description": "checked-in Cicada contract manifest used by independent parser and verifier tests",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "cicada-fuzz-plan",
+      "path": "fuzz/plans/hopper-cicada.plan.json",
+      "sha256": "67639c95cdd37663db9a93f50870e3361daa1b5587bcd2b4f6d944eede2da49c",
+      "required": true,
+      "description": "manifest-derived no-skip Cicada host-semantic plan and commitment",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "publish-order",
+      "path": "release/publish-order.toml",
+      "sha256": "f975943e8d37e4d490cbcc345c13e54a3d34bb66796cb9810b1b659b71e9f15e",
+      "required": true,
+      "description": "dependency-ordered public crate publication train",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "sbf-attestation-tool",
+      "path": "scripts/attest-sbf-release.py",
+      "sha256": "9be5b21a8d85cc6347ada6c9a3a989d8e8ff474672c0f83c4e0fc216db412b38",
+      "required": true,
+      "description": "clean-tree binary, manifest, and publish-check attestation generator",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "publish-train-tool",
+      "path": "scripts/check-publish-train.py",
+      "sha256": "d2e376a9f42618ebb58cb74817b668974ffe27153c730846734e3499aee56fca",
+      "required": true,
+      "description": "package-order and crates.io index readiness verifier",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "dependency-lock",
+      "path": "Cargo.lock",
+      "sha256": "7be247d12bd4e2a141ee4a4176eb7cb7c70660b47ae80870c10d71cb119b46d0",
+      "required": true,
+      "description": "resolved Rust dependency graph",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "toolchain",
+      "path": "rust-toolchain.toml",
+      "sha256": "5676593100f62af2164e8d2dd36d7943e3993aacb767856366a8e972f1237ce9",
+      "required": true,
+      "description": "reproducible Rust toolchain",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "rust-ci",
+      "path": ".github/workflows/rust-ci.yml",
+      "sha256": "f0efae4950e13e183ae327ba12a3ca45f6f60e4f619f8c60a8f4419e65ed5532",
+      "required": true,
+      "description": "host checks, tests, fuzz smoke and Kani lanes",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "sbf-ci",
+      "path": ".github/workflows/solana-sbf.yml",
+      "sha256": "e6cd8c33e556b833726556f0f611bd22f3f61a91d537bad57e5b1fe66ed9be80",
+      "required": true,
+      "description": "Solana SBF build and test lane",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "unsafe-ci",
+      "path": ".github/workflows/unsafe-safety.yml",
+      "sha256": "0484e0f44ed6d3e2b8e2c128851a35abb79513136b23aafe3135d8ea0498a4d2",
+      "required": true,
+      "description": "unsafe inventory drift gate",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "network-observations",
+      "path": "audit/borrowed-dispatch-2026-10-07/network.json",
+      "sha256": "e97657abf94624c0ba1c4f45650e4e4ac07a12c5dff00826b53f00d1ea291e89",
+      "required": true,
+      "description": "finalized October 7 devnet/mainnet feature, version and rent observations",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "peer-source-revisions",
+      "path": "audit/borrowed-dispatch-2026-10-07/peer-pins.json",
+      "sha256": "a8e9bd05fb03eac983daf2928ce541775fdb81d6f717308032a2853c83e69cc9",
+      "required": true,
+      "description": "October 7 source pins and hashes for selected Pinocchio, Pina, Quasar and Anchor v2 files",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-args-devnet",
+      "path": "audit/borrowed-dispatch-2026-10-07/devnet-manual/summary.json",
+      "sha256": "6a5ea116711b0a41c0fb38fd736f1dbea11fee91cc63625cdd6dd0e27bfbaef5",
+      "required": true,
+      "description": "20 finalized manual-dispatch transactions with expected errors and complete fixture-state comparisons",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-args-binary",
+      "path": "audit/borrowed-dispatch-2026-10-07/borrowed-args-v3.so",
+      "sha256": "6cee2923ab9891bf3a476a61555af74fa3eba895d9271caa49296f147d3c126a",
+      "required": true,
+      "description": "fresh v3 manual/generated fixture matched to deployed bytes before and after execution",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "cicada-semantic-run",
+      "path": "audit/readiness-2026-10-02/cicada-semantic-report.json",
+      "sha256": "33333fe7173d6e0525066778bf9c876cdf32db3bd54d1e5e1b35645df31db66a",
+      "required": true,
+      "description": "698 host semantic cases with no skips; not compiled SBF execution",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "publication-0-5",
+      "path": "audit/token-boundaries-2026-09-30/publication/publish-train.json",
+      "sha256": "a472138efe7f5613025d598cc9182a97c0f3b91a265269946213887be271c487",
+      "required": true,
+      "description": "clean source 0.5 publication train receipt",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "unsafe-site-map",
+      "path": "audit/unsafe-map.json",
+      "sha256": "63cf56ad3cc079fa05bf14ee68c3c95e255ac8e052429d1a104b037c1f3ff818",
+      "required": true,
+      "description": "current source map of unsafe sites, obligations, and tests",
+      "normalizeLineEndings": true
+    },
+    {
+      "id": "sbf-ci-compat-status",
+      "path": "audit/readiness-2026-10-02/ci-compat-annotations.json",
+      "sha256": "fef192cc8543c0d08362bb4e31a155bc442a51f711be0f707fd533159a6f2003",
+      "required": true,
+      "description": "GitHub account billing lock prevented the required compatibility job from starting",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "sbf-ci-forward-status",
+      "path": "audit/readiness-2026-10-02/ci-forward-annotations.json",
+      "sha256": "fef192cc8543c0d08362bb4e31a155bc442a51f711be0f707fd533159a6f2003",
+      "required": true,
+      "description": "GitHub account billing lock prevented the required forward job from starting",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-generated-devnet",
+      "path": "audit/borrowed-dispatch-2026-10-07/devnet-generated/summary.json",
+      "sha256": "a1b016e6f5bd5e41e4705d34afeaa8b9642be1643a6f9d0f728d9a4a00536698",
+      "required": true,
+      "description": "20 finalized generated-handler transactions, including 14 expected refusals with unchanged fixture state",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-dispatch-vm",
+      "path": "audit/borrowed-dispatch-2026-10-07/sbf-tests.json",
+      "sha256": "cdbb2a85b4e3ecaae6b789bd867c417e73b018fefdd49eb9e52e9fb1334d2be1",
+      "required": true,
+      "description": "manual/generated validation matrix: 2,108 compiled instructions per architecture on v0 and v3",
+      "normalizeLineEndings": false
+    },
+    {
+      "id": "borrowed-dispatch-client",
+      "path": "audit/borrowed-dispatch-2026-10-07/client-check.json",
+      "sha256": "c2162d1cc145b3f939b51f143c77d13f33e43448614fea3f48345ebaf445cee2",
+      "required": true,
+      "description": "generated TypeScript fixed-width and zero-width arguments exercised with Solana web3.js",
+      "normalizeLineEndings": false
+    }
+  ],
+  "qualityGates": [
+    {
+      "id": "fmt",
+      "command": "cargo fmt --all -- --check",
+      "lastRunOn": "2026-10-07",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true,
+      "receipt": {
+        "path": "audit/borrowed-dispatch-2026-10-07/fmt.json",
+        "sha256": "fc55f3a43e0e358030c723f0a8c7d790f3b10e8ee597a37753857512f418f3ef"
+      }
+    },
+    {
+      "id": "clippy",
+      "command": "cargo clippy -j 1 --workspace --all-targets --locked --offline -- -D warnings",
+      "lastRunOn": "2026-10-07",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true,
+      "receipt": {
+        "path": "audit/borrowed-dispatch-2026-10-07/clippy.json",
+        "sha256": "9848fbfdd9ce5d0e2da9dcecfed062ecb9eda036ffcc8d5d860f3099d7fcf759"
+      }
+    },
+    {
+      "id": "workspace-tests",
+      "command": "cargo test -j 1 --workspace --locked --offline --no-fail-fast",
+      "lastRunOn": "2026-10-07",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true,
+      "receipt": {
+        "path": "audit/borrowed-dispatch-2026-10-07/workspace-tests.json",
+        "sha256": "cac3a2c4a5344b12bd9ae9863590b0e4b833bdbaa9e2b50fed9571f4e8559ff7"
+      }
+    },
+    {
+      "id": "dependency-audit-gate",
+      "command": "cargo audit --db target/hopper/dispatch-2026-10-07/rustsec-db --no-fetch --json",
+      "lastRunOn": "2026-10-07",
+      "status": "passed",
+      "maxAgeDays": 30,
+      "required": true,
+      "receipt": {
+        "path": "audit/borrowed-dispatch-2026-10-07/dependency-audit.json",
+        "sha256": "6165295cd358e6c989f7a090425c861b3622813e2226f66d383807f889a28d5d"
+      }
+    }
+  ],
+  "knownBlockers": [
+    {
+      "id": "peer-benchmark",
+      "severity": "high",
+      "status": "closed",
+      "releaseBlocking": true,
+      "description": "clean same-fixture Hopper, Anchor v2, Quasar, Pinocchio and Star Frame evidence is retained for Hopper 8696640 and benchmark source af5bc95 at benchmark evidence-carrier commit 7ab6a3e; all 30 rejection gates passed and the archive ZIP SHA-256 is c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747"
+    },
+    {
+      "id": "sbf-clean-attestation",
+      "severity": "medium",
+      "status": "open",
+      "releaseBlocking": true,
+      "description": "Required Agave 2.3.13 and 4.2.1-forward SBF jobs for final clean source remain unexecuted. GitHub run 36812193185 failed to start both jobs because of an account billing lock. Local compiled VM and devnet evidence is retained separately and does not close this CI gate."
+    },
+    {
+      "id": "publication-train",
+      "severity": "high",
+      "status": "closed",
+      "releaseBlocking": true,
+      "description": "The obsolete 0.3 requirement is superseded by the completed 0.5 train: 28 new indexed versions from clean commit 0a8827e177f225574f2285a58875d50e8059ffe7 plus unchanged hopper-builtins 0.4.0, archive verification and a registry-only consumer. No next-version publication is claimed."
+    },
+    {
+      "id": "transaction-v1",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "Transaction v1 is active on mainnet-beta (finalized feature observation October 7, activation slot 447120000). Hopper still emits legacy transactions; v1 authoring and acceptance tests remain tracked implementation work."
+    }
+  ]
+}
