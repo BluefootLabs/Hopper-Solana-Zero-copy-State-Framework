@@ -1,0 +1,5 @@
+{
+  "exitCode": 0,
+  "verifierSha256": "0567068e953e421dc3092779de68e16a789b9975b386394ad79d620a37005df2",
+  "transport": "Persistent git cat-file --batch, with each returned Git blob object ID checked independently; existing bundle, hash and historical-gap verification logic unchanged."
+}

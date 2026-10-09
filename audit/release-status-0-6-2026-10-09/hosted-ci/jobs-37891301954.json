@@ -1,0 +1,32 @@
+{
+  "total_count": 1,
+  "jobs": [
+    {
+      "id": 113692611105,
+      "run_id": 37891301954,
+      "workflow_name": "Unsafe safety comments",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/actions/runs/37891301954",
+      "run_attempt": 1,
+      "node_id": "CR_kwDORyaPC88AAAAaeJuSIQ",
+      "head_sha": "9f5cbb05165a96016fe67f9d503070edf17aeb01",
+      "url": "https://api.github.com/repos/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/actions/jobs/113692611105",
+      "html_url": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/actions/runs/37891301954/job/113692611105",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-10-09T06:00:28Z",
+      "started_at": "2026-10-09T06:00:28Z",
+      "completed_at": "2026-10-09T06:00:30Z",
+      "name": "unsafe-safety",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/check-runs/113692611105",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    }
+  ]
+}
